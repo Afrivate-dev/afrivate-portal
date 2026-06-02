@@ -52,6 +52,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const [inbox, setInbox] = useState<InboxNotification[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [teams, setTeams] = useState<DataContextValue['teams']>([])
+  const [departments, setDepartments] = useState<DataContextValue['departments']>([])
 
   const [dataStatus, setDataStatus] = useState<'ready' | 'loading' | 'error'>('loading')
   const [dataError, setDataError] = useState<string | null>(null)
@@ -71,6 +72,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setInbox([])
       setEvents([])
       setTeams([])
+      setDepartments([])
       setDataStatus('ready')
       setDataError(null)
       return
@@ -93,6 +95,15 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setInbox(d.inbox)
       setEvents(d.events)
       setTeams(d.teams)
+      // Load departments
+      const { data: depts } = await client.from('portal_departments').select('*').order('name')
+      if (depts) setDepartments(depts.map((r: Record<string, unknown>) => ({
+        id: r.id as string,
+        name: r.name as string,
+        description: r.description as string | undefined,
+        headUserId: r.head_user_id as string | undefined,
+        createdAt: r.created_at as string,
+      })))
       setDataStatus('ready')
     } catch (e) {
       setDataStatus('error')
@@ -876,6 +887,39 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       events,
       addEvent,
       teams,
+      addTeam: async (t) => {
+        const id = 'team_' + Math.random().toString(36).slice(2, 10)
+        await client.from('portal_teams').insert({ id, name: t.name, description: t.description, department_id: t.departmentId, lead_user_id: t.leadUserId, asst_lead_user_id: t.asstLeadUserId })
+        setTeams((prev) => [...prev, { ...t, id, memberIds: [] }])
+      },
+      updateTeam: async (id, patch) => {
+        await client.from('portal_teams').update({ name: patch.name, description: patch.description, department_id: patch.departmentId, lead_user_id: patch.leadUserId, asst_lead_user_id: patch.asstLeadUserId }).eq('id', id)
+        setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      },
+      deleteTeam: async (id) => {
+        await client.from('portal_teams').delete().eq('id', id)
+        setTeams((prev) => prev.filter((t) => t.id !== id))
+      },
+      departments,
+      addDepartment: async (d) => {
+        const id = 'dept_' + Math.random().toString(36).slice(2, 10)
+        const now = new Date().toISOString()
+        await client.from('portal_departments').insert({ id, name: d.name, description: d.description, head_user_id: d.headUserId, created_at: now })
+        setDepartments((prev) => [...prev, { ...d, id, createdAt: now }])
+      },
+      updateDepartment: async (id, patch) => {
+        await client.from('portal_departments').update({ name: patch.name, description: patch.description, head_user_id: patch.headUserId }).eq('id', id)
+        setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)))
+      },
+      deleteDepartment: async (id) => {
+        await client.from('portal_departments').delete().eq('id', id)
+        setDepartments((prev) => prev.filter((d) => d.id !== id))
+      },
+      pendingUsers: users.filter((u) => !u.active),
+      approveUser: async (id, role, department, jobTitle) => {
+        await client.from('profiles').update({ role, department, job_title: jobTitle, active: true, approved_at: new Date().toISOString() }).eq('id', id)
+        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
+      },
       dataStatus,
       dataError,
       reloadData,
@@ -922,6 +966,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       events,
       addEvent,
       teams,
+      departments,
       dataStatus,
       dataError,
       reloadData,

@@ -1,4 +1,12 @@
-﻿export type Role = 'staff' | 'team_lead' | 'hr' | 'admin'
+﻿export type Role = 'staff' | 'assistant_lead' | 'team_lead' | 'hr' | 'admin'
+
+export interface Department {
+  id: string
+  name: string
+  description?: string
+  headUserId?: string
+  createdAt: string
+}
 
 export interface User {
   id: string
@@ -222,12 +230,15 @@ export interface NoteShare {
   linkToken?: string
 }
 
-/** Cross-functional or delivery groups — used for note sharing. */
+/** Cross-functional or delivery groups — used for note sharing and org structure. */
 export interface WorkspaceTeam {
   id: string
   name: string
   description?: string
   memberIds: string[]
+  departmentId?: string
+  leadUserId?: string
+  asstLeadUserId?: string
 }
 
 /** Shared workspace notes — local-first; optional Supabase Realtime for multi-user sync. */

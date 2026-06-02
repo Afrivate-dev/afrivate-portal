@@ -11,6 +11,9 @@ import {
   X,
   Plus,
   Eye,
+  Building2,
+  UsersRound,
+  UserCheck,
 } from 'lucide-react'
 import {
   addMonths,
@@ -38,24 +41,28 @@ import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { cn, fmtDate, relativeTime, weekLabel } from '@/utils/helpers'
+import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
   AnnouncementMedia,
   AnnouncementPriority,
+  Department,
   LeaveRequest,
   LeaveType,
   OnboardingChecklistItem,
   OnboardingVideo,
   Role,
   User,
+  WorkspaceTeam,
 } from '@/types'
 
-type Section = 'users' | 'announcements' | 'leave' | 'onboarding' | 'checkins'
+type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Staff' },
+  { value: 'assistant_lead', label: 'Assistant Lead' },
   { value: 'team_lead', label: 'Team Lead' },
-  { value: 'hr', label: 'HR' },
+  { value: 'hr', label: 'People & Culture' },
   { value: 'admin', label: 'Administrator' },
 ]
 
@@ -97,9 +104,84 @@ export function AdminPanelPage() {
     updateOnboardingChecklistItem,
     deleteOnboardingChecklistItem,
     checkIns,
+    pendingUsers,
+    approveUser,
+    departments,
+    addDepartment,
+    updateDepartment,
+    deleteDepartment,
+    teams,
+    addTeam,
+    updateTeam,
+    deleteTeam,
   } = useData()
 
-  const [section, setSection] = useState<Section>('users')
+  const [section, setSection] = useState<Section>('approvals')
+
+  // Departments & teams state
+  const [deptDraft, setDeptDraft] = useState<Partial<Department> & { id?: string } | null>(null)
+  const [teamDraft, setTeamDraft] = useState<Partial<WorkspaceTeam> & { id?: string } | null>(null)
+
+  // Approval state
+  const [approvingUser, setApprovingUser] = useState<User | null>(null)
+  const [approvalRole, setApprovalRole] = useState<Role>('staff')
+  const [approvalDept, setApprovalDept] = useState('')
+  const [approvalTitle, setApprovalTitle] = useState('')
+
+  const saveDept = () => {
+    if (!deptDraft?.name?.trim()) return
+    if (deptDraft.id) {
+      updateDepartment(deptDraft.id, { name: deptDraft.name.trim(), description: deptDraft.description, headUserId: deptDraft.headUserId })
+    } else {
+      addDepartment({ name: deptDraft.name.trim(), description: deptDraft.description, headUserId: deptDraft.headUserId })
+    }
+    setDeptDraft(null)
+  }
+
+  const saveTeam = () => {
+    if (!teamDraft?.name?.trim()) return
+    if (teamDraft.id) {
+      updateTeam(teamDraft.id, { name: teamDraft.name.trim(), description: teamDraft.description, departmentId: teamDraft.departmentId, leadUserId: teamDraft.leadUserId, asstLeadUserId: teamDraft.asstLeadUserId })
+    } else {
+      addTeam({ name: teamDraft.name.trim(), description: teamDraft.description, departmentId: teamDraft.departmentId, leadUserId: teamDraft.leadUserId, asstLeadUserId: teamDraft.asstLeadUserId })
+    }
+    setTeamDraft(null)
+  }
+
+  const confirmApproval = () => {
+    if (!approvingUser) return
+    approveUser(approvingUser.id, approvalRole, approvalDept.trim() || 'General', approvalTitle.trim() || 'Staff')
+    setApprovingUser(null)
+  }
+
+  // Invite state
+  const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteOpen, setInviteOpen] = useState(false)
+  const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
+  const [inviteError, setInviteError] = useState('')
+
+  const sendInvite = async () => {
+    if (!inviteEmail.trim() || !supabase) return
+    setInviteStatus('sending')
+    setInviteError('')
+    try {
+      const { error } = await supabase.functions.invoke('invite-user', {
+        body: { email: inviteEmail.trim().toLowerCase() },
+      })
+      if (error) throw new Error(error.message)
+      setInviteStatus('sent')
+    } catch (err) {
+      setInviteError(err instanceof Error ? err.message : 'Failed to send invite')
+      setInviteStatus('error')
+    }
+  }
+
+  const closeInvite = () => {
+    setInviteOpen(false)
+    setInviteEmail('')
+    setInviteStatus('idle')
+    setInviteError('')
+  }
   const [leaveMonth, setLeaveMonth] = useState(() => startOfMonth(new Date()))
   const [annDraft, setAnnDraft] = useState<{
     id?: string
@@ -118,10 +200,7 @@ export function AdminPanelPage() {
     (Omit<OnboardingChecklistItem, 'id'> & { id?: string }) | null
   >(null)
 
-  const departments = useMemo(() => {
-    const set = new Set(users.map((u) => u.department))
-    return ['all', ...Array.from(set).sort()]
-  }, [users])
+
 
   const currentWeekStart = useMemo(
     () => startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString(),
@@ -234,8 +313,22 @@ export function AdminPanelPage() {
       />
 
       <div className="flex flex-wrap gap-2 border-b border-border pb-1">
+        <SectionTab active={section === 'approvals'} onClick={() => setSection('approvals')}>
+          <UserCheck className="h-4 w-4" /> Approvals
+          {pendingUsers.length > 0 ? (
+            <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-bold text-white">
+              {pendingUsers.length}
+            </span>
+          ) : null}
+        </SectionTab>
         <SectionTab active={section === 'users'} onClick={() => setSection('users')}>
           <UsersIcon className="h-4 w-4" /> Users
+        </SectionTab>
+        <SectionTab active={section === 'departments'} onClick={() => setSection('departments')}>
+          <Building2 className="h-4 w-4" /> Departments
+        </SectionTab>
+        <SectionTab active={section === 'teams'} onClick={() => setSection('teams')}>
+          <UsersRound className="h-4 w-4" /> Teams
         </SectionTab>
         <SectionTab active={section === 'announcements'} onClick={() => setSection('announcements')}>
           <Megaphone className="h-4 w-4" /> Announcements
@@ -255,6 +348,146 @@ export function AdminPanelPage() {
           <ClipboardList className="h-4 w-4" /> Check-ins
         </SectionTab>
       </div>
+
+      {/* APPROVALS */}
+      {section === 'approvals' ? (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setInviteOpen(true)}>
+              <Plus className="h-4 w-4" /> Invite member
+            </Button>
+          </div>
+          {pendingUsers.length === 0 ? (
+            <EmptyState icon={UserCheck} title="No pending approvals" body="Invite a team member above — they'll appear here once they accept." />
+          ) : (
+            pendingUsers.map((u) => (
+              <Card key={u.id} padding="md" className="flex items-center justify-between gap-4">
+                <div>
+                  <div className="font-medium text-fg">{u.name}</div>
+                  <div className="text-sm text-muted">{u.email}</div>
+                </div>
+                <Button size="sm" onClick={() => {
+                  setApprovingUser(u)
+                  setApprovalRole('staff')
+                  setApprovalDept('')
+                  setApprovalTitle('')
+                }}>
+                  Review & approve
+                </Button>
+              </Card>
+            ))
+          )}
+        </div>
+      ) : null}
+
+      {/* DEPARTMENTS */}
+      {section === 'departments' ? (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setDeptDraft({ name: '', description: '' })}>
+              <Plus className="h-4 w-4" /> New department
+            </Button>
+          </div>
+          {departments.length === 0 ? (
+            <EmptyState icon={Building2} title="No departments yet" body="Create departments to organise your team structure." />
+          ) : (
+            <Card padding="none" className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-surface-2">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Department</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Head</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Teams</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {departments.map((d) => {
+                    const head = users.find((u) => u.id === d.headUserId)
+                    const deptTeams = teams.filter((t) => t.departmentId === d.id)
+                    return (
+                      <tr key={d.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-fg">{d.name}</div>
+                          {d.description ? <div className="text-xs text-muted">{d.description}</div> : null}
+                        </td>
+                        <td className="px-4 py-3 text-muted">{head?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-muted">{deptTeams.length}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setDeptDraft(d)} className="rounded p-1 hover:bg-surface-2 text-muted">
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => { if (window.confirm(`Delete ${d.name}?`)) deleteDepartment(d.id) }} className="rounded p-1 hover:bg-surface-2 text-danger">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
+      ) : null}
+
+      {/* TEAMS */}
+      {section === 'teams' ? (
+        <div className="space-y-4">
+          <div className="flex justify-end">
+            <Button size="sm" onClick={() => setTeamDraft({ name: '', description: '' })}>
+              <Plus className="h-4 w-4" /> New team
+            </Button>
+          </div>
+          {teams.length === 0 ? (
+            <EmptyState icon={UsersRound} title="No teams yet" body="Create teams and assign team leads to manage your people." />
+          ) : (
+            <Card padding="none" className="overflow-hidden">
+              <table className="w-full text-sm">
+                <thead className="border-b border-border bg-surface-2">
+                  <tr>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Team</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Department</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Team Lead</th>
+                    <th className="px-4 py-3 text-left font-medium text-muted">Asst Lead</th>
+                    <th className="px-4 py-3 text-right font-medium text-muted">Actions</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {teams.map((t) => {
+                    const dept = departments.find((d) => d.id === t.departmentId)
+                    const lead = users.find((u) => u.id === t.leadUserId)
+                    const asst = users.find((u) => u.id === t.asstLeadUserId)
+                    return (
+                      <tr key={t.id} className="border-b border-border last:border-0">
+                        <td className="px-4 py-3">
+                          <div className="font-medium text-fg">{t.name}</div>
+                          {t.description ? <div className="text-xs text-muted">{t.description}</div> : null}
+                        </td>
+                        <td className="px-4 py-3 text-muted">{dept?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-muted">{lead?.name ?? '—'}</td>
+                        <td className="px-4 py-3 text-muted">{asst?.name ?? '—'}</td>
+                        <td className="px-4 py-3">
+                          <div className="flex justify-end gap-2">
+                            <button onClick={() => setTeamDraft(t)} className="rounded p-1 hover:bg-surface-2 text-muted">
+                              <Pencil className="h-4 w-4" />
+                            </button>
+                            <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) deleteTeam(t.id) }} className="rounded p-1 hover:bg-surface-2 text-danger">
+                              <Trash2 className="h-4 w-4" />
+                            </button>
+                          </div>
+                        </td>
+                      </tr>
+                    )
+                  })}
+                </tbody>
+              </table>
+            </Card>
+          )}
+        </div>
+      ) : null}
 
       {/* USERS */}
       {section === 'users' ? (
@@ -662,6 +895,202 @@ export function AdminPanelPage() {
       ) : null}
 
       {/* Modals */}
+
+      {/* Invite modal */}
+      <Modal
+        open={inviteOpen}
+        onClose={closeInvite}
+        title="Invite team member"
+        footer={
+          inviteStatus === 'sent' ? (
+            <Button onClick={closeInvite}>Done</Button>
+          ) : (
+            <>
+              <Button variant="ghost" onClick={closeInvite}>Cancel</Button>
+              <Button
+                onClick={sendInvite}
+                loading={inviteStatus === 'sending'}
+                disabled={!inviteEmail.trim() || !supabase}
+              >
+                Send invite
+              </Button>
+            </>
+          )
+        }
+      >
+        {inviteStatus === 'sent' ? (
+          <div className="space-y-1 text-center py-4">
+            <p className="font-semibold text-fg">Invite sent!</p>
+            <p className="text-sm text-muted">
+              An email has been sent to <strong>{inviteEmail}</strong>. Once they accept
+              and set their password, their account will appear in the Approvals tab for
+              you to activate.
+            </p>
+          </div>
+        ) : (
+          <div className="space-y-3">
+            <p className="text-sm text-muted">
+              Enter the person's work email. They'll receive a link to set their password
+              and access the portal — you'll then approve their account from the Approvals tab.
+            </p>
+            <Input
+              label="Email address"
+              type="email"
+              value={inviteEmail}
+              onChange={(e) => setInviteEmail(e.target.value)}
+              placeholder="colleague@afrivate.org"
+              autoFocus
+            />
+            {inviteStatus === 'error' && (
+              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+                {inviteError}
+              </div>
+            )}
+            {!supabase && (
+              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
+                Supabase is not connected. Add your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable invites.
+              </div>
+            )}
+          </div>
+        )}
+      </Modal>
+
+      {/* Approval modal */}
+      <Modal
+        open={!!approvingUser}
+        onClose={() => setApprovingUser(null)}
+        title="Approve account"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setApprovingUser(null)}>Cancel</Button>
+            <Button onClick={confirmApproval} disabled={!approvalDept.trim()}>Approve & activate</Button>
+          </>
+        }
+      >
+        {approvingUser ? (
+          <div className="space-y-3">
+            <div className="rounded-md bg-surface-2 px-3 py-2">
+              <div className="font-medium text-fg">{approvingUser.name}</div>
+              <div className="text-sm text-muted">{approvingUser.email}</div>
+            </div>
+            <Select
+              label="Role"
+              value={approvalRole}
+              onChange={(e) => setApprovalRole(e.target.value as Role)}
+              options={ROLE_OPTIONS}
+            />
+            <Input
+              label="Department"
+              value={approvalDept}
+              onChange={(e) => setApprovalDept(e.target.value)}
+              placeholder="e.g. Engineering"
+            />
+            <Input
+              label="Job title"
+              value={approvalTitle}
+              onChange={(e) => setApprovalTitle(e.target.value)}
+              placeholder="e.g. Software Engineer"
+            />
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* Department modal */}
+      <Modal
+        open={!!deptDraft}
+        onClose={() => setDeptDraft(null)}
+        title={deptDraft?.id ? 'Edit department' : 'New department'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeptDraft(null)}>Cancel</Button>
+            <Button onClick={saveDept} disabled={!deptDraft?.name?.trim()}>Save</Button>
+          </>
+        }
+      >
+        {deptDraft !== null ? (
+          <div className="space-y-3">
+            <Input
+              label="Department name"
+              value={deptDraft.name ?? ''}
+              onChange={(e) => setDeptDraft({ ...deptDraft, name: e.target.value })}
+              placeholder="e.g. Engineering"
+            />
+            <Input
+              label="Description (optional)"
+              value={deptDraft.description ?? ''}
+              onChange={(e) => setDeptDraft({ ...deptDraft, description: e.target.value })}
+              placeholder="What this department does"
+            />
+            <Select
+              label="Department head (optional)"
+              value={deptDraft.headUserId ?? ''}
+              onChange={(e) => setDeptDraft({ ...deptDraft, headUserId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'No head assigned' },
+                ...users.filter((u) => u.active).map((u) => ({ value: u.id, label: u.name })),
+              ]}
+            />
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* Team modal */}
+      <Modal
+        open={!!teamDraft}
+        onClose={() => setTeamDraft(null)}
+        title={teamDraft?.id ? 'Edit team' : 'New team'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setTeamDraft(null)}>Cancel</Button>
+            <Button onClick={saveTeam} disabled={!teamDraft?.name?.trim()}>Save</Button>
+          </>
+        }
+      >
+        {teamDraft !== null ? (
+          <div className="space-y-3">
+            <Input
+              label="Team name"
+              value={teamDraft.name ?? ''}
+              onChange={(e) => setTeamDraft({ ...teamDraft, name: e.target.value })}
+              placeholder="e.g. Frontend squad"
+            />
+            <Input
+              label="Description (optional)"
+              value={teamDraft.description ?? ''}
+              onChange={(e) => setTeamDraft({ ...teamDraft, description: e.target.value })}
+              placeholder="What this team works on"
+            />
+            <Select
+              label="Department (optional)"
+              value={teamDraft.departmentId ?? ''}
+              onChange={(e) => setTeamDraft({ ...teamDraft, departmentId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'No department' },
+                ...departments.map((d) => ({ value: d.id, label: d.name })),
+              ]}
+            />
+            <Select
+              label="Team lead (optional)"
+              value={teamDraft.leadUserId ?? ''}
+              onChange={(e) => setTeamDraft({ ...teamDraft, leadUserId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'No lead assigned' },
+                ...users.filter((u) => u.active).map((u) => ({ value: u.id, label: u.name })),
+              ]}
+            />
+            <Select
+              label="Assistant team lead (optional)"
+              value={teamDraft.asstLeadUserId ?? ''}
+              onChange={(e) => setTeamDraft({ ...teamDraft, asstLeadUserId: e.target.value || undefined })}
+              options={[
+                { value: '', label: 'No assistant lead' },
+                ...users.filter((u) => u.active && u.id !== teamDraft.leadUserId).map((u) => ({ value: u.id, label: u.name })),
+              ]}
+            />
+          </div>
+        ) : null}
+      </Modal>
+
       <Modal
         open={!!annDraft}
         onClose={() => setAnnDraft(null)}
@@ -696,7 +1125,10 @@ export function AdminPanelPage() {
               label="Audience"
               value={annDraft.audience}
               onChange={(e) => setAnnDraft({ ...annDraft, audience: e.target.value })}
-              options={departments.map((d) => ({ value: d, label: d === 'all' ? 'Everyone' : d }))}
+              options={[
+                { value: 'all', label: 'Everyone' },
+                ...departments.map((d) => ({ value: d.name, label: d.name })),
+              ]}
             />
             <Select
               label="Priority"
