@@ -1,6 +1,7 @@
 import { createContext, useContext } from 'react'
 import type {
   Announcement,
+  Department,
   DocumentItem,
   EventItem,
   InboxNotification,
@@ -67,6 +68,18 @@ export interface DataContextValue {
   addEvent: (e: Omit<EventItem, 'id'>) => void
 
   teams: WorkspaceTeam[]
+  addTeam: (t: Omit<WorkspaceTeam, 'id' | 'memberIds'>) => void
+  updateTeam: (id: string, patch: Partial<WorkspaceTeam>) => void
+  deleteTeam: (id: string) => void
+
+  departments: Department[]
+  addDepartment: (d: Omit<Department, 'id' | 'createdAt'>) => void
+  updateDepartment: (id: string, patch: Partial<Department>) => void
+  deleteDepartment: (id: string) => void
+
+  /** Users with active=false awaiting admin approval */
+  pendingUsers: User[]
+  approveUser: (id: string, role: import('@/types').Role, department: string, jobTitle: string) => void
 
   /** `loading` only in Supabase mode during fetch. Local mode stays `ready`. */
   dataStatus: 'ready' | 'loading' | 'error'

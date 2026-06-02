@@ -20,6 +20,7 @@ import {
 } from '@/data/mockData'
 import type {
   Announcement,
+  Department,
   DocumentItem,
   EventItem,
   InboxNotification,
@@ -28,10 +29,12 @@ import type {
   OnboardingProgress,
   OnboardingVideo,
   RecognitionPost,
+  Role,
   Task,
   TaskActivityEntry,
   User,
   WeeklyCheckIn,
+  WorkspaceTeam,
 } from '@/types'
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 
@@ -476,7 +479,54 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setEvents],
   )
 
-  const teams = useMemo(() => seedTeams, [])
+  const [teams, setTeams] = useLocalStorage<WorkspaceTeam[]>('av-teams', seedTeams)
+  const [departments, setDepartments] = useLocalStorage<Department[]>('av-departments', [])
+
+  /* ----------------------------- Teams ---------------------------------- */
+  const addTeam = useCallback(
+    (t: Omit<WorkspaceTeam, 'id' | 'memberIds'>) =>
+      setTeams((prev) => [...prev, { ...t, id: 'team_' + uid(), memberIds: [] }]),
+    [setTeams],
+  )
+  const updateTeam = useCallback(
+    (id: string, patch: Partial<WorkspaceTeam>) =>
+      setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t))),
+    [setTeams],
+  )
+  const deleteTeam = useCallback(
+    (id: string) => setTeams((prev) => prev.filter((t) => t.id !== id)),
+    [setTeams],
+  )
+
+  /* -------------------------- Departments ------------------------------- */
+  const addDepartment = useCallback(
+    (d: Omit<Department, 'id' | 'createdAt'>) =>
+      setDepartments((prev) => [
+        ...prev,
+        { ...d, id: 'dept_' + uid(), createdAt: new Date().toISOString() },
+      ]),
+    [setDepartments],
+  )
+  const updateDepartment = useCallback(
+    (id: string, patch: Partial<Department>) =>
+      setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d))),
+    [setDepartments],
+  )
+  const deleteDepartment = useCallback(
+    (id: string) => setDepartments((prev) => prev.filter((d) => d.id !== id)),
+    [setDepartments],
+  )
+
+  /* -------------------------- Approvals --------------------------------- */
+  const pendingUsers = useMemo(() => users.filter((u) => !u.active), [users])
+
+  const approveUser = useCallback(
+    (id: string, role: Role, department: string, jobTitle: string) =>
+      setUsers((prev) =>
+        prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)),
+      ),
+    [setUsers],
+  )
 
   const reloadData = useCallback(async () => {
     /* no-op: local data is always in memory + localStorage */
@@ -525,6 +575,15 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       events,
       addEvent,
       teams,
+      addTeam,
+      updateTeam,
+      deleteTeam,
+      departments,
+      addDepartment,
+      updateDepartment,
+      deleteDepartment,
+      pendingUsers,
+      approveUser,
       dataStatus: 'ready',
       dataError: null,
       reloadData,
@@ -536,19 +595,16 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       announcements, createAnnouncement, updateAnnouncement, deleteAnnouncement, markAnnouncementRead, markAllAnnouncementsRead,
       leaveRequests, submitLeave, reviewLeave,
       onboardingVideos, onboardingChecklist, onboardingProgress,
-      toggleVideoWatched,
-      toggleChecklistItem,
-      addOnboardingVideo,
-      updateOnboardingVideo,
-      deleteOnboardingVideo,
-      addOnboardingChecklistItem,
-      updateOnboardingChecklistItem,
-      deleteOnboardingChecklistItem,
+      toggleVideoWatched, toggleChecklistItem,
+      addOnboardingVideo, updateOnboardingVideo, deleteOnboardingVideo,
+      addOnboardingChecklistItem, updateOnboardingChecklistItem, deleteOnboardingChecklistItem,
       documents, addDocument, deleteDocument,
       recognition, giveRecognition, toggleRecognitionReaction,
       inbox, markInboxRead, markAllInboxRead,
       events, addEvent,
-      teams,
+      teams, addTeam, updateTeam, deleteTeam,
+      departments, addDepartment, updateDepartment, deleteDepartment,
+      pendingUsers, approveUser,
       reloadData,
     ],
   )

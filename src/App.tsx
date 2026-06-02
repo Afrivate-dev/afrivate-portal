@@ -8,6 +8,7 @@ import { AppLayout } from '@/layouts/AppLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoginPage } from '@/pages/Login'
+import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { DashboardPage } from '@/pages/Dashboard'
 import { TasksPage } from '@/pages/Tasks'
 import { WeeklyCheckInPage } from '@/pages/WeeklyCheckIn'
@@ -53,6 +54,7 @@ export default function App() {
                   <Routes>
                     <Route element={<AuthLayout />}>
                       <Route path="/login" element={<LoginPage />} />
+                      <Route path="/reset-password" element={<ResetPasswordPage />} />
                     </Route>
 
                     <Route element={<AppLayout />}>

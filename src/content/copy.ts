@@ -37,9 +37,10 @@ export const nav = {
 /** How we describe roles on profile cards, headers, etc. */
 export const roleTitles = {
   staff: 'Team member',
-  team_lead: 'People lead',
+  assistant_lead: 'Assistant lead',
+  team_lead: 'Team lead',
   hr: 'People & culture',
-  admin: 'Workspace admin',
+  admin: 'Administrator',
 } as const
 
 /** Common actions */

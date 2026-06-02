@@ -64,7 +64,7 @@ function sessionToPortalUser(session: Session | null): User | null {
 }
 
 function parseRole(raw: string | undefined | null): Role {
-  if (raw === 'admin' || raw === 'hr' || raw === 'team_lead' || raw === 'staff') return raw
+  if (raw === 'admin' || raw === 'hr' || raw === 'team_lead' || raw === 'assistant_lead' || raw === 'staff') return raw
   return 'staff'
 }
 

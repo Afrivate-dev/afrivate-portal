@@ -22,7 +22,7 @@ export const isAdmin = (user: User | null | undefined) => user?.role === 'admin'
 export const isHR = (user: User | null | undefined) =>
   !!user && (['hr', 'admin'] as Role[]).includes(user.role)
 export const isLead = (user: User | null | undefined) =>
-  !!user && (['team_lead', 'hr', 'admin'] as Role[]).includes(user.role)
+  !!user && (['assistant_lead', 'team_lead', 'hr', 'admin'] as Role[]).includes(user.role)
 
 export const roleLabel: Record<Role, string> = { ...roleTitles }
 
