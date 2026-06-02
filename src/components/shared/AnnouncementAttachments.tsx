@@ -1,4 +1,4 @@
-import { Image as ImageIcon, Film, Loader2, Link2, Trash2, Upload } from 'lucide-react'
+﻿import { Image as ImageIcon, Film, Loader2, Link2, Trash2, Upload } from 'lucide-react'
 import { useState } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -57,7 +57,7 @@ export function AnnouncementMediaGallery({
 
 const labels = {
   heading: 'Images & video',
-  urlPlaceholder: 'https://www.afrivate.com/uploads/…',
+  urlPlaceholder: 'https://www.afrivate.org/uploads/…',
   addLink: 'Add link',
   upload: 'Upload file',
   uploading: 'Uploading…',

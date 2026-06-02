@@ -1,4 +1,4 @@
-/**
+﻿/**
  * User-facing language for the team workspace.
  * Keep tone warm, clear, and jargon-light — everyone reads this.
  */
@@ -360,7 +360,7 @@ export const pages = {
     searchPlaceholder: 'Search by name, email, role, department, or skill…',
     allDepartments: 'All departments',
     directoryNote:
-      'Profiles are for internal use. For the public site and HQ address, see afrivate.com.',
+      'Profiles are for internal use. For the public site and HQ address, see afrivate.org.',
     presenceNote:
       'Status dots show availability when live presence is on for your workspace. Until then, only your own status updates here.',
     sendEmail: 'Send email',

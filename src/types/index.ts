@@ -74,7 +74,7 @@ export interface WeeklyCheckIn {
 
 export type AnnouncementPriority = 'info' | 'important' | 'urgent'
 
-/** Image or video shown on an update — URLs usually point at afrivate.com uploads. */
+/** Image or video shown on an update — URLs usually point at afrivate.org uploads. */
 export interface AnnouncementMedia {
   kind: 'image' | 'video'
   url: string
