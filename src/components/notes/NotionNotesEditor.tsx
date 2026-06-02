@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Notion-inspired page editor: left gutter + / command palette + minimal chrome.
  */
 import { useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
@@ -837,7 +837,7 @@ export function NotionNotesEditor({
               onDrop={(e) => {
                 e.preventDefault()
                 setDragOverIndex(null)
-                const fromId = e.dataTransfer.getData('text/nf-block-id')
+                const fromId = e.dataTransfer.getData('text/av-block-id')
                 if (!fromId || fromId === block.id) return
                 const fromIdx = blocks.findIndex((b) => b.id === fromId)
                 if (fromIdx === -1) return
@@ -857,7 +857,7 @@ export function NotionNotesEditor({
                   tabIndex={-1}
                   draggable
                   onDragStart={(e) => {
-                    e.dataTransfer.setData('text/nf-block-id', block.id)
+                    e.dataTransfer.setData('text/av-block-id', block.id)
                     e.dataTransfer.effectAllowed = 'move'
                   }}
                   onDragEnd={() => setDragOverIndex(null)}

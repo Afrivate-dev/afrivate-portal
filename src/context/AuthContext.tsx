@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { seedUsers } from '@/data/mockData'
@@ -148,7 +148,7 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const STORAGE_KEY = 'nf-auth-user'
+const STORAGE_KEY = 'av-auth-user'
 
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabaseMode = isSupabaseAuthEnabled()

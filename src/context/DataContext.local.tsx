@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Local-first portal data (seed + localStorage). Used when `VITE_USE_SUPABASE_DATA` is off.
  */
 import { useCallback, useMemo } from 'react'
@@ -36,33 +36,33 @@ import type {
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 
 export function LocalDataProvider({ children }: { children: React.ReactNode }) {
-  const [users, setUsers] = useLocalStorage<User[]>('nf-users', seedUsers)
-  const [tasks, setTasks] = useLocalStorage<Task[]>('nf-tasks', seedTasks)
-  const [checkIns, setCheckIns] = useLocalStorage<WeeklyCheckIn[]>('nf-checkins-v2', seedCheckIns)
+  const [users, setUsers] = useLocalStorage<User[]>('av-users', seedUsers)
+  const [tasks, setTasks] = useLocalStorage<Task[]>('av-tasks', seedTasks)
+  const [checkIns, setCheckIns] = useLocalStorage<WeeklyCheckIn[]>('av-checkins-v2', seedCheckIns)
   const [announcements, setAnnouncements] = useLocalStorage<Announcement[]>(
-    'nf-announcements',
+    'av-announcements',
     seedAnnouncements,
   )
-  const [leaveRequests, setLeaveRequests] = useLocalStorage<LeaveRequest[]>('nf-leave', seedLeave)
+  const [leaveRequests, setLeaveRequests] = useLocalStorage<LeaveRequest[]>('av-leave', seedLeave)
   const [onboardingVideos, setOnboardingVideos] = useLocalStorage<OnboardingVideo[]>(
-    'nf-onboarding-videos',
+    'av-onboarding-videos',
     seedOnboardingVideos,
   )
   const [onboardingChecklist, setOnboardingChecklist] = useLocalStorage<OnboardingChecklistItem[]>(
-    'nf-onboarding-checklist',
+    'av-onboarding-checklist',
     seedOnboardingChecklist,
   )
   const [onboardingProgress, setOnboardingProgress] = useLocalStorage<OnboardingProgress[]>(
-    'nf-onboarding-progress',
+    'av-onboarding-progress',
     seedOnboardingProgress,
   )
-  const [documents, setDocuments] = useLocalStorage<DocumentItem[]>('nf-documents', seedDocuments)
+  const [documents, setDocuments] = useLocalStorage<DocumentItem[]>('av-documents', seedDocuments)
   const [recognition, setRecognition] = useLocalStorage<RecognitionPost[]>(
-    'nf-recognition',
+    'av-recognition',
     seedRecognition,
   )
-  const [events, setEvents] = useLocalStorage<EventItem[]>('nf-events', seedEvents)
-  const [inbox, setInbox] = useLocalStorage<InboxNotification[]>('nf-inbox', [])
+  const [events, setEvents] = useLocalStorage<EventItem[]>('av-events', seedEvents)
+  const [inbox, setInbox] = useLocalStorage<InboxNotification[]>('av-inbox', [])
 
   /* ------------------------------- Users -------------------------------- */
   const updateUser = useCallback(

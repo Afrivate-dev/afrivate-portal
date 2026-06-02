@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState, type ComponentRef } from 'react'
+﻿import { useMemo, useRef, useState, type ComponentRef } from 'react'
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -264,7 +264,7 @@ export function EventsCalendarPage() {
       {/* FULLCALENDAR */}
       {view === 'schedule' ? (
         <Card padding="md" className="overflow-hidden">
-          <div className={cn('nf-fullcalendar text-sm', canManage && 'nf-fullcalendar--interactive')}>
+          <div className={cn('av-fullcalendar text-sm', canManage && 'av-fullcalendar--interactive')}>
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}

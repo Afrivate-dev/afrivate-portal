@@ -1,4 +1,4 @@
-@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap');
+﻿@import url('https://fonts.googleapis.com/css2?family=Poppins:wght@400;500;600;700&family=Roboto:wght@400;500&display=swap');
 
 @tailwind base;
 @tailwind components;
@@ -80,7 +80,7 @@
   }
 
   /** FullCalendar — align with portal tokens */
-  .nf-fullcalendar {
+  .av-fullcalendar {
     --fc-page-bg-color: rgb(var(--surface));
     --fc-neutral-bg-color: rgb(var(--surface-2) / 0.45);
     --fc-neutral-text-color: rgb(var(--muted));
@@ -96,41 +96,41 @@
     --fc-now-indicator-color: rgb(var(--accent));
   }
 
-  .nf-fullcalendar .fc-toolbar-title {
+  .av-fullcalendar .fc-toolbar-title {
     @apply font-heading text-base font-semibold text-fg;
   }
 
-  .nf-fullcalendar .fc-event {
+  .av-fullcalendar .fc-event {
     cursor: pointer;
     border-radius: 4px;
   }
 
-  .nf-fullcalendar .fc-daygrid-event {
+  .av-fullcalendar .fc-daygrid-event {
     margin-top: 2px;
   }
 
-  .nf-fullcalendar--interactive .fc-daygrid-day {
+  .av-fullcalendar--interactive .fc-daygrid-day {
     cursor: pointer;
   }
 
-  .nf-fullcalendar--interactive .fc-daygrid-day:not(.fc-day-disabled):hover {
+  .av-fullcalendar--interactive .fc-daygrid-day:not(.fc-day-disabled):hover {
     background-color: rgb(var(--accent) / 0.08);
   }
 
-  .nf-fullcalendar--interactive .fc-timegrid-slot {
+  .av-fullcalendar--interactive .fc-timegrid-slot {
     cursor: crosshair;
   }
 
-  .nf-fullcalendar .fc-popover {
+  .av-fullcalendar .fc-popover {
     @apply border border-border bg-surface shadow-lg;
   }
 
-  .nf-fullcalendar .fc-more-popover .fc-popover-body {
+  .av-fullcalendar .fc-more-popover .fc-popover-body {
     @apply max-h-64 overflow-y-auto scrollbar-thin;
   }
 
-  .nf-fullcalendar .fc-col-header-cell-cushion,
-  .nf-fullcalendar .fc-daygrid-day-number {
+  .av-fullcalendar .fc-col-header-cell-cushion,
+  .av-fullcalendar .fc-daygrid-day-number {
     @apply text-fg;
   }
 }

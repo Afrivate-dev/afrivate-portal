@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useMemo } from 'react'
+﻿import { createContext, useContext, useEffect, useMemo } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 
 type Theme = 'light' | 'dark'
@@ -12,7 +12,7 @@ interface ThemeContextValue {
 const ThemeContext = createContext<ThemeContextValue | null>(null)
 
 export function ThemeProvider({ children }: { children: React.ReactNode }) {
-  const [theme, setTheme] = useLocalStorage<Theme>('nf-theme', 'light')
+  const [theme, setTheme] = useLocalStorage<Theme>('av-theme', 'light')
 
   useEffect(() => {
     const root = document.documentElement

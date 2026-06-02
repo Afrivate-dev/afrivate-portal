@@ -1,4 +1,4 @@
-/**
+﻿/**
  * Workspace collaboration: shared notes + presence.
  *
  * - With VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY: Supabase Realtime (presence + note broadcast).
@@ -30,9 +30,9 @@ import {
 } from '@/utils/noteModel'
 import { uid } from '@/utils/helpers'
 
-const NOTES_KEY_V2 = 'nf-workspace-notes-v2'
-const NOTES_KEY_V1 = 'nf-workspace-notes-v1'
-const BC_NAME = 'nf-portal-workspace-collab'
+const NOTES_KEY_V2 = 'av-workspace-notes-v2'
+const NOTES_KEY_V1 = 'av-workspace-notes-v1'
+const BC_NAME = 'av-portal-workspace-collab'
 
 export type NoteSavePatch = Partial<
   Pick<WorkspaceNote, 'title' | 'body' | 'blocks' | 'iconEmoji' | 'parentId' | 'share'>
@@ -278,7 +278,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
 
       if (cancelled) return
 
-      const ch = sb.channel('nf-portal-workspace', {
+      const ch = sb.channel('av-portal-workspace', {
         config: {
           ...(usePrivateRealtime ? { private: true } : {}),
           broadcast: { ack: false },
