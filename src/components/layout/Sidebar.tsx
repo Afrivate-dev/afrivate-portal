@@ -1,4 +1,4 @@
-import { NavLink } from 'react-router-dom'
+﻿import { NavLink } from 'react-router-dom'
 import { navItems } from '@/config/nav'
 import { cn } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
@@ -9,7 +9,7 @@ export function Sidebar() {
   return (
     <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
       <div className="flex h-16 items-center border-b border-border px-5">
-        <a href="https://afrivate.com" className="flex items-center gap-2.5">
+        <a href="https://afrivate.org" className="flex items-center gap-2.5">
           <img src="/afrivate-icon.svg" alt="AfriVate" className="h-8 w-auto dark:hidden" />
           <img src="/afrivate-icon-white.svg" alt="AfriVate" className="hidden h-8 w-auto dark:block" />
           <div className="flex flex-col leading-tight">

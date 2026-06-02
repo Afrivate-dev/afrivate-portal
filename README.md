@@ -1,8 +1,8 @@
-# AfriVate Employee Portal
+﻿# AfriVate Employee Portal
 
 Internal staff portal for AfriVate Technologies Ltd. Built with React + TypeScript + Tailwind CSS, powered by Vite. Supports mock login and localStorage by default, with optional Supabase backend for auth and data.
 
-Intended to be deployed at `portal.afrivate.com`. See **`SUPABASE_SETUP.md`** for the go-live guide.
+Intended to be deployed at `portal.afrivate.org`. See **`SUPABASE_SETUP.md`** for the go-live guide.
 
 ---
 
@@ -35,10 +35,10 @@ Open [http://localhost:5173](http://localhost:5173).
 
 | Role | Email | Password |
 |------|-------|----------|
-| Admin | `admin@afrivate.com` | `admin123` |
-| HR | `hr@afrivate.com` | `hr123` |
-| Team Lead | `lead@afrivate.com` | `lead123` |
-| Staff | `staff@afrivate.com` | `staff123` |
+| Admin | `admin@afrivate.org` | `admin123` |
+| HR | `hr@afrivate.org` | `hr123` |
+| Team Lead | `lead@afrivate.org` | `lead123` |
+| Staff | `staff@afrivate.org` | `staff123` |
 
 ---
 

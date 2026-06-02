@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+﻿import { useEffect } from 'react'
 import { NavLink } from 'react-router-dom'
 import { X, LogOut } from 'lucide-react'
 import { navItems } from '@/config/nav'
@@ -39,7 +39,7 @@ export function Drawer({ open, onClose }: DrawerProps) {
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
-          <a href="https://afrivate.com" className="flex items-center gap-2.5">
+          <a href="https://afrivate.org" className="flex items-center gap-2.5">
             <img src="/afrivate-icon.svg" alt="AfriVate" className="h-8 w-auto dark:hidden" />
             <img src="/afrivate-icon-white.svg" alt="AfriVate" className="hidden h-8 w-auto dark:block" />
             <div className="flex flex-col leading-tight">

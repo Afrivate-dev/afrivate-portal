@@ -1,4 +1,4 @@
-﻿import { useState } from 'react'
+import { useState } from 'react'
 import { Navigate, useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
@@ -6,13 +6,6 @@ import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
-
-const DEMO = [
-  { label: 'Admin', email: 'admin@afrivate.com', password: 'admin123' },
-  { label: 'HR', email: 'hr@afrivate.com', password: 'hr123' },
-  { label: 'Team Lead', email: 'lead@afrivate.com', password: 'lead123' },
-  { label: 'Staff (new)', email: 'staff@afrivate.com', password: 'staff123' },
-]
 
 export function LoginPage() {
   const { user, login } = useAuth()
@@ -37,12 +30,6 @@ export function LoginPage() {
     navigate('/', { replace: true })
   }
 
-  const fillDemo = (d: (typeof DEMO)[number]) => {
-    setEmail(d.email)
-    setPassword(d.password)
-    setError(null)
-  }
-
   return (
     <Card padding="lg" className="w-full max-w-md">
       <div className="mb-6 text-center">
@@ -56,10 +43,10 @@ export function LoginPage() {
         <Input
           type="email"
           name="email"
-          label="Email"
+          label="Work email"
           value={email}
           onChange={(e) => setEmail(e.target.value)}
-          placeholder="you@afrivate.com"
+          placeholder="you@afrivate.org"
           autoComplete="email"
           leadingIcon={<Mail className="h-4 w-4" />}
           required
@@ -70,7 +57,7 @@ export function LoginPage() {
           label="Password"
           value={password}
           onChange={(e) => setPassword(e.target.value)}
-          placeholder="\u2022\u2022\u2022\u2022\u2022\u2022\u2022\u2022"
+          placeholder="••••••••"
           autoComplete="current-password"
           leadingIcon={<Lock className="h-4 w-4" />}
           required
@@ -88,33 +75,10 @@ export function LoginPage() {
         </Button>
       </form>
 
-      {isSupabaseAuthEnabled() ? (
+      {!isSupabaseAuthEnabled() && (
         <div className="mt-6 border-t border-border pt-4">
           <p className="text-xs text-muted">
-            Your organization uses a managed sign-in. Use the <strong className="text-fg">work email and password</strong>{' '}
-            from your administrator. If you can't sign in, contact People & culture or IT.
-          </p>
-        </div>
-      ) : (
-        <div className="mt-6 border-t border-border pt-4">
-          <p className="mb-2 text-xs font-medium uppercase tracking-wide text-muted">
-            Demo accounts
-          </p>
-          <div className="grid grid-cols-2 gap-2">
-            {DEMO.map((d) => (
-              <button
-                key={d.email}
-                type="button"
-                onClick={() => fillDemo(d)}
-                className="rounded-md border border-border bg-surface-2 px-3 py-2 text-left text-xs hover:border-accent/40 hover:bg-accent/5 ring-focus"
-              >
-                <div className="font-semibold text-fg">{d.label}</div>
-                <div className="truncate text-muted">{d.email}</div>
-              </button>
-            ))}
-          </div>
-          <p className="mt-3 text-[11px] text-muted">
-            Click a demo card to fill the form, then press Sign in.
+            Running in local mode. Connect Supabase to enable real authentication.
           </p>
         </div>
       )}

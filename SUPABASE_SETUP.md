@@ -56,7 +56,7 @@ With only these set, **todayâ€™s code** already uses Supabase for **Realtim
 1. Dashboard: **Authentication** â†’ **Providers**.
 2. **Email** â†’ enable **Email** (and optionally **Confirm email** for production).
 3. **URL configuration** (Authentication â†’ **URL Configuration**):
-   - **Site URL**: your production portal origin, e.g. `https://portal.AfriVate.com`
+   - **Site URL**: your production portal origin, e.g. `https://portal.afrivate.org`
    - **Redirect URLs**: add the same + `http://localhost:5173/**` for local dev.
 
 ### 3.2 Wire the portal app to Supabase Auth (exact steps)

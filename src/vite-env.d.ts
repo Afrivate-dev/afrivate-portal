@@ -1,7 +1,7 @@
-/// <reference types="vite/client" />
+﻿/// <reference types="vite/client" />
 
 interface ImportMetaEnv {
-  /** POST endpoint (e.g. https://www.afrivate.com/portal-media/upload.php) */
+  /** POST endpoint (e.g. https://www.afrivate.org/portal-media/upload.php) */
   readonly VITE_MEDIA_UPLOAD_URL?: string
   /** Same-origin JSON from ical-json.php — merges into calendar + list */
   readonly VITE_TEAM_CALENDAR_JSON_URL?: string

@@ -1,4 +1,4 @@
-import { Outlet } from 'react-router-dom'
+﻿import { Outlet } from 'react-router-dom'
 import { useTheme } from '@/context/ThemeContext'
 import { Moon, Sun } from 'lucide-react'
 
@@ -18,7 +18,7 @@ export function AuthLayout() {
       />
 
       <header className="flex items-center justify-between px-6 py-5 sm:px-10">
-        <a href="https://afrivate.com" className="flex items-center gap-3">
+        <a href="https://afrivate.org" className="flex items-center gap-3">
           <img src="/afrivate-icon.svg" alt="AfriVate" className="h-10 w-auto dark:hidden" />
           <img src="/afrivate-icon-white.svg" alt="AfriVate" className="hidden h-10 w-auto dark:block" />
           <div className="flex flex-col leading-tight">
