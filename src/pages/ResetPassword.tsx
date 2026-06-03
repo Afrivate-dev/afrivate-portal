@@ -17,22 +17,54 @@ export function ResetPasswordPage() {
   const [loading, setLoading] = useState(false)
 
   useEffect(() => {
-    // Supabase puts the session in the URL hash after a reset/invite link click.
-    // The client SDK picks it up automatically on load — we just need to check
-    // if there's an active session (meaning the link was valid).
     if (!supabase) {
       setStage('error')
       return
     }
 
-    supabase.auth.getSession().then(({ data }) => {
+    const handleAuth = async () => {
+      // Supabase v2 uses PKCE by default — token arrives as ?code= in the URL
+      const params = new URLSearchParams(window.location.search)
+      const code = params.get('code')
+
+      if (code) {
+        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        if (exchangeError) {
+          console.error('[reset] code exchange error:', exchangeError.message)
+          setStage('error')
+          return
+        }
+        // Clean the code from the URL so a refresh doesn't try to re-use it
+        window.history.replaceState({}, '', '/reset-password')
+        setStage('set_password')
+        return
+      }
+
+      // Fallback: implicit flow — token arrives in the URL hash (#access_token=...)
+      const hash = window.location.hash
+      if (hash.includes('access_token')) {
+        // The Supabase SDK detects the hash automatically on initialisation.
+        // Give it a moment then check for a session.
+        await new Promise((r) => setTimeout(r, 500))
+        const { data } = await supabase.auth.getSession()
+        if (data.session) {
+          window.history.replaceState({}, '', '/reset-password')
+          setStage('set_password')
+          return
+        }
+      }
+
+      // No token in URL — check if there's already an active session
+      const { data } = await supabase.auth.getSession()
       if (data.session) {
         setStage('set_password')
-      } else {
-        // No session — link may have expired
-        setStage('error')
+        return
       }
-    })
+
+      setStage('error')
+    }
+
+    void handleAuth()
   }, [])
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -75,8 +107,7 @@ export function ResetPasswordPage() {
         <div className="space-y-4 text-center">
           <h1 className="text-xl font-bold text-fg">Link expired</h1>
           <p className="text-sm text-muted">
-            This password reset link has expired or already been used. Request a new one from
-            your administrator.
+            This link has expired or already been used. Ask your administrator to send a new invite or password reset.
           </p>
           <Button variant="secondary" className="w-full" onClick={() => navigate('/login')}>
             Back to sign in
