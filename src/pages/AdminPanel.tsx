@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+﻿import { useMemo, useState } from 'react'
 import {
   Users as UsersIcon,
   Megaphone,
@@ -358,7 +358,7 @@ export function AdminPanelPage() {
             </Button>
           </div>
           {pendingUsers.length === 0 ? (
-            <EmptyState icon={UserCheck} title="No pending approvals" body="Invite a team member above — they'll appear here once they accept." />
+            <EmptyState icon={UserCheck} title="No pending approvals" description="Invite a team member above — they'll appear here once they accept." />
           ) : (
             pendingUsers.map((u) => (
               <Card key={u.id} padding="md" className="flex items-center justify-between gap-4">
@@ -389,7 +389,7 @@ export function AdminPanelPage() {
             </Button>
           </div>
           {departments.length === 0 ? (
-            <EmptyState icon={Building2} title="No departments yet" body="Create departments to organise your team structure." />
+            <EmptyState icon={Building2} title="No departments yet" description="Create departments to organise your team structure." />
           ) : (
             <Card padding="none" className="overflow-hidden">
               <table className="w-full text-sm">
@@ -442,7 +442,7 @@ export function AdminPanelPage() {
             </Button>
           </div>
           {teams.length === 0 ? (
-            <EmptyState icon={UsersRound} title="No teams yet" body="Create teams and assign team leads to manage your people." />
+            <EmptyState icon={UsersRound} title="No teams yet" description="Create teams and assign team leads to manage your people." />
           ) : (
             <Card padding="none" className="overflow-hidden">
               <table className="w-full text-sm">
