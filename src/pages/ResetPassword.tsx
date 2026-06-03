@@ -22,13 +22,15 @@ export function ResetPasswordPage() {
       return
     }
 
+    const client = supabase
+
     const handleAuth = async () => {
       // Supabase v2 uses PKCE by default — token arrives as ?code= in the URL
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
 
       if (code) {
-        const { error: exchangeError } = await supabase.auth.exchangeCodeForSession(code)
+        const { error: exchangeError } = await client.auth.exchangeCodeForSession(code)
         if (exchangeError) {
           console.error('[reset] code exchange error:', exchangeError.message)
           setStage('error')
@@ -46,7 +48,7 @@ export function ResetPasswordPage() {
         // The Supabase SDK detects the hash automatically on initialisation.
         // Give it a moment then check for a session.
         await new Promise((r) => setTimeout(r, 500))
-        const { data } = await supabase.auth.getSession()
+        const { data } = await client.auth.getSession()
         if (data.session) {
           window.history.replaceState({}, '', '/reset-password')
           setStage('set_password')
@@ -55,7 +57,7 @@ export function ResetPasswordPage() {
       }
 
       // No token in URL — check if there's already an active session
-      const { data } = await supabase.auth.getSession()
+      const { data } = await client.auth.getSession()
       if (data.session) {
         setStage('set_password')
         return
