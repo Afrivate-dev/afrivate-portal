@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
+import { Navigate, useNavigate, Link } from 'react-router-dom'
 import { Mail, Lock, ArrowRight } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -74,6 +74,15 @@ export function LoginPage() {
           <ArrowRight className="h-4 w-4" />
         </Button>
       </form>
+
+      <div className="mt-4 text-center">
+        <Link
+          to="/forgot-password"
+          className="text-sm text-muted hover:text-accent"
+        >
+          Forgot your password?
+        </Link>
+      </div>
 
       {!isSupabaseAuthEnabled() && (
         <div className="mt-6 border-t border-border pt-4">

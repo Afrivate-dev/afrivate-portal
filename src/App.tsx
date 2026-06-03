@@ -1,5 +1,6 @@
-import { lazy, Suspense } from 'react'
-import { BrowserRouter, Route, Routes, Navigate } from 'react-router-dom'
+import { lazy, Suspense, useEffect } from 'react'
+import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
+import { supabase } from '@/lib/supabase'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { DataProvider } from '@/context/DataContext'
@@ -9,6 +10,7 @@ import { AuthLayout } from '@/layouts/AuthLayout'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoginPage } from '@/pages/Login'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
+import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { DashboardPage } from '@/pages/Dashboard'
 import { TasksPage } from '@/pages/Tasks'
 import { WeeklyCheckInPage } from '@/pages/WeeklyCheckIn'
@@ -42,6 +44,45 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
   return <>{children}</>
 }
 
+/**
+ * Handles Supabase auth redirects at the app level.
+ * When Supabase sends an invite or reset email it redirects to the Site URL
+ * (e.g. portal.afrivate.org/?code=...). This component detects the auth code
+ * or hash and sends the user to /reset-password to set their password.
+ */
+function AuthRedirectHandler() {
+  const navigate = useNavigate()
+
+  useEffect(() => {
+    if (!supabase) return
+
+    // Handle PKCE flow: ?code= in URL query string
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) {
+      navigate(`/reset-password?code=${code}`, { replace: true })
+      return
+    }
+
+    // Handle implicit flow: #access_token=...&type=recovery in hash
+    const hash = window.location.hash
+    if (hash.includes('type=recovery') || hash.includes('type=invite')) {
+      navigate(`/reset-password${hash}`, { replace: true })
+      return
+    }
+
+    // Listen for PASSWORD_RECOVERY event from Supabase SDK
+    const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+      if (event === 'PASSWORD_RECOVERY') {
+        navigate('/reset-password', { replace: true })
+      }
+    })
+    return () => sub.subscription.unsubscribe()
+  }, [navigate])
+
+  return null
+}
+
 export default function App() {
   return (
     <ThemeProvider>
@@ -49,11 +90,13 @@ export default function App() {
         <DataProvider>
           <CollabProvider>
             <BrowserRouter>
+              <AuthRedirectHandler />
               <ErrorBoundary>
                 <Suspense fallback={<PageLoading />}>
                   <Routes>
                     <Route element={<AuthLayout />}>
                       <Route path="/login" element={<LoginPage />} />
+                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                       <Route path="/reset-password" element={<ResetPasswordPage />} />
                     </Route>
 
