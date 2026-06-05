@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+﻿import { useMemo, useState, useEffect } from 'react'
 import {
   Megaphone,
   Search,
@@ -25,7 +25,7 @@ import {
   AnnouncementMediaGallery,
   MediaAttachmentEditor,
 } from '@/components/shared/AnnouncementAttachments'
-import { cn, fmtDate, fmtTime, isHR, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, fmtTime, isTeamLead, relativeTime } from '@/utils/helpers'
 import { pages, actions } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority } from '@/types'
 
@@ -92,7 +92,7 @@ export function AnnouncementsPage() {
   } = useData()
   const { setActivity, readersForUpdate, multiplayerLive } = useCollab()
 
-  const canPost = isHR(user)
+  const canPost = isTeamLead(user)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
