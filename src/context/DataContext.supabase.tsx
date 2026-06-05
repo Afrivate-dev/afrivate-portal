@@ -848,6 +848,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     () => ({
       users,
       updateUser,
+      addUser: () => { throw new Error('Use Supabase invite in Supabase mode') },
       tasks,
       createTask,
       updateTask,

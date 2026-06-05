@@ -90,6 +90,7 @@ export function AdminPanelPage() {
   const {
     users,
     updateUser,
+    addUser,
     announcements,
     updateAnnouncement,
     deleteAnnouncement,
@@ -156,12 +157,22 @@ export function AdminPanelPage() {
 
   // Invite state
   const [inviteEmail, setInviteEmail] = useState('')
+  const [inviteName, setInviteName] = useState('')
   const [inviteOpen, setInviteOpen] = useState(false)
   const [inviteStatus, setInviteStatus] = useState<'idle' | 'sending' | 'sent' | 'error'>('idle')
   const [inviteError, setInviteError] = useState('')
+  const [localPassword, setLocalPassword] = useState('')
 
   const sendInvite = async () => {
-    if (!inviteEmail.trim() || !supabase) return
+    if (!inviteEmail.trim()) return
+    if (!supabase) {
+      // Local mode: create the account directly and surface credentials
+      const pwd = Math.random().toString(36).slice(2, 10)
+      setLocalPassword(pwd)
+      addUser(inviteEmail.trim(), inviteName.trim(), pwd)
+      setInviteStatus('sent')
+      return
+    }
     setInviteStatus('sending')
     setInviteError('')
     try {
@@ -179,8 +190,10 @@ export function AdminPanelPage() {
   const closeInvite = () => {
     setInviteOpen(false)
     setInviteEmail('')
+    setInviteName('')
     setInviteStatus('idle')
     setInviteError('')
+    setLocalPassword('')
   }
   const [leaveMonth, setLeaveMonth] = useState(() => startOfMonth(new Date()))
   const [annDraft, setAnnDraft] = useState<{
@@ -910,45 +923,68 @@ export function AdminPanelPage() {
               <Button
                 onClick={sendInvite}
                 loading={inviteStatus === 'sending'}
-                disabled={!inviteEmail.trim() || !supabase}
+                disabled={!inviteEmail.trim()}
               >
-                Send invite
+                {supabase ? 'Send invite' : 'Create account'}
               </Button>
             </>
           )
         }
       >
         {inviteStatus === 'sent' ? (
-          <div className="space-y-1 text-center py-4">
-            <p className="font-semibold text-fg">Invite sent!</p>
-            <p className="text-sm text-muted">
-              An email has been sent to <strong>{inviteEmail}</strong>. Once they accept
-              and set their password, their account will appear in the Approvals tab for
-              you to activate.
-            </p>
-          </div>
+          supabase ? (
+            <div className="space-y-1 text-center py-4">
+              <p className="font-semibold text-fg">Invite sent!</p>
+              <p className="text-sm text-muted">
+                An email has been sent to <strong>{inviteEmail}</strong>. Once they accept
+                and set their password, their account will appear in the Approvals tab for
+                you to activate.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-4 py-2">
+              <p className="font-semibold text-fg">Account created!</p>
+              <p className="text-sm text-muted">
+                Share these login credentials with <strong>{inviteEmail}</strong> directly — no email was sent (Supabase not connected).
+              </p>
+              <div className="rounded-md border border-border bg-surface-2 p-4 space-y-2 text-sm font-mono">
+                <div><span className="text-muted">Email: </span><span className="text-fg select-all">{inviteEmail}</span></div>
+                <div><span className="text-muted">Password: </span><span className="text-fg select-all font-semibold">{localPassword}</span></div>
+              </div>
+              <p className="text-xs text-muted">They can change their password after signing in via their profile.</p>
+            </div>
+          )
         ) : (
           <div className="space-y-3">
-            <p className="text-sm text-muted">
-              Enter the person's work email. They'll receive a link to set their password
-              and access the portal — you'll then approve their account from the Approvals tab.
-            </p>
+            {supabase ? (
+              <p className="text-sm text-muted">
+                Enter the person's work email. They'll receive a link to set their password
+                and access the portal — you'll then approve their account from the Approvals tab.
+              </p>
+            ) : (
+              <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
+                <strong>Local mode:</strong> Supabase is not connected, so no email will be sent. An account will be created and you'll get a temporary password to share directly.
+              </div>
+            )}
+            {!supabase && (
+              <Input
+                label="Full name"
+                value={inviteName}
+                onChange={(e) => setInviteName(e.target.value)}
+                placeholder="e.g. Jane Smith"
+              />
+            )}
             <Input
               label="Email address"
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="colleague@afrivate.org"
-              autoFocus
+              autoFocus={!!supabase}
             />
             {inviteStatus === 'error' && (
               <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
                 {inviteError}
-              </div>
-            )}
-            {!supabase && (
-              <div className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-warning">
-                Supabase is not connected. Add your VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY to enable invites.
               </div>
             )}
           </div>
