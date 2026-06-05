@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { Clock } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
@@ -33,9 +33,19 @@ function PendingApprovalScreen({ onSignOut }: { onSignOut: () => void }) {
 }
 
 export function AppLayout() {
-  const { user, logout } = useAuth()
-  const { dataStatus, dataError, reloadData } = useData()
+  const { user, logout, updateProfile } = useAuth()
+  const { dataStatus, dataError, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
+
+  // Keep auth session role in sync with the users list (e.g. after an admin
+  // updates the current user's role via the Admin Panel or direct DB edit).
+  useEffect(() => {
+    if (dataStatus !== 'ready' || !user) return
+    const dataUser = users.find((u) => u.id === user.id)
+    if (dataUser && dataUser.role !== user.role) {
+      updateProfile({ role: dataUser.role })
+    }
+  }, [dataStatus, users, user, updateProfile])
 
   if (!user) return <Navigate to="/login" replace />
 
