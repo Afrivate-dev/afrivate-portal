@@ -74,6 +74,25 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setUsers],
   )
 
+  const addUser = useCallback<DataContextValue['addUser']>(
+    (email, name, password) => {
+      const newUser: User = {
+        id: 'u_' + uid(),
+        email: email.trim().toLowerCase(),
+        name: name.trim() || email.split('@')[0],
+        role: 'staff',
+        department: 'General',
+        jobTitle: 'Staff',
+        joinedAt: new Date().toISOString(),
+        active: true,
+        password,
+      }
+      setUsers((prev) => [...prev, newUser])
+      return newUser
+    },
+    [setUsers],
+  )
+
   const markInboxRead = useCallback(
     (id: string) =>
       setInbox((prev) => prev.map((n) => (n.id === id ? { ...n, read: true } : n))),
@@ -536,6 +555,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     () => ({
       users,
       updateUser,
+      addUser,
       tasks,
       createTask,
       updateTask,
@@ -589,7 +609,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       reloadData,
     }),
     [
-      users, updateUser,
+      users, updateUser, addUser,
       tasks, createTask, updateTask, deleteTask,
       checkIns, submitCheckIn, updateCheckIn,
       announcements, createAnnouncement, updateAnnouncement, deleteAnnouncement, markAnnouncementRead, markAllAnnouncementsRead,

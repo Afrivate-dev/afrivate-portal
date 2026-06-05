@@ -202,10 +202,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         return { ok: true as const }
       }
-      const match = seedUsers.find(
-        (u) =>
-          u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-      )
+      const localUsers = (() => {
+        try { return JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[] }
+        catch { return [] }
+      })()
+      const match =
+        seedUsers.find(
+          (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
+        ) ??
+        localUsers.find(
+          (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
+        )
       if (!match) {
         return { ok: false as const, error: 'Invalid email or password' }
       }
