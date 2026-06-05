@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+﻿import { useMemo, useState, useEffect } from 'react'
 import {
   Search,
   Plus,
@@ -25,7 +25,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, isHR } from '@/utils/helpers'
+import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
 import type { DocumentItem } from '@/types'
 
 type Category = DocumentItem['category']
@@ -100,7 +100,7 @@ export function DocumentLibraryPage() {
   const { user } = useAuth()
   const { documents, users, addDocument, deleteDocument } = useData()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
-  const canManage = isHR(user)
+  const canManage = isTeamLead(user)
 
   const [surfaceDocId, setSurfaceDocId] = useState<string | null>(null)
 

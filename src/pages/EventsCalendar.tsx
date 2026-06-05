@@ -32,7 +32,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, fmtTime, isHR } from '@/utils/helpers'
+import { cn, fmtDate, fmtTime, isTeamLead } from '@/utils/helpers'
 import { pages } from '@/content/copy'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import {
@@ -71,7 +71,7 @@ const emptyDraft: EventDraft = {
 export function EventsCalendarPage() {
   const { user } = useAuth()
   const { events, users, addEvent } = useData()
-  const canManage = isHR(user)
+  const canManage = isTeamLead(user)
 
   const googleEmbed = import.meta.env.VITE_GOOGLE_CALENDAR_EMBED_URL?.trim()
   const icalJsonUrl = import.meta.env.VITE_TEAM_CALENDAR_JSON_URL?.trim()

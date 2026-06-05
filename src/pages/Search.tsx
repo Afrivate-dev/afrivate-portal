@@ -1,8 +1,9 @@
 import { useMemo } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
-import { Search as SearchIcon, Users, Megaphone, ListChecks } from 'lucide-react'
+import { Search as SearchIcon, Users, Megaphone, ListChecks, FileText, BookOpen } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useCollab } from '@/context/CollabContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
@@ -16,7 +17,8 @@ const S = pages.search
 
 export function SearchPage() {
   const { user } = useAuth()
-  const { users, announcements, tasks } = useData()
+  const { users, announcements, tasks, documents } = useData()
+  const { notes } = useCollab()
   const [params, setParams] = useSearchParams()
   const qRaw = params.get('q') ?? ''
   const setQ = (value: string) => {
@@ -54,7 +56,41 @@ export function SearchPage() {
     })
   }, [tasks, user, q])
 
-  const totalHits = personHits.length + announcementHits.length + taskHits.length
+  const documentHits = useMemo(() => {
+    if (!user || !q) return []
+    return documents.filter((d) => {
+      if (d.hrOnly && user.role !== 'hr' && user.role !== 'admin') return false
+      if (d.managementOnly && user.role === 'staff') return false
+      const hay = `${d.title} ${d.description ?? ''} ${d.fileName}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [documents, user, q])
+
+  const noteHits = useMemo(() => {
+    if (!user || !q) return []
+    return notes.filter((n) => {
+      // Only show notes the user has access to
+      const s = n.share
+      if (n.ownerId === user.id) return true
+      if (s.scope === 'workspace') return true
+      if (s.scope === 'departments' && s.departments?.includes(user.department)) return true
+      if (s.scope === 'teams') return true // simplified — show if teams scope
+      if (s.scope === 'people' && s.peopleUserIds?.includes(user.id)) return true
+      if (s.inviteEmails?.includes(user.email)) return true
+      return false
+    }).filter((n) => {
+      const blockText = n.blocks.map((b) => b.text).join(' ')
+      const hay = `${n.title} ${blockText}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [notes, user, q])
+
+  const totalHits =
+    personHits.length +
+    announcementHits.length +
+    taskHits.length +
+    documentHits.length +
+    noteHits.length
 
   if (!user) return null
 
@@ -80,6 +116,7 @@ export function SearchPage() {
         <EmptyState icon={SearchIcon} title={S.noResults} description={S.hint} />
       ) : (
         <div className="space-y-8">
+          {/* People */}
           {personHits.length > 0 ? (
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
@@ -89,11 +126,8 @@ export function SearchPage() {
               <ul className="space-y-2">
                 {personHits.map((p) => (
                   <li key={p.id}>
-                    <Link to={`/directory`}>
-                      <Card
-                        padding="md"
-                        className="flex items-center gap-3 transition-colors hover:border-accent/40"
-                      >
+                    <Link to="/directory">
+                      <Card padding="md" className="flex items-center gap-3 transition-colors hover:border-accent/40">
                         <Avatar name={p.name} src={p.avatarUrl} size="md" />
                         <div className="min-w-0">
                           <p className="font-medium text-fg">{p.name}</p>
@@ -109,6 +143,7 @@ export function SearchPage() {
             </section>
           ) : null}
 
+          {/* Announcements */}
           {announcementHits.length > 0 ? (
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
@@ -130,6 +165,7 @@ export function SearchPage() {
             </section>
           ) : null}
 
+          {/* Tasks */}
           {taskHits.length > 0 ? (
             <section>
               <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
@@ -144,6 +180,55 @@ export function SearchPage() {
                         <p className="font-medium text-fg">{t.title}</p>
                         {t.description ? (
                           <p className="mt-1 line-clamp-2 text-sm text-muted">{t.description}</p>
+                        ) : null}
+                      </Card>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* Documents */}
+          {documentHits.length > 0 ? (
+            <section>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
+                <FileText className="h-4 w-4 text-muted" /> Documents
+                <Badge tone="muted">{documentHits.length}</Badge>
+              </h2>
+              <ul className="space-y-2">
+                {documentHits.map((d) => (
+                  <li key={d.id}>
+                    <Link to="/documents">
+                      <Card padding="md" className="transition-colors hover:border-accent/40">
+                        <p className="font-medium text-fg">{d.title}</p>
+                        {d.description ? (
+                          <p className="mt-1 line-clamp-2 text-sm text-muted">{d.description}</p>
+                        ) : null}
+                        <p className="mt-1 text-xs text-muted">{d.fileName}</p>
+                      </Card>
+                    </Link>
+                  </li>
+                ))}
+              </ul>
+            </section>
+          ) : null}
+
+          {/* Notes */}
+          {noteHits.length > 0 ? (
+            <section>
+              <h2 className="mb-3 flex items-center gap-2 text-sm font-semibold text-fg">
+                <BookOpen className="h-4 w-4 text-muted" /> Notes
+                <Badge tone="muted">{noteHits.length}</Badge>
+              </h2>
+              <ul className="space-y-2">
+                {noteHits.map((n) => (
+                  <li key={n.id}>
+                    <Link to={`/notes?open=${n.id}`}>
+                      <Card padding="md" className="transition-colors hover:border-accent/40">
+                        <p className="font-medium text-fg">{n.title || 'Untitled'}</p>
+                        {n.blocks[0]?.text ? (
+                          <p className="mt-1 line-clamp-2 text-sm text-muted">{n.blocks[0].text}</p>
                         ) : null}
                       </Card>
                     </Link>
