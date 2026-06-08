@@ -35,12 +35,13 @@ import { PresenceDot } from '@/components/shared/PresenceDot'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
-import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer } from '@/utils/helpers'
+import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR } from '@/utils/helpers'
 import type { User } from '@/types'
 
 const P = pages.people
 
 interface ProfileDraft {
+  name: string
   bio: string
   phone: string
   skills: string
@@ -65,6 +66,7 @@ export function StaffDirectoryPage() {
   const [openId, setOpenId] = useState<string | null>(null)
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<ProfileDraft>({
+    name: '',
     bio: '',
     phone: '',
     skills: '',
@@ -119,6 +121,8 @@ export function StaffDirectoryPage() {
   const opened = openId ? users.find((u) => u.id === openId) ?? null : null
   const manager = opened?.reportsToId ? users.find((u) => u.id === opened.reportsToId) : undefined
   const isOwnProfile = opened && user && opened.id === user.id
+  /** Admins and HR can edit any profile; everyone else can only edit their own. */
+  const canEditProfile = !!(opened && user && (opened.id === user.id || isAdmin(user) || isHR(user)))
 
   if (!user) return null
 
@@ -142,6 +146,7 @@ export function StaffDirectoryPage() {
     if (!opened) return
     setAvatarUploadError('')
     setDraft({
+      name: opened.name,
       bio: opened.bio ?? '',
       phone: opened.phone ?? '',
       skills: (opened.skills ?? []).join(', '),
@@ -157,6 +162,7 @@ export function StaffDirectoryPage() {
     setEditing(false)
     setAvatarUploadError('')
     setDraft({
+      name: '',
       bio: '',
       phone: '',
       skills: '',
@@ -170,6 +176,7 @@ export function StaffDirectoryPage() {
   const saveEdit = () => {
     if (!opened) return
     const patch: Partial<User> = {
+      name: draft.name.trim() || opened.name,
       bio: draft.bio.trim(),
       phone: draft.phone.trim(),
       skills: draft.skills
@@ -324,7 +331,7 @@ export function StaffDirectoryPage() {
         title={opened ? (editing ? P.editProfile : opened.name) : undefined}
         size="lg"
         footer={
-          isOwnProfile ? (
+          canEditProfile ? (
             editing ? (
               <>
                 <Button variant="ghost" type="button" onClick={cancelEdit}>
@@ -354,6 +361,14 @@ export function StaffDirectoryPage() {
               <p className="rounded-md border border-border bg-surface-2/25 px-3 py-2 text-xs leading-relaxed text-muted">
                 {P.profileEditIntro}
               </p>
+
+              <Input
+                label="Display name"
+                value={draft.name}
+                onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+                placeholder="Full name"
+                required
+              />
 
               <div className="rounded-md border border-border bg-surface-2/20 p-3">
                 <p className="text-sm font-medium text-fg">{P.profilePhotoSection}</p>

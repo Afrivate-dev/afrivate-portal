@@ -32,10 +32,21 @@ import type {
   Role,
   Task,
   TaskActivityEntry,
+  TaskCategoryItem,
   User,
   WeeklyCheckIn,
   WorkspaceTeam,
 } from '@/types'
+
+const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
+  { id: 'react',       label: 'React / Frontend' },
+  { id: 'wordpress',   label: 'WordPress' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'nodejs',      label: 'Node.js' },
+  { id: 'freelance',   label: 'Freelance' },
+  { id: 'admin',       label: 'Operations' },
+  { id: 'other',       label: 'Other' },
+]
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 
 export function LocalDataProvider({ children }: { children: React.ReactNode }) {
@@ -551,6 +562,21 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     /* no-op: local data is always in memory + localStorage */
   }, [])
 
+  /* ----------------------- Task Categories -------------------------------- */
+  const [taskCategories, setTaskCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-task-categories',
+    DEFAULT_TASK_CATEGORIES,
+  )
+  const addTaskCategory = useCallback((label: string) => {
+    setTaskCategories((prev) => [...prev, { id: 'cat_' + uid(), label }])
+  }, [setTaskCategories])
+  const updateTaskCategory = useCallback((id: string, label: string) => {
+    setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setTaskCategories])
+  const deleteTaskCategory = useCallback((id: string) => {
+    setTaskCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setTaskCategories])
+
   const value = useMemo<DataContextValue>(
     () => ({
       users,
@@ -604,6 +630,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       deleteDepartment,
       pendingUsers,
       approveUser,
+      taskCategories,
+      addTaskCategory,
+      updateTaskCategory,
+      deleteTaskCategory,
       dataStatus: 'ready',
       dataError: null,
       reloadData,
@@ -625,6 +655,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       teams, addTeam, updateTeam, deleteTeam,
       departments, addDepartment, updateDepartment, deleteDepartment,
       pendingUsers, approveUser,
+      taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       reloadData,
     ],
   )
