@@ -6,6 +6,7 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue } from '@/context/dataContextShared'
 import { supabase } from '@/lib/supabase'
+import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
   checklistToRow,
   fetchPortalDataset,
@@ -30,9 +31,20 @@ import type {
   RecognitionPost,
   Task,
   TaskActivityEntry,
+  TaskCategoryItem,
   User,
   WeeklyCheckIn,
 } from '@/types'
+
+const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
+  { id: 'react',       label: 'React / Frontend' },
+  { id: 'wordpress',   label: 'WordPress' },
+  { id: 'performance', label: 'Performance' },
+  { id: 'nodejs',      label: 'Node.js' },
+  { id: 'freelance',   label: 'Freelance' },
+  { id: 'admin',       label: 'Operations' },
+  { id: 'other',       label: 'Other' },
+]
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 
 export function SupabaseDataProvider({ children }: { children: React.ReactNode }) {
@@ -845,6 +857,22 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     [client, reloadData],
   )
 
+  /* ----------------------- Task Categories -------------------------------- */
+  // Stored in localStorage (org-wide config, not per-user DB data)
+  const [taskCategories, setTaskCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-task-categories',
+    DEFAULT_TASK_CATEGORIES,
+  )
+  const addTaskCategory = useCallback((label: string) => {
+    setTaskCategories((prev) => [...prev, { id: 'cat_' + uid(), label }])
+  }, [setTaskCategories])
+  const updateTaskCategory = useCallback((id: string, label: string) => {
+    setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setTaskCategories])
+  const deleteTaskCategory = useCallback((id: string) => {
+    setTaskCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setTaskCategories])
+
   const value = useMemo<DataContextValue>(
     () => ({
       users,
@@ -922,6 +950,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         await client.from('profiles').update({ role, department, job_title: jobTitle, active: true, approved_at: new Date().toISOString() }).eq('id', id)
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
       },
+      taskCategories,
+      addTaskCategory,
+      updateTaskCategory,
+      deleteTaskCategory,
       dataStatus,
       dataError,
       reloadData,
@@ -969,6 +1001,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addEvent,
       teams,
       departments,
+      taskCategories,
+      addTaskCategory,
+      updateTaskCategory,
+      deleteTaskCategory,
       dataStatus,
       dataError,
       reloadData,

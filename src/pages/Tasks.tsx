@@ -12,6 +12,9 @@ import {
   Trash2,
   Search,
   LayoutList,
+  Settings2,
+  Pencil,
+  X,
 } from 'lucide-react'
 import {
   addDays,
@@ -36,7 +39,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { StatCard } from '@/components/shared/StatCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, fmtDate, isAdmin, isOverdue, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, isAdmin, isLead, isOverdue, relativeTime } from '@/utils/helpers'
 import { pages, actions } from '@/content/copy'
 import type { Task, TaskCategory, TaskPriority, TaskStatus, User } from '@/types'
 
@@ -79,20 +82,7 @@ function priorityLabel(p: TaskPriority): string {
   return { high: T.priorityUrgent, medium: T.priorityNormal, low: T.priorityLater }[p]
 }
 
-const CATEGORIES: { value: TaskCategory; label: string }[] = [
-  { value: 'react', label: 'React / Frontend' },
-  { value: 'wordpress', label: 'WordPress' },
-  { value: 'performance', label: 'Performance' },
-  { value: 'nodejs', label: 'Node.js' },
-  { value: 'freelance', label: 'Freelance' },
-  { value: 'admin', label: 'Operations' },
-  { value: 'other', label: 'Other' },
-]
-
-const CATEGORY_LABEL = Object.fromEntries(CATEGORIES.map((c) => [c.value, c.label])) as Record<
-  TaskCategory,
-  string
->
+// CATEGORIES and CATEGORY_LABEL are now built dynamically from DataContext.taskCategories
 
 type DueBucket = 'overdue' | 'today' | 'this_week' | 'later' | 'none'
 
@@ -124,7 +114,7 @@ const emptyDraft: TaskDraft = {
   description: '',
   status: 'todo',
   priority: 'medium',
-  category: 'react',
+  category: '',   // resolved to taskCategories[0].id at open time
   dueDate: '',
   hoursLogged: '',
   estimatedHours: '',
@@ -148,7 +138,17 @@ const draftFromTask = (t: Task): TaskDraft => ({
 
 export function TasksPage() {
   const { user } = useAuth()
-  const { tasks, users, createTask, updateTask, deleteTask } = useData()
+  const {
+    tasks, users, createTask, updateTask, deleteTask,
+    taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
+  } = useData()
+
+  // Build dynamic lookup map — same shape as the old CATEGORY_LABEL constant
+  const CATEGORY_LABEL = useMemo(
+    () => Object.fromEntries(taskCategories.map((c) => [c.id, c.label])),
+    [taskCategories],
+  )
+
   const [view, setView] = useState<ViewMode>('board')
   const [scope, setScope] = useState<ScopeMode>('all')
   const [weekOffset, setWeekOffset] = useState(0)
@@ -160,6 +160,12 @@ export function TasksPage() {
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all')
   const [priorityFilter, setPriorityFilter] = useState<'all' | TaskPriority>('all')
   const [sort, setSort] = useState<SortMode>('dueSoon')
+
+  // Category management modal (leads+ only)
+  const [manageCatsOpen, setManageCatsOpen] = useState(false)
+  const [catDraft, setCatDraft] = useState('')
+  const [editCatId, setEditCatId] = useState<string | null>(null)
+  const [editCatLabel, setEditCatLabel] = useState('')
 
   const isMyTask = useCallback(
     (t: Task) =>
@@ -288,7 +294,7 @@ export function TasksPage() {
   }, [filteredTasks, weekDays])
 
   const openCreate = () => {
-    setDraft(emptyDraft)
+    setDraft({ ...emptyDraft, category: taskCategories[0]?.id ?? '' })
     setFormOpen(true)
   }
 
@@ -386,6 +392,12 @@ export function TasksPage() {
                 {T.week}
               </button>
             </div>
+            {isLead(user) && (
+              <Button variant="secondary" onClick={() => { setManageCatsOpen(true); setCatDraft(''); setEditCatId(null) }}>
+                <Settings2 className="h-4 w-4" />
+                Categories
+              </Button>
+            )}
             <Button onClick={openCreate} variant="primary">
               <Plus className="h-4 w-4" />
               {T.newTask}
@@ -547,6 +559,7 @@ export function TasksPage() {
                           task={t}
                           users={assigneeOptions}
                           onClick={() => setDetailId(t.id)}
+                          categoryLabel={CATEGORY_LABEL}
                         />
                       ))
                     )}
@@ -591,6 +604,7 @@ export function TasksPage() {
                         task={t}
                         users={assigneeOptions}
                         onClick={() => setDetailId(t.id)}
+                        categoryLabel={CATEGORY_LABEL}
                       />
                     ))}
                   </div>
@@ -716,6 +730,7 @@ export function TasksPage() {
                         task={t}
                         users={assigneeOptions}
                         onClick={() => setDetailId(t.id)}
+                        categoryLabel={CATEGORY_LABEL}
                       />
                     ))}
                   </div>
@@ -756,7 +771,7 @@ export function TasksPage() {
                         <td className="py-2.5 pr-3">
                           <Badge tone={STATUS_UI[t.status].tone}>{statusLabel(t.status)}</Badge>
                         </td>
-                        <td className="py-2.5 pr-3 text-muted">{CATEGORY_LABEL[t.category]}</td>
+                        <td className="py-2.5 pr-3 text-muted">{CATEGORY_LABEL[t.category] ?? t.category}</td>
                         <td className="py-2.5 pr-3">
                           {person ? (
                             <div className="flex items-center gap-2 text-muted">
@@ -876,7 +891,7 @@ export function TasksPage() {
               label={T.formCategoryLabel}
               value={draft.category}
               onChange={(e) => setDraft({ ...draft, category: e.target.value as TaskCategory })}
-              options={CATEGORIES}
+              options={taskCategories.map((c) => ({ value: c.id, label: c.label }))}
             />
             <Input
               type="date"
@@ -1108,6 +1123,97 @@ export function TasksPage() {
           </div>
         ) : null}
       </Modal>
+
+      {/* Manage task categories modal — leads and above */}
+      <Modal
+        open={manageCatsOpen}
+        onClose={() => { setManageCatsOpen(false); setEditCatId(null); setCatDraft('') }}
+        title="Manage task categories"
+        size="md"
+      >
+        <div className="space-y-4">
+          {/* Add new */}
+          <form
+            className="flex gap-2"
+            onSubmit={(e) => {
+              e.preventDefault()
+              const label = catDraft.trim()
+              if (!label) return
+              addTaskCategory(label)
+              setCatDraft('')
+            }}
+          >
+            <Input
+              className="flex-1"
+              placeholder="New category name…"
+              value={catDraft}
+              onChange={(e) => setCatDraft(e.target.value)}
+            />
+            <Button type="submit" variant="primary" disabled={!catDraft.trim()}>
+              <Plus className="h-4 w-4" /> Add
+            </Button>
+          </form>
+
+          {/* Existing list */}
+          <ul className="divide-y divide-border rounded-md border border-border">
+            {taskCategories.map((cat) => (
+              <li key={cat.id} className="flex items-center gap-2 px-3 py-2">
+                {editCatId === cat.id ? (
+                  <>
+                    <Input
+                      className="flex-1"
+                      value={editCatLabel}
+                      onChange={(e) => setEditCatLabel(e.target.value)}
+                      autoFocus
+                    />
+                    <Button
+                      size="sm"
+                      variant="primary"
+                      onClick={() => {
+                        const label = editCatLabel.trim()
+                        if (label) updateTaskCategory(cat.id, label)
+                        setEditCatId(null)
+                      }}
+                    >
+                      Save
+                    </Button>
+                    <Button size="sm" variant="ghost" onClick={() => setEditCatId(null)}>
+                      <X className="h-4 w-4" />
+                    </Button>
+                  </>
+                ) : (
+                  <>
+                    <span className="flex-1 text-sm text-fg">{cat.label}</span>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      onClick={() => { setEditCatId(cat.id); setEditCatLabel(cat.label) }}
+                      aria-label={`Edit category ${cat.label}`}
+                    >
+                      <Pencil className="h-3.5 w-3.5" />
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="ghost"
+                      className="text-danger hover:bg-danger/10"
+                      onClick={() => deleteTaskCategory(cat.id)}
+                      aria-label={`Delete category ${cat.label}`}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" />
+                    </Button>
+                  </>
+                )}
+              </li>
+            ))}
+            {taskCategories.length === 0 && (
+              <li className="px-3 py-4 text-center text-sm text-muted">No categories yet.</li>
+            )}
+          </ul>
+          <p className="text-xs text-muted">
+            Changes apply immediately. Existing tasks keep their current category label.
+          </p>
+        </div>
+      </Modal>
     </div>
   )
 }
@@ -1116,10 +1222,12 @@ function TaskCard({
   task,
   users,
   onClick,
+  categoryLabel,
 }: {
   task: Task
   users: User[]
   onClick: () => void
+  categoryLabel: Record<string, string>
 }) {
   const overdue = task.status !== 'done' && isOverdue(task.dueDate)
   const assigneeIds = task.assigneeIds?.length
@@ -1156,7 +1264,7 @@ function TaskCard({
           <p className="line-clamp-2 text-sm font-medium text-fg">{task.title}</p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
             <Badge tone={PRIORITY_TONE[task.priority]}>{priorityLabel(task.priority)}</Badge>
-            <Badge tone="muted">{CATEGORY_LABEL[task.category]}</Badge>
+            <Badge tone="muted">{categoryLabel[task.category] ?? task.category}</Badge>
             {task.blockers ? (
               <Badge tone="danger" dot>
                 {T.statusStuck}

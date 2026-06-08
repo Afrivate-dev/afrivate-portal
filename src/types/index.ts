@@ -35,14 +35,14 @@ export interface User {
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'
 export type TaskPriority = 'high' | 'medium' | 'low'
-export type TaskCategory =
-  | 'react'
-  | 'wordpress'
-  | 'performance'
-  | 'nodejs'
-  | 'freelance'
-  | 'admin'
-  | 'other'
+/** Open string type — actual values are managed at runtime via DataContext.taskCategories. */
+export type TaskCategory = string
+
+/** A label+id pair for task categories, editable by leads and above. */
+export interface TaskCategoryItem {
+  id: string
+  label: string
+}
 
 export interface TaskActivityEntry {
   at: string

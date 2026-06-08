@@ -11,6 +11,7 @@ import type {
   OnboardingVideo,
   RecognitionPost,
   Task,
+  TaskCategoryItem,
   User,
   WeeklyCheckIn,
   WorkspaceTeam,
@@ -82,6 +83,12 @@ export interface DataContextValue {
   /** Users with active=false awaiting admin approval */
   pendingUsers: User[]
   approveUser: (id: string, role: import('@/types').Role, department: string, jobTitle: string) => void
+
+  /** Task categories — managed by assistant_lead and above. Stored client-side. */
+  taskCategories: TaskCategoryItem[]
+  addTaskCategory: (label: string) => void
+  updateTaskCategory: (id: string, label: string) => void
+  deleteTaskCategory: (id: string) => void
 
   /** `loading` only in Supabase mode during fetch. Local mode stays `ready`. */
   dataStatus: 'ready' | 'loading' | 'error'
