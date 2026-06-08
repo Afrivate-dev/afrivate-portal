@@ -49,14 +49,18 @@ Deno.serve(async (req) => {
       .single()
 
     if (!profile?.role || !['admin', 'hr'].includes(profile.role)) {
-      return new Response(JSON.stringify({ error: 'Only administrators and People & Culture managers can invite users' }), {
-        status: 403,
-        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
-      })
+      return new Response(
+        JSON.stringify({ error: 'Only administrators and People & Culture managers can invite users' }),
+        {
+          status: 403,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        },
+      )
     }
 
     // Parse request body
-    const { email } = await req.json()
+    const body = await req.json()
+    const { email, name } = body as { email?: string; name?: string }
     if (!email || typeof email !== 'string') {
       return new Response(JSON.stringify({ error: 'A valid email address is required' }), {
         status: 400,
@@ -64,12 +68,46 @@ Deno.serve(async (req) => {
       })
     }
 
+    const cleanEmail = email.trim().toLowerCase()
+    const cleanName = typeof name === 'string' && name.trim() ? name.trim() : undefined
+    const redirectTo = `${siteUrl}/reset-password`
+    const userData = cleanName ? { name: cleanName } : undefined
+
     // Send the invite via admin API
-    const { data, error } = await adminClient.auth.admin.inviteUserByEmail(email.trim().toLowerCase(), {
-      redirectTo: `${siteUrl}/reset-password`,
+    const { data, error } = await adminClient.auth.admin.inviteUserByEmail(cleanEmail, {
+      redirectTo,
+      data: userData,
     })
 
     if (error) {
+      // If the user was already invited but never confirmed, re-send by generating
+      // a fresh invite link so the admin can retry without manually deleting the user.
+      const alreadyExists =
+        error.message.toLowerCase().includes('already registered') ||
+        error.message.toLowerCase().includes('already been registered') ||
+        error.message.toLowerCase().includes('user already registered')
+
+      if (alreadyExists) {
+        const { data: linkData, error: linkErr } = await adminClient.auth.admin.generateLink({
+          type: 'invite',
+          email: cleanEmail,
+          options: { redirectTo, data: userData },
+        })
+        if (linkErr) {
+          return new Response(JSON.stringify({ error: linkErr.message }), {
+            status: 400,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          })
+        }
+        return new Response(
+          JSON.stringify({ success: true, resent: true, userId: linkData.user?.id }),
+          {
+            status: 200,
+            headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+          },
+        )
+      }
+
       return new Response(JSON.stringify({ error: error.message }), {
         status: 400,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },

@@ -17,8 +17,8 @@ function PendingApprovalScreen({ onSignOut }: { onSignOut: () => void }) {
       <div className="space-y-2">
         <h1 className="font-heading text-2xl font-bold text-fg">Account pending approval</h1>
         <p className="max-w-sm text-sm text-muted">
-          Your account has been created successfully. The administrator needs to approve it
-          before you can access the portal. You'll receive an email once you're approved.
+          Your account has been created successfully. An administrator will review and
+          activate it shortly. Sign back in once you've been notified.
         </p>
       </div>
       <button
@@ -47,7 +47,23 @@ export function AppLayout() {
     }
   }, [dataStatus, users, user, updateProfile])
 
-  if (!user) return <Navigate to="/login" replace />
+  if (!user) {
+    // Preserve auth tokens from invite / password-reset links.
+    // AppLayout renders synchronously before AuthRedirectHandler's useEffect fires,
+    // so we must intercept ?code= here rather than letting <Navigate replace /> drop it.
+    const params = new URLSearchParams(window.location.search)
+    const code = params.get('code')
+    if (code) return <Navigate to={`/reset-password?code=${code}`} replace />
+    const hash = window.location.hash
+    if (
+      hash.includes('access_token') ||
+      hash.includes('type=recovery') ||
+      hash.includes('type=invite')
+    ) {
+      return <Navigate to={`/reset-password${hash}`} replace />
+    }
+    return <Navigate to="/login" replace />
+  }
 
   // User signed in but not yet approved by admin
   if (user.active === false) {

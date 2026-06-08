@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Navigate, useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, ArrowRight } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -12,6 +12,7 @@ export function LoginPage() {
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
@@ -50,9 +51,10 @@ export function LoginPage() {
           autoComplete="email"
           leadingIcon={<Mail className="h-4 w-4" />}
           required
+          autoFocus
         />
         <Input
-          type="password"
+          type={showPassword ? 'text' : 'password'}
           name="password"
           label="Password"
           value={password}
@@ -60,6 +62,16 @@ export function LoginPage() {
           placeholder="••••••••"
           autoComplete="current-password"
           leadingIcon={<Lock className="h-4 w-4" />}
+          trailingNode={
+            <button
+              type="button"
+              onClick={() => setShowPassword((s) => !s)}
+              className="text-muted hover:text-fg"
+              aria-label={showPassword ? 'Hide password' : 'Show password'}
+            >
+              {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+            </button>
+          }
           required
         />
 

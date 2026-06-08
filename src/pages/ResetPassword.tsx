@@ -1,6 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Lock, CheckCircle, ArrowRight } from 'lucide-react'
+import { Lock, CheckCircle, ArrowRight, Eye, EyeOff } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -8,13 +8,39 @@ import { supabase } from '@/lib/supabase'
 
 type Stage = 'loading' | 'set_password' | 'success' | 'error'
 
+/** Returns an error string if the password doesn't meet policy, null if it passes. */
+function validatePassword(pw: string): string | null {
+  if (pw.length < 8) return 'Password must be at least 8 characters.'
+  if (!/[A-Z]/.test(pw)) return 'Include at least one uppercase letter.'
+  if (!/[0-9!@#$%^&*()\-_=+[\]{}|;:,.<>?/\\]/.test(pw))
+    return 'Include at least one number or special character.'
+  return null
+}
+
+function VisibilityToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="text-muted hover:text-fg"
+      aria-label={show ? 'Hide password' : 'Show password'}
+    >
+      {show ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+    </button>
+  )
+}
+
 export function ResetPasswordPage() {
   const navigate = useNavigate()
   const [stage, setStage] = useState<Stage>('loading')
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
+  const [showPassword, setShowPassword] = useState(false)
+  const [showConfirm, setShowConfirm] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  /** true when this is a brand-new invited user setting their password for the first time */
+  const [isNewUser, setIsNewUser] = useState(false)
 
   useEffect(() => {
     if (!supabase) {
@@ -25,16 +51,22 @@ export function ResetPasswordPage() {
     const client = supabase
 
     const handleAuth = async () => {
-      // Supabase v2 uses PKCE by default — token arrives as ?code= in the URL
+      // Supabase v2 PKCE flow — token arrives as ?code= in the URL
       const params = new URLSearchParams(window.location.search)
       const code = params.get('code')
 
       if (code) {
-        const { error: exchangeError } = await client.auth.exchangeCodeForSession(code)
+        const { error: exchangeError, data } = await client.auth.exchangeCodeForSession(code)
         if (exchangeError) {
           console.error('[reset] code exchange error:', exchangeError.message)
           setStage('error')
           return
+        }
+        // Detect first-time invited users: they have never signed in before
+        const lastSignIn = data.user?.last_sign_in_at
+        const createdAt = data.user?.created_at
+        if (!lastSignIn || lastSignIn === createdAt) {
+          setIsNewUser(true)
         }
         // Clean the code from the URL so a refresh doesn't try to re-use it
         window.history.replaceState({}, '', '/reset-password')
@@ -73,8 +105,9 @@ export function ResetPasswordPage() {
     e.preventDefault()
     setError(null)
 
-    if (password.length < 8) {
-      setError('Password must be at least 8 characters.')
+    const pwError = validatePassword(password)
+    if (pwError) {
+      setError(pwError)
       return
     }
     if (password !== confirm) {
@@ -96,7 +129,7 @@ export function ResetPasswordPage() {
     }
 
     setStage('success')
-    setTimeout(() => navigate('/', { replace: true }), 2500)
+    setTimeout(() => navigate('/', { replace: true }), 3000)
   }
 
   return (
@@ -109,7 +142,8 @@ export function ResetPasswordPage() {
         <div className="space-y-4 text-center">
           <h1 className="text-xl font-bold text-fg">Link expired</h1>
           <p className="text-sm text-muted">
-            This link has expired or already been used. Ask your administrator to send a new invite or password reset.
+            This link has expired or already been used. Ask your administrator to send a new
+            invite or password reset.
           </p>
           <Button variant="secondary" className="w-full" onClick={() => navigate('/login')}>
             Back to sign in
@@ -120,42 +154,61 @@ export function ResetPasswordPage() {
       {stage === 'set_password' && (
         <>
           <div className="mb-6 text-center">
-            <h1 className="text-2xl font-bold text-fg">Set your password</h1>
+            <h1 className="text-2xl font-bold text-fg">
+              {isNewUser ? 'Create your password' : 'Set new password'}
+            </h1>
             <p className="mt-1 text-sm text-muted">
-              Choose a strong password to secure your AfriVate account.
+              {isNewUser
+                ? 'Welcome to AfriVate! Choose a strong password to secure your new account.'
+                : 'Choose a strong password to secure your AfriVate account.'}
             </p>
           </div>
 
           <form className="space-y-4" onSubmit={handleSubmit}>
             <Input
-              type="password"
+              type={showPassword ? 'text' : 'password'}
               label="New password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              placeholder="Minimum 8 characters"
+              placeholder="Min. 8 chars, uppercase & number"
               autoComplete="new-password"
               leadingIcon={<Lock className="h-4 w-4" />}
+              trailingNode={
+                <VisibilityToggle
+                  show={showPassword}
+                  onToggle={() => setShowPassword((s) => !s)}
+                />
+              }
               required
             />
             <Input
-              type="password"
+              type={showConfirm ? 'text' : 'password'}
               label="Confirm password"
               value={confirm}
               onChange={(e) => setConfirm(e.target.value)}
               placeholder="Repeat your password"
               autoComplete="new-password"
               leadingIcon={<Lock className="h-4 w-4" />}
+              trailingNode={
+                <VisibilityToggle
+                  show={showConfirm}
+                  onToggle={() => setShowConfirm((s) => !s)}
+                />
+              }
               required
             />
 
             {error && (
-              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              <div
+                role="alert"
+                className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger"
+              >
                 {error}
               </div>
             )}
 
             <Button type="submit" size="lg" className="w-full" loading={loading}>
-              Set password & sign in
+              {isNewUser ? 'Create account & sign in' : 'Set password & sign in'}
               <ArrowRight className="h-4 w-4" />
             </Button>
           </form>
@@ -165,9 +218,13 @@ export function ResetPasswordPage() {
       {stage === 'success' && (
         <div className="space-y-3 py-4 text-center">
           <CheckCircle className="mx-auto h-10 w-10 text-success" />
-          <h1 className="text-xl font-bold text-fg">Password set!</h1>
+          <h1 className="text-xl font-bold text-fg">
+            {isNewUser ? 'Password created!' : 'Password updated!'}
+          </h1>
           <p className="text-sm text-muted">
-            You're signed in. Taking you to the portal now…
+            {isNewUser
+              ? 'Your account is ready. Taking you to the portal — an administrator may need to activate it before you can access everything.'
+              : 'All done. Taking you to the portal now…'}
           </p>
         </div>
       )}

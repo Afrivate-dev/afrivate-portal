@@ -173,12 +173,12 @@ export function AdminPanelPage() {
   const [localPassword, setLocalPassword] = useState('')
 
   const sendInvite = async () => {
-    if (!inviteEmail.trim()) return
+    if (!inviteEmail.trim() || inviteStatus === 'sending') return
     if (!supabase) {
       // Local mode: create the account directly and surface credentials
       const pwd = uid()
       setLocalPassword(pwd)
-      addUser(inviteEmail.trim(), inviteName.trim(), pwd)
+      addUser(inviteEmail.trim(), inviteName.trim() || inviteEmail.split('@')[0], pwd)
       setInviteStatus('sent')
       return
     }
@@ -186,7 +186,10 @@ export function AdminPanelPage() {
     setInviteError('')
     try {
       const { error } = await supabase.functions.invoke('invite-user', {
-        body: { email: inviteEmail.trim().toLowerCase() },
+        body: {
+          email: inviteEmail.trim().toLowerCase(),
+          name: inviteName.trim() || undefined,
+        },
       })
       if (error) throw new Error(error.message)
       setInviteStatus('sent')
@@ -962,12 +965,16 @@ export function AdminPanelPage() {
       >
         {inviteStatus === 'sent' ? (
           supabase ? (
-            <div className="space-y-1 text-center py-4">
+            <div className="space-y-2 text-center py-4">
               <p className="font-semibold text-fg">Invite sent!</p>
               <p className="text-sm text-muted">
-                An email has been sent to <strong>{inviteEmail}</strong>. Once they accept
-                and set their password, their account will appear in the Approvals tab for
-                you to activate.
+                An invite email has been dispatched to <strong>{inviteEmail}</strong>. Once
+                they set their password their account will appear in the Approvals tab.
+              </p>
+              <p className="text-xs text-muted">
+                If they don't receive it within a few minutes, ask them to check spam — or
+                configure a custom SMTP provider in Supabase → Project Settings → Auth →
+                SMTP Settings for reliable delivery.
               </p>
             </div>
           ) : (
@@ -987,29 +994,28 @@ export function AdminPanelPage() {
           <div className="space-y-3">
             {supabase ? (
               <p className="text-sm text-muted">
-                Enter the person's work email. They'll receive a link to set their password
-                and access the portal — you'll then approve their account from the Approvals tab.
+                Enter the person's details. They'll receive an email with a link to set their
+                password — you'll then approve their account from the Approvals tab.
               </p>
             ) : (
               <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
-                <strong>Local mode:</strong> Supabase is not connected, so no email will be sent. An account will be created and you'll get a temporary password to share directly.
+                <strong>Local mode:</strong> Supabase is not connected, so no email will be
+                sent. An account will be created and you'll get a temporary password to share
+                directly.
               </div>
             )}
-            {!supabase && (
-              <Input
-                label="Full name"
-                value={inviteName}
-                onChange={(e) => setInviteName(e.target.value)}
-                placeholder="e.g. Jane Smith"
-              />
-            )}
+            <Input
+              label="Full name (optional)"
+              value={inviteName}
+              onChange={(e) => setInviteName(e.target.value)}
+              placeholder="e.g. Jane Smith"
+            />
             <Input
               label="Email address"
               type="email"
               value={inviteEmail}
               onChange={(e) => setInviteEmail(e.target.value)}
               placeholder="colleague@afrivate.org"
-              autoFocus={!!supabase}
             />
             {inviteStatus === 'error' && (
               <div role="alert" className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
