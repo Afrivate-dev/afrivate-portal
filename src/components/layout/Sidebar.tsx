@@ -1,4 +1,4 @@
-﻿import { NavLink } from 'react-router-dom'
+﻿import { NavLink, Link } from 'react-router-dom'
 import { navItems } from '@/config/nav'
 import { cn } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
@@ -48,6 +48,9 @@ export function Sidebar() {
       <div className="border-t border-border p-4 text-[11px] text-muted">
         <p className="font-medium text-fg">AfriVate Portal</p>
         <p>v0.1.0 &middot; internal use only</p>
+        <Link to="/privacy" className="mt-1.5 block text-accent hover:underline">
+          Privacy Notice
+        </Link>
       </div>
     </aside>
   )

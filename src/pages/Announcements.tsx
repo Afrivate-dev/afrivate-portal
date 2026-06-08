@@ -99,6 +99,7 @@ export function AnnouncementsPage() {
   const [readingId, setReadingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<FormDraft>(emptyDraft)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
     if (readingId) {
@@ -351,9 +352,7 @@ export function AnnouncementsPage() {
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
-                            if (window.confirm(U.deleteConfirm)) {
-                              deleteAnnouncement(a.id)
-                            }
+                            setDeleteConfirmId(a.id)
                           }}
                           aria-label={U.deleteAria}
                           className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
@@ -484,6 +483,31 @@ export function AnnouncementsPage() {
             />
           </div>
         </form>
+      </Modal>
+
+      {/* Delete announcement confirmation */}
+      <Modal
+        open={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete announcement"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>
+              {actions.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteConfirmId) deleteAnnouncement(deleteConfirmId)
+                setDeleteConfirmId(null)
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{U.deleteConfirm}</p>
       </Modal>
     </div>
   )

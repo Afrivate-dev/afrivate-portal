@@ -1,7 +1,9 @@
 import { createClient } from 'https://esm.sh/@supabase/supabase-js@2'
 
+// CORS origin is restricted to the portal domain (set via SITE_URL env var in production)
+const allowedOrigin = Deno.env.get('SITE_URL') ?? 'https://portal.afrivate.org'
 const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Origin': allowedOrigin,
   'Access-Control-Allow-Headers': 'authorization, x-client-info, apikey, content-type',
 }
 
@@ -46,8 +48,8 @@ Deno.serve(async (req) => {
       .eq('id', caller.id)
       .single()
 
-    if (profile?.role !== 'admin') {
-      return new Response(JSON.stringify({ error: 'Only administrators can invite users' }), {
+    if (!profile?.role || !['admin', 'hr'].includes(profile.role)) {
+      return new Response(JSON.stringify({ error: 'Only administrators and People & Culture managers can invite users' }), {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })

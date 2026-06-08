@@ -53,8 +53,10 @@ export interface TaskActivityEntry {
 export interface Task {
   id: string
   ownerId: string
-  /** Who is responsible for delivery; defaults to owner visually when omitted. */
+  /** @deprecated — kept for DB backward compat. Use assigneeIds instead. */
   assigneeId?: string
+  /** One or more people responsible for delivery; empty means owner only. */
+  assigneeIds?: string[]
   title: string
   description?: string
   status: TaskStatus

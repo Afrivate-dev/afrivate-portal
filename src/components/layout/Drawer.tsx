@@ -1,6 +1,6 @@
 ﻿import { useEffect } from 'react'
-import { NavLink } from 'react-router-dom'
-import { X, LogOut } from 'lucide-react'
+import { NavLink, Link } from 'react-router-dom'
+import { X, LogOut, ShieldCheck } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { cn, roleLabel } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
@@ -91,16 +91,26 @@ export function Drawer({ open, onClose }: DrawerProps) {
           </ul>
         </nav>
 
-        <button
-          onClick={() => {
-            onClose()
-            logout()
-          }}
-          className="flex items-center gap-2 border-t border-border px-4 py-4 text-sm font-medium text-danger hover:bg-surface-2"
-        >
-          <LogOut className="h-4 w-4" />
-          Sign out
-        </button>
+        <div className="border-t border-border">
+          <Link
+            to="/privacy"
+            onClick={onClose}
+            className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-muted hover:bg-surface-2 hover:text-fg"
+          >
+            <ShieldCheck className="h-4 w-4" />
+            Privacy Notice
+          </Link>
+          <button
+            onClick={() => {
+              onClose()
+              logout()
+            }}
+            className="flex w-full items-center gap-2 border-t border-border px-4 py-4 text-sm font-medium text-danger hover:bg-surface-2"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        </div>
       </aside>
     </div>
   )

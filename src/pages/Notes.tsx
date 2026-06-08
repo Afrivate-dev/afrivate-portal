@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   StickyNote,
@@ -543,6 +543,7 @@ export function NotesPage() {
   const roots = useMemo(() => byParent.get(null) ?? [], [byParent])
   const [selectedId, setSelectedId] = useState<string | null>(null)
   const [shareForId, setShareForId] = useState<string | null>(null)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   const openFromUrl = searchParams.get('open')
   const keyFromUrl = searchParams.get('key')
@@ -557,6 +558,7 @@ export function NotesPage() {
     if (!openFromUrl) return
     if (notes.some((n) => n.id === openFromUrl)) setSelectedId(openFromUrl)
   }, [openFromUrl, notes])
+
   const shareNote = useMemo(
     () => (shareForId ? notes.find((n) => n.id === shareForId) ?? null : null),
     [notes, shareForId],
@@ -564,10 +566,20 @@ export function NotesPage() {
 
   const sortedFlat = useMemo(() => [...notes].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt)), [notes])
 
+  // Auto-select the first note on initial load only — never auto-switch after that
+  const didAutoSelectRef = useRef(false)
+  useEffect(() => {
+    if (!didAutoSelectRef.current && sortedFlat.length > 0 && !selectedId && !openFromUrl) {
+      didAutoSelectRef.current = true
+      setSelectedId(sortedFlat[0].id)
+    }
+  }, [sortedFlat, selectedId, openFromUrl])
+
+  // activeId is stable: sticks to the user's selection and never auto-switches
   const activeId = useMemo(() => {
     if (selectedId && notes.some((n) => n.id === selectedId)) return selectedId
-    return roots[0]?.id ?? sortedFlat[0]?.id ?? null
-  }, [notes, selectedId, roots, sortedFlat])
+    return null
+  }, [notes, selectedId])
 
   useEffect(() => {
     if (!activeId) {
@@ -678,12 +690,7 @@ export function NotesPage() {
                 note={selected}
                 editors={editors}
                 onSave={saveNote}
-                onDelete={() => {
-                  if (window.confirm(N.deleteConfirm)) {
-                    deleteNote(selected.id)
-                    setSelectedId(sortedFlat.find((n) => n.id !== selected.id)?.id ?? null)
-                  }
-                }}
+                onDelete={() => setDeleteConfirmId(selected.id)}
                 onOpenShare={() => openShareFor(selected)}
               />
             )}
@@ -700,6 +707,34 @@ export function NotesPage() {
           if (shareForId) saveNote(shareForId, { share })
         }}
       />
+
+      {/* Delete note confirmation */}
+      <Modal
+        open={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete note"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteConfirmId) {
+                  deleteNote(deleteConfirmId)
+                  setSelectedId(sortedFlat.find((n) => n.id !== deleteConfirmId)?.id ?? null)
+                }
+                setDeleteConfirmId(null)
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{N.deleteConfirm}</p>
+      </Modal>
     </div>
   )
 }

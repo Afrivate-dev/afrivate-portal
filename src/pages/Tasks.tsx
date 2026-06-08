@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Plus,
   AlertCircle,
@@ -36,13 +36,13 @@ import { Textarea } from '@/components/ui/Textarea'
 import { StatCard } from '@/components/shared/StatCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, fmtShortDate, isOverdue, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, isAdmin, isOverdue, relativeTime } from '@/utils/helpers'
 import { pages, actions } from '@/content/copy'
 import type { Task, TaskCategory, TaskPriority, TaskStatus, User } from '@/types'
 
 type ViewMode = 'board' | 'week' | 'list'
 
-type ScopeMode = 'related' | 'owned' | 'assigned'
+type ScopeMode = 'all' | 'mine' | 'owned' | 'assigned'
 
 type SortMode = 'dueSoon' | 'dueLater' | 'updated'
 
@@ -116,7 +116,7 @@ interface TaskDraft {
   hoursLogged: string
   estimatedHours: string
   blockers: string
-  assigneeId: string
+  assigneeIds: string[]
 }
 
 const emptyDraft: TaskDraft = {
@@ -129,7 +129,7 @@ const emptyDraft: TaskDraft = {
   hoursLogged: '',
   estimatedHours: '',
   blockers: '',
-  assigneeId: '',
+  assigneeIds: [],
 }
 
 const draftFromTask = (t: Task): TaskDraft => ({
@@ -143,38 +143,44 @@ const draftFromTask = (t: Task): TaskDraft => ({
   hoursLogged: t.hoursLogged?.toString() ?? '',
   estimatedHours: t.estimatedHours?.toString() ?? '',
   blockers: t.blockers ?? '',
-  assigneeId: t.assigneeId ?? '',
+  assigneeIds: t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : []),
 })
 
 export function TasksPage() {
   const { user } = useAuth()
   const { tasks, users, createTask, updateTask, deleteTask } = useData()
   const [view, setView] = useState<ViewMode>('board')
-  const [scope, setScope] = useState<ScopeMode>('related')
+  const [scope, setScope] = useState<ScopeMode>('all')
   const [weekOffset, setWeekOffset] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<TaskDraft>(emptyDraft)
   const [detailId, setDetailId] = useState<string | null>(null)
+  const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
   const [statusFilter, setStatusFilter] = useState<'all' | TaskStatus>('all')
   const [priorityFilter, setPriorityFilter] = useState<'all' | TaskPriority>('all')
   const [sort, setSort] = useState<SortMode>('dueSoon')
 
-  const relatedTasks = useMemo(
-    () =>
-      user
-        ? tasks.filter((t) => t.ownerId === user.id || t.assigneeId === user.id)
-        : [],
-    [tasks, user],
+  const isMyTask = useCallback(
+    (t: Task) =>
+      !!user &&
+      (t.ownerId === user.id ||
+        t.assigneeId === user.id ||
+        (t.assigneeIds?.includes(user.id) ?? false)),
+    [user],
   )
 
   const scopedTasks = useMemo(() => {
     if (!user) return []
-    if (scope === 'owned') return relatedTasks.filter((t) => t.ownerId === user.id)
+    if (scope === 'all') return tasks
+    if (scope === 'mine') return tasks.filter(isMyTask)
+    if (scope === 'owned') return tasks.filter((t) => t.ownerId === user.id)
     if (scope === 'assigned')
-      return relatedTasks.filter((t) => t.assigneeId != null && t.assigneeId === user.id)
-    return relatedTasks
-  }, [relatedTasks, user, scope])
+      return tasks.filter(
+        (t) => t.assigneeId === user.id || (t.assigneeIds?.includes(user.id) ?? false),
+      )
+    return tasks
+  }, [tasks, user, scope, isMyTask])
 
   const assigneeOptions = useMemo(
     () => users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name)),
@@ -217,13 +223,13 @@ export function TasksPage() {
   }, [myTasks, search, statusFilter, priorityFilter, sort])
 
   const filtersActive =
-    !!search.trim() || statusFilter !== 'all' || priorityFilter !== 'all' || scope !== 'related'
+    !!search.trim() || statusFilter !== 'all' || priorityFilter !== 'all' || scope !== 'all'
 
   const clearFilters = () => {
     setSearch('')
     setStatusFilter('all')
     setPriorityFilter('all')
-    setScope('related')
+    setScope('all')
   }
 
   const stats = useMemo(
@@ -316,7 +322,8 @@ export function TasksPage() {
         draft.id,
         {
           ...basePayload,
-          assigneeId: draft.assigneeId || undefined,
+          assigneeIds: draft.assigneeIds,
+          assigneeId: draft.assigneeIds[0] ?? undefined,
         },
         user.id,
       )
@@ -324,13 +331,14 @@ export function TasksPage() {
       createTask({
         ...basePayload,
         ownerId: user.id,
-        assigneeId: draft.assigneeId || undefined,
+        assigneeIds: draft.assigneeIds,
+        assigneeId: draft.assigneeIds[0] ?? undefined,
       })
     }
     closeForm()
   }
 
-  const detailTask = detailId ? relatedTasks.find((t) => t.id === detailId) ?? null : null
+  const detailTask = detailId ? tasks.find((t) => t.id === detailId) ?? null : null
 
   const showingFilteredHint =
     filtersActive && myTasks.length > 0
@@ -451,7 +459,8 @@ export function TasksPage() {
               value={scope}
               onChange={(e) => setScope(e.target.value as ScopeMode)}
               options={[
-                { value: 'related', label: T.scopeRelated },
+                { value: 'all', label: 'All tasks' },
+                { value: 'mine', label: T.scopeRelated },
                 { value: 'owned', label: T.scopeOwned },
                 { value: 'assigned', label: T.scopeAssigned },
               ]}
@@ -648,8 +657,12 @@ export function TasksPage() {
                     <p className="px-1 py-4 text-center text-[11px] text-muted">{T.weekNoItems}</p>
                   ) : (
                     dayTasks.map((t) => {
-                      const aid = t.assigneeId ?? t.ownerId
-                      const person = assigneeOptions.find((u) => u.id === aid)
+                      const weekAids = t.assigneeIds?.length
+                        ? t.assigneeIds
+                        : t.assigneeId
+                          ? [t.assigneeId]
+                          : [t.ownerId]
+                      const person = assigneeOptions.find((u) => u.id === weekAids[0])
                       return (
                         <button
                           key={t.id}
@@ -727,8 +740,12 @@ export function TasksPage() {
                 {tasksByDay
                   .flatMap((d) => d.tasks)
                   .map((t) => {
-                    const aid = t.assigneeId ?? t.ownerId
-                    const person = assigneeOptions.find((u) => u.id === aid)
+                    const tableAids = t.assigneeIds?.length
+                      ? t.assigneeIds
+                      : t.assigneeId
+                        ? [t.assigneeId]
+                        : [t.ownerId]
+                    const person = assigneeOptions.find((u) => u.id === tableAids[0])
                     return (
                       <tr
                         key={t.id}
@@ -750,7 +767,7 @@ export function TasksPage() {
                             <span className="text-muted">{'\u2014'}</span>
                           )}
                         </td>
-                        <td className="py-2.5 pr-3 text-muted">{fmtShortDate(t.dueDate)}</td>
+                        <td className="py-2.5 pr-3 text-muted">{fmtDate(t.dueDate)}</td>
                         <td className="py-2.5 pr-3 text-muted">{t.hoursLogged ?? 0}h</td>
                       </tr>
                     )
@@ -809,15 +826,36 @@ export function TasksPage() {
           <p className="text-xs text-muted">{T.mentionHint}</p>
           <div className="grid gap-4 sm:grid-cols-2">
             <div className="sm:col-span-2">
-              <Select
-                label={T.formAssigneeLabel}
-                value={draft.assigneeId}
-                onChange={(e) => setDraft({ ...draft, assigneeId: e.target.value })}
-                options={[
-                  { value: '', label: T.assigneeOwnerOnly },
-                  ...assigneeOptions.map((u) => ({ value: u.id, label: u.name })),
-                ]}
-              />
+              <p className="mb-1.5 text-xs font-medium text-fg">{T.formAssigneeLabel}</p>
+              <div className="max-h-44 overflow-y-auto rounded-md border border-border bg-surface">
+                <label className="flex cursor-pointer items-center gap-2 border-b border-border px-3 py-2 hover:bg-surface-2">
+                  <input
+                    type="checkbox"
+                    checked={draft.assigneeIds.length === 0}
+                    onChange={() => setDraft({ ...draft, assigneeIds: [] })}
+                    className="rounded border-border"
+                  />
+                  <span className="text-sm text-muted">{T.assigneeOwnerOnly}</span>
+                </label>
+                {assigneeOptions.map((u) => (
+                  <label key={u.id} className="flex cursor-pointer items-center gap-2 border-b border-border px-3 py-2 last:border-0 hover:bg-surface-2">
+                    <input
+                      type="checkbox"
+                      checked={draft.assigneeIds.includes(u.id)}
+                      onChange={(e) => {
+                        const next = e.target.checked
+                          ? [...draft.assigneeIds, u.id]
+                          : draft.assigneeIds.filter((id) => id !== u.id)
+                        setDraft({ ...draft, assigneeIds: next })
+                      }}
+                      className="rounded border-border"
+                    />
+                    <Avatar name={u.name} src={u.avatarUrl} size="xs" />
+                    <span className="text-sm text-fg">{u.name}</span>
+                    <span className="ml-auto text-xs text-muted">{u.department}</span>
+                  </label>
+                ))}
+              </div>
             </div>
             <Select
               label={T.formStatusLabel}
@@ -872,6 +910,31 @@ export function TasksPage() {
         </form>
       </Modal>
 
+      {/* Delete task confirmation modal */}
+      <Modal
+        open={!!deleteTaskId}
+        onClose={() => setDeleteTaskId(null)}
+        title="Delete task"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteTaskId(null)}>
+              {actions.cancel}
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteTaskId) deleteTask(deleteTaskId)
+                setDeleteTaskId(null)
+              }}
+            >
+              {T.delete}
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{T.deleteConfirm}</p>
+      </Modal>
+
       {/* Task detail modal */}
       <Modal
         open={!!detailTask}
@@ -881,27 +944,29 @@ export function TasksPage() {
         footer={
           detailTask ? (
             <>
-              <Button
-                variant="ghost"
-                className="mr-auto text-danger hover:bg-danger/10"
-                onClick={() => {
-                  if (window.confirm(T.deleteConfirm)) {
-                    deleteTask(detailTask.id)
-                    setDetailId(null)
-                  }
-                }}
-              >
-                <Trash2 className="h-4 w-4" /> {T.delete}
-              </Button>
-              <Button
-                variant="secondary"
-                onClick={() => {
-                  openEdit(detailTask)
-                  setDetailId(null)
-                }}
-              >
-                {T.edit}
-              </Button>
+              {user && (user.id === detailTask.ownerId || isAdmin(user)) ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    className="mr-auto text-danger hover:bg-danger/10"
+                    onClick={() => {
+                      setDeleteTaskId(detailTask.id)
+                      setDetailId(null)
+                    }}
+                  >
+                    <Trash2 className="h-4 w-4" /> {T.delete}
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={() => {
+                      openEdit(detailTask)
+                      setDetailId(null)
+                    }}
+                  >
+                    {T.edit}
+                  </Button>
+                </>
+              ) : null}
             </>
           ) : null
         }
@@ -916,22 +981,32 @@ export function TasksPage() {
               <Badge tone="muted">{CATEGORY_LABEL[detailTask.category]}</Badge>
               {detailTask.dueDate ? (
                 <Badge tone={isOverdue(detailTask.dueDate) && detailTask.status !== 'done' ? 'danger' : 'default'}>
-                  <Clock className="h-3 w-3" /> Due {fmtShortDate(detailTask.dueDate)}
+                  <Clock className="h-3 w-3" /> Due {fmtDate(detailTask.dueDate)}
                 </Badge>
               ) : null}
             </div>
 
             {(() => {
-              const aid = detailTask.assigneeId ?? detailTask.ownerId
-              const person = assigneeOptions.find((u) => u.id === aid)
-              if (!person) return null
+              const assigneeIds = detailTask.assigneeIds?.length
+                ? detailTask.assigneeIds
+                : detailTask.assigneeId
+                  ? [detailTask.assigneeId]
+                  : []
+              const assignedPeople = assigneeIds
+                .map((id) => assigneeOptions.find((u) => u.id === id))
+                .filter(Boolean) as User[]
+              if (assignedPeople.length === 0) return null
               return (
-                <div className="flex items-center gap-2 text-sm">
+                <div className="flex flex-wrap items-center gap-2 text-sm">
                   <span className="text-xs font-semibold uppercase tracking-wide text-muted">
                     {T.formAssigneeLabel}
                   </span>
-                  <Avatar name={person.name} src={person.avatarUrl} size="sm" />
-                  <span className="font-medium text-fg">{person.name}</span>
+                  {assignedPeople.map((person) => (
+                    <div key={person.id} className="flex items-center gap-1.5">
+                      <Avatar name={person.name} src={person.avatarUrl} size="sm" />
+                      <span className="font-medium text-fg">{person.name}</span>
+                    </div>
+                  ))}
                 </div>
               )
             })()}
@@ -991,6 +1066,34 @@ export function TasksPage() {
 
             <div>
               <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
+                {T.formDueLabel}
+              </h4>
+              {user && (user.id === detailTask.ownerId || isAdmin(user)) ? (
+                <Input
+                  type="date"
+                  value={detailTask.dueDate ? format(parseISO(detailTask.dueDate), 'yyyy-MM-dd') : ''}
+                  onChange={(e) => {
+                    if (!user) return
+                    updateTask(
+                      detailTask.id,
+                      {
+                        dueDate: e.target.value
+                          ? new Date(e.target.value + 'T12:00:00').toISOString()
+                          : undefined,
+                      },
+                      user.id,
+                    )
+                  }}
+                />
+              ) : (
+                <p className="text-sm text-fg">
+                  {detailTask.dueDate ? fmtDate(detailTask.dueDate) : <span className="text-muted">No due date set</span>}
+                </p>
+              )}
+            </div>
+
+            <div>
+              <h4 className="mb-2 text-xs font-semibold uppercase tracking-wide text-muted">
                 {T.detailActivity}
               </h4>
               <ul className="space-y-1.5 text-xs">
@@ -1019,8 +1122,17 @@ function TaskCard({
   onClick: () => void
 }) {
   const overdue = task.status !== 'done' && isOverdue(task.dueDate)
-  const aid = task.assigneeId ?? task.ownerId
-  const person = users.find((u) => u.id === aid)
+  const assigneeIds = task.assigneeIds?.length
+    ? task.assigneeIds
+    : task.assigneeId
+      ? [task.assigneeId]
+      : []
+  const displayPeople = assigneeIds
+    .slice(0, 3)
+    .map((id) => users.find((u) => u.id === id))
+    .filter(Boolean) as User[]
+  const extraCount = assigneeIds.length > 3 ? assigneeIds.length - 3 : 0
+
   return (
     <button
       type="button"
@@ -1028,8 +1140,17 @@ function TaskCard({
       className="block w-full rounded-md border border-border bg-surface p-3 text-left transition-colors hover:border-accent/40 ring-focus"
     >
       <div className="flex items-start gap-2.5">
-        {person ? (
-          <Avatar name={person.name} src={person.avatarUrl} size="sm" className="mt-0.5 shrink-0" />
+        {displayPeople.length > 0 ? (
+          <div className="mt-0.5 flex shrink-0 -space-x-1.5">
+            {displayPeople.map((p) => (
+              <Avatar key={p.id} name={p.name} src={p.avatarUrl} size="sm" className="ring-1 ring-surface" />
+            ))}
+            {extraCount > 0 ? (
+              <span className="flex h-7 w-7 items-center justify-center rounded-full border border-border bg-surface-2 text-[10px] font-medium text-muted ring-1 ring-surface">
+                +{extraCount}
+              </span>
+            ) : null}
+          </div>
         ) : null}
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-sm font-medium text-fg">{task.title}</p>
@@ -1044,7 +1165,7 @@ function TaskCard({
           </div>
           <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted">
             <span className={cn(overdue && 'text-danger')}>
-              {task.dueDate ? `Due ${fmtShortDate(task.dueDate)}` : T.noDue}
+              {task.dueDate ? `Due ${fmtDate(task.dueDate)}` : T.noDue}
             </span>
             <span>{task.hoursLogged ?? 0}h</span>
           </div>
