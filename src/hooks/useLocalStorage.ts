@@ -19,8 +19,14 @@ export function useLocalStorage<T>(key: string, initial: T | (() => T)) {
   useEffect(() => {
     try {
       window.localStorage.setItem(key, JSON.stringify(value))
-    } catch {
-      // quota exceeded or disabled — silently drop
+    } catch (err) {
+      // Quota exceeded — notify the app so the user can be warned
+      if (
+        err instanceof DOMException &&
+        (err.name === 'QuotaExceededError' || err.name === 'NS_ERROR_DOM_QUOTA_REACHED')
+      ) {
+        window.dispatchEvent(new CustomEvent('av:storage-full', { detail: { key } }))
+      }
     }
   }, [key, value])
 

@@ -1,0 +1,32 @@
+# AfriVate Employee Portal — private, internal use only.
+# All web crawlers and bots are prohibited from accessing any part of this site.
+
+User-agent: *
+Disallow: /
+
+# Explicitly block the most common crawlers by name as a belt-and-suspenders measure
+User-agent: Googlebot
+Disallow: /
+
+User-agent: Bingbot
+Disallow: /
+
+User-agent: Slurp
+Disallow: /
+
+User-agent: DuckDuckBot
+Disallow: /
+
+User-agent: Baiduspider
+Disallow: /
+
+User-agent: YandexBot
+Disallow: /
+
+User-agent: facebot
+Disallow: /
+
+User-agent: ia_archiver
+Disallow: /
+
+# No sitemap — this portal is not intended for public indexing

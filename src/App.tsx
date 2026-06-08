@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect } from 'react'
+import { lazy, Suspense, useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ThemeProvider } from '@/context/ThemeContext'
@@ -12,24 +12,42 @@ import { LoginPage } from '@/pages/Login'
 import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { DashboardPage } from '@/pages/Dashboard'
-import { TasksPage } from '@/pages/Tasks'
-import { WeeklyCheckInPage } from '@/pages/WeeklyCheckIn'
-import { OnboardingPage } from '@/pages/Onboarding'
-import { AnnouncementsPage } from '@/pages/Announcements'
-import { StaffDirectoryPage } from '@/pages/StaffDirectory'
-import { LeaveRequestsPage } from '@/pages/LeaveRequests'
-import { DocumentLibraryPage } from '@/pages/DocumentLibrary'
-import { RecognitionPage } from '@/pages/Recognition'
-import { InboxPage } from '@/pages/Inbox'
-import { SearchPage } from '@/pages/Search'
 import { isHR } from '@/utils/helpers'
 
+// Lazily-loaded page bundles — reduces initial JS payload
+const TasksPage = lazy(() => import('@/pages/Tasks').then((m) => ({ default: m.TasksPage })))
+const WeeklyCheckInPage = lazy(() =>
+  import('@/pages/WeeklyCheckIn').then((m) => ({ default: m.WeeklyCheckInPage })),
+)
+const OnboardingPage = lazy(() =>
+  import('@/pages/Onboarding').then((m) => ({ default: m.OnboardingPage })),
+)
+const AnnouncementsPage = lazy(() =>
+  import('@/pages/Announcements').then((m) => ({ default: m.AnnouncementsPage })),
+)
+const StaffDirectoryPage = lazy(() =>
+  import('@/pages/StaffDirectory').then((m) => ({ default: m.StaffDirectoryPage })),
+)
+const LeaveRequestsPage = lazy(() =>
+  import('@/pages/LeaveRequests').then((m) => ({ default: m.LeaveRequestsPage })),
+)
+const DocumentLibraryPage = lazy(() =>
+  import('@/pages/DocumentLibrary').then((m) => ({ default: m.DocumentLibraryPage })),
+)
+const RecognitionPage = lazy(() =>
+  import('@/pages/Recognition').then((m) => ({ default: m.RecognitionPage })),
+)
+const InboxPage = lazy(() => import('@/pages/Inbox').then((m) => ({ default: m.InboxPage })))
+const SearchPage = lazy(() => import('@/pages/Search').then((m) => ({ default: m.SearchPage })))
 const EventsCalendarPage = lazy(() =>
   import('@/pages/EventsCalendar').then((m) => ({ default: m.EventsCalendarPage })),
 )
 const NotesPage = lazy(() => import('@/pages/Notes').then((m) => ({ default: m.NotesPage })))
 const AdminPanelPage = lazy(() =>
   import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanelPage })),
+)
+const PrivacyNoticePage = lazy(() =>
+  import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
 )
 
 function PageLoading() {
@@ -83,7 +101,33 @@ function AuthRedirectHandler() {
   return null
 }
 
+/** Banner shown when the browser's localStorage quota is exceeded. */
+function StorageFullBanner({ onDismiss }: { onDismiss: () => void }) {
+  return (
+    <div
+      role="alert"
+      className="fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm shadow-lg"
+    >
+      <span className="text-danger">
+        Your browser storage is full — some data may not be saved. Try clearing old notes or
+        tasks.
+      </span>
+      <button onClick={onDismiss} className="shrink-0 text-xs font-medium text-accent hover:underline">
+        Dismiss
+      </button>
+    </div>
+  )
+}
+
 export default function App() {
+  const [storageWarning, setStorageWarning] = useState(false)
+
+  useEffect(() => {
+    const handler = () => setStorageWarning(true)
+    window.addEventListener('av:storage-full', handler)
+    return () => window.removeEventListener('av:storage-full', handler)
+  }, [])
+
   return (
     <ThemeProvider>
       <AuthProvider>
@@ -91,15 +135,18 @@ export default function App() {
           <CollabProvider>
             <BrowserRouter>
               <AuthRedirectHandler />
+              {storageWarning && <StorageFullBanner onDismiss={() => setStorageWarning(false)} />}
               <ErrorBoundary>
                 <Suspense fallback={<PageLoading />}>
                   <Routes>
+                    {/* Auth pages — accessible without login (users need these to sign in) */}
                     <Route element={<AuthLayout />}>
                       <Route path="/login" element={<LoginPage />} />
                       <Route path="/forgot-password" element={<ForgotPasswordPage />} />
                       <Route path="/reset-password" element={<ResetPasswordPage />} />
                     </Route>
 
+                    {/* All other routes require authentication via AppLayout */}
                     <Route element={<AppLayout />}>
                       <Route path="/" element={<DashboardPage />} />
                       <Route path="/tasks" element={<TasksPage />} />
@@ -115,6 +162,7 @@ export default function App() {
                       <Route path="/inbox" element={<InboxPage />} />
                       <Route path="/search" element={<SearchPage />} />
                       <Route path="/notes" element={<NotesPage />} />
+                      <Route path="/privacy" element={<PrivacyNoticePage />} />
                       <Route
                         path="/admin"
                         element={
@@ -125,6 +173,7 @@ export default function App() {
                       />
                     </Route>
 
+                    {/* Any unknown URL redirects to dashboard (which redirects to login if not authed) */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

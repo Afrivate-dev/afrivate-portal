@@ -122,12 +122,16 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
       const inboxRows: InboxNotification[] = []
       const actor = input.ownerId
+      const newAssigneeIds = [
+        ...(input.assigneeIds ?? []),
+        ...(input.assigneeId && !input.assigneeIds?.length ? [input.assigneeId] : []),
+      ].filter((id) => id !== actor)
 
-      if (input.assigneeId && input.assigneeId !== actor) {
+      for (const aId of newAssigneeIds) {
         const owner = users.find((u) => u.id === actor)
         inboxRows.push({
           id: 'n_' + uid(),
-          userId: input.assigneeId,
+          userId: aId,
           type: 'task_assigned',
           title: owner ? `${owner.name} assigned you a task` : 'You were assigned a task',
           body: task.title,
@@ -182,36 +186,30 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
             log.push({ at: now, by, message: `Status \u2192 ${label[patch.status]}` })
           }
 
-          const nextAssignee =
-            'assigneeId' in patch
-              ? patch.assigneeId === '' || patch.assigneeId == null
-                ? undefined
-                : patch.assigneeId
-              : t.assigneeId
           const nextDescription =
             patch.description !== undefined ? patch.description : t.description
 
           if (by) {
-            if (
-              'assigneeId' in patch &&
-              nextAssignee &&
-              nextAssignee !== t.ownerId &&
-              nextAssignee !== by &&
-              nextAssignee !== t.assigneeId
-            ) {
+            if ('assigneeIds' in patch && patch.assigneeIds) {
+              const prevIds = t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
+              const newIds = patch.assigneeIds.filter(
+                (id) => !prevIds.includes(id) && id !== t.ownerId && id !== by,
+              )
               const assigner = users.find((u) => u.id === by)
-              pendingInbox.push({
-                id: 'n_' + uid(),
-                userId: nextAssignee,
-                type: 'task_assigned',
-                title: assigner ? `${assigner.name} assigned you a task` : 'You were assigned a task',
-                body: t.title,
-                link: '/tasks',
-                read: false,
-                createdAt: now,
-                fromUserId: by,
-                taskId: t.id,
-              })
+              for (const aId of newIds) {
+                pendingInbox.push({
+                  id: 'n_' + uid(),
+                  userId: aId,
+                  type: 'task_assigned',
+                  title: assigner ? `${assigner.name} assigned you a task` : 'You were assigned a task',
+                  body: t.title,
+                  link: '/tasks',
+                  read: false,
+                  createdAt: now,
+                  fromUserId: by,
+                  taskId: t.id,
+                })
+              }
             }
             for (const mid of newlyMentionedUserIds(t.description, nextDescription, users)) {
               if (mid === by) continue
@@ -234,11 +232,13 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
           const merged: Task = {
             ...t,
             ...patch,
+            assigneeIds:
+              'assigneeIds' in patch
+                ? (patch.assigneeIds ?? [])
+                : t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : []),
             assigneeId:
-              'assigneeId' in patch
-                ? patch.assigneeId === '' || patch.assigneeId == null
-                  ? undefined
-                  : patch.assigneeId
+              'assigneeIds' in patch
+                ? patch.assigneeIds?.[0] ?? undefined
                 : t.assigneeId,
             updatedAt: now,
             activity: log.length ? [...t.activity, ...log] : t.activity,

@@ -40,7 +40,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
-import { cn, fmtDate, relativeTime, weekLabel } from '@/utils/helpers'
+import { cn, fmtDate, relativeTime, uid, weekLabel } from '@/utils/helpers'
 import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
@@ -119,6 +119,15 @@ export function AdminPanelPage() {
 
   const [section, setSection] = useState<Section>('approvals')
 
+  // Generic confirm dialog state
+  const [confirmState, setConfirmState] = useState<{
+    title: string
+    message: string
+    onConfirm: () => void
+  } | null>(null)
+  // Generic alert dialog state (informational, no cancel)
+  const [alertMessage, setAlertMessage] = useState<string | null>(null)
+
   // Departments & teams state
   const [deptDraft, setDeptDraft] = useState<Partial<Department> & { id?: string } | null>(null)
   const [teamDraft, setTeamDraft] = useState<Partial<WorkspaceTeam> & { id?: string } | null>(null)
@@ -167,7 +176,7 @@ export function AdminPanelPage() {
     if (!inviteEmail.trim()) return
     if (!supabase) {
       // Local mode: create the account directly and surface credentials
-      const pwd = Math.random().toString(36).slice(2, 10)
+      const pwd = uid()
       setLocalPassword(pwd)
       addUser(inviteEmail.trim(), inviteName.trim(), pwd)
       setInviteStatus('sent')
@@ -235,7 +244,7 @@ export function AdminPanelPage() {
 
   const patchUser = (id: string, patch: Partial<User>) => {
     if (user?.id === id && patch.active === false) {
-      window.alert('You cannot deactivate your own account while signed in.')
+      setAlertMessage('You cannot deactivate your own account while signed in.')
       return
     }
     updateUser(id, patch)
@@ -431,7 +440,15 @@ export function AdminPanelPage() {
                             <button onClick={() => setDeptDraft(d)} className="rounded p-1 hover:bg-surface-2 text-muted">
                               <Pencil className="h-4 w-4" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`Delete ${d.name}?`)) deleteDepartment(d.id) }} className="rounded p-1 hover:bg-surface-2 text-danger">
+                            <button
+                              aria-label={`Delete department ${d.name}`}
+                              onClick={() => setConfirmState({
+                                title: 'Delete department',
+                                message: `Delete "${d.name}"? This cannot be undone.`,
+                                onConfirm: () => deleteDepartment(d.id),
+                              })}
+                              className="rounded p-1 hover:bg-surface-2 text-danger"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
@@ -487,7 +504,15 @@ export function AdminPanelPage() {
                             <button onClick={() => setTeamDraft(t)} className="rounded p-1 hover:bg-surface-2 text-muted">
                               <Pencil className="h-4 w-4" />
                             </button>
-                            <button onClick={() => { if (window.confirm(`Delete ${t.name}?`)) deleteTeam(t.id) }} className="rounded p-1 hover:bg-surface-2 text-danger">
+                            <button
+                              aria-label={`Delete team ${t.name}`}
+                              onClick={() => setConfirmState({
+                                title: 'Delete team',
+                                message: `Delete "${t.name}"? This cannot be undone.`,
+                                onConfirm: () => deleteTeam(t.id),
+                              })}
+                              className="rounded p-1 hover:bg-surface-2 text-danger"
+                            >
                               <Trash2 className="h-4 w-4" />
                             </button>
                           </div>
@@ -532,6 +557,7 @@ export function AdminPanelPage() {
                       </td>
                       <td className="p-3">
                         <select
+                          aria-label={`Change role for ${u.name}`}
                           value={u.role}
                           onChange={(e) =>
                             patchUser(u.id, { role: e.target.value as Role })
@@ -635,9 +661,11 @@ export function AdminPanelPage() {
                         size="sm"
                         variant="ghost"
                         className="text-danger hover:bg-danger/10"
-                        onClick={() => {
-                          if (window.confirm('Delete this announcement?')) deleteAnnouncement(a.id)
-                        }}
+                        onClick={() => setConfirmState({
+                          title: 'Delete announcement',
+                          message: 'Delete this announcement? It will be removed for all staff.',
+                          onConfirm: () => deleteAnnouncement(a.id),
+                        })}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -777,10 +805,11 @@ export function AdminPanelPage() {
                           size="sm"
                           variant="ghost"
                           className="text-danger"
-                          onClick={() => {
-                            if (window.confirm('Remove this video? Progress links will be cleaned up.'))
-                              deleteOnboardingVideo(v.id)
-                          }}
+                          onClick={() => setConfirmState({
+                            title: 'Remove video',
+                            message: 'Remove this video? Watching progress for this video will be cleared.',
+                            onConfirm: () => deleteOnboardingVideo(v.id),
+                          })}
                         >
                           Delete
                         </Button>
@@ -833,11 +862,11 @@ export function AdminPanelPage() {
                           size="sm"
                           variant="ghost"
                           className="text-danger"
-                          onClick={() => {
-                            if (window.confirm('Delete this checklist item?')) {
-                              deleteOnboardingChecklistItem(c.id)
-                            }
-                          }}
+                          onClick={() => setConfirmState({
+                            title: 'Delete checklist item',
+                            message: 'Delete this checklist item? Staff completion records for it will be removed.',
+                            onConfirm: () => deleteOnboardingChecklistItem(c.id),
+                          })}
                         >
                           Delete
                         </Button>
@@ -983,7 +1012,7 @@ export function AdminPanelPage() {
               autoFocus={!!supabase}
             />
             {inviteStatus === 'error' && (
-              <div className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              <div role="alert" className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
                 {inviteError}
               </div>
             )}
@@ -1262,6 +1291,43 @@ export function AdminPanelPage() {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      {/* Generic confirm dialog — replaces window.confirm() */}
+      <Modal
+        open={!!confirmState}
+        onClose={() => setConfirmState(null)}
+        title={confirmState?.title ?? 'Confirm'}
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setConfirmState(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                confirmState?.onConfirm()
+                setConfirmState(null)
+              }}
+            >
+              Confirm
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">{confirmState?.message}</p>
+      </Modal>
+
+      {/* Generic alert dialog — replaces window.alert() */}
+      <Modal
+        open={!!alertMessage}
+        onClose={() => setAlertMessage(null)}
+        title="Notice"
+        footer={
+          <Button onClick={() => setAlertMessage(null)}>OK</Button>
+        }
+      >
+        <p className="text-sm text-fg">{alertMessage}</p>
       </Modal>
 
       <Modal

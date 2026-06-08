@@ -114,7 +114,7 @@ export const greeting = () => {
   return 'Good evening'
 }
 
-export const uid = () => Math.random().toString(36).slice(2, 10)
+export const uid = () => crypto.randomUUID()
 
 /** Company update visibility (same rules as the Updates page). */
 export function userSeesAnnouncement(user: User, a: { audience: string }): boolean {

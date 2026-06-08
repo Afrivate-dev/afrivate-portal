@@ -85,10 +85,17 @@ export function readStringArray(raw: unknown): string[] {
 }
 
 export function rowToTask(r: Record<string, unknown>): Task {
+  const legacyAssigneeId = r.assignee_id ? String(r.assignee_id) : undefined
+  const assigneeIds = Array.isArray(r.assignee_ids) && (r.assignee_ids as unknown[]).length
+    ? readStringArray(r.assignee_ids)
+    : legacyAssigneeId
+      ? [legacyAssigneeId]
+      : []
   return {
     id: String(r.id),
     ownerId: String(r.owner_id),
-    assigneeId: r.assignee_id ? String(r.assignee_id) : undefined,
+    assigneeId: legacyAssigneeId,
+    assigneeIds,
     title: String(r.title ?? ''),
     description: r.description ? String(r.description) : undefined,
     status: r.status as Task['status'],
@@ -107,10 +114,12 @@ export function rowToTask(r: Record<string, unknown>): Task {
 }
 
 export function taskToInsertRow(t: Task): Record<string, unknown> {
+  const assigneeIds = t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
   return {
     id: t.id,
     owner_id: t.ownerId,
-    assignee_id: t.assigneeId ?? null,
+    assignee_id: assigneeIds[0] ?? t.assigneeId ?? null,
+    assignee_ids: assigneeIds,
     title: t.title,
     description: t.description ?? null,
     status: t.status,

@@ -114,6 +114,7 @@ export function LeaveRequestsPage() {
   const canManage = isLead(user)
   const [tab, setTab] = useState<Tab>('my')
   const [formOpen, setFormOpen] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [draft, setDraft] = useState<RequestDraft>(emptyDraft)
   const [reviewing, setReviewing] = useState<{ request: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
   const [reviewNote, setReviewNote] = useState('')
@@ -164,12 +165,15 @@ export function LeaveRequestsPage() {
   const closeForm = () => {
     setFormOpen(false)
     setDraft(emptyDraft)
+    setSubmitting(false)
   }
 
   const submitForm = (e: React.FormEvent) => {
     e.preventDefault()
+    if (submitting) return // guard against double-submit
     if (!draft.startDate || !draft.endDate || !draft.reason.trim()) return
     if (draft.endDate < draft.startDate) return
+    setSubmitting(true)
     submitLeave({
       userId: user.id,
       type: draft.type,
@@ -364,7 +368,7 @@ export function LeaveRequestsPage() {
             <Button variant="ghost" type="button" onClick={closeForm}>
               Cancel
             </Button>
-            <Button type="button" onClick={submitForm}>
+            <Button type="button" onClick={submitForm} loading={submitting} disabled={submitting}>
               Submit request
             </Button>
           </>

@@ -108,6 +108,8 @@ export function DocumentLibraryPage() {
   const [search, setSearch] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
   const [draft, setDraft] = useState<UploadDraft>(emptyDraft)
+  const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const [downloadInfoDoc, setDownloadInfoDoc] = useState<DocumentItem | null>(null)
 
   useEffect(() => {
     if (!surfaceDocId) {
@@ -300,7 +302,7 @@ export function DocumentLibraryPage() {
                         type="button"
                         onClick={(e) => {
                           e.stopPropagation()
-                          if (window.confirm('Delete this document?')) deleteDocument(d.id)
+                          setDeleteConfirmId(d.id)
                         }}
                         aria-label="Delete document"
                         className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
@@ -344,9 +346,7 @@ export function DocumentLibraryPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      window.alert(
-                        `Preview only — "${d.fileName}"\n\nFile downloads will be available once document storage is fully enabled for this workspace.`,
-                      )
+                      setDownloadInfoDoc(d)
                     }}
                     className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg hover:bg-surface-2 ring-focus"
                   >
@@ -432,6 +432,49 @@ export function DocumentLibraryPage() {
             </label>
           </div>
         </form>
+      </Modal>
+
+      {/* Delete document confirmation */}
+      <Modal
+        open={!!deleteConfirmId}
+        onClose={() => setDeleteConfirmId(null)}
+        title="Delete document"
+        footer={
+          <>
+            <Button variant="ghost" onClick={() => setDeleteConfirmId(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="danger"
+              onClick={() => {
+                if (deleteConfirmId) deleteDocument(deleteConfirmId)
+                setDeleteConfirmId(null)
+              }}
+            >
+              Delete
+            </Button>
+          </>
+        }
+      >
+        <p className="text-sm text-fg">Delete this document? This cannot be undone.</p>
+      </Modal>
+
+      {/* Download info modal (file storage not yet enabled) */}
+      <Modal
+        open={!!downloadInfoDoc}
+        onClose={() => setDownloadInfoDoc(null)}
+        title="Download"
+        footer={<Button onClick={() => setDownloadInfoDoc(null)}>OK</Button>}
+      >
+        {downloadInfoDoc ? (
+          <div className="space-y-2 text-sm text-fg">
+            <p className="font-medium">{downloadInfoDoc.fileName}</p>
+            <p className="text-muted">
+              File downloads will be available once document storage is fully enabled for this
+              workspace.
+            </p>
+          </div>
+        ) : null}
       </Modal>
     </div>
   )
