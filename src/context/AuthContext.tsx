@@ -36,7 +36,11 @@ function sessionToPortalUser(session: Session | null): User | null {
       : (su.email?.split('@')[0] ?? 'User')
   const roleRaw = md.role
   const role: Role =
-    roleRaw === 'admin' || roleRaw === 'hr' || roleRaw === 'team_lead' || roleRaw === 'staff'
+    roleRaw === 'admin' ||
+    roleRaw === 'hr' ||
+    roleRaw === 'team_lead' ||
+    roleRaw === 'assistant_lead' ||
+    roleRaw === 'staff'
       ? roleRaw
       : 'staff'
   return {
@@ -111,7 +115,8 @@ async function upsertProfileRow(client: SupabaseClient, user: User): Promise<voi
       department: user.department,
       job_title: user.jobTitle,
       avatar_url: user.avatarUrl ?? null,
-      active: user.active,
+      // Do NOT write `active` here — the admin sets it via the Admin Panel.
+      // Writing it on every profile save would re-enable a deactivated account.
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'id' },
@@ -122,7 +127,8 @@ async function upsertProfileRow(client: SupabaseClient, user: User): Promise<voi
 function userPatchToSupabaseMetadata(patch: Partial<User>): Record<string, unknown> {
   const data: Record<string, unknown> = {}
   if (patch.name !== undefined) data.name = patch.name
-  if (patch.role !== undefined) data.role = patch.role
+  // Role is authoritative in `profiles` — never write it to JWT user_metadata via
+  // the client-side updateUser() API, as that lets any user escalate their own role.
   if (patch.department !== undefined) data.department = patch.department
   if (patch.jobTitle !== undefined) data.job_title = patch.jobTitle
   if (patch.avatarUrl !== undefined) data.avatar_url = patch.avatarUrl

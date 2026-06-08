@@ -6,10 +6,13 @@ interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
   hint?: string
   error?: string
   leadingIcon?: React.ReactNode
+  /** Renders an absolutely-positioned slot on the right side of the input.
+   *  Use for interactive elements like a show/hide password button. */
+  trailingNode?: React.ReactNode
 }
 
 export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
-  { className, label, hint, error, leadingIcon, id, ...rest },
+  { className, label, hint, error, leadingIcon, trailingNode, id, ...rest },
   ref,
 ) {
   const inputId = id ?? rest.name
@@ -35,6 +38,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
             'transition-colors ring-focus',
             'disabled:cursor-not-allowed disabled:opacity-60',
             leadingIcon && 'pl-10',
+            trailingNode && 'pr-10',
             error
               ? 'border-danger focus:border-danger'
               : 'border-border focus:border-accent',
@@ -42,6 +46,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           )}
           {...rest}
         />
+        {trailingNode ? (
+          <div className="absolute inset-y-0 right-0 flex items-center pr-3">
+            {trailingNode}
+          </div>
+        ) : null}
       </div>
       {error ? (
         <p className="mt-1.5 text-xs text-danger">{error}</p>
