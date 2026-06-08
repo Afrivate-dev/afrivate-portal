@@ -131,18 +131,26 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   }, [reloadData])
 
   const updateUser = useCallback<DataContextValue['updateUser']>((id, patch) => {
-      void (async () => {
-        const prev = users.find((u) => u.id === id)
-        if (!prev) return
-        const merged = { ...prev, ...patch } as User
-        const { error } = await client.from('profiles').upsert(userToProfilePatch(merged), {
-          onConflict: 'id',
-        })
-        if (error) console.warn('[data] profiles upsert', error.message)
-        await reloadData()
-      })()
-    },
-    [client, users, reloadData],
+    // Optimistic update — reflect the change immediately so controlled inputs
+    // (role select, active checkbox) don't snap back while the write is in-flight.
+    setUsers((prev) => prev.map((u) => (u.id === id ? ({ ...u, ...patch } as User) : u)))
+
+    void (async () => {
+      const prev = users.find((u) => u.id === id)
+      if (!prev) return
+      const merged = { ...prev, ...patch } as User
+      // Use .update() not .upsert() — the profile row always exists for a signed-up user.
+      // upsert generates INSERT … ON CONFLICT which triggers the INSERT RLS policy
+      // (own-row only), silently blocking an admin from updating another user's row.
+      const { error } = await client
+        .from('profiles')
+        .update(userToProfilePatch(merged))
+        .eq('id', id)
+      if (error) console.warn('[data] profiles update', error.message)
+      await reloadData()
+    })()
+  },
+  [client, users, reloadData],
   )
 
   const queueInboxInsert = useCallback(
