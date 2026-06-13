@@ -145,32 +145,29 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const { id: _pk, ...profilePatch } = userToProfilePatch(merged)
       void _pk
 
-      // Use .update() not .upsert() — the profile row always exists for a signed-up user.
-      // upsert generates INSERT … ON CONFLICT which triggers the INSERT RLS policy
-      // (own-row only), silently blocking an admin from updating another user's row.
-      // Add .select('id') so PostgREST returns the affected rows — when RLS silently
-      // blocks the write it returns 200 OK with an empty array instead of an error.
-      const { data: updated, error } = await client
-        .from('profiles')
-        .update(profilePatch)
-        .eq('id', id)
-        .select('id')
+      let errorMsg: string | null = null
 
-      if (error) {
-        console.warn('[data] profiles update error:', error.message)
-        onError?.(error.message)
-        await reloadData()
-        return
+      if (user && id === user.id) {
+        // Own profile — use the regular client (RLS allows own-row updates).
+        const { data: updated, error } = await client
+          .from('profiles')
+          .update(profilePatch)
+          .eq('id', id)
+          .select('id')
+        if (error) errorMsg = error.message
+        else if (!updated?.length) errorMsg = 'Own-profile update was blocked. Check RLS policies.'
+      } else {
+        // Another user's profile — call the admin Edge Function which uses the
+        // service role key and bypasses RLS entirely (same pattern as invite-user).
+        const { error } = await client.functions.invoke('admin-patch-profile', {
+          body: { userId: id, patch: profilePatch },
+        })
+        if (error) errorMsg = error.message
       }
 
-      if (!updated || updated.length === 0) {
-        // RLS blocked the write silently — the caller doesn't have permission.
-        const msg =
-          'Permission denied. Your account\'s role in the Supabase profiles table ' +
-          'may not match your access level. Go to Supabase Dashboard → Table Editor → ' +
-          'profiles, find your row and set role = "admin", then refresh.'
-        console.warn('[data] profiles update: 0 rows affected (RLS blocked)')
-        onError?.(msg)
+      if (errorMsg) {
+        console.warn('[data] updateUser failed:', errorMsg)
+        onError?.(errorMsg)
         await reloadData()
         return
       }
@@ -178,7 +175,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       await reloadData()
     })()
   },
-  [client, users, reloadData],
+  [client, user, users, reloadData],
   )
 
   const queueInboxInsert = useCallback(
@@ -983,16 +980,21 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       },
       pendingUsers: users.filter((u) => !u.active),
       approveUser: async (id, role, department, jobTitle) => {
-        const { data: updated, error } = await client
-          .from('profiles')
-          .update({ role, department, job_title: jobTitle, active: true, approved_at: new Date().toISOString() })
-          .eq('id', id)
-          .select('id')
-        if (error) {
-          console.warn('[data] approveUser error:', error.message)
-        } else if (!updated || updated.length === 0) {
-          console.warn('[data] approveUser: 0 rows affected — check your profiles.role in Supabase')
-        }
+        // Use the admin Edge Function (service role) so approval works regardless
+        // of which RLS policies are in place.
+        const { error } = await client.functions.invoke('admin-patch-profile', {
+          body: {
+            userId: id,
+            patch: {
+              role,
+              department,
+              job_title: jobTitle,
+              active: true,
+              approved_at: new Date().toISOString(),
+            },
+          },
+        })
+        if (error) console.warn('[data] approveUser error:', error.message)
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
       },
       taskCategories,
