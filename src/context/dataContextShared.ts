@@ -19,7 +19,7 @@ import type {
 
 export interface DataContextValue {
   users: User[]
-  updateUser: (id: string, patch: Partial<User>) => void
+  updateUser: (id: string, patch: Partial<User>, onError?: (msg: string) => void) => void
   /** Create a new local user with a plaintext password (mock mode only). No-op in Supabase mode. */
   addUser: (email: string, name: string, password: string) => User
 

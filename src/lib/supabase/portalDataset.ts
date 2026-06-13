@@ -19,7 +19,7 @@ import type {
 
 function parseRole(raw: unknown): Role {
   const r = String(raw ?? '')
-  if (r === 'admin' || r === 'hr' || r === 'team_lead' || r === 'staff') return r
+  if (r === 'admin' || r === 'hr' || r === 'team_lead' || r === 'assistant_lead' || r === 'staff') return r
   return 'staff'
 }
 

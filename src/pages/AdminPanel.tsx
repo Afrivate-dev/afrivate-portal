@@ -250,7 +250,9 @@ export function AdminPanelPage() {
       setAlertMessage('You cannot deactivate your own account while signed in.')
       return
     }
-    updateUser(id, patch)
+    updateUser(id, patch, (errMsg) => {
+      setAlertMessage(errMsg)
+    })
     if (user?.id === id) updateProfile(patch)
   }
 
