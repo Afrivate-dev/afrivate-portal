@@ -80,7 +80,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
   /* ------------------------------- Users -------------------------------- */
   const updateUser = useCallback(
-    (id: string, patch: Partial<User>) =>
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    (id: string, patch: Partial<User>, _onError?: (msg: string) => void) =>
       setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u))),
     [setUsers],
   )

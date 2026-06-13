@@ -130,7 +130,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     return () => cancelAnimationFrame(id)
   }, [reloadData])
 
-  const updateUser = useCallback<DataContextValue['updateUser']>((id, patch) => {
+  const updateUser = useCallback<DataContextValue['updateUser']>((id, patch, onError) => {
     // Optimistic update — reflect the change immediately so controlled inputs
     // (role select, active checkbox) don't snap back while the write is in-flight.
     setUsers((prev) => prev.map((u) => (u.id === id ? ({ ...u, ...patch } as User) : u)))
@@ -139,14 +139,42 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const prev = users.find((u) => u.id === id)
       if (!prev) return
       const merged = { ...prev, ...patch } as User
+
+      // Build the update payload and strip `id` — PostgREST rejects updates that
+      // include the primary key in the SET clause.
+      const { id: _pk, ...profilePatch } = userToProfilePatch(merged)
+      void _pk
+
       // Use .update() not .upsert() — the profile row always exists for a signed-up user.
       // upsert generates INSERT … ON CONFLICT which triggers the INSERT RLS policy
       // (own-row only), silently blocking an admin from updating another user's row.
-      const { error } = await client
+      // Add .select('id') so PostgREST returns the affected rows — when RLS silently
+      // blocks the write it returns 200 OK with an empty array instead of an error.
+      const { data: updated, error } = await client
         .from('profiles')
-        .update(userToProfilePatch(merged))
+        .update(profilePatch)
         .eq('id', id)
-      if (error) console.warn('[data] profiles update', error.message)
+        .select('id')
+
+      if (error) {
+        console.warn('[data] profiles update error:', error.message)
+        onError?.(error.message)
+        await reloadData()
+        return
+      }
+
+      if (!updated || updated.length === 0) {
+        // RLS blocked the write silently — the caller doesn't have permission.
+        const msg =
+          'Permission denied. Your account\'s role in the Supabase profiles table ' +
+          'may not match your access level. Go to Supabase Dashboard → Table Editor → ' +
+          'profiles, find your row and set role = "admin", then refresh.'
+        console.warn('[data] profiles update: 0 rows affected (RLS blocked)')
+        onError?.(msg)
+        await reloadData()
+        return
+      }
+
       await reloadData()
     })()
   },
@@ -955,7 +983,16 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       },
       pendingUsers: users.filter((u) => !u.active),
       approveUser: async (id, role, department, jobTitle) => {
-        await client.from('profiles').update({ role, department, job_title: jobTitle, active: true, approved_at: new Date().toISOString() }).eq('id', id)
+        const { data: updated, error } = await client
+          .from('profiles')
+          .update({ role, department, job_title: jobTitle, active: true, approved_at: new Date().toISOString() })
+          .eq('id', id)
+          .select('id')
+        if (error) {
+          console.warn('[data] approveUser error:', error.message)
+        } else if (!updated || updated.length === 0) {
+          console.warn('[data] approveUser: 0 rows affected — check your profiles.role in Supabase')
+        }
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
       },
       taskCategories,
