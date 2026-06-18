@@ -29,6 +29,7 @@ create index if not exists portal_admin_audit_log_target_idx
 -- ────────────────────────────────────────────────────────────────────────────
 alter table public.portal_admin_audit_log enable row level security;
 
+drop policy if exists "audit_log: hr+ read" on public.portal_admin_audit_log;
 create policy "audit_log: hr+ read"
   on public.portal_admin_audit_log for select
   using (get_my_role() in ('hr', 'admin'));

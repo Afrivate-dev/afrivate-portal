@@ -56,12 +56,11 @@ export function profileRowToUser(row: Record<string, unknown>): User {
   }
 }
 
-export function userToProfilePatch(u: User): Record<string, unknown> {
+/** Self-service profile update — never includes role or active (admin-only fields). */
+export function userToSelfProfilePatch(u: User): Record<string, unknown> {
   return {
-    id: u.id,
     email: u.email,
     name: u.name,
-    role: u.role,
     department: u.department,
     job_title: u.jobTitle,
     joined_at: u.joinedAt.slice(0, 10),
@@ -74,9 +73,22 @@ export function userToProfilePatch(u: User): Record<string, unknown> {
     pronouns: u.pronouns ?? null,
     linkedin_url: u.linkedinUrl ?? null,
     reports_to_id: u.reportsToId ?? null,
-    active: u.active,
     updated_at: new Date().toISOString(),
   }
+}
+
+/** Admin / HR profile update — includes privileged fields. */
+export function userToAdminProfilePatch(u: User): Record<string, unknown> {
+  return {
+    ...userToSelfProfilePatch(u),
+    role: u.role,
+    active: u.active,
+  }
+}
+
+/** @deprecated Use userToSelfProfilePatch or userToAdminProfilePatch */
+export function userToProfilePatch(u: User): Record<string, unknown> {
+  return userToAdminProfilePatch(u)
 }
 
 export function readStringArray(raw: unknown): string[] {

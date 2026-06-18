@@ -20,7 +20,15 @@ import { useData } from '@/context/DataContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { seedWorkspaceNotes } from '@/data/mockData'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { isSupabaseDataEnabled } from '@/lib/dataMode'
 import { supabase } from '@/lib/supabase'
+import {
+  deleteWorkspaceNote,
+  fetchWorkspaceNoteById,
+  fetchWorkspaceNotes,
+  rowToWorkspaceNote,
+  upsertWorkspaceNote,
+} from '@/lib/supabase/notesDataset'
 import type { PresencePeer, UserAvailability, WorkspaceActivity, WorkspaceNote } from '@/types'
 import {
   blocksToPlain,
@@ -61,7 +69,10 @@ function loadNotesFromStorage(): WorkspaceNote[] {
   return seedWorkspaceNotes.map((n) => normalizeWorkspaceNote(n as unknown as Record<string, unknown>))
 }
 
-type NoteBroadcast = { kind: 'upsert'; note: WorkspaceNote } | { kind: 'delete'; id: string; version: number }
+type NoteBroadcast =
+  | { kind: 'upsert'; note: WorkspaceNote }
+  | { kind: 'delete'; id: string; version: number }
+  | { kind: 'hint'; id: string; version: number }
 
 function presencePayload(
   user: { id: string; name: string; avatarUrl?: string },
@@ -138,6 +149,7 @@ const CollabContext = createContext<CollabContextValue | null>(null)
 export function CollabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { teams } = useData()
+  const supabaseNotesEnabled = isSupabaseDataEnabled()
   const [allNotes, setNotes] = useLocalStorage<WorkspaceNote[]>(NOTES_KEY_V2, loadNotesFromStorage)
   const [myAvailability, setMyAvailability] = useState<UserAvailability>('online')
   const [activity, setActivityState] = useState<WorkspaceActivity>({})
@@ -179,6 +191,27 @@ export function CollabProvider({ children }: { children: ReactNode }) {
 
   const applyRemoteNote = useCallback(
     (msg: NoteBroadcast) => {
+      if (!user) return
+
+      if (msg.kind === 'hint') {
+        if (!supabaseNotesEnabled || !supabase) return
+        void fetchWorkspaceNoteById(supabase, msg.id).then((incoming) => {
+          if (!incoming || !user) return
+          if (!canUserViewNote(user, incoming, teams, linkKeys[incoming.id] ?? null)) return
+          setNotes((prev) => {
+            const idx = prev.findIndex((n) => n.id === incoming.id)
+            if (idx === -1) {
+              return [incoming, ...prev].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
+            }
+            if (incoming.version < prev[idx].version) return prev
+            const next = [...prev]
+            next[idx] = incoming
+            return next
+          })
+        })
+        return
+      }
+
       setNotes((prev) => {
         if (msg.kind === 'delete') {
           return prev
@@ -186,6 +219,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
             .map((n) => (n.parentId === msg.id ? { ...n, parentId: null } : n))
         }
         const incoming = normalizeWorkspaceNote(msg.note as unknown as Record<string, unknown>)
+        if (!canUserViewNote(user, incoming, teams, linkKeys[incoming.id] ?? null)) {
+          return prev
+        }
         const idx = prev.findIndex((n) => n.id === incoming.id)
         if (idx === -1) {
           return [incoming, ...prev].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
@@ -197,15 +233,76 @@ export function CollabProvider({ children }: { children: ReactNode }) {
         return next
       })
     },
-    [setNotes],
+    [setNotes, supabaseNotesEnabled, user, teams, linkKeys],
   )
 
   const sendNoteBroadcast = useCallback((msg: NoteBroadcast) => {
-    if (channelRef.current && subscribedRef.current) {
-      void channelRef.current.send({ type: 'broadcast', event: 'note', payload: msg })
+    let payload: NoteBroadcast = msg
+    if (msg.kind === 'upsert' && msg.note.share.scope !== 'workspace') {
+      payload = { kind: 'hint', id: msg.note.id, version: msg.note.version }
     }
-    bcRef.current?.postMessage({ t: 'note', msg })
+    if (channelRef.current && subscribedRef.current) {
+      void channelRef.current.send({ type: 'broadcast', event: 'note', payload })
+    }
+    bcRef.current?.postMessage({ t: 'note', msg: payload })
   }, [])
+
+  const persistNote = useCallback(
+    (note: WorkspaceNote) => {
+      if (!supabaseNotesEnabled || !supabase) return
+      void upsertWorkspaceNote(supabase, note).catch((e) =>
+        console.warn('[collab] note persist:', e instanceof Error ? e.message : e),
+      )
+    },
+    [supabaseNotesEnabled],
+  )
+
+  const removePersistedNote = useCallback(
+    (id: string) => {
+      if (!supabaseNotesEnabled || !supabase) return
+      void deleteWorkspaceNote(supabase, id).catch((e) =>
+        console.warn('[collab] note delete:', e instanceof Error ? e.message : e),
+      )
+    },
+    [supabaseNotesEnabled],
+  )
+
+  /* ------------------------ Load notes from Postgres --------------------- */
+  useEffect(() => {
+    if (!user || !supabase || !supabaseNotesEnabled) return
+    void fetchWorkspaceNotes(supabase)
+      .then((rows) => setNotes(rows))
+      .catch((e) => console.warn('[collab] notes load:', e instanceof Error ? e.message : e))
+  }, [user?.id, supabaseNotesEnabled, setNotes])
+
+  /* ------------------------ Postgres realtime (notes table) -------------- */
+  useEffect(() => {
+    if (!user || !supabase || !supabaseNotesEnabled) return
+    const sb = supabase
+    const ch = sb
+      .channel('portal-workspace-notes-db')
+      .on(
+        'postgres_changes',
+        { event: '*', schema: 'public', table: 'portal_workspace_notes' },
+        (payload) => {
+          if (payload.eventType === 'DELETE' && payload.old && typeof payload.old === 'object') {
+            const old = payload.old as Record<string, unknown>
+            if (old.id) {
+              applyRemoteNote({ kind: 'delete', id: String(old.id), version: Date.now() })
+            }
+            return
+          }
+          if (payload.new && typeof payload.new === 'object') {
+            const note = rowToWorkspaceNote(payload.new as Record<string, unknown>)
+            applyRemoteNote({ kind: 'upsert', note })
+          }
+        },
+      )
+      .subscribe()
+    return () => {
+      void sb.removeChannel(ch)
+    }
+  }, [user?.id, supabaseNotesEnabled, applyRemoteNote])
 
   const setActivity = useCallback((patch: Partial<WorkspaceActivity>) => {
     setActivityState((prev) => {
@@ -362,10 +459,11 @@ export function CollabProvider({ children }: { children: ReactNode }) {
         share: { scope: 'workspace' },
       })
       setNotes((prev) => [note, ...prev])
+      persistNote(note)
       sendNoteBroadcast({ kind: 'upsert', note })
       return note.id
     },
-    [user, setNotes, sendNoteBroadcast],
+    [user, setNotes, sendNoteBroadcast, persistNote],
   )
 
   const saveNote = useCallback(
@@ -391,11 +489,14 @@ export function CollabProvider({ children }: { children: ReactNode }) {
         })
         const next = [...prev]
         next[idx] = note
-        queueMicrotask(() => sendNoteBroadcast({ kind: 'upsert', note }))
+        queueMicrotask(() => {
+          persistNote(note)
+          sendNoteBroadcast({ kind: 'upsert', note })
+        })
         return next
       })
     },
-    [user, setNotes, sendNoteBroadcast],
+    [user, setNotes, sendNoteBroadcast, persistNote],
   )
 
   const deleteNote = useCallback(
@@ -407,8 +508,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
           .map((n) => (n.parentId === id ? { ...n, parentId: null } : n)),
       )
       sendNoteBroadcast({ kind: 'delete', id, version: v })
+      removePersistedNote(id)
     },
-    [setNotes, sendNoteBroadcast],
+    [setNotes, sendNoteBroadcast, removePersistedNote],
   )
 
   const editorsForNote = useCallback(

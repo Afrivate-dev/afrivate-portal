@@ -28,11 +28,13 @@ drop policy if exists "profiles select all" on public.profiles;
 drop policy if exists "profiles update own" on public.profiles;
 
 -- All active users can read the directory (name, role, department, etc.)
+drop policy if exists "profiles: all active users can read" on public.profiles;
 create policy "profiles: all active users can read"
   on public.profiles for select
   using (auth.uid() is not null);
 
 -- Users can only update their own profile; admins can update any
+drop policy if exists "profiles: own row or admin" on public.profiles;
 create policy "profiles: own row or admin"
   on public.profiles for update
   using (id = auth.uid() or get_my_role() = 'admin')

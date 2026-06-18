@@ -187,12 +187,13 @@ create policy "Users update own profile"
 
 The Vite app can load **all** data that was previously mock/localStorage-only:
 
-- Run **`portal/supabase/migrations/20260518120000_portal_data_tables.sql`** in the SQL Editor (extends `profiles`, adds `portal_tasks`, `portal_announcements`, â€¦, team seed rows).
-- In `.env.local`: **`VITE_USE_SUPABASE_DATA=true`** (together with **`VITE_USE_SUPABASE_AUTH=true`** and valid `VITE_SUPABASE_*`).
+- Run **`supabase/migrations/20260518120000_portal_data_tables.sql`** in the SQL Editor (extends `profiles`, adds `portal_tasks`, `portal_announcements`, …, team seed rows).
+- Run **all subsequent migrations in order**, ending with **`supabase/migrations/20260619_security_hardening.sql`** (drops stale permissive RLS policies, adds profile guards, team_members RLS, workspace notes table).
+- In `.env`: **`VITE_USE_SUPABASE_DATA=true`** (together with **`VITE_USE_SUPABASE_AUTH=true`** and valid `VITE_SUPABASE_*`).
 
-Staff list = **`profiles`**. Tasks, check-ins, leave, documents, recognition, events, inbox, onboarding videos/checklist/progress use the `portal_*` tables. RLS is **permissive for any logged-in user** on those tables (fine for a small internal org); tighten before wider exposure.
+Staff list = **`profiles`**. Tasks, check-ins, leave, documents, recognition, events, inbox, onboarding videos/checklist/progress use the `portal_*` tables. **RLS is enforced** by the security hardening migration — verify with `SELECT policyname, tablename FROM pg_policies WHERE schemaname = 'public';`.
 
-**Still local-first:** workspace **note pages** (`CollabContext`) keep content in the browser + Realtime broadcast until you add a `workspace_notes` table and migrate that context.
+**Workspace notes:** when `VITE_USE_SUPABASE_DATA=true`, notes persist to **`portal_workspace_notes`** with share-scoped RLS. Realtime broadcasts send metadata hints for non-workspace notes (full content fetched via RLS-protected SELECT).
 
 ---
 

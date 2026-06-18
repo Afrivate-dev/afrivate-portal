@@ -32,7 +32,8 @@ function VisibilityToggle({ show, onToggle }: { show: boolean; onToggle: () => v
 
 export function ResetPasswordPage() {
   const navigate = useNavigate()
-  const [stage, setStage] = useState<Stage>('loading')
+  const authAvailable = Boolean(supabase)
+  const [stage, setStage] = useState<Stage>(() => (authAvailable ? 'loading' : 'error'))
   const [password, setPassword] = useState('')
   const [confirm, setConfirm] = useState('')
   const [showPassword, setShowPassword] = useState(false)
@@ -43,12 +44,9 @@ export function ResetPasswordPage() {
   const [isNewUser, setIsNewUser] = useState(false)
 
   useEffect(() => {
-    if (!supabase) {
-      setStage('error')
-      return
-    }
+    if (!authAvailable) return
 
-    const client = supabase
+    const client = supabase!
 
     const handleAuth = async () => {
       // Supabase v2 PKCE flow — token arrives as ?code= in the URL
@@ -99,7 +97,7 @@ export function ResetPasswordPage() {
     }
 
     void handleAuth()
-  }, [])
+  }, [authAvailable])
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

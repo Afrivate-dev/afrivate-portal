@@ -1,3 +1,4 @@
+import { sanitizeMediaUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
 export class MediaUploadError extends Error {
@@ -57,12 +58,10 @@ export async function uploadHostedMediaFile(file: File): Promise<AnnouncementMed
 export const uploadAnnouncementMedia = uploadHostedMediaFile
 
 export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {
-  const url = raw.trim()
+  const url = sanitizeMediaUrl(raw)
   if (!url) return null
   try {
-    const u = new URL(url)
-    if (u.protocol !== 'https:' && u.protocol !== 'http:') return null
-    const path = u.pathname.toLowerCase()
+    const path = new URL(url).pathname.toLowerCase()
     const video =
       path.endsWith('.mp4') ||
       path.endsWith('.webm') ||

@@ -35,6 +35,7 @@ import { PresenceDot } from '@/components/shared/PresenceDot'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
+import { sanitizeLinkedInUrl } from '@/utils/safeUrl'
 import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR } from '@/utils/helpers'
 import type { User } from '@/types'
 
@@ -185,7 +186,7 @@ export function StaffDirectoryPage() {
         .filter(Boolean),
       workLocation: draft.workLocation.trim() || undefined,
       pronouns: draft.pronouns.trim() || undefined,
-      linkedinUrl: draft.linkedinUrl.trim() || undefined,
+      linkedinUrl: sanitizeLinkedInUrl(draft.linkedinUrl.trim()) ?? undefined,
       avatarUrl: draft.avatarUrl.trim() || undefined,
     }
     updateUser(opened.id, patch)
@@ -595,11 +596,11 @@ export function StaffDirectoryPage() {
                         </a>
                       </li>
                     ) : null}
-                    {opened.linkedinUrl ? (
+                    {opened.linkedinUrl && sanitizeLinkedInUrl(opened.linkedinUrl) ? (
                       <li className="flex items-center gap-2.5 text-fg/90">
                         <Linkedin className="h-4 w-4 shrink-0 text-muted" />
                         <a
-                          href={opened.linkedinUrl}
+                          href={sanitizeLinkedInUrl(opened.linkedinUrl)!}
                           target="_blank"
                           rel="noopener noreferrer"
                           className="break-all hover:text-accent hover:underline"

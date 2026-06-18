@@ -111,12 +111,10 @@ async function upsertProfileRow(client: SupabaseClient, user: User): Promise<voi
       id: user.id,
       email: user.email,
       name: user.name,
-      role: user.role,
       department: user.department,
       job_title: user.jobTitle,
       avatar_url: user.avatarUrl ?? null,
-      // Do NOT write `active` here — the admin sets it via the Admin Panel.
-      // Writing it on every profile save would re-enable a deactivated account.
+      // Role and active are admin-only — never written from client self-service.
       updated_at: new Date().toISOString(),
     },
     { onConflict: 'id' },
@@ -150,6 +148,8 @@ interface AuthContextValue {
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   logout: () => void
   updateProfile: (patch: Partial<User>) => void
+  /** Sync session state from server without writing back to the database. */
+  reconcileUser: (patch: Partial<User>) => void
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -266,6 +266,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabaseMode, setStoredUser],
   )
 
+  const reconcileUser = useCallback(
+    (patch: Partial<User>) => {
+      if (supabaseMode) {
+        setSupabaseUser((prev) => (prev ? ({ ...prev, ...patch } as User) : prev))
+        return
+      }
+      setStoredUser((prev) => {
+        if (!prev) return prev
+        return stripPasswordForSession({ ...prev, ...patch } as User)
+      })
+    },
+    [supabaseMode, setStoredUser],
+  )
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -273,8 +287,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       login,
       logout,
       updateProfile,
+      reconcileUser,
     }),
-    [user, login, logout, updateProfile],
+    [user, login, logout, updateProfile, reconcileUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

@@ -33,7 +33,7 @@ function PendingApprovalScreen({ onSignOut }: { onSignOut: () => void }) {
 }
 
 export function AppLayout() {
-  const { user, logout, updateProfile } = useAuth()
+  const { user, logout, reconcileUser } = useAuth()
   const { dataStatus, dataError, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -43,9 +43,9 @@ export function AppLayout() {
     if (dataStatus !== 'ready' || !user) return
     const dataUser = users.find((u) => u.id === user.id)
     if (dataUser && dataUser.role !== user.role) {
-      updateProfile({ role: dataUser.role })
+      reconcileUser({ role: dataUser.role })
     }
-  }, [dataStatus, users, user, updateProfile])
+  }, [dataStatus, users, user, reconcileUser])
 
   if (!user) {
     // Preserve auth tokens from invite / password-reset links.

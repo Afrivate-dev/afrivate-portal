@@ -16,7 +16,8 @@ import {
   rowToChecklistItem,
   rowToOnboardingVideo,
   taskToInsertRow,
-  userToProfilePatch,
+  userToSelfProfilePatch,
+  userToAdminProfilePatch,
   videoToRow,
 } from '@/lib/supabase/portalDataset'
 import type {
@@ -142,8 +143,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
       // Build the update payload and strip `id` — PostgREST rejects updates that
       // include the primary key in the SET clause.
-      const { id: _pk, ...profilePatch } = userToProfilePatch(merged)
-      void _pk
+      const profilePatch =
+        user && id === user.id
+          ? userToSelfProfilePatch(merged)
+          : userToAdminProfilePatch(merged)
 
       let errorMsg: string | null = null
 
@@ -1055,6 +1058,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       dataStatus,
       dataError,
       reloadData,
+      client,
     ],
   )
 

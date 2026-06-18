@@ -23,6 +23,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
+import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import type { OnboardingVideo } from '@/types'
 
 type Tab = 'videos' | 'checklist' | 'admin'
@@ -223,7 +224,7 @@ export function OnboardingPage() {
                     <iframe
                       key={activeVideo.id}
                       className="h-full w-full"
-                      src={ytEmbedUrl(activeVideo.youtubeUrl)}
+                      src={sanitizeYouTubeEmbedUrl(activeVideo.youtubeUrl)}
                       title={activeVideo.title}
                       allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
                       allowFullScreen
@@ -617,16 +618,4 @@ function TabButton({
       ) : null}
     </button>
   )
-}
-
-function ytEmbedUrl(url: string): string {
-  if (!url) return ''
-  if (url.includes('/embed/')) return url
-  const watch = url.match(/[?&]v=([^&]+)/)
-  if (watch) return `https://www.youtube.com/embed/${watch[1]}`
-  const short = url.match(/youtu\.be\/([^?]+)/)
-  if (short) return `https://www.youtube.com/embed/${short[1]}`
-  // Looks like a raw video id
-  if (/^[\w-]{6,15}$/.test(url)) return `https://www.youtube.com/embed/${url}`
-  return url
 }

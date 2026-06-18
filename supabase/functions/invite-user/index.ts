@@ -69,6 +69,14 @@ Deno.serve(async (req) => {
     }
 
     const cleanEmail = email.trim().toLowerCase()
+    const allowedDomain = (Deno.env.get('ALLOWED_EMAIL_DOMAIN') ?? '@afrivate.org').toLowerCase()
+    if (allowedDomain && !cleanEmail.endsWith(allowedDomain)) {
+      return new Response(
+        JSON.stringify({ error: `Invites are limited to ${allowedDomain} addresses` }),
+        { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
     const cleanName = typeof name === 'string' && name.trim() ? name.trim() : undefined
     const redirectTo = `${siteUrl}/reset-password`
     const userData = cleanName ? { name: cleanName } : undefined
