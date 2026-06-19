@@ -6,7 +6,6 @@ import { useCallback, useEffect, useMemo, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue } from '@/context/dataContextShared'
 import { supabase } from '@/lib/supabase'
-import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
   checklistToRow,
   fetchPortalDataset,
@@ -47,6 +46,7 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'other',       label: 'Other' },
 ]
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
+import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
 
 export function SupabaseDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -498,18 +498,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         ),
       )
       void (async () => {
-        const { data, error: selErr } = await client
-          .from('portal_announcements')
-          .select('read_by')
-          .eq('id', id)
-          .maybeSingle()
-        if (selErr || !data) return
-        const rb = readStringArray(data.read_by)
-        if (rb.includes(userId)) return
-        const { error } = await client
-          .from('portal_announcements')
-          .update({ read_by: [...rb, userId] })
-          .eq('id', id)
+        const { error } = await client.rpc('mark_announcement_read', { p_id: id })
         if (error) console.warn('[data] announcement read', error.message)
         await reloadData()
       })()
@@ -519,18 +508,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const markAllAnnouncementsRead: DataContextValue['markAllAnnouncementsRead'] = useCallback(
     (userId) => {
+      void userId
       void (async () => {
-        const { data, error: selErr } = await client.from('portal_announcements').select('id, read_by')
-        if (selErr || !data) return
-        for (const row of data) {
-          const r = row as Record<string, unknown>
-          const rb = readStringArray(r.read_by)
-          if (rb.includes(userId)) continue
-          await client
-            .from('portal_announcements')
-            .update({ read_by: [...rb, userId] })
-            .eq('id', String(r.id))
-        }
+        const { error } = await client.rpc('mark_all_announcements_read')
+        if (error) console.warn('[data] mark all announcements read', error.message)
         await reloadData()
       })()
     },
@@ -893,21 +874,51 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     [client, reloadData],
   )
 
-  /* ----------------------- Task Categories -------------------------------- */
-  // Stored in localStorage (org-wide config, not per-user DB data)
-  const [taskCategories, setTaskCategories] = useLocalStorage<TaskCategoryItem[]>(
-    'av-task-categories',
-    DEFAULT_TASK_CATEGORIES,
+  const [taskCategories, setTaskCategories] = useState<TaskCategoryItem[]>(DEFAULT_TASK_CATEGORIES)
+
+  useEffect(() => {
+    void fetchTaskCategories(client)
+      .then((rows) => {
+        if (rows.length) setTaskCategories(rows)
+      })
+      .catch((e) => console.warn('[data] task categories load', e))
+  }, [client])
+
+  const addTaskCategory = useCallback(
+    (label: string) => {
+      const id = 'cat_' + uid()
+      void (async () => {
+        const { error } = await client.from('portal_task_categories').insert({
+          id,
+          label,
+          sort_order: taskCategories.length + 1,
+        })
+        if (error) console.warn('[data] add task category', error.message)
+        else setTaskCategories((prev) => [...prev, { id, label }])
+      })()
+    },
+    [client, taskCategories.length],
   )
-  const addTaskCategory = useCallback((label: string) => {
-    setTaskCategories((prev) => [...prev, { id: 'cat_' + uid(), label }])
-  }, [setTaskCategories])
-  const updateTaskCategory = useCallback((id: string, label: string) => {
-    setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
-  }, [setTaskCategories])
-  const deleteTaskCategory = useCallback((id: string) => {
-    setTaskCategories((prev) => prev.filter((c) => c.id !== id))
-  }, [setTaskCategories])
+
+  const updateTaskCategory = useCallback(
+    (id: string, label: string) => {
+      setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+      void client.from('portal_task_categories').update({ label }).eq('id', id).then(({ error }) => {
+        if (error) console.warn('[data] update task category', error.message)
+      })
+    },
+    [client],
+  )
+
+  const deleteTaskCategory = useCallback(
+    (id: string) => {
+      setTaskCategories((prev) => prev.filter((c) => c.id !== id))
+      void client.from('portal_task_categories').delete().eq('id', id).then(({ error }) => {
+        if (error) console.warn('[data] delete task category', error.message)
+      })
+    },
+    [client],
+  )
 
   const value = useMemo<DataContextValue>(
     () => ({
@@ -998,6 +1009,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           },
         })
         if (error) console.warn('[data] approveUser error:', error.message)
+        await client
+          .from('portal_access_requests')
+          .update({ status: 'approved' })
+          .eq('user_id', id)
         setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
       },
       taskCategories,

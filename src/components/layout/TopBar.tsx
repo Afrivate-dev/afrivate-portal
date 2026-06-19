@@ -7,7 +7,7 @@ import { useData } from '@/context/DataContext'
 import { useCollab } from '@/context/CollabContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { Select } from '@/components/ui/Select'
-import { roleLabel } from '@/utils/helpers'
+import { roleLabel, firstName } from '@/utils/helpers'
 import type { UserAvailability } from '@/types'
 
 const AVAILABILITY_OPTIONS: { value: UserAvailability; label: string }[] = [
@@ -113,7 +113,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           >
             <Avatar name={user.name} src={user.avatarUrl} size="sm" />
             <div className="hidden text-left sm:block">
-              <div className="text-sm font-medium text-fg leading-tight">{user.name}</div>
+              <div className="text-sm font-medium text-fg leading-tight">{firstName(user.name)}</div>
               <div className="text-[11px] text-muted leading-tight">{roleLabel[user.role]}</div>
             </div>
           </button>
@@ -121,7 +121,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           {menuOpen ? (
             <div className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-md border border-border bg-surface shadow-elevated animate-fade-in">
               <div className="border-b border-border p-3">
-                <div className="text-sm font-semibold text-fg">{user.name}</div>
+                <div className="text-sm font-semibold text-fg">{firstName(user.name)}</div>
                 <div className="truncate text-xs text-muted">{user.email}</div>
               </div>
               <ul className="py-1">

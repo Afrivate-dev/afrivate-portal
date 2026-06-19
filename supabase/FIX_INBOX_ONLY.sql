@@ -1,3 +1,7 @@
+-- DEPRECATED: Do not run after 20260619_security_hardening.sql or 20260620_audit_remediation.sql.
+-- The hardened migration includes a stronger inbox insert policy (active-user check).
+-- This file is kept only for recovering failed initial portal_data_tables runs.
+
 -- Run this ONLY if portal_data_tables.sql failed on inbox_insert_for_others_ok
 -- Safe to run multiple times.
 

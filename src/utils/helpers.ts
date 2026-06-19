@@ -114,6 +114,13 @@ export const greeting = () => {
   return 'Good evening'
 }
 
+/** First name for warm, personal greetings (falls back to full name or "there"). */
+export const firstName = (full: string | undefined | null) => {
+  const trimmed = full?.trim()
+  if (!trimmed) return 'there'
+  return trimmed.split(/\s+/)[0] ?? trimmed
+}
+
 export const uid = () => crypto.randomUUID()
 
 /** Company update visibility (same rules as the Updates page). */

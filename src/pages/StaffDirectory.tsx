@@ -36,7 +36,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
 import { sanitizeLinkedInUrl } from '@/utils/safeUrl'
-import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR } from '@/utils/helpers'
+import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR, firstName } from '@/utils/helpers'
 import type { User } from '@/types'
 
 const P = pages.people
@@ -50,10 +50,6 @@ interface ProfileDraft {
   pronouns: string
   linkedinUrl: string
   avatarUrl: string
-}
-
-function firstName(full: string) {
-  return full.trim().split(/\s+/)[0] ?? full
 }
 
 export function StaffDirectoryPage() {
@@ -140,7 +136,7 @@ export function StaffDirectoryPage() {
   const mailFor = (target: User) =>
     mailtoHref(target.email, {
       subject: P.emailSubject(firstName(target.name)),
-      body: P.emailBody(firstName(target.name), user.name),
+      body: P.emailBody(firstName(target.name), firstName(user.name)),
     })
 
   const startEdit = () => {

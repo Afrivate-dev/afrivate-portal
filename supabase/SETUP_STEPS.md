@@ -56,7 +56,8 @@ Save the file. Restart `npm run dev` after any `.env` change.
 | 4 | `20260608_audit_log.sql` | Safe to re-run (now idempotent). Or skip if audit table exists. |
 | 5 | `20260608_rls_tightening.sql` | **Optional — skip this** if you will run step 6. It is superseded by the security hardening file. |
 | 6 | **`20260619_security_hardening.sql`** | **REQUIRED** — fixes RLS, adds notes table, profile guards. Run this even if earlier files partially failed. |
-| 7 | `rls-section-5-and-6.sql` | **REQUIRED** — Realtime private channel policies |
+| 7 | **`20260620_audit_remediation.sql`** | **REQUIRED** — access requests, announcement read RPCs, note link tokens, task categories |
+| 8 | `rls-section-5-and-6.sql` | **REQUIRED** — Realtime private channel policies |
 
 ### Important SQL tips
 
@@ -105,26 +106,28 @@ npx supabase link --project-ref YOUR_PROJECT_REF
 
 Enter your **database password** when prompted (Settings → Database).
 
-Deploy both functions:
+Deploy all three functions:
 
 ```bash
 npx supabase functions deploy invite-user
 npx supabase functions deploy admin-patch-profile
+npx supabase functions deploy request-access
 ```
 
 Docker warning is OK for deploy — Docker is only needed for local function testing.
 
 ### Option B — Deploy via Supabase Dashboard (no CLI)
 
-If CLI still returns 403 (e.g. you are a collaborator without deploy rights):
+If CLI returns **"does not have the necessary privileges"** (common for collaborators without Developer/Owner role):
 
 1. Dashboard → **Edge Functions**
 2. **Create a new function** named `invite-user`
 3. Replace the editor contents with `supabase/functions/invite-user/index.ts`
 4. Deploy
 5. Repeat for `admin-patch-profile`
+6. Repeat for `request-access` (pending users notify HR/admin via inbox)
 
-Ask the **project owner** to deploy if you do not see Edge Functions in the dashboard.
+You do **not** need `supabase link` for Dashboard deploy. Ask the **project owner** to deploy or upgrade your team role if Edge Functions are not visible.
 
 ### Option C — Owner adds you with deploy access
 
@@ -158,6 +161,8 @@ Dashboard → **Edge Functions → Secrets** (or Project Settings → Edge Funct
 ## Step 8 — Create your first admin user
 
 After migrations, new sign-ups start as **inactive staff** (approval workflow).
+
+**Promote an existing user (e.g. after they signed up):** run `supabase/promote_emma_admin.sql` in the SQL Editor (edit the email inside if needed).
 
 **Option 1 — Invite via Edge Function (after deploy):** use Admin Panel in the app.
 
@@ -214,9 +219,10 @@ npm run dev
 If steps 1–4 already ran with only policy errors:
 
 1. Run **`20260619_security_hardening.sql`** (fixed version)
-2. Run **`rls-section-5-and-6.sql`**
-3. Deploy Edge Functions (Dashboard or CLI)
-4. Set secrets (Step 6)
-5. Fill `.env` and test
+2. Run **`20260620_audit_remediation.sql`**
+3. Run **`rls-section-5-and-6.sql`**
+4. Deploy Edge Functions (Dashboard or CLI), including **`request-access`**
+5. Set secrets (Step 6)
+6. Fill `.env` and test
 
 That is all you need to go live.

@@ -40,7 +40,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
-import { cn, fmtDate, relativeTime, uid, weekLabel } from '@/utils/helpers'
+import { cn, fmtDate, firstName, relativeTime, uid, weekLabel } from '@/utils/helpers'
 import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
@@ -974,16 +974,15 @@ export function AdminPanelPage() {
                 they set their password their account will appear in the Approvals tab.
               </p>
               <p className="text-xs text-muted">
-                If they don't receive it within a few minutes, ask them to check spam — or
-                configure a custom SMTP provider in Supabase → Project Settings → Auth →
-                SMTP Settings for reliable delivery.
+                If they don&apos;t receive it within a few minutes, ask them to check their spam folder.
               </p>
             </div>
           ) : (
             <div className="space-y-4 py-2">
               <p className="font-semibold text-fg">Account created!</p>
               <p className="text-sm text-muted">
-                Share these login credentials with <strong>{inviteEmail}</strong> directly — no email was sent (Supabase not connected).
+                Email delivery is not set up yet. Share the sign-in details below with{' '}
+                <strong>{inviteEmail}</strong> directly.
               </p>
               <div className="rounded-md border border-border bg-surface-2 p-4 space-y-2 text-sm font-mono">
                 <div><span className="text-muted">Email: </span><span className="text-fg select-all">{inviteEmail}</span></div>
@@ -1001,9 +1000,8 @@ export function AdminPanelPage() {
               </p>
             ) : (
               <div className="rounded-md border border-accent/30 bg-accent/5 px-3 py-2 text-sm text-fg">
-                <strong>Local mode:</strong> Supabase is not connected, so no email will be
-                sent. An account will be created and you'll get a temporary password to share
-                directly.
+                Invites are sent by email when your organisation has email delivery configured.
+                Until then, create the account here and share the sign-in details directly.
               </div>
             )}
             <Input
@@ -1459,7 +1457,7 @@ function LeaveAdminGrid({
                       style={{ background: LEAVE_COLORS[l.type], opacity: l.status === 'pending' ? 0.6 : 1 }}
                       title={`${u?.name} · ${l.type}`}
                     >
-                      {u?.name?.split(' ')[0]}
+                      {firstName(u?.name)}
                     </div>
                   )
                 })}

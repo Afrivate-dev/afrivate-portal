@@ -53,7 +53,7 @@ export function PrivacyNoticePage() {
               <li>Work activity data — weekly check-in entries, task assignments, and hours logged</li>
               <li>Communication data — inbox notifications, @mentions in tasks, and shout-outs (recognition posts)</li>
               <li>Document access data — records of which onboarding materials have been viewed</li>
-              <li>Account security data — authentication credentials managed via Supabase Auth</li>
+              <li>Account security data — sign-in credentials stored securely by our hosting provider</li>
             </ul>
           </section>
 
@@ -86,8 +86,8 @@ export function PrivacyNoticePage() {
               <li>Task details you create or are assigned to are visible to other team members</li>
               <li>Administrators can view all data within the portal for operational purposes</li>
               <li>
-                Data is stored on Supabase infrastructure (EU/US servers). Supabase acts as our data
-                processor under a Data Processing Agreement
+                Data is stored on secure cloud servers. Our hosting provider processes data on our
+                behalf under a Data Processing Agreement
               </li>
             </ul>
           </section>

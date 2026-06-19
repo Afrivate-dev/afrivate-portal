@@ -2,7 +2,7 @@
 import { NavLink, Link } from 'react-router-dom'
 import { X, LogOut, ShieldCheck } from 'lucide-react'
 import { navItems } from '@/config/nav'
-import { cn, roleLabel } from '@/utils/helpers'
+import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
 import { Avatar } from '@/components/ui/Avatar'
 
@@ -59,7 +59,7 @@ export function Drawer({ open, onClose }: DrawerProps) {
         <div className="flex items-center gap-3 border-b border-border px-4 py-4">
           <Avatar name={user.name} src={user.avatarUrl} size="md" />
           <div className="min-w-0">
-            <div className="truncate text-sm font-semibold text-fg">{user.name}</div>
+            <div className="truncate text-sm font-semibold text-fg">{firstName(user.name)}</div>
             <div className="truncate text-xs text-muted">{roleLabel[user.role]}</div>
           </div>
         </div>

@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Inbox as InboxIcon, AtSign, ListChecks, Heart } from 'lucide-react'
+import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -32,6 +32,11 @@ const TYPE_META: Record<
     icon: AtSign,
     label: 'Mention',
     iconClass: 'text-amber-600 dark:text-amber-300',
+  },
+  access_request: {
+    icon: UserPlus,
+    label: 'Access request',
+    iconClass: 'text-accent',
   },
 }
 

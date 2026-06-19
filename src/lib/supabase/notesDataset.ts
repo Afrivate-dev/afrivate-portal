@@ -77,3 +77,32 @@ export async function deleteWorkspaceNote(client: SupabaseClient, id: string): P
   const { error } = await client.from('portal_workspace_notes').delete().eq('id', id)
   if (error) throw new Error(error.message)
 }
+
+export async function fetchWorkspaceNoteByLink(
+  client: SupabaseClient,
+  id: string,
+  linkToken: string,
+): Promise<WorkspaceNote | null> {
+  const { data, error } = await client.rpc('get_workspace_note_by_link', {
+    p_id: id,
+    p_token: linkToken,
+  })
+  if (error) throw new Error(error.message)
+  const row = Array.isArray(data) ? data[0] : data
+  if (!row) return null
+  return rowToWorkspaceNote(row as Record<string, unknown>)
+}
+
+export async function fetchTaskCategories(
+  client: SupabaseClient,
+): Promise<{ id: string; label: string }[]> {
+  const { data, error } = await client
+    .from('portal_task_categories')
+    .select('id, label')
+    .order('sort_order')
+  if (error) throw new Error(error.message)
+  return (data ?? []).map((r) => ({
+    id: String((r as Record<string, unknown>).id),
+    label: String((r as Record<string, unknown>).label),
+  }))
+}

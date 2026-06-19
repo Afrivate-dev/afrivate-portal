@@ -470,8 +470,7 @@ export function DocumentLibraryPage() {
           <div className="space-y-2 text-sm text-fg">
             <p className="font-medium">{downloadInfoDoc.fileName}</p>
             <p className="text-muted">
-              File downloads will be available once document storage is fully enabled for this
-              workspace.
+              File downloads will be available soon. Ask your admin if you need this file right away.
             </p>
           </div>
         ) : null}

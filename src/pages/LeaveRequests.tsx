@@ -40,7 +40,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, isLead, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, firstName, isLead, relativeTime } from '@/utils/helpers'
 import type { LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
 
 type Tab = 'my' | 'all' | 'calendar'
@@ -672,7 +672,7 @@ function LeaveCalendar({
                           style={{ background: TYPE_META[r.type].color }}
                         />
                         <span className="truncate font-medium">
-                          {u.name.split(' ')[0]}
+                          {firstName(u.name)}
                         </span>
                       </div>
                     )

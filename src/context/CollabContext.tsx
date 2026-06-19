@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Workspace collaboration: shared notes + presence.
  *
  * - With VITE_SUPABASE_URL + VITE_SUPABASE_ANON_KEY: Supabase Realtime (presence + note broadcast).
@@ -25,6 +25,7 @@ import { supabase } from '@/lib/supabase'
 import {
   deleteWorkspaceNote,
   fetchWorkspaceNoteById,
+  fetchWorkspaceNoteByLink,
   fetchWorkspaceNotes,
   rowToWorkspaceNote,
   upsertWorkspaceNote,
@@ -150,7 +151,10 @@ export function CollabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
   const { teams } = useData()
   const supabaseNotesEnabled = isSupabaseDataEnabled()
-  const [allNotes, setNotes] = useLocalStorage<WorkspaceNote[]>(NOTES_KEY_V2, loadNotesFromStorage)
+  const [localNotes, setLocalNotes] = useLocalStorage<WorkspaceNote[]>(NOTES_KEY_V2, loadNotesFromStorage)
+  const [dbNotes, setDbNotes] = useState<WorkspaceNote[]>([])
+  const allNotes = supabaseNotesEnabled ? dbNotes : localNotes
+  const setNotes = supabaseNotesEnabled ? setDbNotes : setLocalNotes
   const [myAvailability, setMyAvailability] = useState<UserAvailability>('online')
   const [activity, setActivityState] = useState<WorkspaceActivity>({})
   const [peers, setPeers] = useState<PresencePeer[]>([])
@@ -195,7 +199,11 @@ export function CollabProvider({ children }: { children: ReactNode }) {
 
       if (msg.kind === 'hint') {
         if (!supabaseNotesEnabled || !supabase) return
-        void fetchWorkspaceNoteById(supabase, msg.id).then((incoming) => {
+        const linkToken = linkKeys[msg.id] ?? null
+        const fetcher = linkToken
+          ? fetchWorkspaceNoteByLink(supabase, msg.id, linkToken)
+          : fetchWorkspaceNoteById(supabase, msg.id)
+        void fetcher.then((incoming) => {
           if (!incoming || !user) return
           if (!canUserViewNote(user, incoming, teams, linkKeys[incoming.id] ?? null)) return
           setNotes((prev) => {

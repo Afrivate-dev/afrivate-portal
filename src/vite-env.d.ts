@@ -1,4 +1,5 @@
 ﻿/// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
   /** POST endpoint (e.g. https://www.afrivate.org/portal-media/upload.php) */

@@ -1,4 +1,4 @@
-﻿/**
+/**
  * Local-first portal data (seed + localStorage). Used when `VITE_USE_SUPABASE_DATA` is off.
  */
 import { useCallback, useMemo } from 'react'
@@ -16,7 +16,6 @@ import {
   seedRecognition,
   seedTasks,
   seedTeams,
-  seedUsers,
 } from '@/data/mockData'
 import type {
   Announcement,
@@ -50,7 +49,7 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 
 export function LocalDataProvider({ children }: { children: React.ReactNode }) {
-  const [users, setUsers] = useLocalStorage<User[]>('av-users', seedUsers)
+  const [users, setUsers] = useLocalStorage<User[]>('av-users', [])
   const [tasks, setTasks] = useLocalStorage<Task[]>('av-tasks', seedTasks)
   const [checkIns, setCheckIns] = useLocalStorage<WeeklyCheckIn[]>('av-checkins-v2', seedCheckIns)
   const [announcements, setAnnouncements] = useLocalStorage<Announcement[]>(

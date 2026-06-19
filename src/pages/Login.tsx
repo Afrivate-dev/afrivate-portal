@@ -5,7 +5,7 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { useAuth } from '@/context/AuthContext'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { pages } from '@/content/copy'
 
 export function LoginPage() {
   const { user, login } = useAuth()
@@ -25,7 +25,7 @@ export function LoginPage() {
     const result = await login(email, password)
     setLoading(false)
     if (!result.ok) {
-      setError(result.error ?? 'Login failed')
+      setError(result.error ?? 'Sign-in failed. Check your email and password.')
       return
     }
     navigate('/', { replace: true })
@@ -34,17 +34,15 @@ export function LoginPage() {
   return (
     <Card padding="lg" className="w-full max-w-md">
       <div className="mb-6 text-center">
-        <h1 className="text-2xl font-bold text-fg">Welcome back</h1>
-        <p className="mt-1 text-sm text-muted">
-          Sign in to the AfriVate employee portal
-        </p>
+        <h1 className="text-2xl font-bold text-fg">{pages.login.title}</h1>
+        <p className="mt-1 text-sm text-muted">{pages.login.subtitle}</p>
       </div>
 
       <form className="space-y-4" onSubmit={onSubmit}>
         <Input
           type="email"
           name="email"
-          label="Work email"
+          label={pages.login.emailLabel}
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           placeholder="you@afrivate.org"
@@ -56,7 +54,7 @@ export function LoginPage() {
         <Input
           type={showPassword ? 'text' : 'password'}
           name="password"
-          label="Password"
+          label={pages.login.passwordLabel}
           value={password}
           onChange={(e) => setPassword(e.target.value)}
           placeholder="••••••••"
@@ -90,23 +88,15 @@ export function LoginPage() {
         </Button>
       </form>
 
-      <div className="mt-4 text-center">
+      <div className="mt-4 space-y-2 text-center">
         <Link
           to="/forgot-password"
-          className="text-sm text-muted hover:text-accent"
+          className="block text-sm text-muted hover:text-accent"
         >
           Forgot your password?
         </Link>
+        <p className="text-xs text-muted">{pages.login.newUserHint}</p>
       </div>
-
-      {!isSupabaseAuthEnabled() && (
-        <div className="mt-6 border-t border-border pt-4">
-          <p className="text-xs text-muted">
-            Running in local mode. Connect Supabase to enable real authentication.
-          </p>
-        </div>
-      )}
-
     </Card>
   )
 }

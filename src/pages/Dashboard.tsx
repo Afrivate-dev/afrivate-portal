@@ -20,6 +20,7 @@ import {
   fmtDate,
   fmtTime,
   greeting,
+  firstName,
   isDueToday,
   relativeTime,
   roleLabel,
@@ -104,7 +105,7 @@ export function DashboardPage() {
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <h1 className="text-2xl font-bold text-fg sm:text-3xl">
-              {greeting()}, {user.name.split(' ')[0]}
+              {greeting()}, {firstName(user.name)}
             </h1>
             <p className="mt-1 text-sm text-muted">
               {roleLabel[user.role]} &middot; {user.department}

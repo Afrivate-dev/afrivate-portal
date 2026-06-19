@@ -1,7 +1,6 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
-import { seedUsers } from '@/data/mockData'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import type { Role, User } from '@/types'
@@ -63,7 +62,8 @@ function sessionToPortalUser(session: Session | null): User | null {
     pronouns: typeof md.pronouns === 'string' ? md.pronouns : undefined,
     linkedinUrl: typeof md.linkedin_url === 'string' ? md.linkedin_url : undefined,
     reportsToId: typeof md.reports_to_id === 'string' ? md.reports_to_id : undefined,
-    active: md.active !== false,
+    // Authoritative active flag comes from `profiles` — never trust JWT metadata alone.
+    active: false,
   }
 }
 
@@ -99,7 +99,7 @@ async function loadSupabasePortalUser(
     .maybeSingle()
   if (error) {
     console.warn('[auth] profiles read:', error.message)
-    return base
+    return { ...base, role: 'staff' as Role, active: false }
   }
   if (row) return mergeProfileWithSessionUser(base, row as ProfileRow)
   return base
@@ -138,7 +138,7 @@ function userPatchToSupabaseMetadata(patch: Partial<User>): Record<string, unkno
   if (patch.pronouns !== undefined) data.pronouns = patch.pronouns
   if (patch.linkedinUrl !== undefined) data.linkedin_url = patch.linkedinUrl
   if (patch.reportsToId !== undefined) data.reports_to_id = patch.reportsToId
-  if (patch.active !== undefined) data.active = patch.active
+  // Never write role or active to JWT metadata from the client.
   return data
 }
 
@@ -189,13 +189,6 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
   const user = supabaseMode ? supabaseUser : mockUser
 
-  const setSessionUser = useCallback(
-    (next: User | null) => {
-      setStoredUser(next ? stripPasswordForSession(next) : null)
-    },
-    [setStoredUser],
-  )
-
   const login = useCallback(
     async (email: string, password: string) => {
       if (supabaseMode && supabase) {
@@ -208,27 +201,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         return { ok: true as const }
       }
-      const localUsers = (() => {
-        try { return JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[] }
-        catch { return [] }
-      })()
-      const match =
-        seedUsers.find(
-          (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-        ) ??
-        localUsers.find(
-          (u) => u.email.toLowerCase() === email.trim().toLowerCase() && u.password === password,
-        )
-      if (!match) {
-        return { ok: false as const, error: 'Invalid email or password' }
+      return {
+        ok: false as const,
+        error:
+          'Sign-in is not available right now. Please contact your administrator.',
       }
-      if (!match.active) {
-        return { ok: false as const, error: 'This account is inactive. Contact HR.' }
-      }
-      setSessionUser(match)
-      return { ok: true as const }
     },
-    [supabaseMode, setSessionUser],
+    [supabaseMode],
   )
 
   const logout = useCallback(() => {

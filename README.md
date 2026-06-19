@@ -1,6 +1,6 @@
-﻿# AfriVate Employee Portal
+# AfriVate Employee Portal
 
-Internal staff portal for AfriVate Technologies Ltd. Built with React + TypeScript + Tailwind CSS, powered by Vite. Supports mock login and localStorage by default, with optional Supabase backend for auth and data.
+Internal staff portal for AfriVate Technologies Ltd. Built with React + TypeScript + Tailwind CSS, powered by Vite. Requires Supabase for authentication and data in production.
 
 Intended to be deployed at `portal.afrivate.org`. See **`SUPABASE_SETUP.md`** for the go-live guide.
 
@@ -29,16 +29,7 @@ npm run dev
 
 Open [http://localhost:5173](http://localhost:5173).
 
----
-
-## Demo Accounts (mock mode)
-
-| Role | Email | Password |
-|------|-------|----------|
-| Admin | `admin@afrivate.org` | `admin123` |
-| HR | `hr@afrivate.org` | `hr123` |
-| Team Lead | `lead@afrivate.org` | `lead123` |
-| Staff | `staff@afrivate.org` | `staff123` |
+Sign in with your Supabase Auth account (`@afrivate.org` email). New users start inactive until an admin approves them.
 
 ---
 
@@ -53,7 +44,17 @@ VITE_USE_SUPABASE_AUTH=true
 VITE_USE_SUPABASE_DATA=true
 ```
 
-Leave both flags as `false` (or omit them) to run in mock/localStorage mode.
+Both flags must be `true` for production. See `supabase/SETUP_STEPS.md` for database migrations and Edge Functions.
+
+### E2E tests
+
+Copy `.env.test.example` to `.env.test.local` and add Supabase URL, anon key, and test account credentials. Run:
+
+```bash
+npm run test:e2e
+```
+
+Tests that require login are skipped if credentials are not set.
 
 ---
 

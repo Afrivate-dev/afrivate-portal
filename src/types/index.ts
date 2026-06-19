@@ -1,4 +1,4 @@
-﻿export type Role = 'staff' | 'assistant_lead' | 'team_lead' | 'hr' | 'admin'
+export type Role = 'staff' | 'assistant_lead' | 'team_lead' | 'hr' | 'admin'
 
 export interface Department {
   id: string
@@ -166,7 +166,11 @@ export interface RecognitionPost {
   reactedBy: string[]
 }
 
-export type InboxNotificationType = 'recognition' | 'task_mention' | 'task_assigned'
+export type InboxNotificationType =
+  | 'recognition'
+  | 'task_mention'
+  | 'task_assigned'
+  | 'access_request'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {

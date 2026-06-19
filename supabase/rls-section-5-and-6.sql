@@ -1,4 +1,4 @@
-﻿-- AfriVate portal — run in Supabase Dashboard → SQL → New query
+-- AfriVate portal — run in Supabase Dashboard → SQL → New query
 -- After §4.1 (`profiles` table). Implements §5 (profiles RLS) + §6 (private Realtime).
 --
 -- SECTION 5 — Row Level Security on `public.profiles`
@@ -9,10 +9,10 @@ alter table public.profiles enable row level security;
 
 drop policy if exists "Users can read profiles in their org" on public.profiles;
 drop policy if exists "Users update own profile" on public.profiles;
-
 drop policy if exists "profiles_select_authenticated" on public.profiles;
 drop policy if exists "profiles_insert_own_row" on public.profiles;
 drop policy if exists "profiles_update_own_row" on public.profiles;
+drop policy if exists "profiles_update_hr_admin" on public.profiles;
 
 create policy "profiles_select_authenticated"
   on public.profiles
