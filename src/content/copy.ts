@@ -58,17 +58,23 @@ export const pages = {
   login: {
     title: 'Welcome back',
     subtitle: 'Sign in to your AfriVate team portal.',
-    emailLabel: 'Work email',
+    emailLabel: 'Email address',
     passwordLabel: 'Password',
     signInHelp:
-      'Use your @afrivate.org email. If you have signed up but cannot get in yet, request access below.',
+      'Already have an account? Sign in above. New to AfriVate? Use Request access to create one.',
     requestAccessCta: 'Request access',
   },
   requestAccess: {
     title: 'Request access',
     subtitle:
-      'Sign in with the email and password you used when you registered. We will notify People & Culture to approve your account.',
-    submitLabel: 'Send request',
+      'Create your account here. We will notify People & Culture to review and approve you.',
+    submitLabel: 'Create account & request access',
+    nameLabel: 'Your name',
+    namePlaceholder: 'e.g. Emmanuel Okpiaifo',
+    emailHint: 'Work or personal email — use the same address to sign in later.',
+    passwordHint: 'At least 8 characters.',
+    confirmEmailSuccess:
+      'Account created! Confirm your email, then sign in. If your account is still pending, you can send your access request from the next screen.',
   },
   home: {
     title: 'Home',

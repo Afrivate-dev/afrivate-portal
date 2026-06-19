@@ -62,7 +62,7 @@ export function ForgotPasswordPage() {
               label="Work email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              placeholder="you@afrivate.org"
+              placeholder="you@gmail.com"
               autoComplete="email"
               leadingIcon={<Mail className="h-4 w-4" />}
               required

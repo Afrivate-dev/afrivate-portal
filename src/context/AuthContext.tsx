@@ -146,6 +146,11 @@ interface AuthContextValue {
   user: User | null
   role: Role | null
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
+  register: (
+    email: string,
+    password: string,
+    name: string,
+  ) => Promise<{ ok: boolean; error?: string; needsEmailConfirmation?: boolean }>
   logout: () => void
   updateProfile: (patch: Partial<User>) => void
   /** Sync session state from server without writing back to the database. */
@@ -197,7 +202,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           password,
         })
         if (error) {
-          return { ok: false as const, error: error.message }
+          const msg = error.message.toLowerCase().includes('invalid login')
+            ? 'Incorrect email or password. New to AfriVate? Use Request access to create an account.'
+            : error.message
+          return { ok: false as const, error: msg }
         }
         return { ok: true as const }
       }
@@ -206,6 +214,39 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         error:
           'Sign-in is not available right now. Please contact your administrator.',
       }
+    },
+    [supabaseMode],
+  )
+
+  const register = useCallback(
+    async (email: string, password: string, name: string) => {
+      if (!supabaseMode || !supabase) {
+        return {
+          ok: false as const,
+          error: 'Registration is not available right now. Please contact your administrator.',
+        }
+      }
+      const trimmedEmail = email.trim().toLowerCase()
+      const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+      const { data, error } = await supabase.auth.signUp({
+        email: trimmedEmail,
+        password,
+        options: {
+          data: { name: trimmedName },
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      })
+      if (error) {
+        return { ok: false as const, error: error.message }
+      }
+      if (data.user && !data.session) {
+        return { ok: true as const, needsEmailConfirmation: true }
+      }
+      if (data.session) {
+        const portalUser = await loadSupabasePortalUser(supabase, data.session)
+        setSupabaseUser(portalUser)
+      }
+      return { ok: true as const }
     },
     [supabaseMode],
   )
@@ -264,11 +305,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       user,
       role: user?.role ?? null,
       login,
+      register,
       logout,
       updateProfile,
       reconcileUser,
     }),
-    [user, login, logout, updateProfile, reconcileUser],
+    [user, login, register, logout, updateProfile, reconcileUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
