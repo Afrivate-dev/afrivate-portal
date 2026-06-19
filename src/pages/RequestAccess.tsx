@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate } from 'react-router-dom'
-import { Mail, Lock, ArrowLeft, Send, CheckCircle } from 'lucide-react'
+import { Mail, Lock, ArrowLeft, Send, CheckCircle, User } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -10,7 +10,8 @@ import { submitAccessRequest } from '@/lib/requestAccess'
 import { pages } from '@/content/copy'
 
 export function RequestAccessPage() {
-  const { user, login } = useAuth()
+  const { user, register } = useAuth()
+  const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [message, setMessage] = useState('')
@@ -19,34 +20,45 @@ export function RequestAccessPage() {
   const [loading, setLoading] = useState(false)
 
   if (user?.active === true) return <Navigate to="/" replace />
+  if (user) return <Navigate to="/" replace />
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setSuccess(null)
+
+    if (password.length < 8) {
+      setError('Password must be at least 8 characters.')
+      return
+    }
+
     setLoading(true)
 
-    if (!user) {
-      const signIn = await login(email, password)
-      if (!signIn.ok) {
-        setLoading(false)
-        setError(signIn.error ?? 'Could not sign in. Check your email and password.')
-        return
-      }
+    const created = await register(email, password, name)
+    if (!created.ok) {
+      setLoading(false)
+      setError(created.error ?? 'Could not create your account.')
+      return
+    }
+
+    if (created.needsEmailConfirmation) {
+      setLoading(false)
+      setSuccess(pages.requestAccess.confirmEmailSuccess)
+      return
     }
 
     const result = await submitAccessRequest(message)
     setLoading(false)
 
     if (!result.ok) {
-      setError(result.error ?? 'Could not send your request.')
+      setError(result.error ?? 'Account created, but we could not send your request. Sign in and try again from the pending screen.')
       return
     }
 
     setSuccess(
       result.alreadyRequested
-        ? 'Your request is already with the team. People & Culture will review your account soon.'
-        : 'Request sent. People & Culture will review your account and email you when you are approved.',
+        ? 'Account created. Your request is already with the team — People & Culture will review it soon.'
+        : 'Account created and request sent. People & Culture will email you when your access is approved.',
     )
   }
 
@@ -66,38 +78,55 @@ export function RequestAccessPage() {
       </div>
 
       {success ? (
-        <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
-          <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>{success}</span>
+        <div className="space-y-4">
+          <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-sm text-success">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>{success}</span>
+          </div>
+          <p className="text-center text-sm text-muted">
+            Already approved?{' '}
+            <Link to="/login" className="font-medium text-accent hover:underline">
+              Sign in
+            </Link>
+          </p>
         </div>
       ) : (
         <form className="space-y-4" onSubmit={(e) => void onSubmit(e)}>
-          {!user ? (
-            <>
-              <Input
-                type="email"
-                name="email"
-                label={pages.login.emailLabel}
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
-                placeholder="you@afrivate.org"
-                autoComplete="email"
-                leadingIcon={<Mail className="h-4 w-4" />}
-                required
-              />
-              <Input
-                type="password"
-                name="password"
-                label={pages.login.passwordLabel}
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                placeholder="••••••••"
-                autoComplete="current-password"
-                leadingIcon={<Lock className="h-4 w-4" />}
-                required
-              />
-            </>
-          ) : null}
+          <Input
+            type="text"
+            name="name"
+            label={pages.requestAccess.nameLabel}
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            placeholder={pages.requestAccess.namePlaceholder}
+            autoComplete="name"
+            leadingIcon={<User className="h-4 w-4" />}
+            required
+          />
+          <Input
+            type="email"
+            name="email"
+            label={pages.login.emailLabel}
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            placeholder="you@gmail.com"
+            autoComplete="email"
+            leadingIcon={<Mail className="h-4 w-4" />}
+            required
+          />
+          <p className="-mt-2 text-xs text-muted">{pages.requestAccess.emailHint}</p>
+          <Input
+            type="password"
+            name="password"
+            label={pages.login.passwordLabel}
+            value={password}
+            onChange={(e) => setPassword(e.target.value)}
+            placeholder="••••••••"
+            autoComplete="new-password"
+            leadingIcon={<Lock className="h-4 w-4" />}
+            required
+          />
+          <p className="-mt-2 text-xs text-muted">{pages.requestAccess.passwordHint}</p>
 
           <Textarea
             label="Optional message"
@@ -120,6 +149,13 @@ export function RequestAccessPage() {
             <Send className="h-4 w-4" />
             {pages.requestAccess.submitLabel}
           </Button>
+
+          <p className="text-center text-sm text-muted">
+            Already have an account?{' '}
+            <Link to="/login" className="font-medium text-accent hover:underline">
+              Sign in
+            </Link>
+          </p>
         </form>
       )}
     </Card>

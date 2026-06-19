@@ -155,7 +155,11 @@ Dashboard → **Edge Functions → Secrets** (or Project Settings → Edge Funct
 1. **Authentication → URL Configuration**
    - **Site URL:** `https://portal.afrivate.org` (or `http://localhost:5173` for local dev)
    - **Redirect URLs:** add `http://localhost:5173/reset-password` and your production reset URL
-2. **Authentication → Providers → Email** — ensure Email provider is enabled
+2. **Authentication → Providers → Email**
+   - Ensure Email provider is **enabled**
+   - Turn **ON** “Allow new users to sign up” (required for Request access → Create account)
+   - For faster onboarding, you may turn **OFF** “Confirm email” so new users can request access immediately after sign-up (otherwise they must confirm email first)
+3. **Edge Functions → Secrets:** remove `ALLOWED_EMAIL_DOMAIN` or set it empty to allow admin invites to any email address
 
 ---
 
