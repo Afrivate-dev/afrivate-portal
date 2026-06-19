@@ -58,10 +58,17 @@ export const pages = {
   login: {
     title: 'Welcome back',
     subtitle: 'Sign in to your AfriVate team portal.',
-    newUserHint:
-      'New here? Sign in after accepting your invite. If your account is still pending, tap Request access on the next screen.',
     emailLabel: 'Work email',
     passwordLabel: 'Password',
+    signInHelp:
+      'Use your @afrivate.org email. If you have signed up but cannot get in yet, request access below.',
+    requestAccessCta: 'Request access',
+  },
+  requestAccess: {
+    title: 'Request access',
+    subtitle:
+      'Sign in with the email and password you used when you registered. We will notify People & Culture to approve your account.',
+    submitLabel: 'Send request',
   },
   home: {
     title: 'Home',

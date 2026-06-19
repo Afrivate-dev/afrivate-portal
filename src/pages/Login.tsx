@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { Navigate, useNavigate, Link } from 'react-router-dom'
-import { Mail, Lock, ArrowRight, Eye, EyeOff } from 'lucide-react'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
+import { Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -86,16 +86,24 @@ export function LoginPage() {
           Sign in
           <ArrowRight className="h-4 w-4" />
         </Button>
+
+        <Link
+          to="/request-access"
+          className="inline-flex h-12 w-full items-center justify-center gap-2 rounded-lg border border-border bg-surface-2 px-6 text-base font-medium text-fg transition-colors hover:bg-surface-3 ring-focus"
+        >
+          <UserPlus className="h-4 w-4" />
+          {pages.login.requestAccessCta}
+        </Link>
       </form>
 
-      <div className="mt-4 space-y-2 text-center">
+      <div className="mt-5 space-y-2 text-center">
         <Link
           to="/forgot-password"
           className="block text-sm text-muted hover:text-accent"
         >
           Forgot your password?
         </Link>
-        <p className="text-xs text-muted">{pages.login.newUserHint}</p>
+        <p className="text-xs leading-relaxed text-muted">{pages.login.signInHelp}</p>
       </div>
     </Card>
   )
