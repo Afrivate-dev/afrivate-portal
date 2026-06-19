@@ -57,7 +57,8 @@ Save the file. Restart `npm run dev` after any `.env` change.
 | 5 | `20260608_rls_tightening.sql` | **Optional — skip this** if you will run step 6. It is superseded by the security hardening file. |
 | 6 | **`20260619_security_hardening.sql`** | **REQUIRED** — fixes RLS, adds notes table, profile guards. Run this even if earlier files partially failed. |
 | 7 | **`20260620_audit_remediation.sql`** | **REQUIRED** — access requests, announcement read RPCs, note link tokens, task categories |
-| 8 | `rls-section-5-and-6.sql` | **REQUIRED** — Realtime private channel policies |
+| 8 | **`20260621_request_access_rpc.sql`** | **REQUIRED** — Request access button works without Edge Function deploy |
+| 9 | `rls-section-5-and-6.sql` | **REQUIRED** — Realtime private channel policies |
 
 ### Important SQL tips
 
