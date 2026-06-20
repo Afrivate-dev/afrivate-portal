@@ -8,6 +8,7 @@ import {
   Eye,
   Users as UsersIcon,
 } from 'lucide-react'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useCollab } from '@/context/CollabContext'
@@ -26,6 +27,7 @@ import {
   MediaAttachmentEditor,
 } from '@/components/shared/AnnouncementAttachments'
 import { cn, fmtDate, fmtTime, isTeamLead, relativeTime } from '@/utils/helpers'
+import { mergedDepartmentNames } from '@/lib/departments'
 import { pages, actions } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority } from '@/types'
 
@@ -81,9 +83,11 @@ const draftFromAnnouncement = (a: Announcement): FormDraft => ({
 
 export function AnnouncementsPage() {
   const { user } = useAuth()
+  const [searchParams, setSearchParams] = useSearchParams()
   const {
     announcements,
     users,
+    departments: orgDepartments,
     createAnnouncement,
     updateAnnouncement,
     deleteAnnouncement,
@@ -102,6 +106,16 @@ export function AnnouncementsPage() {
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
   useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId || !user) return
+    const target = announcements.find((a) => a.id === openId)
+    if (!target) return
+    setReadingId(openId)
+    if (!target.readBy.includes(user.id)) markAnnouncementRead(openId, user.id)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams, announcements, user, markAnnouncementRead])
+
+  useEffect(() => {
     if (readingId) {
       setActivity({ readingUpdateId: readingId, composingUpdate: undefined })
     } else if (formOpen && canPost) {
@@ -111,10 +125,10 @@ export function AnnouncementsPage() {
     }
   }, [readingId, formOpen, canPost, setActivity])
 
-  const departments = useMemo(() => {
-    const set = new Set(users.map((u) => u.department))
-    return ['all', ...Array.from(set).sort()]
-  }, [users])
+  const audienceDepartments = useMemo(
+    () => mergedDepartmentNames(orgDepartments, users),
+    [orgDepartments, users],
+  )
 
   const visibleAnnouncements = useMemo(() => {
     if (!user) return []
@@ -276,7 +290,8 @@ export function AnnouncementsPage() {
             const meta = PRIORITY_UI[a.priority]
             const author = userById(a.postedById)
             const unread = !a.readBy.includes(user.id)
-            const canEdit = canPost && a.postedById === user.id
+            const canEdit = canPost
+            const canDelete = canPost && (a.postedById === user.id || user.role === 'admin' || user.role === 'hr')
             return (
               <li key={a.id}>
                 <Card
@@ -337,8 +352,9 @@ export function AnnouncementsPage() {
                         ) : null}
                       </div>
                     </div>
-                    {canEdit ? (
+                    {canEdit || canDelete ? (
                       <div className="flex shrink-0 items-center gap-1">
+                        {canEdit ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -349,6 +365,8 @@ export function AnnouncementsPage() {
                         >
                           <Pencil className="h-4 w-4" />
                         </button>
+                        ) : null}
+                        {canDelete ? (
                         <button
                           onClick={(e) => {
                             e.stopPropagation()
@@ -359,6 +377,7 @@ export function AnnouncementsPage() {
                         >
                           <Trash2 className="h-4 w-4" />
                         </button>
+                        ) : null}
                       </div>
                     ) : null}
                   </div>
@@ -464,10 +483,10 @@ export function AnnouncementsPage() {
               label={U.formAudienceLabel}
               value={draft.audience}
               onChange={(e) => setDraft({ ...draft, audience: e.target.value })}
-              options={departments.map((d) => ({
-                value: d,
-                label: d === 'all' ? U.everyone : d,
-              }))}
+              options={[
+                { value: 'all', label: U.everyone },
+                ...audienceDepartments.map((d) => ({ value: d, label: d })),
+              ]}
             />
             <Select
               label={U.formPriorityLabel}

@@ -92,7 +92,14 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           <span className="hidden rounded-md bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300 lg:inline">
             Live
           </span>
-        ) : null}
+        ) : (
+          <span
+            className="hidden max-w-[8rem] truncate rounded-md bg-surface-2 px-2 py-1 text-[10px] text-muted lg:inline"
+            title="Teammate presence requires Supabase auth and realtime"
+          >
+            Presence offline
+          </span>
+        )}
 
         <button
           type="button"

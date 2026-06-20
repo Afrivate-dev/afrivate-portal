@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   AlertCircle,
@@ -26,6 +26,7 @@ import {
   parseISO,
   startOfWeek,
 } from 'date-fns'
+import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -149,6 +150,7 @@ export function TasksPage() {
     [taskCategories],
   )
 
+  const [searchParams, setSearchParams] = useSearchParams()
   const [view, setView] = useState<ViewMode>('board')
   const [scope, setScope] = useState<ScopeMode>('all')
   const [weekOffset, setWeekOffset] = useState(0)
@@ -166,6 +168,15 @@ export function TasksPage() {
   const [catDraft, setCatDraft] = useState('')
   const [editCatId, setEditCatId] = useState<string | null>(null)
   const [editCatLabel, setEditCatLabel] = useState('')
+
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    const target = tasks.find((t) => t.id === openId)
+    if (!target) return
+    setDetailId(openId)
+    setSearchParams({}, { replace: true })
+  }, [searchParams, setSearchParams, tasks])
 
   const isMyTask = useCallback(
     (t: Task) =>

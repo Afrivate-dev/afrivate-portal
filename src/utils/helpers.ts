@@ -9,7 +9,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from 'date-fns'
-import type { PresencePeer, Role, User, UserAvailability } from '@/types'
+import type { PresencePeer, Role, Task, User, UserAvailability } from '@/types'
 import { roleTitles } from '@/content/copy'
 
 export function cn(...inputs: ClassValue[]) {
@@ -21,6 +21,8 @@ export function cn(...inputs: ClassValue[]) {
 export const isAdmin = (user: User | null | undefined) => user?.role === 'admin'
 export const isHR = (user: User | null | undefined) =>
   !!user && (['hr', 'admin'] as Role[]).includes(user.role)
+/** Only portal admins may assign or change user roles. */
+export const canChangeRoles = (user: User | null | undefined) => isAdmin(user)
 /** Team Lead and above — can post announcements, add events, upload documents */
 export const isTeamLead = (user: User | null | undefined) =>
   !!user && (['team_lead', 'hr', 'admin'] as Role[]).includes(user.role)
@@ -126,6 +128,15 @@ export const uid = () => crypto.randomUUID()
 /** Company update visibility (same rules as the Updates page). */
 export function userSeesAnnouncement(user: User, a: { audience: string }): boolean {
   return a.audience === 'all' || a.audience === user.department
+}
+
+/** Whether a user owns or is assigned to a task. */
+export function userCanSeeTask(task: Task, userId: string): boolean {
+  return (
+    task.ownerId === userId ||
+    task.assigneeId === userId ||
+    (task.assigneeIds?.includes(userId) ?? false)
+  )
 }
 
 /**

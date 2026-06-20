@@ -84,6 +84,8 @@ Deno.serve(async (req) => {
       )
     }
 
+    const isAdminCaller = callerProfile.role === 'admin'
+
     const body = await req.json() as { userId?: string; patch?: Record<string, unknown> }
     const { userId, patch } = body
 
@@ -103,6 +105,14 @@ Deno.serve(async (req) => {
     const { id: _dropId, ...rest } = patch
     void _dropId
     const safePatch = pickAllowedPatch(rest)
+
+    if (safePatch.role !== undefined && !isAdminCaller) {
+      return new Response(JSON.stringify({ error: 'Only administrators can change roles' }), {
+        status: 403,
+        headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+      })
+    }
+
     if (Object.keys(safePatch).length === 0) {
       return new Response(JSON.stringify({ error: 'No allowed fields in patch' }), {
         status: 400,

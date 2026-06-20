@@ -65,8 +65,25 @@ Deno.serve(async (req) => {
       })
     }
 
-    const body = await req.json().catch(() => ({})) as { message?: string }
+    const body = await req.json().catch(() => ({})) as {
+      message?: string
+      preferredDepartmentId?: string
+      jobTitle?: string
+    }
     const message = typeof body.message === 'string' ? body.message.trim().slice(0, 500) : ''
+    const preferredDepartmentId =
+      typeof body.preferredDepartmentId === 'string' ? body.preferredDepartmentId.trim() : null
+    const jobTitle = typeof body.jobTitle === 'string' ? body.jobTitle.trim().slice(0, 120) : null
+
+    let deptName: string | null = null
+    if (preferredDepartmentId) {
+      const { data: deptRow } = await adminClient
+        .from('portal_departments')
+        .select('name')
+        .eq('id', preferredDepartmentId)
+        .maybeSingle()
+      deptName = deptRow?.name ?? null
+    }
 
     const { data: existing } = await adminClient
       .from('portal_access_requests')
@@ -88,6 +105,8 @@ Deno.serve(async (req) => {
       {
         user_id: caller.id,
         message: message || null,
+        preferred_department_id: preferredDepartmentId,
+        job_title: jobTitle,
         requested_at: new Date().toISOString(),
         status: 'pending',
       },
@@ -113,7 +132,9 @@ Deno.serve(async (req) => {
       user_id: a.id,
       type: 'access_request',
       title: 'Portal access requested',
-      body: `${profile.name} (${profile.email}) is waiting for approval.${message ? ` Message: ${message}` : ''}`,
+      body: `${profile.name} (${profile.email}) is waiting for approval.${
+        deptName ? ` Department: ${deptName}` : ''
+      }${jobTitle ? ` · Role: ${jobTitle}` : ''}${message ? ` Message: ${message}` : ''}`,
       link: '/admin',
       read: false,
       created_at: now,

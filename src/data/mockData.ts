@@ -96,7 +96,7 @@ export const seedOnboardingChecklist: OnboardingChecklistItem[] = [
 
   { id: 'ck_1', label: 'Complete your profile in the directory', order: 1 },
 
-  { id: 'ck_2', label: 'Read the staff handbook', link: '#', order: 2 },
+  { id: 'ck_2', label: 'Read the staff handbook', link: '/documents', order: 2 },
 
   { id: 'ck_3', label: 'Schedule a 1-on-1 with your team lead', order: 3 },
 

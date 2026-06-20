@@ -1,6 +1,12 @@
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 
+export interface AccessRequestInput {
+  message?: string
+  preferredDepartmentId?: string
+  jobTitle?: string
+}
+
 export interface AccessRequestResult {
   ok: boolean
   error?: string
@@ -14,6 +20,8 @@ type MockAccessRequest = {
   email: string
   name: string
   message: string | null
+  preferredDepartmentId?: string
+  jobTitle?: string
   status: 'pending' | 'acknowledged'
   requestedAt: string
 }
@@ -59,13 +67,24 @@ function parseRpcPayload(data: unknown): AccessRequestResult {
   return { ok: false, error: 'Could not send your request. Please try again.' }
 }
 
+function normalizeInput(input?: string | AccessRequestInput): AccessRequestInput {
+  if (typeof input === 'string') return { message: input }
+  return input ?? {}
+}
+
 /** Pending (inactive) users request portal access — uses Postgres RPC (Edge Function optional). */
-export async function submitAccessRequest(message?: string): Promise<AccessRequestResult> {
+export async function submitAccessRequest(
+  input?: string | AccessRequestInput,
+): Promise<AccessRequestResult> {
+  const { message, preferredDepartmentId, jobTitle } = normalizeInput(input)
+  const trimmedMessage = message?.trim().slice(0, 500) || null
+  const trimmedTitle = jobTitle?.trim().slice(0, 120) || null
+  const deptId = preferredDepartmentId?.trim() || null
+
   if (!isSupabaseAuthEnabled()) {
     const user = currentMockUser()
     if (!user) return { ok: false, error: 'Sign in first, then send your request.' }
 
-    const trimmed = message?.trim().slice(0, 500) || null
     const rows = readMockRequests()
     const existing = rows.find((r) => r.userId === user.id && r.status === 'pending')
     if (existing) {
@@ -80,7 +99,9 @@ export async function submitAccessRequest(message?: string): Promise<AccessReque
       userId: user.id,
       email: user.email,
       name: user.name,
-      message: trimmed,
+      message: trimmedMessage,
+      preferredDepartmentId: deptId ?? undefined,
+      jobTitle: trimmedTitle ?? undefined,
       status: 'pending',
       requestedAt: new Date().toISOString(),
     })
@@ -92,10 +113,10 @@ export async function submitAccessRequest(message?: string): Promise<AccessReque
     return { ok: false, error: 'The portal is not connected yet. Contact your administrator.' }
   }
 
-  const trimmed = message?.trim().slice(0, 500) || null
-
   const { data: rpcData, error: rpcError } = await supabase.rpc('submit_portal_access_request', {
-    p_message: trimmed,
+    p_message: trimmedMessage,
+    p_preferred_department_id: deptId,
+    p_job_title: trimmedTitle,
   })
 
   if (!rpcError) {
@@ -112,7 +133,11 @@ export async function submitAccessRequest(message?: string): Promise<AccessReque
   }
 
   const { data, error } = await supabase.functions.invoke('request-access', {
-    body: { message: trimmed || undefined },
+    body: {
+      message: trimmedMessage || undefined,
+      preferredDepartmentId: deptId ?? undefined,
+      jobTitle: trimmedTitle ?? undefined,
+    },
   })
 
   if (error) {

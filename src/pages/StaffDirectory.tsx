@@ -37,6 +37,7 @@ import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
 import { sanitizeLinkedInUrl } from '@/utils/safeUrl'
 import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR, firstName } from '@/utils/helpers'
+import { departmentSelectOptions } from '@/lib/departments'
 import type { User } from '@/types'
 
 const P = pages.people
@@ -54,7 +55,7 @@ interface ProfileDraft {
 
 export function StaffDirectoryPage() {
   const { user, updateProfile } = useAuth()
-  const { users, updateUser, dataStatus } = useData()
+  const { users, updateUser, dataStatus, departments: orgDepartments } = useData()
   const { peers, multiplayerLive, myAvailability } = useCollab()
   const [searchParams, setSearchParams] = useSearchParams()
   const peerById = useMemo(() => new Map(peers.map((p) => [p.userId, p])), [peers])
@@ -91,10 +92,23 @@ export function StaffDirectoryPage() {
     return () => cancelAnimationFrame(id)
   }, [searchParams, setSearchParams, user?.id, users, dataStatus])
 
-  const departments = useMemo(() => {
-    const set = new Set(users.map((u) => u.department))
-    return ['all', ...Array.from(set).sort()]
-  }, [users])
+  useEffect(() => {
+    const openParam = searchParams.get('open')
+    if (!openParam || dataStatus !== 'ready') return
+    const target = users.find((u) => u.id === openParam && u.active)
+    if (!target) return
+    const id = requestAnimationFrame(() => {
+      setOpenId(target.id)
+      setEditing(false)
+      setSearchParams({}, { replace: true })
+    })
+    return () => cancelAnimationFrame(id)
+  }, [searchParams, setSearchParams, users, dataStatus])
+
+  const departmentFilterOptions = useMemo(
+    () => departmentSelectOptions(orgDepartments, users, true),
+    [orgDepartments, users],
+  )
 
   const visibleUsers = useMemo(() => {
     return users
@@ -217,9 +231,9 @@ export function StaffDirectoryPage() {
             <Select
               value={departmentFilter}
               onChange={(e) => setDepartmentFilter(e.target.value)}
-              options={departments.map((d) => ({
-                value: d,
-                label: d === 'all' ? P.allDepartments : d,
+              options={departmentFilterOptions.map((d) => ({
+                value: d.value,
+                label: d.value === 'all' ? P.allDepartments : d.label,
               }))}
             />
           </div>
@@ -395,7 +409,7 @@ export function StaffDirectoryPage() {
                           setAvatarUploadBusy(true)
                           setAvatarUploadError('')
                           try {
-                            const row = await uploadHostedMediaFile(file)
+                            const row = await uploadHostedMediaFile(file, user.id)
                             if (row.kind === 'video') {
                               setAvatarUploadError('Use an image file for your profile photo.')
                               return
