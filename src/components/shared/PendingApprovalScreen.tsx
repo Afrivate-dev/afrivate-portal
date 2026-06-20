@@ -39,6 +39,7 @@ export function PendingApprovalScreen({
     if (!result.ok) {
       if (result.error?.toLowerCase().includes('already active')) {
         await refreshUser()
+        setSuccess('Your account is already active — loading the portal…')
         return
       }
       setError(result.error ?? 'Could not send request')

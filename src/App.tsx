@@ -7,6 +7,7 @@ import { DataProvider } from '@/context/DataContext'
 import { CollabProvider } from '@/context/CollabContext'
 import { AppLayout } from '@/layouts/AppLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
+import { AuthGuestGuard } from '@/components/auth/AuthGuestGuard'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { LoginPage } from '@/pages/Login'
 import { RequestAccessPage } from '@/pages/RequestAccess'
@@ -140,11 +141,13 @@ export default function App() {
               <ErrorBoundary>
                 <Suspense fallback={<PageLoading />}>
                   <Routes>
-                    {/* Auth pages — accessible without login (users need these to sign in) */}
+                    {/* Auth pages — login, signup, password reset */}
                     <Route element={<AuthLayout />}>
-                      <Route path="/login" element={<LoginPage />} />
-                      <Route path="/request-access" element={<RequestAccessPage />} />
-                      <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      <Route element={<AuthGuestGuard />}>
+                        <Route path="/login" element={<LoginPage />} />
+                        <Route path="/request-access" element={<RequestAccessPage />} />
+                        <Route path="/forgot-password" element={<ForgotPasswordPage />} />
+                      </Route>
                       <Route path="/reset-password" element={<ResetPasswordPage />} />
                     </Route>
 
@@ -175,7 +178,7 @@ export default function App() {
                       />
                     </Route>
 
-                    {/* Any unknown URL redirects to dashboard (which redirects to login if not authed) */}
+                    {/* Unknown URLs → home (login redirect handled in AppLayout) */}
                     <Route path="*" element={<Navigate to="/" replace />} />
                   </Routes>
                 </Suspense>

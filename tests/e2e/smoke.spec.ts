@@ -40,7 +40,7 @@ async function login(page: import('@playwright/test').Page, email: string, passw
 
   await page.goto('/login')
 
-  await page.getByLabel('Work email').fill(email)
+  await page.getByLabel(/email address|work email/i).fill(email)
 
   await page.locator('#password').fill(password)
 
@@ -82,7 +82,7 @@ test.describe('Auth flows', () => {
 
     await page.goto('/login')
 
-    await page.getByLabel('Work email').fill('wrong@afrivate.org')
+    await page.getByLabel(/email address|work email/i).fill('wrong@afrivate.org')
 
     await page.locator('#password').fill('wrongpass')
 
