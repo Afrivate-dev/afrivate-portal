@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react'
 import { Clock, Send, LogOut, CheckCircle } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
+import { useAuth } from '@/context/AuthContext'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { fetchOwnAccessRequestStatus, submitAccessRequest } from '@/lib/requestAccess'
 import { firstName } from '@/utils/helpers'
@@ -14,6 +15,7 @@ export function PendingApprovalScreen({
   user: User
   onSignOut: () => void
 }) {
+  const { refreshUser } = useAuth()
   const [message, setMessage] = useState('')
   const [status, setStatus] = useState<'none' | 'pending' | 'acknowledged' | 'loading'>(() =>
     isSupabaseAuthEnabled() ? 'loading' : 'none',
@@ -24,8 +26,9 @@ export function PendingApprovalScreen({
 
   useEffect(() => {
     if (!isSupabaseAuthEnabled()) return
+    void refreshUser()
     void fetchOwnAccessRequestStatus().then((s) => setStatus(s))
-  }, [])
+  }, [refreshUser])
 
   const onRequestAccess = async () => {
     setError(null)
@@ -34,6 +37,10 @@ export function PendingApprovalScreen({
     const result = await submitAccessRequest(message)
     setSubmitting(false)
     if (!result.ok) {
+      if (result.error?.toLowerCase().includes('already active')) {
+        await refreshUser()
+        return
+      }
       setError(result.error ?? 'Could not send request')
       return
     }
