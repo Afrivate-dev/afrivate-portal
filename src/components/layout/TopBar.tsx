@@ -2,7 +2,9 @@ import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Menu, Moon, Sun, LogOut, User as UserIcon, Bell, Search } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useTheme } from '@/context/ThemeContext'
+import { confirms, actions } from '@/content/copy'
 import { useData } from '@/context/DataContext'
 import { useCollab } from '@/context/CollabContext'
 import { Avatar } from '@/components/ui/Avatar'
@@ -24,6 +26,7 @@ interface TopBarProps {
 export function TopBar({ onOpenDrawer }: TopBarProps) {
   const navigate = useNavigate()
   const { user, logout } = useAuth()
+  const confirm = useConfirm()
   const { theme, toggle } = useTheme()
   const { announcements, inbox } = useData()
   const { myAvailability, setMyAvailability, multiplayerLive } = useCollab()
@@ -95,7 +98,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
         ) : (
           <span
             className="hidden max-w-[8rem] truncate rounded-md bg-surface-2 px-2 py-1 text-[10px] text-muted lg:inline"
-            title="Teammate presence requires Supabase auth and realtime"
+            title="Live teammate presence is unavailable right now"
           >
             Presence offline
           </span>
@@ -148,9 +151,15 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
                 <li>
                     <button
                     type="button"
-                    onClick={() => {
+                    onClick={async () => {
                       setMenuOpen(false)
-                      logout()
+                      const ok = await confirm({
+                        title: confirms.signOutTitle,
+                        message: confirms.signOut,
+                        confirmLabel: actions.signOut,
+                        destructive: true,
+                      })
+                      if (ok) logout()
                     }}
                     className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-danger hover:bg-surface-2"
                   >

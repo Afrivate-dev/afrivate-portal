@@ -20,7 +20,9 @@ import {
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { useCollab } from '@/context/CollabContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -55,6 +57,7 @@ interface ProfileDraft {
 
 export function StaffDirectoryPage() {
   const { user, updateProfile } = useAuth()
+  const confirm = useConfirm()
   const { users, updateUser, dataStatus, departments: orgDepartments } = useData()
   const { peers, multiplayerLive, myAvailability } = useCollab()
   const [searchParams, setSearchParams] = useSearchParams()
@@ -184,8 +187,14 @@ export function StaffDirectoryPage() {
     })
   }
 
-  const saveEdit = () => {
+  const saveEdit = async () => {
     if (!opened) return
+    const ok = await confirm({
+      title: confirms.saveProfileTitle,
+      message: confirms.saveProfile,
+      confirmLabel: 'Save changes',
+    })
+    if (!ok) return
     const patch: Partial<User> = {
       name: draft.name.trim() || opened.name,
       bio: draft.bio.trim(),
@@ -348,7 +357,7 @@ export function StaffDirectoryPage() {
                 <Button variant="ghost" type="button" onClick={cancelEdit}>
                   <X className="h-4 w-4" /> Cancel
                 </Button>
-                <Button type="button" onClick={saveEdit}>
+                <Button type="button" onClick={() => void saveEdit()}>
                   <Save className="h-4 w-4" /> Save changes
                 </Button>
               </>

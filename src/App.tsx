@@ -9,6 +9,7 @@ import { AppLayout } from '@/layouts/AppLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
 import { AuthGuestGuard } from '@/components/auth/AuthGuestGuard'
 import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
+import { ConfirmProvider } from '@/context/ConfirmContext'
 import { ToastHost } from '@/components/shared/ToastHost'
 import { LoginPage } from '@/pages/Login'
 import { RequestAccessPage } from '@/pages/RequestAccess'
@@ -130,6 +131,7 @@ export default function App() {
       <AuthProvider>
         <DataProvider>
           <CollabProvider>
+            <ConfirmProvider>
             <BrowserRouter>
               <AuthRedirectHandler />
               {storageWarning && <StorageFullBanner onDismiss={() => setStorageWarning(false)} />}
@@ -178,6 +180,7 @@ export default function App() {
                 </Routes>
               </ErrorBoundary>
             </BrowserRouter>
+            </ConfirmProvider>
           </CollabProvider>
         </DataProvider>
       </AuthProvider>

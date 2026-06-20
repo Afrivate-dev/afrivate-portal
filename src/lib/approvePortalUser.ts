@@ -41,7 +41,7 @@ async function invokeEdgeApprove(
 
   const payload = data as { error?: string; success?: boolean } | null
   if (payload?.error) return { ok: false, error: payload.error }
-  if (payload?.success === false) return { ok: false, error: 'Approval was rejected by the server.' }
+  if (payload?.success === false) return { ok: false, error: 'Approval could not be completed. Please try again.' }
 
   await client
     .from('portal_access_requests')

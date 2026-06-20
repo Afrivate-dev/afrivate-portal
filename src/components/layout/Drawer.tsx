@@ -4,6 +4,8 @@ import { X, LogOut, ShieldCheck } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
+import { confirms, actions } from '@/content/copy'
 import { Avatar } from '@/components/ui/Avatar'
 
 interface DrawerProps {
@@ -13,6 +15,7 @@ interface DrawerProps {
 
 export function Drawer({ open, onClose }: DrawerProps) {
   const { user, role, logout } = useAuth()
+  const confirm = useConfirm()
 
   useEffect(() => {
     if (!open) return
@@ -101,9 +104,15 @@ export function Drawer({ open, onClose }: DrawerProps) {
             Privacy Notice
           </Link>
           <button
-            onClick={() => {
+            onClick={async () => {
               onClose()
-              logout()
+              const ok = await confirm({
+                title: confirms.signOutTitle,
+                message: confirms.signOut,
+                confirmLabel: actions.signOut,
+                destructive: true,
+              })
+              if (ok) logout()
             }}
             className="flex w-full items-center gap-2 border-t border-border px-4 py-4 text-sm font-medium text-danger hover:bg-surface-2"
           >

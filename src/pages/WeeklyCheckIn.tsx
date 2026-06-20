@@ -10,7 +10,9 @@ import {
 } from 'lucide-react'
 import { format, parseISO, startOfWeek } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -49,6 +51,7 @@ const formFromCheckIn = (c: WeeklyCheckIn): FormState => ({
 
 export function WeeklyCheckInPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const { checkIns, users, submitCheckIn, updateCheckIn, departments: orgDepartments } = useData()
   const [tab, setTab] = useState<Tab>('this-week')
   const [form, setForm] = useState<FormState>(emptyForm)
@@ -119,9 +122,15 @@ export function WeeklyCheckInPage() {
     setForm(emptyForm)
   }
 
-  const submit = (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!form.completed.trim() || !form.nextWeek.trim() || !form.hoursWorked) return
+    const ok = await confirm({
+      title: confirms.submitCheckInTitle,
+      message: confirms.submitCheckIn,
+      confirmLabel: 'Send update',
+    })
+    if (!ok) return
     const payload = {
       completed: form.completed.trim(),
       nextWeek: form.nextWeek.trim(),

@@ -21,7 +21,7 @@ export async function invitePortalUser(
       return {
         ok: false,
         error:
-          'Email invites need the invite-user Edge Function deployed. Until then, share the Request access link with new team members.',
+          'Email invitations are not available right now. Share the Request access link with new team members instead.',
       }
     }
     return { ok: false, error: error.message }
@@ -30,5 +30,5 @@ export async function invitePortalUser(
   const payload = data as { error?: string; success?: boolean; resent?: boolean } | null
   if (payload?.error) return { ok: false, error: payload.error }
   if (payload?.success) return { ok: true, resent: payload.resent }
-  return { ok: false, error: 'Invite was rejected by the server.' }
+  return { ok: false, error: 'The invitation was not accepted. Please try again.' }
 }

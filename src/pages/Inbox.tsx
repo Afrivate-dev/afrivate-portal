@@ -2,7 +2,9 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -48,6 +50,7 @@ const TYPE_META: Record<
 export function InboxPage() {
   const { user } = useAuth()
   const { inbox, markInboxRead, markAllInboxRead, users } = useData()
+  const confirm = useConfirm()
   const navigate = useNavigate()
 
   const mine = useMemo(() => {
@@ -77,7 +80,14 @@ export function InboxPage() {
         description={I.subtitle}
         actions={
           unreadCount > 0 ? (
-            <Button type="button" variant="secondary" onClick={() => markAllInboxRead(user.id)}>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={async () => {
+                const ok = await confirm({ message: confirms.markAllInboxRead })
+                if (ok) markAllInboxRead(user.id)
+              }}
+            >
               {I.markAllRead}
             </Button>
           ) : null

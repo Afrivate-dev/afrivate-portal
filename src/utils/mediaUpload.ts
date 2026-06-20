@@ -52,7 +52,7 @@ export async function uploadHostedMediaFile(
   const endpoint = import.meta.env.VITE_MEDIA_UPLOAD_URL?.trim()
   if (!endpoint) {
     throw new MediaUploadError(
-      'File upload is not connected for this workspace yet. Paste a direct https link instead, or ask your administrator.',
+      'File upload is not available yet. Paste a direct link instead, or ask your administrator for help.',
     )
   }
 
