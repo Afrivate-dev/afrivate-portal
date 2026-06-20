@@ -16,9 +16,9 @@ export function PendingApprovalScreen({
   user: User
   onSignOut: () => void
 }) {
-  const { refreshUser } = useAuth()
+  const { refreshUser, user: liveUser } = useAuth()
   const [message, setMessage] = useState('')
-  const [status, setStatus] = useState<'none' | 'pending' | 'acknowledged' | 'loading'>(() =>
+  const [status, setStatus] = useState<'none' | 'pending' | 'acknowledged' | 'approved' | 'loading'>(() =>
     isSupabaseAuthEnabled() ? 'loading' : 'none',
   )
   const [submitting, setSubmitting] = useState(false)
@@ -27,8 +27,25 @@ export function PendingApprovalScreen({
 
   useEffect(() => {
     if (!isSupabaseAuthEnabled()) return
-    void refreshUser()
-    void fetchOwnAccessRequestStatus().then((s) => setStatus(s))
+
+    let cancelled = false
+
+    const sync = async () => {
+      await refreshUser()
+      const s = await fetchOwnAccessRequestStatus()
+      if (cancelled) return
+      setStatus(s)
+      if (s === 'approved') {
+        setSuccess('Your access was approved — loading the portal…')
+      }
+    }
+
+    void sync()
+    const id = window.setInterval(() => void sync(), 12_000)
+    return () => {
+      cancelled = true
+      window.clearInterval(id)
+    }
   }, [refreshUser])
 
   const onRequestAccess = async () => {
@@ -54,6 +71,14 @@ export function PendingApprovalScreen({
     )
   }
 
+  if (liveUser?.active === true) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg">
+        <ScreenLoader message="Loading your portal…" />
+      </div>
+    )
+  }
+
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-bg px-4 py-10 text-center">
       <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
@@ -69,13 +94,21 @@ export function PendingApprovalScreen({
 
       {status === 'loading' ? (
         <ScreenLoader message="Checking your request status…" className="min-h-[8rem]" />
-      ) : status === 'pending' || status === 'acknowledged' ? (
+      ) : status === 'approved' || success?.includes('already active') || success?.includes('was approved') ? (
         <div className="flex max-w-md items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-left text-sm text-success">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
-          <span>
-            {success ??
-              'Your access request is with the team. You will receive an email once your account is approved.'}
-          </span>
+          <span>{success ?? 'Your access was approved — loading the portal…'}</span>
+        </div>
+      ) : status === 'pending' || status === 'acknowledged' ? (
+        <div className="flex max-w-md flex-col gap-3">
+          <div className="flex items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-left text-sm text-success">
+            <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              {success ??
+                'Your access request is with the team. You will receive an email once your account is approved.'}
+            </span>
+          </div>
+          <p className="text-xs text-muted">This page checks for approval every few seconds — no need to resubmit.</p>
         </div>
       ) : (
         <div className="w-full max-w-md space-y-3 text-left">

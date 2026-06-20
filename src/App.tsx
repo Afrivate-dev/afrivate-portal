@@ -1,4 +1,4 @@
-import { lazy, Suspense, useEffect, useState } from 'react'
+import { lazy, useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
 import { supabase } from '@/lib/supabase'
 import { ThemeProvider } from '@/context/ThemeContext'
@@ -51,12 +51,6 @@ const AdminPanelPage = lazy(() =>
 const PrivacyNoticePage = lazy(() =>
   import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
 )
-
-import { ScreenLoader } from '@/components/shared/ScreenLoader'
-
-function PageLoading() {
-  return <ScreenLoader message="Loading page…" className="min-h-[40vh]" />
-}
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -139,8 +133,7 @@ export default function App() {
               <AuthRedirectHandler />
               {storageWarning && <StorageFullBanner onDismiss={() => setStorageWarning(false)} />}
               <ErrorBoundary>
-                <Suspense fallback={<PageLoading />}>
-                  <Routes>
+                <Routes>
                     {/* Auth pages — login, signup, password reset */}
                     <Route element={<AuthLayout />}>
                       <Route element={<AuthGuestGuard />}>
@@ -180,8 +173,7 @@ export default function App() {
 
                     {/* Unknown URLs → home (login redirect handled in AppLayout) */}
                     <Route path="*" element={<Navigate to="/" replace />} />
-                  </Routes>
-                </Suspense>
+                </Routes>
               </ErrorBoundary>
             </BrowserRouter>
           </CollabProvider>

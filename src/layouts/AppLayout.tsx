@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useState, Suspense } from 'react'
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
@@ -129,7 +129,9 @@ export function AppLayout() {
       onOpenDrawer={() => setDrawerOpen(true)}
       onCloseDrawer={() => setDrawerOpen(false)}
     >
-      <Outlet />
+      <Suspense fallback={<ScreenLoader message="Loading page…" className="min-h-[50vh]" />}>
+        <Outlet />
+      </Suspense>
     </AppShell>
   )
 }

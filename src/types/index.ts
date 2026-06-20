@@ -171,6 +171,7 @@ export type InboxNotificationType =
   | 'task_mention'
   | 'task_assigned'
   | 'access_request'
+  | 'access_granted'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {
