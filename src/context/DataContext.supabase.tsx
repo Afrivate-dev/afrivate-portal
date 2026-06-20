@@ -2,9 +2,10 @@
  * Loads portal domain data from Supabase (`profiles` + `portal_*` tables).
  * Requires logged-in user (JWT) for RLS. Enable with `VITE_USE_SUPABASE_DATA=true`.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue } from '@/context/dataContextShared'
+import { approvePortalUser } from '@/lib/approvePortalUser'
 import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
@@ -69,9 +70,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const [dataStatus, setDataStatus] = useState<'ready' | 'loading' | 'error'>('loading')
   const [dataError, setDataError] = useState<string | null>(null)
+  const hasLoadedOnceRef = useRef(false)
 
   const reloadData = useCallback(async () => {
     if (!user) {
+      hasLoadedOnceRef.current = false
       setUsers([])
       setTasks([])
       setCheckIns([])
@@ -91,7 +94,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       return
     }
 
-    setDataStatus('loading')
+    const isInitialLoad = !hasLoadedOnceRef.current
+    if (isInitialLoad) setDataStatus('loading')
     setDataError(null)
     try {
       const d = await fetchPortalDataset(client)
@@ -118,6 +122,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         createdAt: r.created_at as string,
       })))
       setDataStatus('ready')
+      hasLoadedOnceRef.current = true
     } catch (e) {
       setDataStatus('error')
       setDataError(e instanceof Error ? e.message : 'Failed to load data')
@@ -994,26 +999,17 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       },
       pendingUsers: users.filter((u) => !u.active),
       approveUser: async (id, role, department, jobTitle) => {
-        // Use the admin Edge Function (service role) so approval works regardless
-        // of which RLS policies are in place.
-        const { error } = await client.functions.invoke('admin-patch-profile', {
-          body: {
-            userId: id,
-            patch: {
-              role,
-              department,
-              job_title: jobTitle,
-              active: true,
-              approved_at: new Date().toISOString(),
-            },
-          },
-        })
-        if (error) console.warn('[data] approveUser error:', error.message)
-        await client
-          .from('portal_access_requests')
-          .update({ status: 'approved' })
-          .eq('user_id', id)
-        setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)))
+        const result = await approvePortalUser(client, id, role, department, jobTitle)
+        if (!result.ok) {
+          console.warn('[data] approveUser error:', result.error)
+          await reloadData()
+          return { ok: false as const, error: result.error }
+        }
+        setUsers((prev) =>
+          prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)),
+        )
+        void reloadData()
+        return { ok: true as const, emailSent: result.emailSent }
       },
       taskCategories,
       addTaskCategory,

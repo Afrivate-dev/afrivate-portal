@@ -135,7 +135,9 @@ export async function submitAccessRequest(message?: string): Promise<AccessReque
   return { ok: true, alreadyRequested: payload?.alreadyRequested }
 }
 
-export async function fetchOwnAccessRequestStatus(): Promise<'none' | 'pending' | 'acknowledged'> {
+export async function fetchOwnAccessRequestStatus(): Promise<
+  'none' | 'pending' | 'acknowledged' | 'approved'
+> {
   if (!isSupabaseAuthEnabled()) {
     const user = currentMockUser()
     if (!user) return 'none'
@@ -163,5 +165,6 @@ export async function fetchOwnAccessRequestStatus(): Promise<'none' | 'pending' 
   const status = String(data.status)
   if (status === 'pending') return 'pending'
   if (status === 'acknowledged') return 'acknowledged'
+  if (status === 'approved') return 'approved'
   return 'none'
 }

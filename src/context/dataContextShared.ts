@@ -82,7 +82,12 @@ export interface DataContextValue {
 
   /** Users with active=false awaiting admin approval */
   pendingUsers: User[]
-  approveUser: (id: string, role: import('@/types').Role, department: string, jobTitle: string) => void
+  approveUser: (
+    id: string,
+    role: import('@/types').Role,
+    department: string,
+    jobTitle: string,
+  ) => Promise<{ ok: boolean; error?: string; emailSent?: boolean }>
 
   /** Task categories — managed by assistant_lead and above. Stored client-side. */
   taskCategories: TaskCategoryItem[]

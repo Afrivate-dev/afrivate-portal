@@ -551,10 +551,12 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   const pendingUsers = useMemo(() => users.filter((u) => !u.active), [users])
 
   const approveUser = useCallback(
-    (id: string, role: Role, department: string, jobTitle: string) =>
+    async (id: string, role: Role, department: string, jobTitle: string) => {
       setUsers((prev) =>
         prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)),
-      ),
+      )
+      return { ok: true as const, emailSent: false }
+    },
     [setUsers],
   )
 

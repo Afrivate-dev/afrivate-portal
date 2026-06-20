@@ -38,6 +38,11 @@ const TYPE_META: Record<
     label: 'Access request',
     iconClass: 'text-accent',
   },
+  access_granted: {
+    icon: UserPlus,
+    label: 'Access approved',
+    iconClass: 'text-success',
+  },
 }
 
 export function InboxPage() {

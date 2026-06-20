@@ -137,6 +137,7 @@ export function AdminPanelPage() {
   const [approvalRole, setApprovalRole] = useState<Role>('staff')
   const [approvalDept, setApprovalDept] = useState('')
   const [approvalTitle, setApprovalTitle] = useState('')
+  const [approving, setApproving] = useState(false)
 
   const saveDept = () => {
     if (!deptDraft?.name?.trim()) return
@@ -158,10 +159,25 @@ export function AdminPanelPage() {
     setTeamDraft(null)
   }
 
-  const confirmApproval = () => {
-    if (!approvingUser) return
-    approveUser(approvingUser.id, approvalRole, approvalDept.trim() || 'General', approvalTitle.trim() || 'Staff')
+  const confirmApproval = async () => {
+    if (!approvingUser || approving) return
+    setApproving(true)
+    const result = await approveUser(
+      approvingUser.id,
+      approvalRole,
+      approvalDept.trim() || 'General',
+      approvalTitle.trim() || 'Staff',
+    )
+    setApproving(false)
+    if (!result.ok) {
+      setAlertMessage(result.error ?? 'Could not approve this account. Try again.')
+      return
+    }
     setApprovingUser(null)
+    const emailNote = result.emailSent
+      ? ' They have been emailed.'
+      : ' They were notified in the portal (configure Resend for email).'
+    setAlertMessage(`${approvingUser.name} is now active.${emailNote}`)
   }
 
   // Invite state
@@ -1033,8 +1049,12 @@ export function AdminPanelPage() {
         title="Approve account"
         footer={
           <>
-            <Button variant="ghost" onClick={() => setApprovingUser(null)}>Cancel</Button>
-            <Button onClick={confirmApproval} disabled={!approvalDept.trim()}>Approve & activate</Button>
+            <Button variant="ghost" onClick={() => setApprovingUser(null)} disabled={approving}>
+              Cancel
+            </Button>
+            <Button onClick={() => void confirmApproval()} disabled={!approvalDept.trim() || approving} loading={approving}>
+              Approve & activate
+            </Button>
           </>
         }
       >
