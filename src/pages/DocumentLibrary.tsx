@@ -201,7 +201,7 @@ export function DocumentLibraryPage() {
     if (!ok) return
     setUploading(true)
     let filePath: string | undefined
-    let fileSize = '\u2014'
+    let fileSize = '—'
     let fileName = draft.fileName.trim() || uploadFile?.name || 'document'
     if (uploadFile && isSupabaseAuthEnabled() && supabase) {
       const uploaded = await uploadPortalFile(supabase, 'documents', uploadFile, user.id)
@@ -245,7 +245,7 @@ export function DocumentLibraryPage() {
     <div className="space-y-6">
       <PageHeader
         title="Document library"
-        description="Policies, SOPs, brand assets, templates and reports \u2014 all in one place."
+        description="Policies, SOPs, brand assets, templates and reports — all in one place."
         actions={
           canManage ? (
             <Button onClick={openUpload}>
@@ -304,7 +304,7 @@ export function DocumentLibraryPage() {
               ? 'Try a different search or clear the filter.'
               : canManage
                 ? 'Upload the first document to get started.'
-                : 'When HR or admin uploads documents, they\u2019ll appear here.'
+                : 'When HR or admin uploads documents, they’ll appear here.'
           }
         />
       ) : (
@@ -380,7 +380,7 @@ export function DocumentLibraryPage() {
 
                   <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
                     <span>
-                      {uploader?.name ?? 'Unknown'} \u00b7 {fmtDate(d.uploadedAt)}
+                      {uploader?.name ?? 'Unknown'} · {fmtDate(d.uploadedAt)}
                     </span>
                     <span className="font-medium">{d.fileSize}</span>
                   </div>
@@ -469,7 +469,7 @@ export function DocumentLibraryPage() {
                 onChange={(e) => setDraft({ ...draft, hrOnly: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
               />
-              HR only \u2014 hidden from team leads & staff
+              HR only — hidden from team leads & staff
             </label>
             <label className="flex items-center gap-2 text-sm text-fg">
               <input
@@ -478,7 +478,7 @@ export function DocumentLibraryPage() {
                 onChange={(e) => setDraft({ ...draft, managementOnly: e.target.checked })}
                 className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
               />
-              Management only \u2014 hidden from staff
+              Management only — hidden from staff
             </label>
           </div>
         </form>

@@ -47,7 +47,7 @@ export function Sidebar() {
 
       <div className="border-t border-border p-4 text-[11px] text-muted">
         <p className="font-medium text-fg">AfriVate Portal</p>
-        <p>v0.1.0 &middot; internal use only</p>
+        <p>v0.1.0 · internal use only</p>
         <Link to="/privacy" className="mt-1.5 block text-accent hover:underline">
           Privacy Notice
         </Link>

@@ -17,7 +17,7 @@ export function ComingSoon({ title, phase, description }: ComingSoonProps) {
         title="Under construction"
         description={
           description ??
-          'This page is on the build roadmap. Section specs are in the project plan and the data layer is already wired up \u2014 the UI is the only thing left.'
+          'This page is on the build roadmap. Section specs are in the project plan and the data layer is already wired up — the UI is the only thing left.'
         }
       />
     </div>

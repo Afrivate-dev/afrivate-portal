@@ -180,7 +180,7 @@ export function RecognitionPage() {
         <EmptyState
           icon={Heart}
           title="No shoutouts yet"
-          description="Be the first to celebrate someone\u2019s work."
+          description="Be the first to celebrate someone’s work."
           action={
             <Button onClick={openForm} disabled={otherUsers.length === 0}>
               <Plus className="h-4 w-4" /> Give shoutout
@@ -208,7 +208,7 @@ export function RecognitionPage() {
                 >
                   {aboutMe ? (
                     <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-pink-600 dark:text-pink-300">
-                      <Award className="h-3.5 w-3.5" /> This one\u2019s for you
+                      <Award className="h-3.5 w-3.5" /> This one’s for you
                     </div>
                   ) : null}
 
@@ -246,7 +246,7 @@ export function RecognitionPage() {
                     <button
                       onClick={() => toggleRecognitionReaction(r.id, user.id)}
                       disabled={isMyShoutout}
-                      title={isMyShoutout ? 'You can\u2019t react to your own shoutout' : 'React'}
+                      title={isMyShoutout ? 'You can’t react to your own shoutout' : 'React'}
                       className={cn(
                         'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ring-focus',
                         reacted
@@ -301,7 +301,7 @@ export function RecognitionPage() {
             onChange={(e) => setDraft({ ...draft, receiverId: e.target.value })}
             options={otherUsers.map((u) => ({
               value: u.id,
-              label: `${u.name} \u2014 ${u.jobTitle}`,
+              label: `${u.name} — ${u.jobTitle}`,
             }))}
             required
           />
@@ -319,7 +319,7 @@ export function RecognitionPage() {
               maxLength={MAX_LENGTH}
               value={draft.message}
               onChange={(e) => setDraft({ ...draft, message: e.target.value })}
-              placeholder="Be specific \u2014 what did they do and why does it matter?"
+              placeholder="Be specific — what did they do and why does it matter?"
             />
             <div className="mt-1 flex justify-end">
               <span

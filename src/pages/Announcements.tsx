@@ -342,7 +342,7 @@ export function AnnouncementsPage() {
                             <>
                               <Avatar name={author.name} src={author.avatarUrl} size="xs" />
                               <span>
-                                {author.name} \u00b7 {relativeTime(a.postedAt)}
+                                {author.name} · {relativeTime(a.postedAt)}
                               </span>
                             </>
                           ) : (

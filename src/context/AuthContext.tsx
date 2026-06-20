@@ -1,8 +1,14 @@
 ﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
-import { useLocalStorage } from '@/hooks/useLocalStorage'
+import { useSessionStorage } from '@/hooks/useSessionStorage'
+import { useAutoLogout } from '@/hooks/useAutoLogout'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
+import {
+  SESSION_USER_STORAGE_KEY,
+  clearSessionActivity,
+  recordSessionActivity,
+} from '@/lib/sessionPolicy'
 import { validatePortalPassword } from '@/utils/passwordPolicy'
 import type { Role, User } from '@/types'
 
@@ -233,11 +239,9 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | null>(null)
 
-const STORAGE_KEY = 'av-auth-user'
-
 export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabaseMode = isSupabaseAuthEnabled()
-  const [storedUser, setStoredUser] = useLocalStorage<User | null>(STORAGE_KEY, null)
+  const [storedUser, setStoredUser] = useSessionStorage<User | null>(SESSION_USER_STORAGE_KEY, null)
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null)
   const [authReady, setAuthReady] = useState(!supabaseMode)
   const [profileLoadFailed, setProfileLoadFailed] = useState(false)
@@ -265,6 +269,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       void loadSupabasePortalUser(sb, session).then((result) => {
         if (cancelled) return
         applyPortalUser(result)
+        if (result.user) recordSessionActivity()
         setAuthReady(true)
       })
     }
@@ -285,6 +290,20 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [storedUser],
   )
   const user = supabaseMode ? supabaseUser : mockUser
+
+  const logout = useCallback(() => {
+    clearSessionActivity()
+    if (supabaseMode && supabase) {
+      setSupabaseUser(null)
+      setProfileLoadFailed(false)
+      setProfileError(null)
+      void supabase.auth.signOut()
+      return
+    }
+    setStoredUser(null)
+  }, [supabaseMode, setStoredUser])
+
+  useAutoLogout(Boolean(user), logout)
 
   const refreshUser = useCallback(async () => {
     if (!supabaseMode || !supabase) return
@@ -312,6 +331,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }
         const result = await loadSupabasePortalUser(client, data.session)
         applyPortalUser(result)
+        recordSessionActivity()
         return { ok: true as const }
       }
       try {
@@ -327,6 +347,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           }
         }
         setStoredUser(stripPasswordForSession(match))
+        recordSessionActivity()
         return { ok: true as const }
       } catch {
         return { ok: false as const, error: 'Could not sign in. Try again.' }
@@ -384,22 +405,12 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (data.session) {
         const result = await loadSupabasePortalUser(supabase, data.session)
         applyPortalUser(result)
+        recordSessionActivity()
       }
       return { ok: true as const }
     },
     [supabaseMode, applyPortalUser, setStoredUser],
   )
-
-  const logout = useCallback(() => {
-    if (supabaseMode && supabase) {
-      setSupabaseUser(null)
-      setProfileLoadFailed(false)
-      setProfileError(null)
-      void supabase.auth.signOut()
-      return
-    }
-    setStoredUser(null)
-  }, [supabaseMode, setStoredUser])
 
   const updateProfile = useCallback(
     (patch: Partial<User>) => {
