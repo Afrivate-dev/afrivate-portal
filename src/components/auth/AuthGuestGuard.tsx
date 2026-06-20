@@ -1,16 +1,13 @@
 import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { ScreenLoader } from '@/components/shared/ScreenLoader'
 
 /** Auth pages: redirect signed-in active users to the portal home. */
 export function AuthGuestGuard() {
   const { user, authReady } = useAuth()
 
   if (!authReady) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted">
-        Loading…
-      </div>
-    )
+    return <ScreenLoader message="Checking your session…" className="min-h-[40vh]" />
   }
 
   if (user?.active === true) {

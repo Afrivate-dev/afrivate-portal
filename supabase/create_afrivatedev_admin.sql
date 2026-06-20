@@ -127,7 +127,8 @@ END $$;
 -- JOIN public.profiles p ON p.id = u.id
 -- WHERE lower(u.email) = 'afrivatedev@gmail.com';
 
--- Portal client: reliable own-profile read (fixes stale "pending" UI when DB is already active)
+-- Portal client: reliable own-profile read (see 20260623_profiles_schema_fix.sql)
+-- Uses explicit columns — safe when avatar_url and other optional fields are missing.
 create or replace function public.get_my_portal_profile()
 returns jsonb
 language plpgsql
@@ -137,27 +138,47 @@ set search_path = public
 as $$
 declare
   v_uid uuid := auth.uid();
-  v_row public.profiles%rowtype;
+  v_id uuid;
+  v_email text;
+  v_name text;
+  v_role text;
+  v_department text;
+  v_job_title text;
+  v_active boolean;
 begin
   if v_uid is null then
     return null;
   end if;
 
-  select * into v_row from public.profiles where id = v_uid;
+  select p.id, p.email, p.name, p.role, p.department, p.job_title, p.active
+  into v_id, v_email, v_name, v_role, v_department, v_job_title, v_active
+  from public.profiles p
+  where p.id = v_uid;
 
   if not found then
-    return null;
+    insert into public.profiles (id, email, name, role, department, job_title, active)
+    select
+      u.id,
+      u.email,
+      coalesce(nullif(trim(u.raw_user_meta_data->>'name'), ''), split_part(u.email, '@', 1)),
+      'staff',
+      'Unassigned',
+      'Staff',
+      false
+    from auth.users u
+    where u.id = v_uid
+    returning id, email, name, role, department, job_title, active
+    into v_id, v_email, v_name, v_role, v_department, v_job_title, v_active;
   end if;
 
   return jsonb_build_object(
-    'id', v_row.id,
-    'email', v_row.email,
-    'name', v_row.name,
-    'role', v_row.role,
-    'department', v_row.department,
-    'job_title', v_row.job_title,
-    'avatar_url', v_row.avatar_url,
-    'active', coalesce(v_row.active, false)
+    'id', v_id,
+    'email', v_email,
+    'name', v_name,
+    'role', v_role,
+    'department', v_department,
+    'job_title', v_job_title,
+    'active', coalesce(v_active, false)
   );
 end;
 $$;

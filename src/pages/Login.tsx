@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus, LogOut } from 'lucide-react'
+import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -17,11 +18,7 @@ export function LoginPage() {
   const [loading, setLoading] = useState(false)
 
   if (!authReady) {
-    return (
-      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted">
-        Loading…
-      </div>
-    )
+    return <ScreenLoader message="Checking your session…" className="min-h-[40vh]" />
   }
 
   if (user?.active === true) return <Navigate to="/" replace />

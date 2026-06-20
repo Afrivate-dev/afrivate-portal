@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Clock, Send, LogOut, CheckCircle } from 'lucide-react'
+import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/context/AuthContext'
@@ -66,7 +67,9 @@ export function PendingApprovalScreen({
         </p>
       </div>
 
-      {status === 'pending' || status === 'acknowledged' ? (
+      {status === 'loading' ? (
+        <ScreenLoader message="Checking your request status…" className="min-h-[8rem]" />
+      ) : status === 'pending' || status === 'acknowledged' ? (
         <div className="flex max-w-md items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-left text-sm text-success">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>

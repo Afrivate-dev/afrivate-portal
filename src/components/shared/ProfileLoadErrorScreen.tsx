@@ -16,8 +16,9 @@ export function ProfileLoadErrorScreen({
       <div className="max-w-md space-y-2">
         <h1 className="font-heading text-2xl font-bold text-fg">Could not load your account</h1>
         <p className="text-sm text-muted">
-          You are signed in, but we could not read your profile from the server. This is usually a
-          configuration issue — try again, or sign out and contact your administrator.
+          You are signed in, but the portal could not read your profile. Try again, or sign out and
+          sign back in. If this keeps happening, ask your administrator to run the latest database
+          migrations in Supabase.
         </p>
       </div>
       <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">

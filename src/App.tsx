@@ -52,10 +52,10 @@ const PrivacyNoticePage = lazy(() =>
   import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
 )
 
+import { ScreenLoader } from '@/components/shared/ScreenLoader'
+
 function PageLoading() {
-  return (
-    <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted">Loading…</div>
-  )
+  return <ScreenLoader message="Loading page…" className="min-h-[40vh]" />
 }
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
