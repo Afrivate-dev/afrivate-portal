@@ -69,7 +69,7 @@ export const currentWeekRange = () => {
 export const weekLabel = (weekStartIso?: string) => {
   const start = weekStartIso ? parseISO(weekStartIso) : startOfWeek(new Date(), { weekStartsOn: 1 })
   const end = endOfWeek(start, { weekStartsOn: 1 })
-  return `Week of ${format(start, 'd')}\u2013${format(end, 'd MMM yyyy')}`
+  return `Week of ${format(start, 'd')}–${format(end, 'd MMM yyyy')}`
 }
 
 export type PresenceVisual = UserAvailability | 'offline'

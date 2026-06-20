@@ -123,7 +123,7 @@ export function OnboardingPage() {
       section: draft.section.trim() || 'Other',
       description: draft.description.trim(),
       youtubeUrl: draft.youtubeUrl.trim(),
-      duration: draft.duration.trim() || '\u2014',
+      duration: draft.duration.trim() || '—',
       order: onboardingVideos.length + 1,
     })
     setDraft(emptyDraft)
@@ -152,7 +152,7 @@ export function OnboardingPage() {
               {totals.videos.watched + totals.checklist.checked} of {totals.videos.total + totals.checklist.total} items complete
             </p>
             <p className="text-xs text-muted">
-              {totals.videos.watched}/{totals.videos.total} videos &middot;{' '}
+              {totals.videos.watched}/{totals.videos.total} videos ·{' '}
               {totals.checklist.checked}/{totals.checklist.total} checklist
             </p>
           </div>
@@ -180,7 +180,7 @@ export function OnboardingPage() {
             <div>
               <h3 className="text-base font-semibold text-fg">Onboarding complete</h3>
               <p className="mt-1 text-sm text-muted">
-                Great work! You\u2019ve finished every onboarding video and checklist item. Reach out to your team lead if you have any open questions.
+                Great work! You’ve finished every onboarding video and checklist item. Reach out to your team lead if you have any open questions.
               </p>
             </div>
           </div>
@@ -211,7 +211,7 @@ export function OnboardingPage() {
             description={
               canSeeAdmin
                 ? 'Add the first video from the Admin tab.'
-                : 'When HR or admin adds onboarding videos, they\u2019ll appear here.'
+                : 'When HR or admin adds onboarding videos, they’ll appear here.'
             }
           />
         ) : (
@@ -505,7 +505,7 @@ export function OnboardingPage() {
                         <div className="min-w-0 flex-1">
                           <p className="truncate text-sm font-semibold text-fg">{u.name}</p>
                           <p className="truncate text-xs text-muted">
-                            {u.department} \u00b7 joined {fmtDate(u.joinedAt)}
+                            {u.department} · joined {fmtDate(u.joinedAt)}
                           </p>
                         </div>
                         <span className="text-sm font-bold text-fg">{overall}%</span>
@@ -540,7 +540,7 @@ export function OnboardingPage() {
         open={addOpen}
         onClose={() => setAddOpen(false)}
         title="Add onboarding video"
-        description="Paste any YouTube URL \u2014 watch, embed or short link."
+        description="Paste any YouTube URL — watch, embed or short link."
         size="lg"
         footer={
           <>

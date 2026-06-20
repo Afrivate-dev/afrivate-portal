@@ -195,7 +195,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
               done: 'Done',
               blocked: 'Blocked',
             }
-            log.push({ at: now, by, message: `Status \u2192 ${label[patch.status]}` })
+            log.push({ at: now, by, message: `Status → ${label[patch.status]}` })
           }
 
           const nextDescription =

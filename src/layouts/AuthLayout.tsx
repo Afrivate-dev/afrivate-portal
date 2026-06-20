@@ -40,7 +40,7 @@ export function AuthLayout() {
       </main>
 
       <footer className="px-6 py-4 text-center text-xs text-muted">
-        &copy; {new Date().getFullYear()} AfriVate Technologies Ltd &middot; Employee portal
+        © {new Date().getFullYear()} AfriVate Technologies Ltd · Employee portal
       </footer>
     </div>
   )

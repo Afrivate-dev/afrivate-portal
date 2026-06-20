@@ -252,7 +252,7 @@ export function WeeklyCheckInPage() {
               title="No team submissions yet"
               description={
                 departmentFilter === 'all'
-                  ? 'When your team submits check-ins this week, they\u2019ll appear here.'
+                  ? 'When your team submits check-ins this week, they’ll appear here.'
                   : 'No one in this department has submitted this week.'
               }
             />
@@ -333,7 +333,7 @@ function SubmittedView({ checkIn, onEdit }: { checkIn: WeeklyCheckIn; onEdit: ()
           <div>
             <CardTitle>Check-in submitted</CardTitle>
             <p className="mt-0.5 text-xs text-muted">
-              {relativeTime(checkIn.submittedAt)} \u00b7 {checkIn.hoursWorked}h worked
+              {relativeTime(checkIn.submittedAt)} · {checkIn.hoursWorked}h worked
             </p>
           </div>
         </div>
@@ -405,7 +405,7 @@ function CheckInForm({
       <form className="space-y-5" onSubmit={onSubmit}>
         <Textarea
           label="What did I complete this week?"
-          placeholder="Ship details, decisions made, problems solved \u2014 keep it specific."
+          placeholder="Ship details, decisions made, problems solved — keep it specific."
           value={form.completed}
           onChange={(e) => setForm({ ...form, completed: e.target.value })}
           rows={5}
@@ -413,7 +413,7 @@ function CheckInForm({
         />
         <Textarea
           label="What's coming up next week?"
-          placeholder="The 2\u20133 things you intend to land next week."
+          placeholder="The 2–3 things you intend to land next week."
           value={form.nextWeek}
           onChange={(e) => setForm({ ...form, nextWeek: e.target.value })}
           rows={4}
@@ -421,7 +421,7 @@ function CheckInForm({
         />
         <Textarea
           label="Any blockers? (optional)"
-          placeholder="Anything in the way \u2014 dependencies, decisions you need, missing access."
+          placeholder="Anything in the way — dependencies, decisions you need, missing access."
           value={form.blockers}
           onChange={(e) => setForm({ ...form, blockers: e.target.value })}
           rows={3}
@@ -514,7 +514,7 @@ function TeamRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User[] }) 
         {checkIn.blockers ? (
           <p className="line-clamp-3 whitespace-pre-line text-fg/90">{checkIn.blockers}</p>
         ) : (
-          <span className="text-muted">\u2014</span>
+          <span className="text-muted">—</span>
         )}
       </td>
       <td className="p-3 text-sm font-semibold text-fg">{checkIn.hoursWorked}h</td>

@@ -458,7 +458,7 @@ export function LeaveRequestsPage() {
               {balances[draft.type] ? (
                 <>
                   {' '}
-                  &middot; {balances[draft.type].left} days remaining
+                  · {balances[draft.type].left} days remaining
                   {balances[draft.type].pending > 0
                     ? ` (${balances[draft.type].pending} pending approval)`
                     : ''}
@@ -523,9 +523,9 @@ export function LeaveRequestsPage() {
                 {users.find((u) => u.id === reviewing.request.userId)?.name}
               </p>
               <p className="mt-1 text-muted">
-                {TYPE_META[reviewing.request.type].label} \u00b7{' '}
-                {fmtDate(reviewing.request.startDate)} \u2192{' '}
-                {fmtDate(reviewing.request.endDate)} \u00b7{' '}
+                {TYPE_META[reviewing.request.type].label} ·{' '}
+                {fmtDate(reviewing.request.startDate)} →{' '}
+                {fmtDate(reviewing.request.endDate)} ·{' '}
                 {dayCount(reviewing.request.startDate, reviewing.request.endDate)} days
               </p>
               <p className="mt-2 text-fg/90">{reviewing.request.reason}</p>
@@ -538,7 +538,7 @@ export function LeaveRequestsPage() {
               placeholder={
                 reviewing.status === 'approved'
                   ? 'e.g. Enjoy your trip!'
-                  : 'Reason for declining \u2014 this is sent to the requester.'
+                  : 'Reason for declining — this is sent to the requester.'
               }
             />
           </div>
@@ -614,14 +614,14 @@ function RequestsList({
                       <div className="mb-1 flex items-center gap-2">
                         <Avatar name={u.name} src={u.avatarUrl} size="xs" />
                         <p className="truncate text-sm font-semibold text-fg">{u.name}</p>
-                        <span className="text-xs text-muted">\u00b7 {u.department}</span>
+                        <span className="text-xs text-muted">· {u.department}</span>
                       </div>
                     ) : null}
                     <p className="text-sm font-medium text-fg">
-                      {typeMeta.label} leave \u00b7 {days} day{days === 1 ? '' : 's'}
+                      {typeMeta.label} leave · {days} day{days === 1 ? '' : 's'}
                     </p>
                     <p className="text-xs text-muted">
-                      {fmtDate(r.startDate)} \u2192 {fmtDate(r.endDate)} \u00b7 submitted{' '}
+                      {fmtDate(r.startDate)} → {fmtDate(r.endDate)} · submitted{' '}
                       {relativeTime(r.submittedAt)}
                     </p>
                     <p className="mt-2 text-sm text-fg/90">{r.reason}</p>
@@ -722,7 +722,7 @@ function LeaveCalendar({
                     return (
                       <div
                         key={r.id}
-                        title={`${u.name} \u2014 ${TYPE_META[r.type].label} (${r.status})`}
+                        title={`${u.name} — ${TYPE_META[r.type].label} (${r.status})`}
                         className={cn(
                           'flex items-center gap-1.5 rounded px-1.5 py-0.5 text-[11px]',
                           r.status === 'pending' && 'opacity-50',

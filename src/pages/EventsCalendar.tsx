@@ -222,7 +222,7 @@ export function EventsCalendarPage() {
             description={
               canManage
                 ? 'Add the first event to get started.'
-                : 'Check back later \u2014 events will appear here.'
+                : 'Check back later — events will appear here.'
             }
           />
         ) : (
@@ -327,7 +327,7 @@ export function EventsCalendarPage() {
                   tip = info.event.allDay
                     ? `${title} · All day`
                     : en
-                      ? `${title} · ${format(st, 'HH:mm')}\u2013${format(en, 'HH:mm')}`
+                      ? `${title} · ${format(st, 'HH:mm')}–${format(en, 'HH:mm')}`
                       : `${title} · ${format(st, 'HH:mm')}`
                 }
                 info.el.setAttribute('title', tip)
@@ -386,7 +386,7 @@ export function EventsCalendarPage() {
                 <Badge tone="muted">
                   <Clock className="h-3 w-3" />
                   {pickedWorkspace.startTime}
-                  {pickedWorkspace.endTime ? `\u2013${pickedWorkspace.endTime}` : ''}
+                  {pickedWorkspace.endTime ? `–${pickedWorkspace.endTime}` : ''}
                 </Badge>
               ) : null}
               {pickedWorkspace.audience !== 'all' ? (
@@ -424,7 +424,7 @@ export function EventsCalendarPage() {
                 ? fmtDate(pickedExternal.start)
                 : `${fmtDate(pickedExternal.start)} · ${fmtTime(pickedExternal.start)}`}
               {pickedExternal.end && !pickedExternal.allDay
-                ? ` \u2013 ${fmtTime(pickedExternal.end)}`
+                ? ` – ${fmtTime(pickedExternal.end)}`
                 : null}
             </p>
             {pickedExternal.location ? (
@@ -603,7 +603,7 @@ function DayGroup({
                     <span className="inline-flex items-center gap-1">
                       <Clock className="h-3 w-3" />
                       {e.startTime}
-                      {e.endTime ? `\u2013${e.endTime}` : ''}
+                      {e.endTime ? `–${e.endTime}` : ''}
                     </span>
                   ) : null}
                   {e.location ? (

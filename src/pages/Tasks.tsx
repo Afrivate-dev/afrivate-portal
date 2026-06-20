@@ -648,7 +648,7 @@ export function TasksPage() {
             </button>
             <div className="text-center">
               <p className="text-sm font-semibold text-fg">
-                {format(weekStart, 'd MMM')} \u2013 {format(addDays(weekStart, 6), 'd MMM yyyy')}
+                {format(weekStart, 'd MMM')} – {format(addDays(weekStart, 6), 'd MMM yyyy')}
               </p>
               {weekOffset !== 0 ? (
                 <button
@@ -799,7 +799,7 @@ export function TasksPage() {
                               <span className="text-fg">{person.name}</span>
                             </div>
                           ) : (
-                            <span className="text-muted">{'\u2014'}</span>
+                            <span className="text-muted">{'—'}</span>
                           )}
                         </td>
                         <td className="py-2.5 pr-3 text-muted">{fmtDate(t.dueDate)}</td>
@@ -1071,7 +1071,7 @@ export function TasksPage() {
               </div>
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">{T.detailEstimated}</p>
-                <p className="font-semibold text-fg">{detailTask.estimatedHours ?? '\u2014'}h</p>
+                <p className="font-semibold text-fg">{detailTask.estimatedHours ?? '—'}h</p>
               </div>
             </div>
 

@@ -1,5 +1,6 @@
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
+import { SESSION_USER_STORAGE_KEY } from '@/lib/sessionPolicy'
 
 export interface AccessRequestInput {
   message?: string
@@ -46,7 +47,7 @@ function writeMockRequests(rows: MockAccessRequest[]): void {
 
 function currentMockUser(): { id: string; email: string; name: string } | null {
   try {
-    const raw = localStorage.getItem('av-auth-user')
+    const raw = sessionStorage.getItem(SESSION_USER_STORAGE_KEY)
     if (!raw) return null
     const u = JSON.parse(raw) as { id?: string; email?: string; name?: string }
     if (!u.id || !u.email) return null

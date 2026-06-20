@@ -108,7 +108,7 @@ export function DashboardPage() {
               {greeting()}, {firstName(user.name)}
             </h1>
             <p className="mt-1 text-sm text-muted">
-              {roleLabel[user.role]} &middot; {user.department}
+              {roleLabel[user.role]} · {user.department}
             </p>
             <p className="mt-2 text-xs font-medium tracking-wide text-muted/90">{brand.tagline}</p>
           </div>
@@ -270,7 +270,7 @@ export function DashboardPage() {
                   <p className="text-sm font-semibold text-fg">{e.title}</p>
                   <p className="mt-0.5 text-xs text-muted">
                     {e.startTime}
-                    {e.endTime ? `\u2013${e.endTime}` : ''} &middot; {e.location ?? '\u2014'}
+                    {e.endTime ? `–${e.endTime}` : ''} · {e.location ?? '—'}
                   </p>
                 </li>
               ))}

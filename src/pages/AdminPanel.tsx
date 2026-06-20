@@ -521,7 +521,7 @@ export function AdminPanelPage() {
                     </div>
                   ) : null}
                   {req?.message ? (
-                    <p className="mt-1 text-xs text-muted italic">&ldquo;{req.message}&rdquo;</p>
+                    <p className="mt-1 text-xs text-muted italic">“{req.message}”</p>
                   ) : null}
                 </div>
                 <Button size="sm" onClick={() => openApprovalForUser(u)}>
