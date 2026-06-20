@@ -8,13 +8,15 @@ import { Button } from '@/components/ui/Button'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { fetchSignupDepartments } from '@/lib/departments'
 import { submitAccessRequest } from '@/lib/requestAccess'
-import { pages } from '@/content/copy'
+import { pages, confirms } from '@/content/copy'
 import { validatePortalPassword, passwordPolicyHint } from '@/utils/passwordPolicy'
 
 export function RequestAccessPage() {
   const { user, register, authReady } = useAuth()
+  const confirm = useConfirm()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -65,6 +67,13 @@ export function RequestAccessPage() {
       setError('Please enter your job title or role.')
       return
     }
+
+    const ok = await confirm({
+      title: confirms.requestAccessTitle,
+      message: confirms.requestAccess,
+      confirmLabel: pages.requestAccess.submitLabel,
+    })
+    if (!ok) return
 
     setLoading(true)
 

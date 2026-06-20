@@ -4,9 +4,10 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
-import { DataContext, type DataContextValue } from '@/context/dataContextShared'
+import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
 import { notifyError } from '@/lib/notify'
+import { friendlyErrorMessage } from '@/lib/userMessages'
 import { patchPortalProfile } from '@/lib/patchPortalProfile'
 import { supabase } from '@/lib/supabase'
 import {
@@ -54,7 +55,7 @@ import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
 
 function reportDataError(action: string, error: { message: string }): void {
   console.warn(`[data] ${action}`, error.message)
-  notifyError(`Could not ${action}: ${error.message}`)
+  notifyError(friendlyErrorMessage(action, error.message))
 }
 
 export function SupabaseDataProvider({ children }: { children: React.ReactNode }) {
@@ -212,7 +213,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           .eq('id', id)
           .select('id')
         if (error) errorMsg = error.message
-        else if (!updated?.length) errorMsg = 'Own-profile update was blocked. Check RLS policies.'
+        else if (!updated?.length) errorMsg = "Your profile couldn't be saved. Please try again."
       } else {
         const result = await patchPortalProfile(client, id, profilePatch)
         if (!result.ok) errorMsg = result.error
@@ -980,8 +981,16 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       .then((rows) => {
         if (rows.length) setTaskCategories(rows)
       })
-      .catch((e) => reportDataError('load task categories', e instanceof Error ? e : { message: String(e) }))
+      .catch((e) => {
+        // Keep built-in defaults — grants migration may not be applied yet
+        console.warn('[data] task categories', e instanceof Error ? e.message : e)
+      })
   }, [client])
+
+  const pendingUsersList = useMemo(
+    () => usersAwaitingApproval(users, accessRequests),
+    [users, accessRequests],
+  )
 
   const addTaskCategory = useCallback(
     (label: string) => {
@@ -1091,7 +1100,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         await client.from('portal_departments').delete().eq('id', id)
         setDepartments((prev) => prev.filter((d) => d.id !== id))
       },
-      pendingUsers: users.filter((u) => !u.active),
+      pendingUsers: pendingUsersList,
       accessRequests,
       approveUser: async (id, role, department, jobTitle) => {
         const result = await approvePortalUser(client, id, role, department, jobTitle)
@@ -1157,6 +1166,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addEvent,
       teams,
       departments,
+      pendingUsersList,
       accessRequests,
       taskCategories,
       addTaskCategory,

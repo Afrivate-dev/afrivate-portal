@@ -44,7 +44,9 @@ import { cn, fmtDate, firstName, isLead, relativeTime } from '@/utils/helpers'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { useConfirm } from '@/context/ConfirmContext'
 import { notifyError } from '@/lib/notify'
+import { confirms } from '@/content/copy'
 import type { LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
 
 type Tab = 'my' | 'all' | 'calendar'
@@ -113,6 +115,7 @@ function dayCount(startISO: string, endISO: string) {
 
 export function LeaveRequestsPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const { users, leaveRequests, submitLeave, reviewLeave } = useData()
 
   const canManage = isLead(user)
@@ -190,6 +193,12 @@ export function LeaveRequestsPage() {
       notifyError(`Not enough ${draft.type.replace('_', ' ')} leave remaining (${balance.left} days left).`)
       return
     }
+    const ok = await confirm({
+      title: confirms.submitLeaveTitle,
+      message: confirms.submitLeave,
+      confirmLabel: 'Send request',
+    })
+    if (!ok) return
     setSubmitting(true)
     let supportingDocPath: string | undefined
     let supportingDocName = draft.supportingDocName.trim() || undefined
@@ -221,8 +230,15 @@ export function LeaveRequestsPage() {
     setReviewNote('')
   }
 
-  const confirmReview = () => {
+  const confirmReview = async () => {
     if (!reviewing) return
+    const ok = await confirm({
+      title: reviewing.status === 'approved' ? confirms.approveLeaveTitle : confirms.declineLeaveTitle,
+      message: reviewing.status === 'approved' ? confirms.approveLeave : confirms.declineLeave,
+      confirmLabel: reviewing.status === 'approved' ? 'Approve' : 'Decline',
+      destructive: reviewing.status === 'declined',
+    })
+    if (!ok) return
     reviewLeave(reviewing.request.id, reviewing.status, user.id, reviewNote.trim() || undefined)
     setReviewing(null)
     setReviewNote('')
@@ -493,7 +509,7 @@ export function LeaveRequestsPage() {
             <Button
               type="button"
               variant={reviewing?.status === 'declined' ? 'danger' : 'primary'}
-              onClick={confirmReview}
+              onClick={() => void confirmReview()}
             >
               {reviewing?.status === 'approved' ? 'Approve' : 'Decline'}
             </Button>

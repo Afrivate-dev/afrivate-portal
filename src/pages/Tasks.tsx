@@ -28,7 +28,9 @@ import {
 } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -139,6 +141,7 @@ const draftFromTask = (t: Task): TaskDraft => ({
 
 export function TasksPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const {
     tasks, users, createTask, updateTask, deleteTask,
     taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
@@ -319,7 +322,7 @@ export function TasksPage() {
     setDraft(emptyDraft)
   }
 
-  const onSubmit = (e: React.FormEvent) => {
+  const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!user) return
     const basePayload = {
@@ -334,6 +337,12 @@ export function TasksPage() {
       blockers: draft.blockers.trim() || undefined,
     }
     if (!basePayload.title) return
+    const ok = await confirm({
+      title: confirms.submitTaskTitle,
+      message: confirms.submitTask,
+      confirmLabel: draft.id ? 'Save changes' : 'Create task',
+    })
+    if (!ok) return
     if (draft.id) {
       updateTask(
         draft.id,
@@ -1207,7 +1216,14 @@ export function TasksPage() {
                       size="sm"
                       variant="ghost"
                       className="text-danger hover:bg-danger/10"
-                      onClick={() => deleteTaskCategory(cat.id)}
+                      onClick={async () => {
+                        const ok = await confirm({
+                          title: confirms.deleteCategoryTitle,
+                          message: confirms.deleteCategory,
+                          destructive: true,
+                        })
+                        if (ok) deleteTaskCategory(cat.id)
+                      }}
                       aria-label={`Delete category ${cat.label}`}
                     >
                       <Trash2 className="h-3.5 w-3.5" />

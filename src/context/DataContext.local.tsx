@@ -2,7 +2,7 @@
  * Local-first portal data (seed + localStorage). Used when `VITE_USE_SUPABASE_DATA` is off.
  */
 import { useCallback, useMemo } from 'react'
-import { DataContext, type DataContextValue } from '@/context/dataContextShared'
+import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
   seedAnnouncements,
@@ -549,8 +549,6 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   )
 
   /* -------------------------- Approvals --------------------------------- */
-  const pendingUsers = useMemo(() => users.filter((u) => !u.active), [users])
-
   const accessRequests = useMemo((): AccessRequest[] => {
     try {
       const rows = JSON.parse(
@@ -576,7 +574,12 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return []
     }
-  }, [pendingUsers])
+  }, [users])
+
+  const pendingUsers = useMemo(
+    () => usersAwaitingApproval(users, accessRequests),
+    [users, accessRequests],
+  )
 
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {

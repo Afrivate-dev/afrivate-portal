@@ -11,6 +11,8 @@ import {
   Crown,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
+import { confirms } from '@/content/copy'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -76,6 +78,7 @@ interface FormDraft {
 
 export function RecognitionPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const { users, recognition, giveRecognition, toggleRecognitionReaction } = useData()
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<FormDraft>({
@@ -116,9 +119,15 @@ export function RecognitionPage() {
     setFormOpen(true)
   }
 
-  const submitForm = (e: React.FormEvent) => {
+  const submitForm = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!draft.receiverId || !draft.message.trim()) return
+    const ok = await confirm({
+      title: confirms.sendRecognitionTitle,
+      message: confirms.sendRecognition,
+      confirmLabel: 'Send',
+    })
+    if (!ok) return
     giveRecognition({
       giverId: user.id,
       receiverId: draft.receiverId,

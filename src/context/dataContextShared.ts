@@ -18,6 +18,16 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
+/** Inactive users who have submitted a pending access request (not deactivated staff). */
+export function usersAwaitingApproval(users: User[], accessRequests: AccessRequest[]): User[] {
+  const awaitingIds = new Set(
+    accessRequests
+      .filter((r) => r.status === 'pending' || r.status === 'acknowledged')
+      .map((r) => r.userId),
+  )
+  return users.filter((u) => !u.active && awaitingIds.has(u.id))
+}
+
 export interface DataContextValue {
   users: User[]
   updateUser: (id: string, patch: Partial<User>, onError?: (msg: string) => void) => void

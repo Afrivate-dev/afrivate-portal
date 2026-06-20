@@ -28,7 +28,9 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -88,6 +90,7 @@ function dayCountLeave(startISO: string, endISO: string) {
 
 export function AdminPanelPage() {
   const { user, updateProfile } = useAuth()
+  const confirm = useConfirm()
   const {
     users,
     updateUser,
@@ -155,8 +158,14 @@ export function AdminPanelPage() {
   const resolveDepartmentName = (deptId: string) =>
     departments.find((d) => d.id === deptId)?.name ?? ''
 
-  const saveDept = () => {
+  const saveDept = async () => {
     if (!deptDraft?.name?.trim()) return
+    const ok = await confirm({
+      title: confirms.saveDepartmentTitle,
+      message: confirms.saveDepartment,
+      confirmLabel: 'Save',
+    })
+    if (!ok) return
     if (deptDraft.id) {
       updateDepartment(deptDraft.id, { name: deptDraft.name.trim(), description: deptDraft.description, headUserId: deptDraft.headUserId })
     } else {
@@ -165,8 +174,14 @@ export function AdminPanelPage() {
     setDeptDraft(null)
   }
 
-  const saveTeam = () => {
+  const saveTeam = async () => {
     if (!teamDraft?.name?.trim()) return
+    const ok = await confirm({
+      title: confirms.saveTeamTitle,
+      message: confirms.saveTeam,
+      confirmLabel: 'Save',
+    })
+    if (!ok) return
     if (teamDraft.id) {
       updateTeam(teamDraft.id, { name: teamDraft.name.trim(), description: teamDraft.description, departmentId: teamDraft.departmentId, leadUserId: teamDraft.leadUserId, asstLeadUserId: teamDraft.asstLeadUserId })
     } else {
@@ -182,6 +197,12 @@ export function AdminPanelPage() {
       setAlertMessage('Please select a department.')
       return
     }
+    const ok = await confirm({
+      title: confirms.approveAccountTitle,
+      message: confirms.approveAccount,
+      confirmLabel: 'Approve',
+    })
+    if (!ok) return
     setApproving(true)
     const roleToApply = adminUser ? approvalRole : 'staff'
     const result = await approveUser(
@@ -198,7 +219,7 @@ export function AdminPanelPage() {
     setApprovingUser(null)
     const emailNote = result.emailSent
       ? ' They have been emailed.'
-      : ' They were notified in the portal (configure Resend for email).'
+      : ' They were notified in the portal.'
     setAlertMessage(`${approvingUser.name} is now active.${emailNote}`)
   }
 
@@ -212,6 +233,12 @@ export function AdminPanelPage() {
 
   const sendInvite = async () => {
     if (!inviteEmail.trim() || inviteStatus === 'sending') return
+    const ok = await confirm({
+      title: confirms.inviteUserTitle,
+      message: confirms.inviteUser(inviteEmail.trim()),
+      confirmLabel: supabase ? 'Send invite' : 'Create account',
+    })
+    if (!ok) return
     if (!supabase) {
       // Local mode: create the account directly and surface credentials
       const pwd = uid()
@@ -293,6 +320,38 @@ export function AdminPanelPage() {
     if (user?.id === id) updateProfile(patch)
   }
 
+  const handleRoleChange = async (u: User, newRole: Role) => {
+    if (newRole === u.role) return
+    const label = ROLE_OPTIONS.find((o) => o.value === newRole)?.label ?? newRole
+    const ok = await confirm({
+      title: confirms.changeRoleTitle,
+      message: confirms.changeRole(u.name, label),
+      confirmLabel: 'Change role',
+    })
+    if (ok) patchUser(u.id, { role: newRole })
+  }
+
+  const handleActiveChange = async (u: User, active: boolean) => {
+    if (active === u.active) return
+    if (active) {
+      const ok = await confirm({
+        title: confirms.activateUserTitle,
+        message: confirms.activateUser,
+        confirmLabel: 'Activate',
+      })
+      if (!ok) return
+    } else {
+      const ok = await confirm({
+        title: confirms.deactivateUserTitle,
+        message: confirms.deactivateUser,
+        confirmLabel: 'Deactivate',
+        destructive: true,
+      })
+      if (!ok) return
+    }
+    patchUser(u.id, { active })
+  }
+
   const openAnn = (a: Announcement) => {
     setAnnDraft({
       id: a.id,
@@ -304,8 +363,14 @@ export function AdminPanelPage() {
     })
   }
 
-  const saveAnn = () => {
+  const saveAnn = async () => {
     if (!annDraft?.title.trim() || !annDraft.body.trim() || !user) return
+    const ok = await confirm({
+      title: confirms.postUpdateTitle,
+      message: confirms.postUpdate,
+      confirmLabel: annDraft.id ? 'Save changes' : 'Publish',
+    })
+    if (!ok) return
     const payload = {
       title: annDraft.title.trim(),
       body: annDraft.body.trim(),
@@ -321,8 +386,15 @@ export function AdminPanelPage() {
     setAnnDraft(null)
   }
 
-  const confirmReview = () => {
+  const confirmReview = async () => {
     if (!reviewing || !user) return
+    const ok = await confirm({
+      title: reviewing.status === 'approved' ? confirms.approveLeaveTitle : confirms.declineLeaveTitle,
+      message: reviewing.status === 'approved' ? confirms.approveLeave : confirms.declineLeave,
+      confirmLabel: reviewing.status === 'approved' ? 'Approve' : 'Decline',
+      destructive: reviewing.status === 'declined',
+    })
+    if (!ok) return
     reviewLeave(reviewing.req.id, reviewing.status, user.id, reviewNote.trim() || undefined)
     setReviewing(null)
     setReviewNote('')
@@ -429,7 +501,7 @@ export function AdminPanelPage() {
             </Button>
           </div>
           {pendingUsers.length === 0 ? (
-            <EmptyState icon={UserCheck} title="No pending approvals" description="Invite a team member above — they'll appear here once they accept." />
+            <EmptyState icon={UserCheck} title="No pending approvals" description="When someone requests access, they'll appear here for you to review." />
           ) : (
             pendingUsers.map((u) => {
               const req = accessRequests.find((r) => r.userId === u.id)
@@ -619,9 +691,7 @@ export function AdminPanelPage() {
                           <select
                             aria-label={`Change role for ${u.name}`}
                             value={u.role}
-                            onChange={(e) =>
-                              patchUser(u.id, { role: e.target.value as Role })
-                            }
+                            onChange={(e) => void handleRoleChange(u, e.target.value as Role)}
                             className="w-full max-w-[140px] rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-fg"
                           >
                             {ROLE_OPTIONS.map((o) => (
@@ -642,7 +712,7 @@ export function AdminPanelPage() {
                             type="checkbox"
                             checked={u.active}
                             disabled={u.id === user.id}
-                            onChange={(e) => patchUser(u.id, { active: e.target.checked })}
+                            onChange={(e) => void handleActiveChange(u, e.target.checked)}
                             className="h-4 w-4 rounded border-border"
                           />
                           <span className={u.active ? 'text-emerald-600' : 'text-muted'}>
@@ -671,7 +741,7 @@ export function AdminPanelPage() {
                     <Select
                       label="Role"
                       value={u.role}
-                      onChange={(e) => patchUser(u.id, { role: e.target.value as Role })}
+                      onChange={(e) => void handleRoleChange(u, e.target.value as Role)}
                       options={ROLE_OPTIONS}
                     />
                   ) : (
@@ -685,7 +755,7 @@ export function AdminPanelPage() {
                       type="checkbox"
                       checked={u.active}
                       disabled={u.id === user.id}
-                      onChange={(e) => patchUser(u.id, { active: e.target.checked })}
+                      onChange={(e) => void handleActiveChange(u, e.target.checked)}
                     />
                     Active account
                   </label>
@@ -1165,7 +1235,7 @@ export function AdminPanelPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setDeptDraft(null)}>Cancel</Button>
-            <Button onClick={saveDept} disabled={!deptDraft?.name?.trim()}>Save</Button>
+            <Button onClick={() => void saveDept()} disabled={!deptDraft?.name?.trim()}>Save</Button>
           </>
         }
       >
@@ -1204,7 +1274,7 @@ export function AdminPanelPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setTeamDraft(null)}>Cancel</Button>
-            <Button onClick={saveTeam} disabled={!teamDraft?.name?.trim()}>Save</Button>
+            <Button onClick={() => void saveTeam()} disabled={!teamDraft?.name?.trim()}>Save</Button>
           </>
         }
       >
@@ -1262,7 +1332,7 @@ export function AdminPanelPage() {
             <Button variant="ghost" onClick={() => setAnnDraft(null)}>
               Cancel
             </Button>
-            <Button onClick={saveAnn}>Save</Button>
+            <Button onClick={() => void saveAnn()}>Save</Button>
           </>
         }
       >
@@ -1317,7 +1387,7 @@ export function AdminPanelPage() {
             <Button variant="ghost" onClick={() => setReviewing(null)}>
               Cancel
             </Button>
-            <Button variant={reviewing?.status === 'declined' ? 'danger' : 'primary'} onClick={confirmReview}>
+            <Button variant={reviewing?.status === 'declined' ? 'danger' : 'primary'} onClick={() => void confirmReview()}>
               Confirm
             </Button>
           </>

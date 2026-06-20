@@ -13,7 +13,9 @@ import {
   FolderOpen,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { confirms } from '@/content/copy'
 import { useCollab } from '@/context/CollabContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -101,6 +103,7 @@ const toneStyles = {
 
 export function DocumentLibraryPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const { documents, users, addDocument, deleteDocument } = useData()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
   const canManage = isTeamLead(user)
@@ -190,6 +193,12 @@ export function DocumentLibraryPage() {
   const submitUpload = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!draft.title.trim() || (!draft.fileName.trim() && !uploadFile)) return
+    const ok = await confirm({
+      title: confirms.uploadDocumentTitle,
+      message: confirms.uploadDocument,
+      confirmLabel: 'Upload',
+    })
+    if (!ok) return
     setUploading(true)
     let filePath: string | undefined
     let fileSize = '\u2014'

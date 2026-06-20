@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
+import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
 import { useCollab } from '@/context/CollabContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -28,7 +29,7 @@ import {
 } from '@/components/shared/AnnouncementAttachments'
 import { cn, fmtDate, fmtTime, isTeamLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
-import { pages, actions } from '@/content/copy'
+import { pages, actions, confirms } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority } from '@/types'
 
 type PriorityFilter = 'all' | AnnouncementPriority
@@ -83,6 +84,7 @@ const draftFromAnnouncement = (a: Announcement): FormDraft => ({
 
 export function AnnouncementsPage() {
   const { user } = useAuth()
+  const confirm = useConfirm()
   const [searchParams, setSearchParams] = useSearchParams()
   const {
     announcements,
@@ -262,7 +264,10 @@ export function AnnouncementsPage() {
                 variant="secondary"
                 type="button"
                 className="lg:ml-auto"
-                onClick={() => markAllAnnouncementsRead(user.id)}
+                onClick={async () => {
+                  const ok = await confirm({ message: confirms.markAllUpdatesRead })
+                  if (ok) markAllAnnouncementsRead(user.id)
+                }}
               >
                 {U.markAllRead}
               </Button>
