@@ -4,15 +4,43 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PendingApprovalScreen } from '@/components/shared/PendingApprovalScreen'
 import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScreen'
+import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { Drawer } from '@/components/layout/Drawer'
 import { InstallAppPrompt } from '@/components/shared/InstallAppPrompt'
 
+function AppShell({
+  drawerOpen,
+  onOpenDrawer,
+  onCloseDrawer,
+  children,
+}: {
+  drawerOpen: boolean
+  onOpenDrawer: () => void
+  onCloseDrawer: () => void
+  children: React.ReactNode
+}) {
+  return (
+    <div className="flex min-h-screen bg-bg">
+      <Sidebar />
+      <div className="flex min-h-screen flex-1 flex-col">
+        <TopBar onOpenDrawer={onOpenDrawer} />
+        <main className="flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:pb-8">
+          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        </main>
+        <MobileNav onOpenDrawer={onOpenDrawer} />
+      </div>
+      <Drawer open={drawerOpen} onClose={onCloseDrawer} />
+      <InstallAppPrompt />
+    </div>
+  )
+}
+
 export function AppLayout() {
   const { user, logout, reconcileUser, authReady, profileLoadFailed, refreshUser } = useAuth()
-  const { dataStatus, dataError, reloadData, users } = useData()
+  const { dataStatus, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -27,8 +55,8 @@ export function AppLayout() {
 
   if (!authReady) {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-muted">
-        Loading…
+      <div className="flex min-h-screen items-center justify-center bg-bg">
+        <ScreenLoader message="Checking your session…" />
       </div>
     )
   }
@@ -63,46 +91,45 @@ export function AppLayout() {
 
   if (dataStatus === 'loading') {
     return (
-      <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-muted">
-        Loading your portal…
-      </div>
+      <AppShell
+        drawerOpen={drawerOpen}
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onCloseDrawer={() => setDrawerOpen(false)}
+      >
+        <ScreenLoader message="Loading your portal…" className="min-h-[50vh]" />
+      </AppShell>
     )
   }
 
   if (dataStatus === 'error') {
     return (
-      <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-bg px-4 text-center">
-        <p className="text-sm text-fg">We couldn&apos;t load your data right now.</p>
-        {dataError ? <p className="max-w-md text-xs text-muted">Please try again in a moment.</p> : null}
-        <button
-          type="button"
-          onClick={() => void reloadData()}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white ring-focus"
-        >
-          Retry
-        </button>
-      </div>
+      <AppShell
+        drawerOpen={drawerOpen}
+        onOpenDrawer={() => setDrawerOpen(true)}
+        onCloseDrawer={() => setDrawerOpen(false)}
+      >
+        <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
+          <p className="text-sm text-fg">We couldn&apos;t load your data right now.</p>
+          <p className="max-w-md text-xs text-muted">Please try again in a moment.</p>
+          <button
+            type="button"
+            onClick={() => void reloadData()}
+            className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-white ring-focus"
+          >
+            Retry
+          </button>
+        </div>
+      </AppShell>
     )
   }
 
   return (
-    <div className="flex min-h-screen bg-bg">
-      <Sidebar />
-
-      <div className="flex min-h-screen flex-1 flex-col">
-        <TopBar onOpenDrawer={() => setDrawerOpen(true)} />
-
-        <main className="flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:pb-8">
-          <div className="mx-auto w-full max-w-7xl">
-            <Outlet />
-          </div>
-        </main>
-
-        <MobileNav onOpenDrawer={() => setDrawerOpen(true)} />
-      </div>
-
-      <Drawer open={drawerOpen} onClose={() => setDrawerOpen(false)} />
-      <InstallAppPrompt />
-    </div>
+    <AppShell
+      drawerOpen={drawerOpen}
+      onOpenDrawer={() => setDrawerOpen(true)}
+      onCloseDrawer={() => setDrawerOpen(false)}
+    >
+      <Outlet />
+    </AppShell>
   )
 }
