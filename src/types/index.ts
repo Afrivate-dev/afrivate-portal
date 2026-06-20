@@ -8,6 +8,16 @@ export interface Department {
   createdAt: string
 }
 
+/** Pending signup / access request metadata (HR+ admin view). */
+export interface AccessRequest {
+  userId: string
+  message?: string
+  preferredDepartmentId?: string
+  jobTitle?: string
+  status: 'pending' | 'acknowledged' | 'approved' | 'dismissed'
+  requestedAt: string
+}
+
 export interface User {
   id: string
   email: string
@@ -114,6 +124,8 @@ export interface LeaveRequest {
   endDate: string
   reason: string
   supportingDocName?: string
+  /** Supabase storage path for supporting document upload */
+  supportingDocPath?: string
   status: LeaveStatus
   submittedAt: string
   reviewedById?: string
@@ -150,6 +162,8 @@ export interface DocumentItem {
   category: 'policies' | 'sops' | 'brand' | 'templates' | 'reports'
   fileName: string
   fileSize: string
+  /** Supabase storage path when file storage is enabled */
+  filePath?: string
   uploadedById: string
   uploadedAt: string
   hrOnly?: boolean

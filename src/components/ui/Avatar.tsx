@@ -1,5 +1,6 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { cn, colorForName, initials } from '@/utils/helpers'
+import { isStorageReference, resolveStorageReference } from '@/utils/mediaUpload'
 
 interface AvatarProps {
   name: string
@@ -27,12 +28,34 @@ const textSize: Record<NonNullable<AvatarProps['size']>, string> = {
 
 export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
   const [imgFailed, setImgFailed] = useState(false)
-  const showImg = Boolean(src?.trim()) && !imgFailed
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null)
+
+  useEffect(() => {
+    setImgFailed(false)
+    const raw = src?.trim()
+    if (!raw) {
+      setResolvedSrc(null)
+      return
+    }
+    if (!isStorageReference(raw)) {
+      setResolvedSrc(raw)
+      return
+    }
+    let cancelled = false
+    void resolveStorageReference(raw).then((url) => {
+      if (!cancelled) setResolvedSrc(url)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [src])
+
+  const showImg = Boolean(resolvedSrc) && !imgFailed
 
   if (showImg) {
     return (
       <img
-        src={src!.trim()}
+        src={resolvedSrc!}
         alt=""
         className={cn(
           'inline-flex shrink-0 rounded-full object-cover ring-2 ring-border/60',

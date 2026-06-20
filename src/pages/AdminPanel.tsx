@@ -40,7 +40,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
-import { cn, fmtDate, firstName, relativeTime, uid, weekLabel } from '@/utils/helpers'
+import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, roleLabel } from '@/utils/helpers'
+import { invitePortalUser } from '@/lib/invitePortalUser'
 import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
@@ -92,6 +93,7 @@ export function AdminPanelPage() {
     updateUser,
     addUser,
     announcements,
+    createAnnouncement,
     updateAnnouncement,
     deleteAnnouncement,
     leaveRequests,
@@ -106,6 +108,7 @@ export function AdminPanelPage() {
     deleteOnboardingChecklistItem,
     checkIns,
     pendingUsers,
+    accessRequests,
     approveUser,
     departments,
     addDepartment,
@@ -135,9 +138,22 @@ export function AdminPanelPage() {
   // Approval state
   const [approvingUser, setApprovingUser] = useState<User | null>(null)
   const [approvalRole, setApprovalRole] = useState<Role>('staff')
-  const [approvalDept, setApprovalDept] = useState('')
+  const [approvalDeptId, setApprovalDeptId] = useState('')
   const [approvalTitle, setApprovalTitle] = useState('')
   const [approving, setApproving] = useState(false)
+
+  const adminUser = canChangeRoles(user)
+
+  const openApprovalForUser = (u: User) => {
+    const req = accessRequests.find((r) => r.userId === u.id)
+    setApprovingUser(u)
+    setApprovalRole('staff')
+    setApprovalDeptId(req?.preferredDepartmentId ?? departments[0]?.id ?? '')
+    setApprovalTitle(req?.jobTitle ?? u.jobTitle ?? '')
+  }
+
+  const resolveDepartmentName = (deptId: string) =>
+    departments.find((d) => d.id === deptId)?.name ?? ''
 
   const saveDept = () => {
     if (!deptDraft?.name?.trim()) return
@@ -161,11 +177,17 @@ export function AdminPanelPage() {
 
   const confirmApproval = async () => {
     if (!approvingUser || approving) return
+    const deptName = resolveDepartmentName(approvalDeptId)
+    if (!deptName) {
+      setAlertMessage('Please select a department.')
+      return
+    }
     setApproving(true)
+    const roleToApply = adminUser ? approvalRole : 'staff'
     const result = await approveUser(
       approvingUser.id,
-      approvalRole,
-      approvalDept.trim() || 'General',
+      roleToApply,
+      deptName,
       approvalTitle.trim() || 'Staff',
     )
     setApproving(false)
@@ -201,13 +223,8 @@ export function AdminPanelPage() {
     setInviteStatus('sending')
     setInviteError('')
     try {
-      const { error } = await supabase.functions.invoke('invite-user', {
-        body: {
-          email: inviteEmail.trim().toLowerCase(),
-          name: inviteName.trim() || undefined,
-        },
-      })
-      if (error) throw new Error(error.message)
+      const result = await invitePortalUser(supabase, inviteEmail.trim(), inviteName.trim())
+      if (!result.ok) throw new Error(result.error)
       setInviteStatus('sent')
     } catch (err) {
       setInviteError(err instanceof Error ? err.message : 'Failed to send invite')
@@ -262,6 +279,10 @@ export function AdminPanelPage() {
   )
 
   const patchUser = (id: string, patch: Partial<User>) => {
+    if ('role' in patch && !adminUser) {
+      setAlertMessage('Only administrators can change roles.')
+      return
+    }
     if (user?.id === id && patch.active === false) {
       setAlertMessage('You cannot deactivate your own account while signed in.')
       return
@@ -284,15 +305,18 @@ export function AdminPanelPage() {
   }
 
   const saveAnn = () => {
-    if (!annDraft?.title.trim() || !annDraft.body.trim()) return
+    if (!annDraft?.title.trim() || !annDraft.body.trim() || !user) return
+    const payload = {
+      title: annDraft.title.trim(),
+      body: annDraft.body.trim(),
+      audience: annDraft.audience,
+      priority: annDraft.priority,
+      media: annDraft.media.length > 0 ? annDraft.media : [],
+    }
     if (annDraft.id) {
-      updateAnnouncement(annDraft.id, {
-        title: annDraft.title.trim(),
-        body: annDraft.body.trim(),
-        audience: annDraft.audience,
-        priority: annDraft.priority,
-        media: annDraft.media.length > 0 ? annDraft.media : [],
-      })
+      updateAnnouncement(annDraft.id, payload)
+    } else {
+      createAnnouncement({ ...payload, postedById: user.id })
     }
     setAnnDraft(null)
   }
@@ -367,12 +391,16 @@ export function AdminPanelPage() {
         <SectionTab active={section === 'users'} onClick={() => setSection('users')}>
           <UsersIcon className="h-4 w-4" /> Users
         </SectionTab>
-        <SectionTab active={section === 'departments'} onClick={() => setSection('departments')}>
-          <Building2 className="h-4 w-4" /> Departments
-        </SectionTab>
-        <SectionTab active={section === 'teams'} onClick={() => setSection('teams')}>
-          <UsersRound className="h-4 w-4" /> Teams
-        </SectionTab>
+        {adminUser ? (
+          <>
+            <SectionTab active={section === 'departments'} onClick={() => setSection('departments')}>
+              <Building2 className="h-4 w-4" /> Departments
+            </SectionTab>
+            <SectionTab active={section === 'teams'} onClick={() => setSection('teams')}>
+              <UsersRound className="h-4 w-4" /> Teams
+            </SectionTab>
+          </>
+        ) : null}
         <SectionTab active={section === 'announcements'} onClick={() => setSection('announcements')}>
           <Megaphone className="h-4 w-4" /> Announcements
         </SectionTab>
@@ -403,22 +431,32 @@ export function AdminPanelPage() {
           {pendingUsers.length === 0 ? (
             <EmptyState icon={UserCheck} title="No pending approvals" description="Invite a team member above — they'll appear here once they accept." />
           ) : (
-            pendingUsers.map((u) => (
-              <Card key={u.id} padding="md" className="flex items-center justify-between gap-4">
+            pendingUsers.map((u) => {
+              const req = accessRequests.find((r) => r.userId === u.id)
+              const reqDept = req?.preferredDepartmentId
+                ? departments.find((d) => d.id === req.preferredDepartmentId)?.name
+                : undefined
+              return (
+              <Card key={u.id} padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-medium text-fg">{u.name}</div>
                   <div className="text-sm text-muted">{u.email}</div>
+                  {reqDept || req?.jobTitle ? (
+                    <div className="mt-1 text-xs text-muted">
+                      {reqDept ? `Department: ${reqDept}` : null}
+                      {reqDept && req?.jobTitle ? ' · ' : null}
+                      {req?.jobTitle ? `Role: ${req.jobTitle}` : null}
+                    </div>
+                  ) : null}
+                  {req?.message ? (
+                    <p className="mt-1 text-xs text-muted italic">&ldquo;{req.message}&rdquo;</p>
+                  ) : null}
                 </div>
-                <Button size="sm" onClick={() => {
-                  setApprovingUser(u)
-                  setApprovalRole('staff')
-                  setApprovalDept('')
-                  setApprovalTitle('')
-                }}>
+                <Button size="sm" onClick={() => openApprovalForUser(u)}>
                   Review & approve
                 </Button>
               </Card>
-            ))
+            )})
           )}
         </div>
       ) : null}
@@ -577,20 +615,24 @@ export function AdminPanelPage() {
                         </div>
                       </td>
                       <td className="p-3">
-                        <select
-                          aria-label={`Change role for ${u.name}`}
-                          value={u.role}
-                          onChange={(e) =>
-                            patchUser(u.id, { role: e.target.value as Role })
-                          }
-                          className="w-full max-w-[140px] rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-fg"
-                        >
-                          {ROLE_OPTIONS.map((o) => (
-                            <option key={o.value} value={o.value}>
-                              {o.label}
-                            </option>
-                          ))}
-                        </select>
+                        {adminUser ? (
+                          <select
+                            aria-label={`Change role for ${u.name}`}
+                            value={u.role}
+                            onChange={(e) =>
+                              patchUser(u.id, { role: e.target.value as Role })
+                            }
+                            className="w-full max-w-[140px] rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-fg"
+                          >
+                            {ROLE_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-xs text-muted">{roleLabel[u.role]}</span>
+                        )}
                       </td>
                       <td className="p-3 text-muted">{u.department}</td>
                       <td className="p-3 text-muted">{fmtDate(u.joinedAt)}</td>
@@ -625,12 +667,16 @@ export function AdminPanelPage() {
                       <p className="truncate text-xs text-muted">{u.email}</p>
                     </div>
                   </div>
-                  <Select
-                    label="Role"
-                    value={u.role}
-                    onChange={(e) => patchUser(u.id, { role: e.target.value as Role })}
-                    options={ROLE_OPTIONS}
-                  />
+                  {adminUser ? (
+                    <Select
+                      label="Role"
+                      value={u.role}
+                      onChange={(e) => patchUser(u.id, { role: e.target.value as Role })}
+                      options={ROLE_OPTIONS}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted">Role: {roleLabel[u.role]}</p>
+                  )}
                   <p className="text-xs text-muted">
                     {u.department} · joined {fmtDate(u.joinedAt)}
                   </p>
@@ -652,6 +698,22 @@ export function AdminPanelPage() {
       {/* ANNOUNCEMENTS */}
       {section === 'announcements' ? (
         <div className="space-y-3">
+          <div className="flex justify-end">
+            <Button
+              size="sm"
+              onClick={() =>
+                setAnnDraft({
+                  title: '',
+                  body: '',
+                  audience: 'all',
+                  priority: 'info',
+                  media: [],
+                })
+              }
+            >
+              <Plus className="h-4 w-4" /> New announcement
+            </Button>
+          </div>
           {announcements.length === 0 ? (
             <EmptyState icon={Megaphone} title="No announcements" />
           ) : (
@@ -1052,7 +1114,7 @@ export function AdminPanelPage() {
             <Button variant="ghost" onClick={() => setApprovingUser(null)} disabled={approving}>
               Cancel
             </Button>
-            <Button onClick={() => void confirmApproval()} disabled={!approvalDept.trim() || approving} loading={approving}>
+            <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving} loading={approving}>
               Approve & activate
             </Button>
           </>
@@ -1064,17 +1126,26 @@ export function AdminPanelPage() {
               <div className="font-medium text-fg">{approvingUser.name}</div>
               <div className="text-sm text-muted">{approvingUser.email}</div>
             </div>
+            {adminUser ? (
+              <Select
+                label="Role"
+                value={approvalRole}
+                onChange={(e) => setApprovalRole(e.target.value as Role)}
+                options={ROLE_OPTIONS}
+              />
+            ) : (
+              <p className="text-sm text-muted">
+                Role: Staff (only administrators can assign other roles)
+              </p>
+            )}
             <Select
-              label="Role"
-              value={approvalRole}
-              onChange={(e) => setApprovalRole(e.target.value as Role)}
-              options={ROLE_OPTIONS}
-            />
-            <Input
               label="Department"
-              value={approvalDept}
-              onChange={(e) => setApprovalDept(e.target.value)}
-              placeholder="e.g. Engineering"
+              value={approvalDeptId}
+              onChange={(e) => setApprovalDeptId(e.target.value)}
+              options={[
+                { value: '', label: 'Select department…' },
+                ...departments.map((d) => ({ value: d.id, label: d.name })),
+              ]}
             />
             <Input
               label="Job title"

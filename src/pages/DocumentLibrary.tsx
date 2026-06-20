@@ -2,7 +2,6 @@
 import {
   Search,
   Plus,
-  Download,
   Trash2,
   FileText,
   FileImage,
@@ -26,6 +25,10 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
+import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { supabase } from '@/lib/supabase'
+import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { notifyError } from '@/lib/notify'
 import type { DocumentItem } from '@/types'
 
 type Category = DocumentItem['category']
@@ -110,6 +113,8 @@ export function DocumentLibraryPage() {
   const [draft, setDraft] = useState<UploadDraft>(emptyDraft)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [downloadInfoDoc, setDownloadInfoDoc] = useState<DocumentItem | null>(null)
+  const [uploadFile, setUploadFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
   useEffect(() => {
     if (!surfaceDocId) {
@@ -182,20 +187,49 @@ export function DocumentLibraryPage() {
     setUploadOpen(true)
   }
 
-  const submitUpload = (e: React.FormEvent) => {
+  const submitUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!draft.title.trim() || !draft.fileName.trim()) return
+    if (!draft.title.trim() || (!draft.fileName.trim() && !uploadFile)) return
+    setUploading(true)
+    let filePath: string | undefined
+    let fileSize = '\u2014'
+    let fileName = draft.fileName.trim() || uploadFile?.name || 'document'
+    if (uploadFile && isSupabaseAuthEnabled() && supabase) {
+      const uploaded = await uploadPortalFile(supabase, 'documents', uploadFile, user.id)
+      if ('error' in uploaded) {
+        notifyError(uploaded.error)
+        setUploading(false)
+        return
+      }
+      filePath = uploaded.path
+      fileSize = uploaded.sizeLabel
+      fileName = uploadFile.name
+    }
     addDocument({
       title: draft.title.trim(),
       description: draft.description.trim() || undefined,
       category: draft.category,
-      fileName: draft.fileName.trim(),
-      fileSize: '\u2014',
+      fileName,
+      fileSize,
+      filePath,
       uploadedById: user.id,
       hrOnly: draft.hrOnly,
       managementOnly: draft.managementOnly,
     })
     setUploadOpen(false)
+    setUploadFile(null)
+    setUploading(false)
+  }
+
+  const openDocument = async (doc: DocumentItem) => {
+    if (doc.filePath && supabase) {
+      const url = await getPortalFileDownloadUrl(supabase, doc.filePath)
+      if (url) {
+        window.open(url, '_blank', 'noopener,noreferrer')
+        return
+      }
+    }
+    setDownloadInfoDoc(doc)
   }
 
   return (
@@ -346,11 +380,11 @@ export function DocumentLibraryPage() {
                     type="button"
                     onClick={(e) => {
                       e.stopPropagation()
-                      setDownloadInfoDoc(d)
+                      void openDocument(d)
                     }}
                     className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg hover:bg-surface-2 ring-focus"
                   >
-                    <Download className="h-4 w-4" /> Download
+                    {d.filePath ? 'Download' : 'View details'}
                   </button>
                 </Card>
               </li>
@@ -364,20 +398,20 @@ export function DocumentLibraryPage() {
         open={uploadOpen}
         onClose={() => setUploadOpen(false)}
         title="Upload document"
-        description="For now this saves the document details in the library. Full file storage and downloads are coming soon."
+        description="Upload a file or enter document details. Files are stored securely when storage is configured."
         size="lg"
         footer={
           <>
             <Button variant="ghost" type="button" onClick={() => setUploadOpen(false)}>
               Cancel
             </Button>
-            <Button type="button" onClick={submitUpload}>
+            <Button type="submit" loading={uploading}>
               Save document
             </Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={submitUpload}>
+        <form className="space-y-4" onSubmit={(e) => void submitUpload(e)}>
           <Input
             label="Title"
             required
@@ -404,10 +438,17 @@ export function DocumentLibraryPage() {
             />
             <Input
               label="File name"
-              required
               value={draft.fileName}
               onChange={(e) => setDraft({ ...draft, fileName: e.target.value })}
               placeholder="staff-handbook-2026.pdf"
+            />
+          </div>
+          <div>
+            <label className="mb-1 block text-sm font-medium text-fg">Attach file (optional)</label>
+            <input
+              type="file"
+              className="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
+              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
             />
           </div>
           <div className="space-y-2 rounded-md border border-border bg-surface-2/40 p-3">
@@ -459,18 +500,19 @@ export function DocumentLibraryPage() {
         <p className="text-sm text-fg">Delete this document? This cannot be undone.</p>
       </Modal>
 
-      {/* Download info modal (file storage not yet enabled) */}
+      {/* Document details modal (file storage not yet enabled) */}
       <Modal
         open={!!downloadInfoDoc}
         onClose={() => setDownloadInfoDoc(null)}
-        title="Download"
+        title="Document details"
         footer={<Button onClick={() => setDownloadInfoDoc(null)}>OK</Button>}
       >
         {downloadInfoDoc ? (
           <div className="space-y-2 text-sm text-fg">
             <p className="font-medium">{downloadInfoDoc.fileName}</p>
             <p className="text-muted">
-              File downloads will be available soon. Ask your admin if you need this file right away.
+              This library stores document metadata only. File downloads will be available when storage
+              is configured. Contact your admin if you need this file right away.
             </p>
           </div>
         ) : null}

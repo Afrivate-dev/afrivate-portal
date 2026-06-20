@@ -128,6 +128,18 @@ test.describe('Auth flows', () => {
 
     await login(page, PENDING.email, PENDING.password)
 
+    const deptSelect = page.getByLabel(/department/i)
+    if (await deptSelect.isVisible()) {
+      const options = await deptSelect.locator('option').allTextContents()
+      const firstDept = options.find((o) => o && !o.toLowerCase().includes('select'))
+      if (firstDept) await deptSelect.selectOption({ label: firstDept })
+    }
+
+    const jobTitle = page.getByLabel(/job title/i)
+    if (await jobTitle.isVisible()) {
+      await jobTitle.fill('Test Role')
+    }
+
     await page.getByRole('button', { name: /request access/i }).click()
 
     await expect(

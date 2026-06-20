@@ -63,7 +63,11 @@ export function InboxPage() {
 
   const openNotification = (n: InboxNotification) => {
     markInboxRead(n.id)
-    navigate(n.link)
+    const link =
+      n.taskId && (n.type === 'task_assigned' || n.type === 'task_mention')
+        ? `/tasks?open=${n.taskId}`
+        : n.link
+    navigate(link)
   }
 
   return (

@@ -10,7 +10,7 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { userSeesAnnouncement } from '@/utils/helpers'
+import { userSeesAnnouncement, userCanSeeTask } from '@/utils/helpers'
 import { pages } from '@/content/copy'
 
 const S = pages.search
@@ -49,8 +49,7 @@ export function SearchPage() {
   const taskHits = useMemo(() => {
     if (!user || !q) return []
     return tasks.filter((t) => {
-      const visible = t.ownerId === user.id || t.assigneeId === user.id
-      if (!visible) return false
+      if (!userCanSeeTask(t, user.id)) return false
       const hay = `${t.title} ${t.description ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
@@ -126,7 +125,7 @@ export function SearchPage() {
               <ul className="space-y-2">
                 {personHits.map((p) => (
                   <li key={p.id}>
-                    <Link to="/directory">
+                    <Link to={`/directory?open=${p.id}`}>
                       <Card padding="md" className="flex items-center gap-3 transition-colors hover:border-accent/40">
                         <Avatar name={p.name} src={p.avatarUrl} size="md" />
                         <div className="min-w-0">
@@ -153,7 +152,7 @@ export function SearchPage() {
               <ul className="space-y-2">
                 {announcementHits.map((a) => (
                   <li key={a.id}>
-                    <Link to="/announcements">
+                    <Link to={`/announcements?open=${a.id}`}>
                       <Card padding="md" className="transition-colors hover:border-accent/40">
                         <p className="font-medium text-fg">{a.title}</p>
                         <p className="mt-1 line-clamp-2 text-sm text-muted">{a.body}</p>
@@ -175,7 +174,7 @@ export function SearchPage() {
               <ul className="space-y-2">
                 {taskHits.map((t) => (
                   <li key={t.id}>
-                    <Link to="/tasks">
+                    <Link to={`/tasks?open=${t.id}`}>
                       <Card padding="md" className="transition-colors hover:border-accent/40">
                         <p className="font-medium text-fg">{t.title}</p>
                         {t.description ? (

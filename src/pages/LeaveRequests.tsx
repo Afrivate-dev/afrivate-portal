@@ -41,6 +41,10 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, firstName, isLead, relativeTime } from '@/utils/helpers'
+import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { supabase } from '@/lib/supabase'
+import { uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { notifyError } from '@/lib/notify'
 import type { LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
 
 type Tab = 'my' | 'all' | 'calendar'
@@ -116,6 +120,7 @@ export function LeaveRequestsPage() {
   const [formOpen, setFormOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
   const [draft, setDraft] = useState<RequestDraft>(emptyDraft)
+  const [supportingFile, setSupportingFile] = useState<File | null>(null)
   const [reviewing, setReviewing] = useState<{ request: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
   const [reviewNote, setReviewNote] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
@@ -131,21 +136,27 @@ export function LeaveRequestsPage() {
   )
 
   const balances = useMemo(() => {
-    if (!user) return {} as Record<LeaveType, { used: number; left: number; total: number }>
+    if (!user) return {} as Record<
+      LeaveType,
+      { used: number; pending: number; left: number; total: number }
+    >
     const thisYear = new Date().getFullYear()
-    const out = {} as Record<LeaveType, { used: number; left: number; total: number }>
+    const out = {} as Record<
+      LeaveType,
+      { used: number; pending: number; left: number; total: number }
+    >
     ;(Object.keys(ANNUAL_ALLOWANCE) as LeaveType[]).forEach((t) => {
-      const used = leaveRequests
-        .filter(
-          (l) =>
-            l.userId === user.id &&
-            l.type === t &&
-            l.status === 'approved' &&
-            parseISO(l.startDate).getFullYear() === thisYear,
-        )
+      const mine = leaveRequests.filter(
+        (l) => l.userId === user.id && l.type === t && parseISO(l.startDate).getFullYear() === thisYear,
+      )
+      const used = mine
+        .filter((l) => l.status === 'approved')
+        .reduce((sum, l) => sum + dayCount(l.startDate, l.endDate), 0)
+      const pending = mine
+        .filter((l) => l.status === 'pending')
         .reduce((sum, l) => sum + dayCount(l.startDate, l.endDate), 0)
       const total = ANNUAL_ALLOWANCE[t]
-      out[t] = { used, left: Math.max(0, total - used), total }
+      out[t] = { used, pending, left: Math.max(0, total - used - pending), total }
     })
     return out
   }, [leaveRequests, user])
@@ -168,21 +179,41 @@ export function LeaveRequestsPage() {
     setSubmitting(false)
   }
 
-  const submitForm = (e: React.FormEvent) => {
+  const submitForm = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (submitting) return // guard against double-submit
+    if (submitting) return
     if (!draft.startDate || !draft.endDate || !draft.reason.trim()) return
     if (draft.endDate < draft.startDate) return
+    const requestedDays = dayCount(draft.startDate, draft.endDate)
+    const balance = balances[draft.type]
+    if (balance && requestedDays > balance.left) {
+      notifyError(`Not enough ${draft.type.replace('_', ' ')} leave remaining (${balance.left} days left).`)
+      return
+    }
     setSubmitting(true)
+    let supportingDocPath: string | undefined
+    let supportingDocName = draft.supportingDocName.trim() || undefined
+    if (supportingFile && isSupabaseAuthEnabled() && supabase) {
+      const uploaded = await uploadPortalFile(supabase, 'leave', supportingFile, user.id)
+      if ('error' in uploaded) {
+        notifyError(uploaded.error)
+        setSubmitting(false)
+        return
+      }
+      supportingDocPath = uploaded.path
+      supportingDocName = supportingFile.name
+    }
     submitLeave({
       userId: user.id,
       type: draft.type,
       startDate: draft.startDate,
       endDate: draft.endDate,
       reason: draft.reason.trim(),
-      supportingDocName: draft.supportingDocName.trim() || undefined,
+      supportingDocName,
+      supportingDocPath,
     })
     closeForm()
+    setSupportingFile(null)
   }
 
   const startReview = (r: LeaveRequest, status: 'approved' | 'declined') => {
@@ -411,7 +442,10 @@ export function LeaveRequestsPage() {
               {balances[draft.type] ? (
                 <>
                   {' '}
-                  &middot; {balances[draft.type].left} days remaining in your balance
+                  &middot; {balances[draft.type].left} days remaining
+                  {balances[draft.type].pending > 0
+                    ? ` (${balances[draft.type].pending} pending approval)`
+                    : ''}
                 </>
               ) : null}
             </div>
@@ -424,13 +458,25 @@ export function LeaveRequestsPage() {
             onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
             placeholder="Brief context for HR / your team lead"
           />
-          <Input
-            label="Supporting document (optional)"
-            value={draft.supportingDocName}
-            onChange={(e) => setDraft({ ...draft, supportingDocName: e.target.value })}
-            placeholder="e.g. medical-cert.pdf"
-            hint="Type a filename for your records. Attaching files directly will be available in a later update."
-          />
+          <div>
+            <label className="mb-1 block text-sm font-medium text-fg">
+              Supporting document (optional)
+            </label>
+            <input
+              type="file"
+              className="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
+              onChange={(e) => setSupportingFile(e.target.files?.[0] ?? null)}
+            />
+            {!supportingFile ? (
+              <Input
+                className="mt-2"
+                value={draft.supportingDocName}
+                onChange={(e) => setDraft({ ...draft, supportingDocName: e.target.value })}
+                placeholder="e.g. medical-cert.pdf"
+                hint="Or attach a file above when storage is configured."
+              />
+            ) : null}
+          </div>
         </form>
       </Modal>
 

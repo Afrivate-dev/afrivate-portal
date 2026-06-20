@@ -18,6 +18,7 @@ import {
   seedTeams,
 } from '@/data/mockData'
 import type {
+  AccessRequest,
   Announcement,
   Department,
   DocumentItem,
@@ -146,7 +147,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
           type: 'task_assigned',
           title: owner ? `${owner.name} assigned you a task` : 'You were assigned a task',
           body: task.title,
-          link: '/tasks',
+          link: `/tasks?open=${task.id}`,
           read: false,
           createdAt: now,
           fromUserId: actor,
@@ -163,7 +164,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
           type: 'task_mention',
           title: mentioner ? `${mentioner.name} mentioned you in a task` : 'You were mentioned in a task',
           body: task.title,
-          link: '/tasks',
+          link: `/tasks?open=${task.id}`,
           read: false,
           createdAt: now,
           fromUserId: actor,
@@ -214,7 +215,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
                   type: 'task_assigned',
                   title: assigner ? `${assigner.name} assigned you a task` : 'You were assigned a task',
                   body: t.title,
-                  link: '/tasks',
+                  link: `/tasks?open=${t.id}`,
                   read: false,
                   createdAt: now,
                   fromUserId: by,
@@ -231,7 +232,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
                 type: 'task_mention',
                 title: mentioner ? `${mentioner.name} mentioned you in a task` : 'You were mentioned in a task',
                 body: t.title,
-                link: '/tasks',
+                link: `/tasks?open=${t.id}`,
                 read: false,
                 createdAt: now,
                 fromUserId: by,
@@ -550,6 +551,33 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   /* -------------------------- Approvals --------------------------------- */
   const pendingUsers = useMemo(() => users.filter((u) => !u.active), [users])
 
+  const accessRequests = useMemo((): AccessRequest[] => {
+    try {
+      const rows = JSON.parse(
+        localStorage.getItem('av-access-requests') ?? '[]',
+      ) as {
+        userId: string
+        message?: string | null
+        preferredDepartmentId?: string
+        jobTitle?: string
+        status: string
+        requestedAt: string
+      }[]
+      return rows
+        .filter((r) => r.status === 'pending' || r.status === 'acknowledged')
+        .map((r) => ({
+          userId: r.userId,
+          message: r.message ?? undefined,
+          preferredDepartmentId: r.preferredDepartmentId,
+          jobTitle: r.jobTitle,
+          status: r.status as AccessRequest['status'],
+          requestedAt: r.requestedAt,
+        }))
+    } catch {
+      return []
+    }
+  }, [pendingUsers])
+
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {
       setUsers((prev) =>
@@ -631,6 +659,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       updateDepartment,
       deleteDepartment,
       pendingUsers,
+      accessRequests,
       approveUser,
       taskCategories,
       addTaskCategory,
@@ -656,7 +685,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       events, addEvent,
       teams, addTeam, updateTeam, deleteTeam,
       departments, addDepartment, updateDepartment, deleteDepartment,
-      pendingUsers, approveUser,
+      pendingUsers, accessRequests, approveUser,
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       reloadData,
     ],

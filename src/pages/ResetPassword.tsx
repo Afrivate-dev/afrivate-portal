@@ -5,17 +5,9 @@ import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
 import { supabase } from '@/lib/supabase'
+import { validatePortalPassword, passwordPolicyHint } from '@/utils/passwordPolicy'
 
 type Stage = 'loading' | 'set_password' | 'success' | 'error'
-
-/** Returns an error string if the password doesn't meet policy, null if it passes. */
-function validatePassword(pw: string): string | null {
-  if (pw.length < 8) return 'Password must be at least 8 characters.'
-  if (!/[A-Z]/.test(pw)) return 'Include at least one uppercase letter.'
-  if (!/[0-9!@#$%^&*()\-_=+[\]{}|;:,.<>?/\\]/.test(pw))
-    return 'Include at least one number or special character.'
-  return null
-}
 
 function VisibilityToggle({ show, onToggle }: { show: boolean; onToggle: () => void }) {
   return (
@@ -103,7 +95,7 @@ export function ResetPasswordPage() {
     e.preventDefault()
     setError(null)
 
-    const pwError = validatePassword(password)
+    const pwError = validatePortalPassword(password)
     if (pwError) {
       setError(pwError)
       return
@@ -169,6 +161,7 @@ export function ResetPasswordPage() {
               value={password}
               onChange={(e) => setPassword(e.target.value)}
               placeholder="Min. 8 chars, uppercase & number"
+              hint={passwordPolicyHint}
               autoComplete="new-password"
               leadingIcon={<Lock className="h-4 w-4" />}
               trailingNode={

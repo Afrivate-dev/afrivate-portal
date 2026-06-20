@@ -33,6 +33,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, fmtTime, isTeamLead } from '@/utils/helpers'
+import { departmentSelectOptions } from '@/lib/departments'
 import { pages } from '@/content/copy'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import {
@@ -70,7 +71,7 @@ const emptyDraft: EventDraft = {
 
 export function EventsCalendarPage() {
   const { user } = useAuth()
-  const { events, users, addEvent } = useData()
+  const { events, users, addEvent, departments: orgDepartments } = useData()
   const canManage = isTeamLead(user)
 
   const googleEmbed = import.meta.env.VITE_GOOGLE_CALENDAR_EMBED_URL?.trim()
@@ -88,10 +89,16 @@ export function EventsCalendarPage() {
 
   const calendarRef = useRef<ComponentRef<typeof FullCalendar> | null>(null)
 
-  const departments = useMemo(() => {
-    const set = new Set(users.map((u) => u.department))
-    return ['all', ...Array.from(set).sort()]
-  }, [users])
+  const audienceOptions = useMemo(
+    () => [
+      { value: 'all', label: 'Everyone' },
+      ...departmentSelectOptions(orgDepartments, users).map((d) => ({
+        value: d.value,
+        label: d.label,
+      })),
+    ],
+    [orgDepartments, users],
+  )
 
   const visibleEvents = useMemo(() => {
     if (!user) return []
@@ -497,10 +504,7 @@ export function EventsCalendarPage() {
               label="Audience"
               value={draft.audience}
               onChange={(e) => setDraft({ ...draft, audience: e.target.value })}
-              options={departments.map((d) => ({
-                value: d,
-                label: d === 'all' ? 'Everyone' : d,
-              }))}
+              options={audienceOptions}
             />
           </div>
         </form>

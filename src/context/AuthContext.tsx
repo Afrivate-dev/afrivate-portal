@@ -3,6 +3,7 @@ import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
+import { validatePortalPassword } from '@/utils/passwordPolicy'
 import type { Role, User } from '@/types'
 
 /** Core profile columns guaranteed by migrations (no optional directory fields). */
@@ -313,20 +314,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         applyPortalUser(result)
         return { ok: true as const }
       }
-      return {
-        ok: false as const,
-        error: 'Sign-in is not available right now. Please contact your administrator.',
+      try {
+        const rows = JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[]
+        const match = rows.find((u) => u.email.toLowerCase() === email.trim().toLowerCase())
+        if (!match?.password || match.password !== password) {
+          return { ok: false as const, error: 'Incorrect email or password.' }
+        }
+        if (!match.active) {
+          return {
+            ok: false as const,
+            error: 'Your account is pending approval. Sign in after an administrator activates it.',
+          }
+        }
+        setStoredUser(stripPasswordForSession(match))
+        return { ok: true as const }
+      } catch {
+        return { ok: false as const, error: 'Could not sign in. Try again.' }
       }
     },
-    [supabaseMode, applyPortalUser],
+    [supabaseMode, applyPortalUser, setStoredUser],
   )
 
   const register = useCallback(
     async (email: string, password: string, name: string) => {
       if (!supabaseMode || !supabase) {
-        return {
-          ok: false as const,
-          error: 'Registration is not available right now. Please contact your administrator.',
+        try {
+          const trimmedEmail = email.trim().toLowerCase()
+          const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+          const pwError = validatePortalPassword(password)
+          if (pwError) return { ok: false as const, error: pwError }
+          const rows = JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[]
+          if (rows.some((u) => u.email.toLowerCase() === trimmedEmail)) {
+            return { ok: false as const, error: 'An account with this email already exists.' }
+          }
+          const newUser: User = {
+            id: crypto.randomUUID(),
+            email: trimmedEmail,
+            password,
+            name: trimmedName,
+            role: 'staff',
+            department: 'General',
+            jobTitle: 'Staff',
+            joinedAt: new Date().toISOString().slice(0, 10),
+            active: false,
+          }
+          localStorage.setItem('av-users', JSON.stringify([...rows, newUser]))
+          setStoredUser(stripPasswordForSession(newUser))
+          return { ok: true as const }
+        } catch {
+          return { ok: false as const, error: 'Registration is not available right now.' }
         }
       }
       const trimmedEmail = email.trim().toLowerCase()
@@ -351,7 +387,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       return { ok: true as const }
     },
-    [supabaseMode, applyPortalUser],
+    [supabaseMode, applyPortalUser, setStoredUser],
   )
 
   const logout = useCallback(() => {

@@ -6,6 +6,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
+import { notifyError } from '@/lib/notify'
+import { patchPortalProfile } from '@/lib/patchPortalProfile'
 import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
@@ -21,6 +23,7 @@ import {
   videoToRow,
 } from '@/lib/supabase/portalDataset'
 import type {
+  AccessRequest,
   Announcement,
   DocumentItem,
   EventItem,
@@ -46,8 +49,13 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'admin',       label: 'Operations' },
   { id: 'other',       label: 'Other' },
 ]
-import { newlyMentionedUserIds, uid } from '@/utils/helpers'
+import { newlyMentionedUserIds, uid, canChangeRoles } from '@/utils/helpers'
 import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
+
+function reportDataError(action: string, error: { message: string }): void {
+  console.warn(`[data] ${action}`, error.message)
+  notifyError(`Could not ${action}: ${error.message}`)
+}
 
 export function SupabaseDataProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -67,6 +75,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const [events, setEvents] = useState<EventItem[]>([])
   const [teams, setTeams] = useState<DataContextValue['teams']>([])
   const [departments, setDepartments] = useState<DataContextValue['departments']>([])
+  const [accessRequests, setAccessRequests] = useState<AccessRequest[]>([])
 
   const [dataStatus, setDataStatus] = useState<'ready' | 'loading' | 'error'>('loading')
   const [dataError, setDataError] = useState<string | null>(null)
@@ -89,6 +98,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setEvents([])
       setTeams([])
       setDepartments([])
+      setAccessRequests([])
       setDataStatus('ready')
       setDataError(null)
       return
@@ -121,6 +131,41 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         headUserId: r.head_user_id as string | undefined,
         createdAt: r.created_at as string,
       })))
+
+      const { data: accessRows, error: accessErr } = await client
+        .from('portal_access_requests')
+        .select('user_id, message, preferred_department_id, job_title, status, requested_at')
+        .in('status', ['pending', 'acknowledged'])
+
+      if (accessErr?.message?.includes('preferred_department_id')) {
+        const { data: basicRows } = await client
+          .from('portal_access_requests')
+          .select('user_id, message, status, requested_at')
+          .in('status', ['pending', 'acknowledged'])
+        setAccessRequests(
+          (basicRows ?? []).map((r: Record<string, unknown>) => ({
+            userId: String(r.user_id),
+            message: r.message ? String(r.message) : undefined,
+            status: String(r.status) as AccessRequest['status'],
+            requestedAt: String(r.requested_at),
+          })),
+        )
+      } else if (accessRows) {
+        setAccessRequests(
+          accessRows.map((r: Record<string, unknown>) => ({
+            userId: String(r.user_id),
+            message: r.message ? String(r.message) : undefined,
+            preferredDepartmentId: r.preferred_department_id
+              ? String(r.preferred_department_id)
+              : undefined,
+            jobTitle: r.job_title ? String(r.job_title) : undefined,
+            status: String(r.status) as AccessRequest['status'],
+            requestedAt: String(r.requested_at),
+          })),
+        )
+      } else {
+        setAccessRequests([])
+      }
       setDataStatus('ready')
       hasLoadedOnceRef.current = true
     } catch (e) {
@@ -153,6 +198,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           ? userToSelfProfilePatch(merged)
           : userToAdminProfilePatch(merged)
 
+      if (user && id !== user.id && !canChangeRoles(user) && 'role' in patch) {
+        delete profilePatch.role
+      }
+
       let errorMsg: string | null = null
 
       if (user && id === user.id) {
@@ -165,16 +214,13 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         if (error) errorMsg = error.message
         else if (!updated?.length) errorMsg = 'Own-profile update was blocked. Check RLS policies.'
       } else {
-        // Another user's profile — call the admin Edge Function which uses the
-        // service role key and bypasses RLS entirely (same pattern as invite-user).
-        const { error } = await client.functions.invoke('admin-patch-profile', {
-          body: { userId: id, patch: profilePatch },
-        })
-        if (error) errorMsg = error.message
+        const result = await patchPortalProfile(client, id, profilePatch)
+        if (!result.ok) errorMsg = result.error
       }
 
       if (errorMsg) {
         console.warn('[data] updateUser failed:', errorMsg)
+        notifyError(errorMsg)
         onError?.(errorMsg)
         await reloadData()
         return
@@ -203,7 +249,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         recognition_id: n.recognitionId ?? null,
       }))
       const { error } = await client.from('portal_inbox_notifications').insert(payloads)
-      if (error) console.warn('[data] inbox insert', error.message)
+      if (error) reportDataError('save notification', error)
     },
     [client],
   )
@@ -222,7 +268,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
       void (async () => {
         const { error } = await client.from('portal_tasks').insert(taskToInsertRow(task))
-        if (error) console.warn('[data] task insert', error.message)
+        if (error) reportDataError('create task', error)
 
         const inboxRows: InboxNotification[] = []
         const actor = input.ownerId
@@ -239,7 +285,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             type: 'task_assigned',
             title: owner ? `${owner.name} assigned you a task` : 'You were assigned a task',
             body: task.title,
-            link: '/tasks',
+            link: `/tasks?open=${task.id}`,
             read: false,
             createdAt: now,
             fromUserId: actor,
@@ -255,7 +301,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             type: 'task_mention',
             title: mentioner ? `${mentioner.name} mentioned you in a task` : 'You were mentioned in a task',
             body: task.title,
-            link: '/tasks',
+            link: `/tasks?open=${task.id}`,
             read: false,
             createdAt: now,
             fromUserId: actor,
@@ -324,7 +370,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
                 type: 'task_assigned',
                 title: assigner ? `${assigner.name} assigned you a task` : 'You were assigned a task',
                 body: t.title,
-                link: '/tasks',
+                link: `/tasks?open=${t.id}`,
                 read: false,
                 createdAt: now,
                 fromUserId: by,
@@ -341,7 +387,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
               type: 'task_mention',
               title: mentioner ? `${mentioner.name} mentioned you in a task` : 'You were mentioned in a task',
               body: t.title,
-              link: '/tasks',
+              link: `/tasks?open=${t.id}`,
               read: false,
               createdAt: now,
               fromUserId: by,
@@ -351,7 +397,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         }
 
         const { error } = await client.from('portal_tasks').update(taskToInsertRow(merged)).eq('id', id)
-        if (error) console.warn('[data] task update', error.message)
+        if (error) reportDataError('update task', error)
         await queueInboxInsert(pendingInbox)
         await reloadData()
       })()
@@ -363,7 +409,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id: string) => {
       setTasks((prev) => prev.filter((t) => t.id !== id))
       void (async () => {
-        await client.from('portal_tasks').delete().eq('id', id)
+        const { error } = await client.from('portal_tasks').delete().eq('id', id)
+        if (error) reportDataError('delete task', error)
         await reloadData()
       })()
     },
@@ -389,7 +436,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           hours_worked: record.hoursWorked,
           submitted_at: record.submittedAt,
         })
-        if (error) console.warn('[data] checkin insert', error.message)
+        if (error) reportDataError('submit check-in', error)
         await reloadData()
       })()
       return record
@@ -419,7 +466,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             hours_worked: next.hoursWorked,
           })
           .eq('id', id)
-        if (upErr) console.warn('[data] checkin update', upErr.message)
+        if (upErr) reportDataError('update check-in', upErr)
         await reloadData()
       })()
     },
@@ -447,7 +494,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           read_by: [],
           media: a.media ?? [],
         })
-        if (error) console.warn('[data] announcement insert', error.message)
+        if (error) reportDataError('create announcement', error)
         await reloadData()
       })()
       return a
@@ -477,7 +524,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             media: next.media ?? [],
           })
           .eq('id', id)
-        if (error) console.warn('[data] announcement update', error.message)
+        if (error) reportDataError('update announcement', error)
         await reloadData()
       })()
     },
@@ -488,7 +535,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id: string) => {
       setAnnouncements((prev) => prev.filter((a) => a.id !== id))
       void (async () => {
-        await client.from('portal_announcements').delete().eq('id', id)
+        const { error } = await client.from('portal_announcements').delete().eq('id', id)
+        if (error) reportDataError('delete announcement', error)
         await reloadData()
       })()
     },
@@ -504,23 +552,60 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       )
       void (async () => {
         const { error } = await client.rpc('mark_announcement_read', { p_id: id })
-        if (error) console.warn('[data] announcement read', error.message)
+        if (error) {
+          const rpcMissing =
+            error.message.includes('mark_announcement_read') ||
+            error.message.includes('Could not find the function') ||
+            error.code === 'PGRST202'
+          if (rpcMissing) {
+            const current = announcements.find((a) => a.id === id)
+            if (current && !current.readBy.includes(userId)) {
+              const { error: directErr } = await client
+                .from('portal_announcements')
+                .update({ read_by: [...current.readBy, userId] })
+                .eq('id', id)
+              if (directErr) reportDataError('mark announcement read', directErr)
+            }
+          } else {
+            reportDataError('mark announcement read', error)
+          }
+        }
         await reloadData()
       })()
     },
-    [client, reloadData],
+    [client, reloadData, announcements],
   )
 
   const markAllAnnouncementsRead: DataContextValue['markAllAnnouncementsRead'] = useCallback(
     (userId) => {
-      void userId
+      setAnnouncements((prev) =>
+        prev.map((a) =>
+          a.readBy.includes(userId) ? a : { ...a, readBy: [...a.readBy, userId] },
+        ),
+      )
       void (async () => {
         const { error } = await client.rpc('mark_all_announcements_read')
-        if (error) console.warn('[data] mark all announcements read', error.message)
+        if (error) {
+          const rpcMissing =
+            error.message.includes('mark_all_announcements_read') ||
+            error.message.includes('Could not find the function') ||
+            error.code === 'PGRST202'
+          if (rpcMissing) {
+            for (const a of announcements) {
+              if (a.readBy.includes(userId)) continue
+              await client
+                .from('portal_announcements')
+                .update({ read_by: [...a.readBy, userId] })
+                .eq('id', a.id)
+            }
+          } else {
+            reportDataError('mark all announcements read', error)
+          }
+        }
         await reloadData()
       })()
     },
-    [client, reloadData],
+    [client, reloadData, announcements],
   )
 
   const submitLeave: DataContextValue['submitLeave'] = useCallback(
@@ -541,10 +626,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           end_date: l.endDate,
           reason: l.reason,
           supporting_doc_name: l.supportingDocName ?? null,
+          supporting_doc_path: l.supportingDocPath ?? null,
           status: l.status,
           submitted_at: l.submittedAt,
         })
-        if (error) console.warn('[data] leave insert', error.message)
+        if (error) reportDataError('submit leave request', error)
         await reloadData()
       })()
       return l
@@ -566,7 +652,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             reviewer_note: note ?? null,
           })
           .eq('id', id)
-        if (error) console.warn('[data] leave review', error.message)
+        if (error) reportDataError('review leave request', error)
         await reloadData()
       })()
     },
@@ -603,7 +689,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           },
           { onConflict: 'user_id' },
         )
-        if (error) console.warn('[data] onboarding progress', error.message)
+        if (error) reportDataError('save onboarding progress', error)
         await reloadData()
       })()
     },
@@ -639,7 +725,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           },
           { onConflict: 'user_id' },
         )
-        if (error) console.warn('[data] onboarding progress', error.message)
+        if (error) reportDataError('save onboarding progress', error)
         await reloadData()
       })()
     },
@@ -736,18 +822,20 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const doc: DocumentItem = { ...d, id: 'd_' + uid(), uploadedAt: new Date().toISOString() }
       setDocuments((prev) => [doc, ...prev])
       void (async () => {
-        await client.from('portal_documents').insert({
+        const { error } = await client.from('portal_documents').insert({
           id: doc.id,
           title: doc.title,
           description: doc.description ?? null,
           category: doc.category,
           file_name: doc.fileName,
           file_size: doc.fileSize,
+          file_path: doc.filePath ?? null,
           uploaded_by_id: doc.uploadedById,
           uploaded_at: doc.uploadedAt,
           hr_only: doc.hrOnly ?? false,
           management_only: doc.managementOnly ?? false,
         })
+        if (error) reportDataError('upload document', error)
         await reloadData()
       })()
     },
@@ -758,7 +846,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id: string) => {
       setDocuments((prev) => prev.filter((d) => d.id !== id))
       void (async () => {
-        await client.from('portal_documents').delete().eq('id', id)
+        const { error } = await client.from('portal_documents').delete().eq('id', id)
+        if (error) reportDataError('delete document', error)
         await reloadData()
       })()
     },
@@ -772,7 +861,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const post: RecognitionPost = { ...r, id, createdAt: now, reactedBy: [] }
       setRecognition((prev) => [post, ...prev])
       void (async () => {
-        await client.from('portal_recognition_posts').insert({
+        const { error } = await client.from('portal_recognition_posts').insert({
           id: post.id,
           giver_id: post.giverId,
           receiver_id: post.receiverId,
@@ -781,6 +870,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           created_at: post.createdAt,
           reacted_by: [],
         })
+        if (error) {
+          reportDataError('send recognition', error)
+          await reloadData()
+          return
+        }
         const giver = users.find((u) => u.id === r.giverId)
         await queueInboxInsert([
           {
@@ -886,7 +980,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       .then((rows) => {
         if (rows.length) setTaskCategories(rows)
       })
-      .catch((e) => console.warn('[data] task categories load', e))
+      .catch((e) => reportDataError('load task categories', e instanceof Error ? e : { message: String(e) }))
   }, [client])
 
   const addTaskCategory = useCallback(
@@ -898,7 +992,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           label,
           sort_order: taskCategories.length + 1,
         })
-        if (error) console.warn('[data] add task category', error.message)
+        if (error) reportDataError('add task category', error)
         else setTaskCategories((prev) => [...prev, { id, label }])
       })()
     },
@@ -909,7 +1003,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id: string, label: string) => {
       setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
       void client.from('portal_task_categories').update({ label }).eq('id', id).then(({ error }) => {
-        if (error) console.warn('[data] update task category', error.message)
+        if (error) reportDataError('update task category', error)
       })
     },
     [client],
@@ -919,7 +1013,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id: string) => {
       setTaskCategories((prev) => prev.filter((c) => c.id !== id))
       void client.from('portal_task_categories').delete().eq('id', id).then(({ error }) => {
-        if (error) console.warn('[data] delete task category', error.message)
+        if (error) reportDataError('delete task category', error)
       })
     },
     [client],
@@ -998,10 +1092,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         setDepartments((prev) => prev.filter((d) => d.id !== id))
       },
       pendingUsers: users.filter((u) => !u.active),
+      accessRequests,
       approveUser: async (id, role, department, jobTitle) => {
         const result = await approvePortalUser(client, id, role, department, jobTitle)
         if (!result.ok) {
-          console.warn('[data] approveUser error:', result.error)
+          notifyError(result.error ?? 'Could not approve this account.')
           await reloadData()
           return { ok: false as const, error: result.error }
         }
@@ -1062,6 +1157,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addEvent,
       teams,
       departments,
+      accessRequests,
       taskCategories,
       addTaskCategory,
       updateTaskCategory,

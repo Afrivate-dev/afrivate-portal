@@ -15,11 +15,13 @@ function AppShell({
   drawerOpen,
   onOpenDrawer,
   onCloseDrawer,
+  profileWarning,
   children,
 }: {
   drawerOpen: boolean
   onOpenDrawer: () => void
   onCloseDrawer: () => void
+  profileWarning?: string | null
   children: React.ReactNode
 }) {
   return (
@@ -27,6 +29,21 @@ function AppShell({
       <Sidebar />
       <div className="flex min-h-screen flex-1 flex-col">
         <TopBar onOpenDrawer={onOpenDrawer} />
+        {profileWarning ? (
+          <div
+            role="status"
+            className="border-b border-warning/30 bg-warning/10 px-4 py-2 text-center text-sm text-warning"
+          >
+            {profileWarning}{' '}
+            <button
+              type="button"
+              onClick={() => window.location.reload()}
+              className="font-medium underline"
+            >
+              Refresh
+            </button>
+          </div>
+        ) : null}
         <main className="flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:pb-8">
           <div className="mx-auto w-full max-w-7xl">{children}</div>
         </main>
@@ -39,7 +56,7 @@ function AppShell({
 }
 
 export function AppLayout() {
-  const { user, logout, reconcileUser, authReady, profileLoadFailed, refreshUser } = useAuth()
+  const { user, logout, reconcileUser, authReady, profileLoadFailed, profileError, refreshUser } = useAuth()
   const { dataStatus, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
@@ -76,7 +93,14 @@ export function AppLayout() {
     return <Navigate to="/login" replace />
   }
 
-  if (profileLoadFailed) {
+  const profileWarning =
+    profileLoadFailed && user
+      ? profileError
+        ? `Some profile details could not be loaded (${profileError}). You can still use the portal.`
+        : 'Some profile details could not be loaded. You can still use the portal.'
+      : null
+
+  if (profileLoadFailed && !user) {
     return (
       <ProfileLoadErrorScreen
         onRetry={() => void refreshUser()}
@@ -95,6 +119,7 @@ export function AppLayout() {
         drawerOpen={drawerOpen}
         onOpenDrawer={() => setDrawerOpen(true)}
         onCloseDrawer={() => setDrawerOpen(false)}
+        profileWarning={profileWarning}
       >
         <ScreenLoader message="Loading your portal…" className="min-h-[50vh]" />
       </AppShell>
@@ -107,6 +132,7 @@ export function AppLayout() {
         drawerOpen={drawerOpen}
         onOpenDrawer={() => setDrawerOpen(true)}
         onCloseDrawer={() => setDrawerOpen(false)}
+        profileWarning={profileWarning}
       >
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
           <p className="text-sm text-fg">We couldn&apos;t load your data right now.</p>

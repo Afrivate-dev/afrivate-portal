@@ -1,5 +1,6 @@
 import { createContext, useContext } from 'react'
 import type {
+  AccessRequest,
   Announcement,
   Department,
   DocumentItem,
@@ -82,6 +83,8 @@ export interface DataContextValue {
 
   /** Users with active=false awaiting admin approval */
   pendingUsers: User[]
+  /** Access request details for pending users (HR+ admin). */
+  accessRequests: AccessRequest[]
   approveUser: (
     id: string,
     role: import('@/types').Role,

@@ -1,3 +1,6 @@
+import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { supabase } from '@/lib/supabase'
+import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { sanitizeMediaUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
@@ -12,11 +15,40 @@ function inferKind(file: File): AnnouncementMedia['kind'] {
   return file.type.startsWith('video/') ? 'video' : 'image'
 }
 
+/** Prefix stored in avatar_url / media url fields when using Supabase Storage. */
+export const STORAGE_URL_PREFIX = 'storage:'
+
+export function isStorageReference(url?: string | null): boolean {
+  return !!url?.startsWith(STORAGE_URL_PREFIX)
+}
+
+export function storagePathFromReference(url: string): string {
+  return url.startsWith(STORAGE_URL_PREFIX) ? url.slice(STORAGE_URL_PREFIX.length) : url
+}
+
+export async function resolveStorageReference(url: string): Promise<string> {
+  if (!isStorageReference(url) || !supabase) return url
+  const signed = await getPortalFileDownloadUrl(supabase, storagePathFromReference(url))
+  return signed ?? url
+}
+
 /**
- * POST multipart field `file` to the workspace media endpoint (see `.env.example`).
- * Expects JSON: `{ "url": "https://..." }` or `{ "ok": true, "url": "..." }`.
+ * Upload a workspace file — Supabase Storage first, then optional external endpoint.
  */
-export async function uploadHostedMediaFile(file: File): Promise<AnnouncementMedia> {
+export async function uploadHostedMediaFile(
+  file: File,
+  userId?: string,
+): Promise<AnnouncementMedia> {
+  if (isSupabaseAuthEnabled() && supabase && userId) {
+    const uploaded = await uploadPortalFile(supabase, 'media', file, userId)
+    if (!('error' in uploaded)) {
+      const signed = await getPortalFileDownloadUrl(supabase, uploaded.path)
+      if (signed) {
+        return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}` }
+      }
+    }
+  }
+
   const endpoint = import.meta.env.VITE_MEDIA_UPLOAD_URL?.trim()
   if (!endpoint) {
     throw new MediaUploadError(
@@ -54,7 +86,6 @@ export async function uploadHostedMediaFile(file: File): Promise<AnnouncementMed
   return { kind, url }
 }
 
-/** Announcements use the same upload endpoint as other workspace media. */
 export const uploadAnnouncementMedia = uploadHostedMediaFile
 
 export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {

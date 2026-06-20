@@ -21,6 +21,7 @@ import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, isLead, relativeTime, weekLabel } from '@/utils/helpers'
+import { departmentSelectOptions } from '@/lib/departments'
 import type { User, WeeklyCheckIn } from '@/types'
 
 type Tab = 'this-week' | 'history' | 'team'
@@ -48,7 +49,7 @@ const formFromCheckIn = (c: WeeklyCheckIn): FormState => ({
 
 export function WeeklyCheckInPage() {
   const { user } = useAuth()
-  const { checkIns, users, submitCheckIn, updateCheckIn } = useData()
+  const { checkIns, users, submitCheckIn, updateCheckIn, departments: orgDepartments } = useData()
   const [tab, setTab] = useState<Tab>('this-week')
   const [form, setForm] = useState<FormState>(emptyForm)
   const [editing, setEditing] = useState(false)
@@ -89,10 +90,10 @@ export function WeeklyCheckInPage() {
     })
   }, [checkIns, currentWeekStart, canSeeTeam, departmentFilter, users])
 
-  const departments = useMemo(() => {
-    const set = new Set(users.map((u) => u.department))
-    return ['all', ...Array.from(set).sort()]
-  }, [users])
+  const departmentFilterOptions = useMemo(
+    () => departmentSelectOptions(orgDepartments, users, true),
+    [orgDepartments, users],
+  )
 
   const teamCoverage = useMemo(() => {
     const activeStaff = users.filter((u) => u.active).length
@@ -213,9 +214,9 @@ export function WeeklyCheckInPage() {
                     label="Department"
                     value={departmentFilter}
                     onChange={(e) => setDepartmentFilter(e.target.value)}
-                    options={departments.map((d) => ({
-                      value: d,
-                      label: d === 'all' ? 'All departments' : d,
+                    options={departmentFilterOptions.map((d) => ({
+                      value: d.value,
+                      label: d.value === 'all' ? 'All departments' : d.label,
                     }))}
                   />
                 </div>
