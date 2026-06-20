@@ -87,11 +87,13 @@ function mergeProfileWithSessionUser(base: User, row: ProfileRow): User {
 }
 
 function parseProfileRpcPayload(data: unknown): ProfileRow | null {
-  if (!data || typeof data !== 'object') return null
+  if (data == null) return null
+  if (typeof data !== 'object') return null
   const row = data as Record<string, unknown>
-  if (typeof row.id !== 'string') return null
+  const id = row.id
+  if (typeof id !== 'string' && typeof id !== 'number') return null
   return {
-    id: row.id,
+    id: String(id),
     email: typeof row.email === 'string' ? row.email : null,
     name: typeof row.name === 'string' ? row.name : 'User',
     role: typeof row.role === 'string' ? row.role : 'staff',
@@ -102,22 +104,31 @@ function parseProfileRpcPayload(data: unknown): ProfileRow | null {
   }
 }
 
+type ProfileLoadResult = {
+  user: User | null
+  profileLoadFailed: boolean
+}
+
 async function loadProfileRow(
   client: SupabaseClient,
   userId: string,
 ): Promise<{ row: ProfileRow | null; error?: string }> {
   const { data: rpcData, error: rpcError } = await client.rpc('get_my_portal_profile')
   if (!rpcError) {
-    return { row: parseProfileRpcPayload(rpcData) }
-  }
+    const row = parseProfileRpcPayload(rpcData)
+    if (row) return { row }
+    if (rpcData != null) {
+      console.warn('[auth] get_my_portal_profile returned unexpected payload')
+    }
+  } else {
+    const rpcMissing =
+      rpcError.message.includes('get_my_portal_profile') ||
+      rpcError.message.includes('Could not find the function') ||
+      rpcError.code === 'PGRST202'
 
-  const rpcMissing =
-    rpcError.message.includes('get_my_portal_profile') ||
-    rpcError.message.includes('Could not find the function') ||
-    rpcError.code === 'PGRST202'
-
-  if (!rpcMissing) {
-    console.warn('[auth] get_my_portal_profile:', rpcError.message)
+    if (!rpcMissing) {
+      console.warn('[auth] get_my_portal_profile:', rpcError.message)
+    }
   }
 
   const { data: row, error } = await client
@@ -135,16 +146,17 @@ async function loadProfileRow(
 async function loadSupabasePortalUser(
   client: SupabaseClient,
   session: Session | null,
-): Promise<User | null> {
+): Promise<ProfileLoadResult> {
   const base = sessionToPortalUser(session)
-  if (!base) return null
+  if (!base) return { user: null, profileLoadFailed: false }
+
   const { row, error } = await loadProfileRow(client, base.id)
   if (error) {
     console.warn('[auth] profiles read:', error)
-    return { ...base, role: 'staff' as Role, active: false }
+    return { user: base, profileLoadFailed: true }
   }
-  if (row) return mergeProfileWithSessionUser(base, row)
-  return base
+  if (row) return { user: mergeProfileWithSessionUser(base, row), profileLoadFailed: false }
+  return { user: base, profileLoadFailed: false }
 }
 
 async function upsertProfileRow(client: SupabaseClient, user: User): Promise<void> {
@@ -187,6 +199,10 @@ function userPatchToSupabaseMetadata(patch: Partial<User>): Record<string, unkno
 interface AuthContextValue {
   user: User | null
   role: Role | null
+  /** False until the first Supabase session + profile check finishes. */
+  authReady: boolean
+  /** Signed in but profile could not be loaded from the database. */
+  profileLoadFailed: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   register: (
     email: string,
@@ -209,6 +225,13 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const supabaseMode = isSupabaseAuthEnabled()
   const [storedUser, setStoredUser] = useLocalStorage<User | null>(STORAGE_KEY, null)
   const [supabaseUser, setSupabaseUser] = useState<User | null>(null)
+  const [authReady, setAuthReady] = useState(!supabaseMode)
+  const [profileLoadFailed, setProfileLoadFailed] = useState(false)
+
+  const applyPortalUser = useCallback((result: ProfileLoadResult) => {
+    setSupabaseUser(result.user)
+    setProfileLoadFailed(result.profileLoadFailed)
+  }, [])
 
   /** Drop legacy mock sessions that stored password in localStorage. */
   useEffect(() => {
@@ -223,14 +246,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sb = supabase
 
     void sb.auth.getSession().then(({ data: { session } }) => {
-      void loadSupabasePortalUser(sb, session).then(setSupabaseUser)
+      void loadSupabasePortalUser(sb, session).then((result) => {
+        applyPortalUser(result)
+        setAuthReady(true)
+      })
     })
 
     const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
-      void loadSupabasePortalUser(sb, session).then(setSupabaseUser)
+      void loadSupabasePortalUser(sb, session).then(applyPortalUser)
     })
     return () => sub.subscription.unsubscribe()
-  }, [supabaseMode])
+  }, [supabaseMode, applyPortalUser])
 
   const mockUser = useMemo(
     () => (storedUser ? stripPasswordForSession(storedUser) : null),
@@ -244,9 +270,9 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const {
       data: { session },
     } = await client.auth.getSession()
-    const portalUser = await loadSupabasePortalUser(client, session)
-    setSupabaseUser(portalUser)
-  }, [supabaseMode])
+    const result = await loadSupabasePortalUser(client, session)
+    applyPortalUser(result)
+  }, [supabaseMode, applyPortalUser])
 
   const login = useCallback(
     async (email: string, password: string) => {
@@ -262,8 +288,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             : error.message
           return { ok: false as const, error: msg }
         }
-        const portalUser = await loadSupabasePortalUser(client, data.session)
-        setSupabaseUser(portalUser)
+        const result = await loadSupabasePortalUser(client, data.session)
+        applyPortalUser(result)
         return { ok: true as const }
       }
       return {
@@ -300,16 +326,18 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return { ok: true as const, needsEmailConfirmation: true }
       }
       if (data.session) {
-        const portalUser = await loadSupabasePortalUser(supabase, data.session)
-        setSupabaseUser(portalUser)
+        const result = await loadSupabasePortalUser(supabase, data.session)
+        applyPortalUser(result)
       }
       return { ok: true as const }
     },
-    [supabaseMode],
+    [supabaseMode, applyPortalUser],
   )
 
   const logout = useCallback(() => {
     if (supabaseMode && supabase) {
+      setSupabaseUser(null)
+      setProfileLoadFailed(false)
       void supabase.auth.signOut()
       return
     }
@@ -361,6 +389,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     () => ({
       user,
       role: user?.role ?? null,
+      authReady,
+      profileLoadFailed,
       login,
       register,
       logout,
@@ -368,7 +398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       reconcileUser,
       refreshUser,
     }),
-    [user, login, register, logout, updateProfile, reconcileUser, refreshUser],
+    [user, authReady, profileLoadFailed, login, register, logout, updateProfile, reconcileUser, refreshUser],
   )
 
   return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>

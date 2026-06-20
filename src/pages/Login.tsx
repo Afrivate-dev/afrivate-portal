@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { Link, Navigate, useNavigate } from 'react-router-dom'
-import { Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus } from 'lucide-react'
+import { Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus, LogOut } from 'lucide-react'
 import { Card } from '@/components/ui/Card'
 import { Input } from '@/components/ui/Input'
 import { Button } from '@/components/ui/Button'
@@ -8,7 +8,7 @@ import { useAuth } from '@/context/AuthContext'
 import { pages } from '@/content/copy'
 
 export function LoginPage() {
-  const { user, login } = useAuth()
+  const { user, login, authReady, logout } = useAuth()
   const navigate = useNavigate()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -16,7 +16,17 @@ export function LoginPage() {
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
 
-  if (user) return <Navigate to="/" replace />
+  if (!authReady) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted">
+        Loading…
+      </div>
+    )
+  }
+
+  if (user?.active === true) return <Navigate to="/" replace />
+
+  const pendingSession = Boolean(user && user.active === false)
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -37,6 +47,16 @@ export function LoginPage() {
         <h1 className="text-2xl font-bold text-fg">{pages.login.title}</h1>
         <p className="mt-1 text-sm text-muted">{pages.login.subtitle}</p>
       </div>
+
+      {pendingSession ? (
+        <div className="mb-4 rounded-md border border-accent/30 bg-accent/10 px-3 py-2 text-sm text-fg">
+          You are signed in, but your account is still waiting for approval.{' '}
+          <Link to="/" className="font-medium text-accent hover:underline">
+            View status
+          </Link>{' '}
+          or sign out below to use a different account.
+        </div>
+      ) : null}
 
       <form className="space-y-4" onSubmit={onSubmit}>
         <Input
@@ -104,6 +124,16 @@ export function LoginPage() {
           Forgot your password?
         </Link>
         <p className="text-xs leading-relaxed text-muted">{pages.login.signInHelp}</p>
+        {pendingSession ? (
+          <button
+            type="button"
+            onClick={logout}
+            className="inline-flex w-full items-center justify-center gap-2 text-sm font-medium text-accent hover:underline"
+          >
+            <LogOut className="h-4 w-4" />
+            Sign out
+          </button>
+        ) : null}
       </div>
     </Card>
   )

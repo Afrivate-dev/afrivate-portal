@@ -3,6 +3,7 @@ import { Navigate, Outlet } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PendingApprovalScreen } from '@/components/shared/PendingApprovalScreen'
+import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScreen'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
@@ -10,17 +11,27 @@ import { Drawer } from '@/components/layout/Drawer'
 import { InstallAppPrompt } from '@/components/shared/InstallAppPrompt'
 
 export function AppLayout() {
-  const { user, logout, reconcileUser } = useAuth()
+  const { user, logout, reconcileUser, authReady, profileLoadFailed, refreshUser } = useAuth()
   const { dataStatus, dataError, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
     if (dataStatus !== 'ready' || !user) return
     const dataUser = users.find((u) => u.id === user.id)
-    if (dataUser && dataUser.role !== user.role) {
-      reconcileUser({ role: dataUser.role })
-    }
+    if (!dataUser) return
+    const patch: Partial<typeof user> = {}
+    if (dataUser.role !== user.role) patch.role = dataUser.role
+    if (dataUser.active !== user.active) patch.active = dataUser.active
+    if (Object.keys(patch).length > 0) reconcileUser(patch)
   }, [dataStatus, users, user, reconcileUser])
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-bg text-sm text-muted">
+        Loading…
+      </div>
+    )
+  }
 
   if (!user) {
     const params = new URLSearchParams(window.location.search)
@@ -35,6 +46,15 @@ export function AppLayout() {
       return <Navigate to={`/reset-password${hash}`} replace />
     }
     return <Navigate to="/login" replace />
+  }
+
+  if (profileLoadFailed) {
+    return (
+      <ProfileLoadErrorScreen
+        onRetry={() => void refreshUser()}
+        onSignOut={logout}
+      />
+    )
   }
 
   if (user.active === false) {

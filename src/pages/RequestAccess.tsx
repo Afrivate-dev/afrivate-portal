@@ -10,7 +10,7 @@ import { submitAccessRequest } from '@/lib/requestAccess'
 import { pages } from '@/content/copy'
 
 export function RequestAccessPage() {
-  const { user, register } = useAuth()
+  const { user, register, authReady } = useAuth()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -18,6 +18,14 @@ export function RequestAccessPage() {
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+
+  if (!authReady) {
+    return (
+      <div className="flex min-h-[40vh] items-center justify-center text-sm text-muted">
+        Loading…
+      </div>
+    )
+  }
 
   if (user?.active === true) return <Navigate to="/" replace />
   if (user) return <Navigate to="/" replace />
