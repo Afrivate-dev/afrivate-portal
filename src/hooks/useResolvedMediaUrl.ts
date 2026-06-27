@@ -29,8 +29,13 @@ export function useResolvedMediaUrl(url: string) {
     setResolved('')
     void resolveStorageReference(url).then((next) => {
       if (cancelled) return
-      setResolved(next)
-      setLoading(false)
+      if (isPlayableUrl(next)) {
+        setResolved(next)
+        setLoading(false)
+      } else {
+        setResolved('')
+        setLoading(false)
+      }
     })
 
     return () => {

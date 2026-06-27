@@ -8,7 +8,7 @@ import {
   VolumeX,
 } from 'lucide-react'
 import { AdaptiveMediaFrame } from '@/components/shared/AdaptiveMediaFrame'
-import { useResolvedMediaUrl } from '@/hooks/useResolvedMediaUrl'
+import { useVideoPlaybackUrl } from '@/hooks/useVideoPlaybackUrl'
 import { cn } from '@/utils/helpers'
 import type { MediaDimensions } from '@/utils/mediaAspectRatio'
 
@@ -17,6 +17,35 @@ function fmtTime(seconds: number) {
   const m = Math.floor(seconds / 60)
   const s = Math.floor(seconds % 60)
   return `${m}:${s.toString().padStart(2, '0')}`
+}
+
+function waitForVideoMetadata(video: HTMLVideoElement, timeoutMs = 20000): Promise<void> {
+  if (video.readyState >= HTMLMediaElement.HAVE_METADATA) return Promise.resolve()
+
+  return new Promise((resolve, reject) => {
+    const timer = window.setTimeout(() => {
+      cleanup()
+      reject(new Error('Video metadata timeout'))
+    }, timeoutMs)
+
+    const onReady = () => {
+      cleanup()
+      resolve()
+    }
+    const onError = () => {
+      cleanup()
+      reject(new Error('Video failed to load'))
+    }
+    const cleanup = () => {
+      window.clearTimeout(timer)
+      video.removeEventListener('loadedmetadata', onReady)
+      video.removeEventListener('error', onError)
+    }
+
+    video.addEventListener('loadedmetadata', onReady)
+    video.addEventListener('error', onError)
+    video.load()
+  })
 }
 
 export function PortalVideoPlayer({
@@ -31,7 +60,16 @@ export function PortalVideoPlayer({
   /** When true, buffer immediately for faster start (feed / visible slides). */
   eager?: boolean
 }) {
-  const { url: resolvedSrc, loading: urlLoading, ready: urlReady } = useResolvedMediaUrl(src)
+  const {
+    url: playbackUrl,
+    loading: urlLoading,
+    error: urlError,
+    ready: urlReady,
+    usingBlob,
+    retryWithBlob,
+    retry,
+  } = useVideoPlaybackUrl(src)
+
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -42,7 +80,7 @@ export function PortalVideoPlayer({
   const [fullscreen, setFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [buffering, setBuffering] = useState(false)
-  const [shouldBuffer, setShouldBuffer] = useState(eager)
+  const [playbackError, setPlaybackError] = useState<string | null>(null)
   const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
@@ -68,43 +106,26 @@ export function PortalVideoPlayer({
   }, [])
 
   useEffect(() => {
-    if (eager) return
-    const el = containerRef.current
-    if (!el) return
-    const io = new IntersectionObserver(
-      ([entry]) => {
-        if (entry?.isIntersecting) setShouldBuffer(true)
-      },
-      { rootMargin: '240px', threshold: 0.1 },
-    )
-    io.observe(el)
-    return () => io.disconnect()
-  }, [eager])
+    if (!eager) return
+    const v = videoRef.current
+    if (v && urlReady && playbackUrl) {
+      v.preload = 'auto'
+      v.load()
+    }
+  }, [eager, urlReady, playbackUrl])
 
   useEffect(() => {
     setDimensions(null)
     setPlaying(false)
     setCurrent(0)
     setDuration(0)
-  }, [resolvedSrc])
+    setPlaybackError(null)
+    setBuffering(false)
+  }, [playbackUrl])
 
   useEffect(() => {
-    const v = videoRef.current
-    if (!v || !urlReady || !resolvedSrc) return
-    if (shouldBuffer) {
-      v.preload = 'auto'
-      v.load()
-    }
-  }, [resolvedSrc, urlReady, shouldBuffer])
-
-  const warmBuffer = useCallback(() => {
-    setShouldBuffer(true)
-    const v = videoRef.current
-    if (v && urlReady) {
-      v.preload = 'auto'
-      if (v.readyState < HTMLMediaElement.HAVE_METADATA) v.load()
-    }
-  }, [urlReady])
+    if (urlError) setPlaybackError(urlError)
+  }, [urlError])
 
   const captureDimensions = useCallback(() => {
     const v = videoRef.current
@@ -112,35 +133,35 @@ export function PortalVideoPlayer({
     setDimensions({ width: v.videoWidth, height: v.videoHeight })
   }, [])
 
+  const handleVideoError = useCallback(() => {
+    setBuffering(false)
+    setPlaying(false)
+    if (!usingBlob) {
+      retryWithBlob()
+      return
+    }
+    setPlaybackError('This video could not be played in your browser.')
+  }, [retryWithBlob, usingBlob])
+
   const togglePlay = async () => {
-    if (!urlReady) return
-    warmBuffer()
+    if (!urlReady || !playbackUrl) return
     const v = videoRef.current
     if (!v) return
+
     if (v.paused) {
+      setPlaybackError(null)
       setBuffering(true)
       try {
-        if (v.readyState < HTMLMediaElement.HAVE_METADATA) {
-          await new Promise<void>((resolve, reject) => {
-            const onReady = () => {
-              v.removeEventListener('loadedmetadata', onReady)
-              v.removeEventListener('error', onError)
-              resolve()
-            }
-            const onError = () => {
-              v.removeEventListener('loadedmetadata', onReady)
-              v.removeEventListener('error', onError)
-              reject(new Error('Video failed to load'))
-            }
-            v.addEventListener('loadedmetadata', onReady)
-            v.addEventListener('error', onError)
-            v.load()
-          })
-        }
+        v.preload = 'auto'
+        await waitForVideoMetadata(v)
         await v.play()
         setPlaying(true)
       } catch {
-        /* load or autoplay policy */
+        if (!usingBlob) {
+          retryWithBlob()
+        } else {
+          setPlaybackError('This video could not be played. Try tapping Retry.')
+        }
       } finally {
         setBuffering(false)
       }
@@ -180,7 +201,8 @@ export function PortalVideoPlayer({
   }
 
   const progress = duration > 0 ? (current / duration) * 100 : 0
-  const showLoading = urlLoading || (!dimensions && urlReady)
+  const showUrlSpinner = urlLoading
+  const showPlayOverlay = urlReady && !playing && !showUrlSpinner && !playbackError
 
   return (
     <div ref={containerRef} className={cn('w-full', className)}>
@@ -196,15 +218,15 @@ export function PortalVideoPlayer({
           )}
           onMouseMove={scheduleHideControls}
           onTouchStart={scheduleHideControls}
-          onPointerEnter={warmBuffer}
         >
-          {urlReady ? (
+          {urlReady && playbackUrl ? (
             <video
+              key={playbackUrl}
               ref={videoRef}
-              src={resolvedSrc}
+              src={playbackUrl}
               poster={poster}
               playsInline
-              preload={shouldBuffer ? 'auto' : 'metadata'}
+              preload={eager ? 'auto' : 'metadata'}
               className={cn(
                 'h-full w-full touch-manipulation',
                 fullscreen ? 'max-h-full max-w-full object-contain' : 'object-contain',
@@ -224,31 +246,51 @@ export function PortalVideoPlayer({
               onPlaying={() => {
                 setPlaying(true)
                 setBuffering(false)
+                setPlaybackError(null)
               }}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
               onEnded={() => setPlaying(false)}
-              onError={() => setBuffering(false)}
+              onError={handleVideoError}
             />
           ) : null}
 
-          {showLoading ? (
+          {showUrlSpinner ? (
             <div className="absolute inset-0 flex items-center justify-center bg-black/40">
               <span className="h-9 w-9 animate-spin rounded-full border-2 border-white/30 border-t-white" />
             </div>
           ) : null}
 
-          {!playing && urlReady && !showLoading ? (
+          {playbackError ? (
+            <div className="absolute inset-0 flex flex-col items-center justify-center gap-3 bg-black/70 px-4 text-center">
+              <p className="text-sm text-white/90">{playbackError}</p>
+              <button
+                type="button"
+                onClick={() => {
+                  setPlaybackError(null)
+                  retry()
+                }}
+                className="rounded-md bg-white px-4 py-2 text-sm font-medium text-black ring-focus touch-manipulation"
+              >
+                Retry
+              </button>
+            </div>
+          ) : null}
+
+          {showPlayOverlay ? (
             <button
               type="button"
               onClick={() => void togglePlay()}
               onPointerDown={(e) => e.stopPropagation()}
-              onPointerEnter={warmBuffer}
               className="absolute inset-0 z-10 flex touch-manipulation items-center justify-center bg-black/20 ring-focus"
               aria-label="Play video"
             >
               <span className="flex h-14 w-14 items-center justify-center rounded-full bg-white/90 text-black shadow-lg transition active:scale-95 sm:h-16 sm:w-16">
-                <Play className="ml-1 h-7 w-7 fill-current sm:h-8 sm:w-8" />
+                {buffering ? (
+                  <span className="h-7 w-7 animate-spin rounded-full border-2 border-black/20 border-t-black sm:h-8 sm:w-8" />
+                ) : (
+                  <Play className="ml-1 h-7 w-7 fill-current sm:h-8 sm:w-8" />
+                )}
               </span>
             </button>
           ) : null}
@@ -259,57 +301,59 @@ export function PortalVideoPlayer({
             </div>
           ) : null}
 
-          <div
-            className={cn(
-              'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-2 pb-2 pt-6 transition-opacity sm:px-3 sm:pb-3 sm:pt-8',
-              showControls || !playing ? 'opacity-100' : 'opacity-0 pointer-events-none',
-            )}
-          >
-            <input
-              type="range"
-              min={0}
-              max={duration || 0}
-              step={0.1}
-              value={current}
-              onChange={onScrub}
-              aria-label="Seek"
-              className="mb-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-white touch-manipulation sm:h-1"
-              style={{
-                background: `linear-gradient(to right, white ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
-              }}
-            />
-            <div className="flex items-center justify-between gap-1 text-white sm:gap-2">
-              <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+          {urlReady && !playbackError ? (
+            <div
+              className={cn(
+                'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-2 pb-2 pt-6 transition-opacity sm:px-3 sm:pb-3 sm:pt-8',
+                showControls || !playing ? 'opacity-100' : 'opacity-0 pointer-events-none',
+              )}
+            >
+              <input
+                type="range"
+                min={0}
+                max={duration || 0}
+                step={0.1}
+                value={current}
+                onChange={onScrub}
+                aria-label="Seek"
+                className="mb-2 h-2 w-full cursor-pointer appearance-none rounded-full bg-white/30 accent-white touch-manipulation sm:h-1"
+                style={{
+                  background: `linear-gradient(to right, white ${progress}%, rgba(255,255,255,0.3) ${progress}%)`,
+                }}
+              />
+              <div className="flex items-center justify-between gap-1 text-white sm:gap-2">
+                <div className="flex min-w-0 items-center gap-1 sm:gap-2">
+                  <button
+                    type="button"
+                    onClick={() => void togglePlay()}
+                    className="rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
+                    aria-label={playing ? 'Pause' : 'Play'}
+                  >
+                    {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
+                  </button>
+                  <button
+                    type="button"
+                    onClick={toggleMute}
+                    className="rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
+                    aria-label={muted ? 'Unmute' : 'Mute'}
+                  >
+                    {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
+                  </button>
+                  <span className="truncate text-[11px] tabular-nums text-white/90 sm:text-xs">
+                    {fmtTime(current)} / {fmtTime(duration)}
+                  </span>
+                </div>
                 <button
                   type="button"
-                  onClick={() => void togglePlay()}
-                  className="rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
-                  aria-label={playing ? 'Pause' : 'Play'}
+                  onClick={() => void toggleFullscreen()}
+                  className="shrink-0 rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
+                  aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
                 >
-                  {playing ? <Pause className="h-5 w-5" /> : <Play className="h-5 w-5 fill-current" />}
+                  {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
                 </button>
-                <button
-                  type="button"
-                  onClick={toggleMute}
-                  className="rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
-                  aria-label={muted ? 'Unmute' : 'Mute'}
-                >
-                  {muted ? <VolumeX className="h-5 w-5" /> : <Volume2 className="h-5 w-5" />}
-                </button>
-                <span className="truncate text-[11px] tabular-nums text-white/90 sm:text-xs">
-                  {fmtTime(current)} / {fmtTime(duration)}
-                </span>
               </div>
-              <button
-                type="button"
-                onClick={() => void toggleFullscreen()}
-                className="shrink-0 rounded-md p-2 hover:bg-white/15 ring-focus touch-manipulation sm:p-1.5"
-                aria-label={fullscreen ? 'Exit fullscreen' : 'Fullscreen'}
-              >
-                {fullscreen ? <Minimize className="h-5 w-5" /> : <Maximize className="h-5 w-5" />}
-              </button>
             </div>
-          </div>
+          ) : null}
         </div>
       </AdaptiveMediaFrame>
     </div>

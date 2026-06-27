@@ -1,6 +1,6 @@
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
-import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { getPortalFileBlobUrl, getPortalFileSignedUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { sanitizeMediaUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
@@ -29,17 +29,81 @@ export function storagePathFromReference(url: string): string {
 }
 
 const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
+const blobUrlCache = new Map<string, string>()
 const SIGNED_URL_TTL_MS = 50 * 60 * 1000
+
+function isPlayableUrl(url: string): boolean {
+  return /^https?:\/\//i.test(url) || url.startsWith('blob:') || url.startsWith('data:')
+}
+
+export function revokeVideoBlobUrl(url: string): void {
+  if (!url.startsWith('blob:')) return
+  URL.revokeObjectURL(url)
+  for (const [path, cached] of blobUrlCache.entries()) {
+    if (cached === url) blobUrlCache.delete(path)
+  }
+}
+
+export type VideoPlaybackResult = {
+  url: string
+  isBlob: boolean
+}
+
+/** Resolve storage videos for playback — signed stream first, authenticated blob fallback. */
+export async function resolveVideoPlaybackUrl(
+  url: string,
+  opts?: { forceBlob?: boolean },
+): Promise<VideoPlaybackResult | null> {
+  if (!url) return null
+
+  if (!isStorageReference(url)) {
+    return isPlayableUrl(url) ? { url, isBlob: false } : null
+  }
+
+  if (!supabase) return null
+
+  const path = storagePathFromReference(url)
+  const forceBlob = opts?.forceBlob ?? false
+
+  if (!forceBlob) {
+    const cached = signedUrlCache.get(path)
+    if (cached && cached.expiresAt > Date.now()) {
+      return { url: cached.url, isBlob: false }
+    }
+
+    const signed = await getPortalFileSignedUrl(supabase, path)
+    if (signed) {
+      signedUrlCache.set(path, { url: signed, expiresAt: Date.now() + SIGNED_URL_TTL_MS })
+      return { url: signed, isBlob: false }
+    }
+  }
+
+  const cachedBlob = blobUrlCache.get(path)
+  if (cachedBlob) return { url: cachedBlob, isBlob: true }
+
+  const blob = await getPortalFileBlobUrl(supabase, path)
+  if (blob) {
+    blobUrlCache.set(path, blob)
+    return { url: blob, isBlob: true }
+  }
+
+  return null
+}
 
 export async function resolveStorageReference(url: string): Promise<string> {
   if (!isStorageReference(url) || !supabase) return url
   const path = storagePathFromReference(url)
   const cached = signedUrlCache.get(path)
   if (cached && cached.expiresAt > Date.now()) return cached.url
-  const signed = await getPortalFileDownloadUrl(supabase, path)
+  const signed = await getPortalFileSignedUrl(supabase, path)
   if (signed) {
     signedUrlCache.set(path, { url: signed, expiresAt: Date.now() + SIGNED_URL_TTL_MS })
     return signed
+  }
+  const blob = await getPortalFileBlobUrl(supabase, path)
+  if (blob) {
+    blobUrlCache.set(path, blob)
+    return blob
   }
   return url
 }
@@ -78,11 +142,7 @@ export async function uploadHostedMediaFile(
     if (uid) {
       const uploaded = await uploadPortalFile(supabase, folder, file, uid)
       if (!('error' in uploaded)) {
-        const signed = await getPortalFileDownloadUrl(supabase, uploaded.path)
-        if (signed) {
-          return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}` }
-        }
-        return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}` }
+        return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}`, fileName: file.name }
       }
       throw new MediaUploadError(uploaded.error)
     }

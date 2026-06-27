@@ -22,10 +22,12 @@ export async function uploadPortalFile(
   const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
   const path = `${folder}/${userId}/${Date.now()}-${sanitizeFileName(file.name || `file.${ext}`)}`
 
+  const contentType = file.type || guessMimeFromName(file.name)
+
   const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: false,
-    contentType: file.type || undefined,
+    contentType: contentType || undefined,
   })
 
   if (error) {
@@ -38,14 +40,45 @@ export async function uploadPortalFile(
   return { path, sizeLabel: formatFileSize(file.size) }
 }
 
-/** Signed download URL (1 hour). */
-export async function getPortalFileDownloadUrl(
+function guessMimeFromName(name: string): string | undefined {
+  const lower = name.toLowerCase()
+  if (lower.endsWith('.mp4') || lower.endsWith('.m4v')) return 'video/mp4'
+  if (lower.endsWith('.webm')) return 'video/webm'
+  if (lower.endsWith('.mov')) return 'video/quicktime'
+  if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg'
+  if (lower.endsWith('.png')) return 'image/png'
+  if (lower.endsWith('.webp')) return 'image/webp'
+  if (lower.endsWith('.gif')) return 'image/gif'
+  if (lower.endsWith('.pdf')) return 'application/pdf'
+  return undefined
+}
+
+/** Signed URL for inline playback (not forced download). */
+export async function getPortalFileSignedUrl(
   client: SupabaseClient,
   path: string,
 ): Promise<string | null> {
   const { data, error } = await client.storage
     .from(PORTAL_FILES_BUCKET)
-    .createSignedUrl(path, 3600)
+    .createSignedUrl(path, 3600, { download: false })
   if (error || !data?.signedUrl) return null
   return data.signedUrl
+}
+
+/** @deprecated use getPortalFileSignedUrl */
+export async function getPortalFileDownloadUrl(
+  client: SupabaseClient,
+  path: string,
+): Promise<string | null> {
+  return getPortalFileSignedUrl(client, path)
+}
+
+/** Authenticated download — reliable fallback when signed streaming fails in <video>. */
+export async function getPortalFileBlobUrl(
+  client: SupabaseClient,
+  path: string,
+): Promise<string | null> {
+  const { data, error } = await client.storage.from(PORTAL_FILES_BUCKET).download(path)
+  if (error || !data) return null
+  return URL.createObjectURL(data)
 }
