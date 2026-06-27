@@ -25,6 +25,7 @@ export async function uploadPortalFile(
   const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, file, {
     cacheControl: '3600',
     upsert: false,
+    contentType: file.type || undefined,
   })
 
   if (error) {

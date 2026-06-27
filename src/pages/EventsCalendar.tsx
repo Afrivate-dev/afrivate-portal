@@ -291,8 +291,8 @@ export function EventsCalendarPage() {
 
       {/* FULLCALENDAR */}
       {view === 'schedule' ? (
-        <Card padding="md" className="overflow-hidden">
-          <div className={cn('av-fullcalendar text-sm', canManage && 'av-fullcalendar--interactive')}>
+        <Card padding="md" className="max-w-full overflow-hidden">
+          <div className={cn('av-fullcalendar av-scroll-x text-sm', canManage && 'av-fullcalendar--interactive')}>
             <FullCalendar
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
@@ -378,11 +378,11 @@ export function EventsCalendarPage() {
       {view === 'google' && googleEmbed ? (
         <Card padding="md">
           <p className="mb-3 text-sm text-muted">{W.googleTabIntro}</p>
-          <div className="aspect-[4/3] min-h-[480px] w-full overflow-hidden rounded-md border border-border bg-surface">
+          <div className="aspect-[4/3] max-h-[70dvh] w-full min-h-0 overflow-hidden rounded-md border border-border bg-surface">
             <iframe
               title={W.google}
               src={googleEmbed}
-              className="h-full min-h-[480px] w-full border-0"
+              className="h-full w-full border-0"
               loading="lazy"
             />
           </div>

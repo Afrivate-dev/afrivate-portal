@@ -700,7 +700,7 @@ export function NotionNotesEditor({
     palette?.mode === 'convert' ? N.blockMenuTitle : N.slashMenuSection
 
   return (
-    <div ref={rootRef} className="relative min-h-[420px]">
+    <div ref={rootRef} className="relative min-h-[420px] min-w-0 max-w-full overflow-x-clip">
       {showRemoteRefresh ? (
         <div className="mb-4 flex flex-col gap-3 rounded-lg border border-amber-500/40 bg-amber-500/10 px-4 py-3 sm:flex-row sm:items-center sm:justify-between dark:bg-amber-950/40">
           <div>
@@ -871,7 +871,7 @@ export function NotionNotesEditor({
         </button>
       </div>
 
-      <div className="mx-auto max-w-[720px] px-1 sm:px-4">
+      <div className="mx-auto min-w-0 max-w-[720px] overflow-x-clip px-1 sm:px-4">
         <div className="mb-2 flex items-start gap-2">
           <button
             ref={iconBtnRef}

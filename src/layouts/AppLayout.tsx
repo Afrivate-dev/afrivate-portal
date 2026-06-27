@@ -27,9 +27,9 @@ function AppShell({
   children: React.ReactNode
 }) {
   return (
-    <div className="flex min-h-screen bg-bg">
+    <div className="flex min-h-screen min-w-0 overflow-x-clip bg-bg">
       <Sidebar />
-      <div className="flex min-h-screen flex-1 flex-col">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-clip">
         <TopBar onOpenDrawer={onOpenDrawer} />
         {profileWarning ? (
           <div
@@ -46,7 +46,7 @@ function AppShell({
             </button>
           </div>
         ) : null}
-        <main className="flex-1 px-3 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:pb-8">
+        <main className="min-w-0 flex-1 overflow-x-clip px-3 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:pb-8">
           <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
         </main>
         <MobileNav onOpenDrawer={onOpenDrawer} />

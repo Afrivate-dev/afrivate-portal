@@ -54,12 +54,12 @@ export function TabBar<T extends string>({
   return (
     <div
       className={cn(
-        scrollable && '-mx-1 overflow-x-auto pb-px scrollbar-thin',
+        scrollable && 'av-scroll-x w-full max-w-full',
         className,
       )}
       role="tablist"
     >
-      <div className={cn('flex min-w-min', v.list)}>
+      <div className={cn('inline-flex w-max max-w-none', v.list)}>
         {tabs.map((tab) => {
           const isActive = tab.id === active
           return (
@@ -119,7 +119,7 @@ export function TabPanel({
   return (
     <div
       role="tabpanel"
-      className={cn('animate-fade-in-up motion-reduce:animate-none', className)}
+      className={cn('av-contain animate-fade-in-up motion-reduce:animate-none', className)}
     >
       {children}
     </div>
