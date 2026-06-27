@@ -27,6 +27,8 @@ import {
   AnnouncementMediaGallery,
   MediaAttachmentEditor,
 } from '@/components/shared/AnnouncementAttachments'
+import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
+import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
 import { pages, actions, confirms } from '@/content/copy'
@@ -300,7 +302,7 @@ export function AnnouncementsPage() {
           }
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="av-stagger mx-auto flex max-w-lg flex-col gap-4 sm:gap-5">
           {visibleAnnouncements.map((a) => {
             const meta = PRIORITY_UI[a.priority]
             const author = userById(a.postedById)
@@ -309,94 +311,87 @@ export function AnnouncementsPage() {
             const canDelete = canPost && (a.postedById === user.id || user.role === 'admin' || user.role === 'hr')
             return (
               <li key={a.id}>
-                <Card
-                  padding="md"
+                <InstagramFeedCard
                   className={cn(
-                    'cursor-pointer transition-shadow',
                     meta.border,
                     meta.shadow,
                     unread && 'ring-1 ring-accent/30',
                   )}
                   onClick={() => openDetail(a)}
-                >
-                  <div className="flex items-start gap-3">
-                    {unread ? (
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-accent" />
-                    ) : (
-                      <span className="mt-2 h-2 w-2 shrink-0 rounded-full bg-transparent" />
-                    )}
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3
-                          className={cn(
-                            'text-base text-fg',
-                            unread ? 'font-semibold' : 'font-medium',
-                          )}
-                        >
-                          {a.title}
-                        </h3>
+                  header={
+                    <>
+                      {author ? (
+                        <Avatar name={author.name} src={author.avatarUrl} size="sm" />
+                      ) : null}
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-fg">
+                          {author?.name ?? U.unknownAuthor}
+                        </p>
+                        <p className="text-xs text-muted">{relativeTime(a.postedAt)}</p>
+                      </div>
+                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                        {unread ? (
+                          <span className="h-2 w-2 rounded-full bg-accent" aria-label="Unread" />
+                        ) : null}
                         <Badge tone={meta.tone}>{announcementPriorityLabel(a.priority)}</Badge>
+                        {canEdit || canDelete ? (
+                          <div className="flex items-center gap-0.5">
+                            {canEdit ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  openEdit(a)
+                                }}
+                                aria-label={U.editAria}
+                                className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
+                              >
+                                <Pencil className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                            {canDelete ? (
+                              <button
+                                onClick={(e) => {
+                                  e.stopPropagation()
+                                  setDeleteConfirmId(a.id)
+                                }}
+                                aria-label={U.deleteAria}
+                                className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            ) : null}
+                          </div>
+                        ) : null}
+                      </div>
+                    </>
+                  }
+                  media={
+                    a.media?.length ? (
+                      <div onClick={(e) => e.stopPropagation()}>
+                        <PortalMediaGallery media={a.media} variant="feed" />
+                      </div>
+                    ) : undefined
+                  }
+                  caption={
+                    <>
+                      <p className="text-sm font-semibold text-fg">{a.title}</p>
+                      <p className="whitespace-pre-line text-sm text-fg/90">{a.body}</p>
+                      <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                         {a.audience !== 'all' ? (
                           <Badge tone="muted">
                             <UsersIcon className="h-3 w-3" /> {a.audience}
                           </Badge>
                         ) : null}
-                      </div>
-                      <p className="mt-1 line-clamp-3 text-sm text-muted">{a.body}</p>
-                      <div onClick={(e) => e.stopPropagation()}>
-                        <AnnouncementMediaGallery media={a.media} compact />
-                      </div>
-                      <div className="mt-3 flex flex-wrap items-center justify-between gap-3 text-xs">
-                        <div className="flex items-center gap-2 text-muted">
-                          {author ? (
-                            <>
-                              <Avatar name={author.name} src={author.avatarUrl} size="xs" />
-                              <span>
-                                {author.name} · {relativeTime(a.postedAt)}
-                              </span>
-                            </>
-                          ) : (
-                            <span>{relativeTime(a.postedAt)}</span>
-                          )}
-                        </div>
                         {canSeeMemoReaders(a) ? (
-                          <span className="inline-flex items-center gap-1 text-muted">
+                          <span className="inline-flex items-center gap-1">
                             <Eye className="h-3 w-3" />
                             {U.openedCount.replace('{n}', String(a.readBy.length))}
                           </span>
                         ) : null}
                       </div>
-                    </div>
-                    {canEdit || canDelete ? (
-                      <div className="flex shrink-0 items-center gap-1">
-                        {canEdit ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            openEdit(a)
-                          }}
-                          aria-label={U.editAria}
-                          className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
-                        >
-                          <Pencil className="h-4 w-4" />
-                        </button>
-                        ) : null}
-                        {canDelete ? (
-                        <button
-                          onClick={(e) => {
-                            e.stopPropagation()
-                            setDeleteConfirmId(a.id)
-                          }}
-                          aria-label={U.deleteAria}
-                          className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </button>
-                        ) : null}
-                      </div>
-                    ) : null}
-                  </div>
-                </Card>
+                    </>
+                  }
+                />
               </li>
             )
           })}
@@ -449,7 +444,7 @@ export function AnnouncementsPage() {
               </div>
             </div>
             <p className="whitespace-pre-line text-sm text-fg/90">{reading.body}</p>
-            <AnnouncementMediaGallery media={reading.media} />
+            <AnnouncementMediaGallery media={reading.media} variant="feed" />
             {canSeeMemoReaders(reading) ? (
               <MemoReadersPanel readerIds={reading.readBy} userById={userById} />
             ) : null}

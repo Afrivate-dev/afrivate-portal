@@ -11,9 +11,9 @@ interface CardProps extends HTMLAttributes<HTMLDivElement> {
 
 const paddings: Record<Padding, string> = {
   none: '',
-  sm: 'p-4',
-  md: 'p-5',
-  lg: 'p-6',
+  sm: 'p-3 sm:p-4',
+  md: 'p-4 sm:p-5',
+  lg: 'p-5 sm:p-6',
 }
 
 const accentBorders = {
@@ -33,10 +33,12 @@ export function Card({
   return (
     <div
       className={cn(
-        'rounded-lg border border-border bg-surface shadow-card transition-shadow',
+        'rounded-lg border border-border bg-surface shadow-card',
+        'transition-all duration-200 motion-reduce:transition-none',
         paddings[padding],
         accentBorders[accentBorder],
-        hoverable && 'hover:shadow-elevated cursor-pointer',
+        hoverable &&
+          'cursor-pointer hover:-translate-y-0.5 hover:shadow-elevated active:translate-y-0 motion-reduce:hover:translate-y-0',
         className,
       )}
       {...rest}
@@ -49,7 +51,7 @@ export function CardHeader({ className, ...rest }: HTMLAttributes<HTMLDivElement
 }
 
 export function CardTitle({ className, ...rest }: HTMLAttributes<HTMLHeadingElement>) {
-  return <h3 className={cn('text-base font-semibold text-fg', className)} {...rest} />
+  return <h3 className={cn('text-sm font-semibold text-fg sm:text-base', className)} {...rest} />
 }
 
 export function CardDescription({ className, ...rest }: HTMLAttributes<HTMLParagraphElement>) {

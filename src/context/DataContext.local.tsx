@@ -527,6 +527,15 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setRecognition, setInbox, users],
   )
 
+  const deleteRecognition: DataContextValue['deleteRecognition'] = useCallback(
+    (id) => {
+      setRecognition((prev) => prev.filter((r) => r.id !== id))
+      setRecognitionComments((prev) => prev.filter((c) => c.recognitionId !== id))
+      setInbox((prev) => prev.filter((n) => n.recognitionId !== id))
+    },
+    [setRecognition, setRecognitionComments, setInbox],
+  )
+
   const toggleRecognitionReaction: DataContextValue['toggleRecognitionReaction'] = useCallback(
     (id, userId) =>
       setRecognition((prev) =>
@@ -600,6 +609,43 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setDepartments],
   )
 
+  const assignUserToDepartment: DataContextValue['assignUserToDepartment'] = useCallback(
+    async (userId, departmentId) => {
+      const dept = departments.find((d) => d.id === departmentId)
+      if (!dept) return { ok: false, error: 'Department not found' }
+      updateUser(userId, { department: dept.name, reportsToId: dept.headUserId })
+      return { ok: true }
+    },
+    [departments, updateUser],
+  )
+
+  const setUserTeamMembership: DataContextValue['setUserTeamMembership'] = useCallback(
+    async (userId, teamId, member) => {
+      const team = teams.find((t) => t.id === teamId)
+      if (!team) return { ok: false, error: 'Team not found' }
+      if (member && !team.departmentId) {
+        return { ok: false, error: 'Team must belong to a department first' }
+      }
+      setTeams((prev) =>
+        prev.map((t) => {
+          if (t.id !== teamId) return t
+          const memberIds = member
+            ? [...new Set([...t.memberIds, userId])]
+            : t.memberIds.filter((id) => id !== userId)
+          return { ...t, memberIds }
+        }),
+      )
+      if (member && team.departmentId) {
+        const dept = departments.find((d) => d.id === team.departmentId)
+        if (dept) {
+          updateUser(userId, { department: dept.name, reportsToId: dept.headUserId })
+        }
+      }
+      return { ok: true }
+    },
+    [teams, departments, updateUser, setTeams],
+  )
+
   /* -------------------------- Approvals --------------------------------- */
   const accessRequests = useMemo((): AccessRequest[] => {
     try {
@@ -635,16 +681,25 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {
+      const headUserId = departments.find((d) => d.name === department)?.headUserId
       setUsers((prev) =>
         prev.map((u) =>
           u.id === id
-            ? { ...u, role, department, jobTitle, active: true, approvedAt: new Date().toISOString() }
+            ? {
+                ...u,
+                role,
+                department,
+                jobTitle,
+                reportsToId: headUserId,
+                active: true,
+                approvedAt: new Date().toISOString(),
+              }
             : u,
         ),
       )
       return { ok: true as const, emailSent: false }
     },
-    [setUsers],
+    [setUsers, departments],
   )
 
   const reloadData = useCallback(async () => {
@@ -706,6 +761,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       recognition,
       recognitionComments,
       giveRecognition,
+      deleteRecognition,
       toggleRecognitionReaction,
       addRecognitionComment,
       inbox,
@@ -722,6 +778,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       addDepartment,
       updateDepartment,
       deleteDepartment,
+      assignUserToDepartment,
+      setUserTeamMembership,
       pendingUsers,
       accessRequests,
       approveUser,
@@ -744,11 +802,12 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       addOnboardingVideo, updateOnboardingVideo, deleteOnboardingVideo,
       addOnboardingChecklistItem, updateOnboardingChecklistItem, deleteOnboardingChecklistItem,
       documents, addDocument, deleteDocument,
-      recognition, recognitionComments, giveRecognition, toggleRecognitionReaction, addRecognitionComment,
+      recognition, recognitionComments, giveRecognition, deleteRecognition, toggleRecognitionReaction, addRecognitionComment,
       inbox, markInboxRead, markAllInboxRead,
       events, addEvent,
       teams, addTeam, updateTeam, deleteTeam,
       departments, addDepartment, updateDepartment, deleteDepartment,
+      assignUserToDepartment, setUserTeamMembership,
       pendingUsers, accessRequests, approveUser,
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       reloadData,

@@ -34,6 +34,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { TabBar } from '@/components/ui/TabBar'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -325,23 +326,41 @@ export function LeaveRequestsPage() {
         })}
       </div>
 
-      {/* Tabs */}
-      <div className="flex flex-wrap border-b border-border">
-        <TabButton active={tab === 'my'} onClick={() => setTab('my')}>
-          <Inbox className="h-4 w-4" /> My requests
-        </TabButton>
-        {canManage ? (
-          <>
-            <TabButton active={tab === 'all'} onClick={() => setTab('all')}>
-              <Inbox className="h-4 w-4" /> All requests
-              {pendingCount > 0 ? <Badge tone="warning">{pendingCount}</Badge> : null}
-            </TabButton>
-            <TabButton active={tab === 'calendar'} onClick={() => setTab('calendar')}>
-              <CalendarIcon className="h-4 w-4" /> Calendar
-            </TabButton>
-          </>
-        ) : null}
-      </div>
+      <TabBar
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          {
+            id: 'my',
+            label: (
+              <>
+                <Inbox className="h-4 w-4" /> My requests
+              </>
+            ),
+          },
+          ...(canManage
+            ? [
+                {
+                  id: 'all' as const,
+                  label: (
+                    <>
+                      <Inbox className="h-4 w-4" /> All requests
+                    </>
+                  ),
+                  count: pendingCount > 0 ? pendingCount : undefined,
+                },
+                {
+                  id: 'calendar' as const,
+                  label: (
+                    <>
+                      <CalendarIcon className="h-4 w-4" /> Calendar
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* MY REQUESTS */}
       {tab === 'my' ? (
@@ -744,31 +763,6 @@ function LeaveCommentThread({
         </div>
       ) : null}
     </div>
-  )
-}
-
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-fg',
-      )}
-    >
-      {children}
-      {active ? (
-        <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />
-      ) : null}
-    </button>
   )
 }
 

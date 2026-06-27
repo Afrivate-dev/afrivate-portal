@@ -53,6 +53,14 @@
   h1, h2, h3, h4, h5, h6 {
     @apply font-heading;
   }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.01ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.01ms !important;
+    }
+  }
 }
 
 /* ---------------------------------------------------------------
@@ -77,6 +85,56 @@
 
   .ring-focus {
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
+  }
+
+  /** Consistent page wrapper — spacing + staggered list children */
+  .av-page {
+    @apply space-y-4 sm:space-y-5 md:space-y-6;
+  }
+
+  .av-stagger > * {
+    animation: av-fade-in-up 0.35s ease-out both;
+  }
+  .av-stagger > *:nth-child(1) { animation-delay: 0ms; }
+  .av-stagger > *:nth-child(2) { animation-delay: 40ms; }
+  .av-stagger > *:nth-child(3) { animation-delay: 80ms; }
+  .av-stagger > *:nth-child(4) { animation-delay: 120ms; }
+  .av-stagger > *:nth-child(5) { animation-delay: 160ms; }
+  .av-stagger > *:nth-child(6) { animation-delay: 200ms; }
+
+  @media (prefers-reduced-motion: reduce) {
+    .av-stagger > * {
+      animation: none;
+    }
+  }
+
+  /** Touch-friendly minimum tap target */
+  .av-tap {
+    @apply min-h-[44px] min-w-[44px] touch-manipulation;
+  }
+
+  /** Responsive table → cards helper label */
+  .av-responsive-grid {
+    @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4;
+  }
+
+  /** Full-width buttons on mobile, auto on sm+ */
+  .av-action-row {
+    @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center;
+  }
+
+  /** Truncated page title scale */
+  .av-title {
+    @apply text-xl font-bold text-fg sm:text-2xl md:text-3xl;
+  }
+
+  .av-subtitle {
+    @apply text-xs text-muted sm:text-sm;
+  }
+
+  @keyframes av-fade-in-up {
+    0% { opacity: 0; transform: translateY(10px); }
+    100% { opacity: 1; transform: translateY(0); }
   }
 
   /** FullCalendar — align with portal tokens */

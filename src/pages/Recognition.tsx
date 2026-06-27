@@ -13,6 +13,7 @@ import {
   MessageCircle,
   Share2,
   Check,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
@@ -26,6 +27,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { cn, relativeTime } from '@/utils/helpers'
@@ -110,15 +112,11 @@ function RecognitionCommentThread({
   }
 
   return (
-    <div className="mt-4 space-y-3 border-t border-border pt-4">
-      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
-        <MessageCircle className="h-3.5 w-3.5" /> Comments
-        {rows.length > 0 ? <span className="font-normal normal-case">({rows.length})</span> : null}
-      </p>
+    <div className="space-y-3">
       {rows.length === 0 ? (
-        <p className="text-sm text-muted">Be the first to comment on this shout-out.</p>
+        <p className="text-sm text-muted">Be the first to comment.</p>
       ) : (
-        <ul className="max-h-56 space-y-3 overflow-y-auto text-sm">
+        <ul className="max-h-64 space-y-3 overflow-y-auto text-sm">
           {rows.map((c) => {
             const author = users.find((u) => u.id === c.userId)
             const mine = c.userId === currentUserId
@@ -142,16 +140,23 @@ function RecognitionCommentThread({
           })}
         </ul>
       )}
-      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+      <div className="flex gap-2 border-t border-border pt-3">
         <Textarea
-          label="Add a comment"
-          rows={2}
+          label=""
+          rows={1}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
-          placeholder="Say something nice…"
+          placeholder="Add a comment…"
+          aria-label="Add a comment"
         />
-        <Button type="button" size="sm" disabled={!draft.trim()} onClick={send} className="shrink-0">
-          Comment
+        <Button
+          type="button"
+          size="sm"
+          disabled={!draft.trim()}
+          onClick={send}
+          className="shrink-0 self-end"
+        >
+          Post
         </Button>
       </div>
     </div>
@@ -166,6 +171,7 @@ export function RecognitionPage() {
     recognition,
     recognitionComments,
     giveRecognition,
+    deleteRecognition,
     toggleRecognitionReaction,
     addRecognitionComment,
   } = useData()
@@ -263,6 +269,17 @@ export function RecognitionPage() {
     setTimeout(() => setCopiedId(null), 2000)
   }
 
+  const deletePost = async (id: string) => {
+    const ok = await confirm({
+      title: confirms.deleteRecognitionTitle,
+      message: confirms.deleteRecognition,
+      confirmLabel: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
+    deleteRecognition(id)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -312,7 +329,7 @@ export function RecognitionPage() {
           }
         />
       ) : (
-        <ul className="space-y-3">
+        <ul className="av-stagger mx-auto flex max-w-lg flex-col gap-4 sm:gap-5">
           {sorted.map((r) => {
             const giver = users.find((u) => u.id === r.giverId)
             const receiver = users.find((u) => u.id === r.receiverId)
@@ -322,6 +339,7 @@ export function RecognitionPage() {
             const commentCount = recognitionComments.filter((c) => c.recognitionId === r.id).length
             if (!giver || !receiver) return null
             const aboutMe = r.receiverId === user.id
+            const isMine = r.giverId === user.id
             const highlighted = highlightId === r.id
             return (
               <li
@@ -330,97 +348,113 @@ export function RecognitionPage() {
                   postRefs.current[r.id] = el
                 }}
               >
-                <Card
-                  padding="md"
+                <InstagramFeedCard
                   className={cn(
                     aboutMe && 'ring-2 ring-pink-500/40',
-                    highlighted && 'ring-2 ring-accent animate-pulse',
+                    highlighted && 'ring-2 ring-accent',
                   )}
-                >
-                  {aboutMe ? (
-                    <div className="mb-2 inline-flex items-center gap-1.5 text-xs font-semibold text-pink-600 dark:text-pink-300">
-                      <Award className="h-3.5 w-3.5" /> This one’s for you
-                    </div>
-                  ) : null}
-
-                  <div className="flex items-center gap-2 text-sm">
-                    <Avatar name={giver.name} src={giver.avatarUrl} size="sm" />
-                    <span className="font-semibold text-fg">{giver.name}</span>
-                    <ArrowRight className="h-3.5 w-3.5 text-muted" />
-                    <Avatar name={receiver.name} src={receiver.avatarUrl} size="sm" />
-                    <span className="font-semibold text-fg">{receiver.name}</span>
-                    <span className="ml-auto hidden text-xs text-muted sm:inline">
-                      {relativeTime(r.createdAt)}
-                    </span>
-                  </div>
-
-                  <p className="mt-3 text-sm text-fg/90">{r.message}</p>
-
-                  {r.media?.length ? <PortalMediaGallery media={r.media} compact /> : null}
-
-                  <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
-                    <span
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
-                        meta.chipBg,
-                        meta.chipText,
-                      )}
-                    >
-                      <TagIcon className="h-3 w-3" /> {meta.label}
-                    </span>
-
-                    <div className="flex items-center gap-3 text-xs text-muted sm:hidden">
-                      <span>{relativeTime(r.createdAt)}</span>
-                    </div>
-
-                    <div className="flex flex-wrap items-center gap-2">
+                  header={
+                    <>
+                      <Avatar name={giver.name} src={giver.avatarUrl} size="sm" />
+                      <div className="min-w-0 flex-1">
+                        <p className="truncate text-sm font-semibold text-fg">
+                          {giver.name}
+                          <ArrowRight className="mx-1 inline h-3.5 w-3.5 text-muted" />
+                          {receiver.name}
+                        </p>
+                        <p className="text-xs text-muted">{relativeTime(r.createdAt)}</p>
+                      </div>
+                      {aboutMe ? (
+                        <span className="inline-flex items-center gap-1 rounded-full bg-pink-500/15 px-2 py-0.5 text-[10px] font-semibold text-pink-600 dark:text-pink-300">
+                          <Award className="h-3 w-3" /> For you
+                        </span>
+                      ) : null}
+                      {isMine ? (
+                        <button
+                          type="button"
+                          onClick={() => void deletePost(r.id)}
+                          title="Delete shout-out"
+                          aria-label="Delete shout-out"
+                          className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      ) : null}
+                    </>
+                  }
+                  media={
+                    r.media?.length ? (
+                      <PortalMediaGallery media={r.media} variant="feed" />
+                    ) : undefined
+                  }
+                  actions={
+                    <>
                       <button
                         type="button"
                         onClick={() => toggleRecognitionReaction(r.id, user.id)}
-                        title="React"
+                        title="Like"
                         className={cn(
-                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ring-focus',
-                          reacted
-                            ? 'border-pink-500/40 bg-pink-500/10 text-pink-600 dark:text-pink-300'
-                            : 'border-border bg-surface text-fg hover:bg-surface-2',
+                          'rounded-md p-2 ring-focus transition hover:bg-surface-2',
+                          reacted ? 'text-pink-600 dark:text-pink-300' : 'text-fg',
                         )}
                       >
-                        <Heart className={cn('h-3.5 w-3.5', reacted && 'fill-current')} />
-                        {r.reactedBy.length}
+                        <Heart className={cn('h-6 w-6', reacted && 'fill-current')} />
                       </button>
-
-                      <span className="inline-flex items-center gap-1 text-xs text-muted">
-                        <MessageCircle className="h-3.5 w-3.5" />
-                        {commentCount}
-                      </span>
-
+                      <button
+                        type="button"
+                        title={`${commentCount} comments`}
+                        className="rounded-md p-2 text-fg ring-focus transition hover:bg-surface-2"
+                        onClick={() => {
+                          postRefs.current[r.id]?.querySelector('textarea')?.focus()
+                        }}
+                      >
+                        <MessageCircle className="h-6 w-6" />
+                      </button>
                       <button
                         type="button"
                         onClick={() => void sharePost(r)}
-                        title="Share link to this shout-out"
-                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2 ring-focus"
+                        title="Share"
+                        className="rounded-md p-2 text-fg ring-focus transition hover:bg-surface-2"
                       >
                         {copiedId === r.id ? (
-                          <>
-                            <Check className="h-3.5 w-3.5 text-success" /> Copied
-                          </>
+                          <Check className="h-6 w-6 text-success" />
                         ) : (
-                          <>
-                            <Share2 className="h-3.5 w-3.5" /> Share
-                          </>
+                          <Share2 className="h-6 w-6" />
                         )}
                       </button>
-                    </div>
-                  </div>
-
-                  <RecognitionCommentThread
-                    postId={r.id}
-                    comments={recognitionComments}
-                    users={users}
-                    currentUserId={user.id}
-                    onSend={(body) => addRecognitionComment(r.id, body)}
-                  />
-                </Card>
+                      {r.reactedBy.length > 0 ? (
+                        <span className="ml-auto text-sm font-semibold text-fg">
+                          {r.reactedBy.length} {r.reactedBy.length === 1 ? 'like' : 'likes'}
+                        </span>
+                      ) : null}
+                    </>
+                  }
+                  caption={
+                    <>
+                      <p className="whitespace-pre-line text-sm text-fg/90">
+                        <span className="font-semibold text-fg">{giver.name}</span> {r.message}
+                      </p>
+                      <span
+                        className={cn(
+                          'mt-2 inline-flex items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium',
+                          meta.chipBg,
+                          meta.chipText,
+                        )}
+                      >
+                        <TagIcon className="h-3 w-3" /> {meta.label}
+                      </span>
+                    </>
+                  }
+                  footer={
+                    <RecognitionCommentThread
+                      postId={r.id}
+                      comments={recognitionComments}
+                      users={users}
+                      currentUserId={user.id}
+                      onSend={(body) => addRecognitionComment(r.id, body)}
+                    />
+                  }
+                />
               </li>
             )
           })}

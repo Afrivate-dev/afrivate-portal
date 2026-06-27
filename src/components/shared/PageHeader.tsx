@@ -11,15 +11,18 @@ export function PageHeader({ title, description, actions, className }: PageHeade
   return (
     <div
       className={cn(
-        'mb-6 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between',
+        'mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between md:mb-6',
+        'animate-fade-in-up motion-reduce:animate-none',
         className,
       )}
     >
-      <div>
-        <h1 className="text-2xl font-bold text-fg sm:text-3xl">{title}</h1>
-        {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+      <div className="min-w-0 flex-1">
+        <h1 className="av-title break-words">{title}</h1>
+        {description ? <p className="av-subtitle mt-1 max-w-2xl">{description}</p> : null}
       </div>
-      {actions ? <div className="flex flex-wrap items-center gap-2">{actions}</div> : null}
+      {actions ? (
+        <div className="av-action-row shrink-0 [&>*]:w-full sm:[&>*]:w-auto">{actions}</div>
+      ) : null}
     </div>
   )
 }

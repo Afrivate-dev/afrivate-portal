@@ -35,8 +35,10 @@ export function AuthLayout() {
         </button>
       </header>
 
-      <main className="flex min-h-[calc(100vh-120px)] items-center justify-center px-4 py-8">
-        <Outlet />
+      <main className="flex min-h-[calc(100vh-120px)] items-center justify-center px-3 py-6 sm:px-4 sm:py-8">
+        <div className="w-full max-w-md animate-page-enter motion-reduce:animate-none">
+          <Outlet />
+        </div>
       </main>
 
       <footer className="px-6 py-4 text-center text-xs text-muted">

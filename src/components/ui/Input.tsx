@@ -34,7 +34,7 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={inputId}
           className={cn(
             'w-full rounded-md border bg-surface text-fg placeholder:text-muted',
-            'h-11 px-3.5 text-sm',
+            'h-11 min-h-[44px] px-3 text-sm sm:px-3.5',
             'transition-colors ring-focus',
             'disabled:cursor-not-allowed disabled:opacity-60',
             leadingIcon && 'pl-10',

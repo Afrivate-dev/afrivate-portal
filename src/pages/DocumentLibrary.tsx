@@ -26,6 +26,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { TabBar } from '@/components/ui/TabBar'
 import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
@@ -194,6 +195,7 @@ export function DocumentLibraryPage() {
 
   const openUpload = () => {
     setDraft(emptyDraft)
+    setUploadFile(null)
     setUploadOpen(true)
   }
 
@@ -277,34 +279,16 @@ export function DocumentLibraryPage() {
         />
       </Card>
 
-      {/* Category tabs */}
-      <div className="-mx-1 flex gap-1 overflow-x-auto pb-1 scrollbar-thin">
-        {CATEGORIES.map((c) => {
-          const active = category === c.value
-          return (
-            <button
-              key={c.value}
-              onClick={() => setCategory(c.value)}
-              className={cn(
-                'inline-flex shrink-0 items-center gap-1.5 rounded-full border px-3.5 py-1.5 text-sm font-medium transition-colors ring-focus',
-                active
-                  ? 'border-accent bg-accent text-white'
-                  : 'border-border bg-surface text-fg hover:bg-surface-2',
-              )}
-            >
-              {c.label}
-              <span
-                className={cn(
-                  'rounded-full px-1.5 py-0.5 text-[10px] font-semibold',
-                  active ? 'bg-white/20' : 'bg-surface-2 text-muted',
-                )}
-              >
-                {counts[c.value]}
-              </span>
-            </button>
-          )
-        })}
-      </div>
+      <TabBar
+        variant="chip"
+        active={category}
+        onChange={setCategory}
+        tabs={CATEGORIES.map((c) => ({
+          id: c.value,
+          label: c.label,
+          count: counts[c.value],
+        }))}
+      />
 
       {/* Grid */}
       {visible.length === 0 ? (
@@ -426,13 +410,13 @@ export function DocumentLibraryPage() {
             <Button variant="ghost" type="button" onClick={() => setUploadOpen(false)}>
               Cancel
             </Button>
-            <Button type="submit" loading={uploading}>
+            <Button type="submit" form="upload-document-form" loading={uploading}>
               Save document
             </Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={(e) => void submitUpload(e)}>
+        <form id="upload-document-form" className="space-y-4" onSubmit={(e) => void submitUpload(e)}>
           <Input
             label="Title"
             required

@@ -11,10 +11,12 @@ import { Button } from '@/components/ui/Button'
 import { cn } from '@/utils/helpers'
 import {
   isStorageReference,
+  prefetchMediaUrl,
   resolveStorageReference,
 } from '@/utils/mediaUpload'
 import type { AnnouncementMedia } from '@/types'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
+import { PortalVideoPlayer } from '@/components/shared/PortalVideoPlayer'
 
 function useResolvedUrl(url: string) {
   const [src, setSrc] = useState(url)
@@ -26,6 +28,116 @@ function useResolvedUrl(url: string) {
     }
   }, [url])
   return src
+}
+
+function FeedMediaSlide({
+  item,
+  onDocumentOpen,
+  eager,
+}: {
+  item: AnnouncementMedia
+  onDocumentOpen?: () => void
+  eager?: boolean
+}) {
+  const src = useResolvedUrl(item.url)
+  const label = item.fileName ?? item.caption ?? 'Attachment'
+
+  useEffect(() => {
+    if (item.kind === 'video' && eager) prefetchMediaUrl(item.url)
+  }, [item.kind, item.url, eager])
+
+  if (item.kind === 'document') {
+    return (
+      <button
+        type="button"
+        onClick={onDocumentOpen}
+        className="flex min-h-[200px] w-full flex-col items-center justify-center gap-3 bg-surface-2 px-6 py-10 ring-focus"
+      >
+        <FileText className="h-12 w-12 text-muted" />
+        <span className="line-clamp-2 text-center text-sm font-medium text-fg">{label}</span>
+        <span className="text-xs font-medium text-accent">Tap to preview</span>
+      </button>
+    )
+  }
+
+  if (item.kind === 'video') {
+    return <PortalVideoPlayer src={src} className="w-full" eager={eager} />
+  }
+
+  return (
+    <img
+      src={src}
+      alt={label}
+      className="max-h-[min(80vh,720px)] w-full bg-black object-contain"
+      loading="lazy"
+    />
+  )
+}
+
+function FeedMediaCarousel({
+  items,
+  onDocumentOpen,
+}: {
+  items: AnnouncementMedia[]
+  onDocumentOpen: (item: AnnouncementMedia) => void
+}) {
+  const [index, setIndex] = useState(0)
+  const current = items[index] ?? items[0]
+
+  useEffect(() => {
+    items.forEach((item, i) => {
+      if (item.kind !== 'video') return
+      if (i === index || i === index + 1 || i === index - 1) {
+        prefetchMediaUrl(item.url)
+      }
+    })
+  }, [items, index])
+
+  if (!current) return null
+
+  return (
+    <div className="relative bg-black">
+      <FeedMediaSlide
+        item={current}
+        eager
+        onDocumentOpen={() => onDocumentOpen(current)}
+      />
+      {items.length > 1 ? (
+        <>
+          <button
+            type="button"
+            onClick={() => setIndex((i) => (i - 1 + items.length) % items.length)}
+            className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus"
+            aria-label="Previous"
+          >
+            <ChevronLeft className="h-5 w-5" />
+          </button>
+          <button
+            type="button"
+            onClick={() => setIndex((i) => (i + 1) % items.length)}
+            className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus"
+            aria-label="Next"
+          >
+            <ChevronRight className="h-5 w-5" />
+          </button>
+          <div className="absolute bottom-3 left-0 right-0 flex justify-center gap-1.5">
+            {items.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setIndex(i)}
+                aria-label={`Slide ${i + 1}`}
+                className={cn(
+                  'h-1.5 rounded-full transition-all',
+                  i === index ? 'w-4 bg-white' : 'w-1.5 bg-white/50',
+                )}
+              />
+            ))}
+          </div>
+        </>
+      ) : null}
+    </div>
+  )
 }
 
 function LightboxSlide({
@@ -64,15 +176,7 @@ function LightboxSlide({
   }
 
   if (item.kind === 'video') {
-    return (
-      <video
-        src={src}
-        controls
-        playsInline
-        className="max-h-[min(75vh,680px)] w-full rounded-lg bg-black"
-        preload="metadata"
-      />
-    )
+    return <PortalVideoPlayer src={src} className="w-full rounded-lg" eager />
   }
 
   return (
@@ -87,13 +191,17 @@ function LightboxSlide({
 export function PortalMediaGallery({
   media,
   compact,
+  variant = compact ? 'grid' : 'feed',
 }: {
   media?: AnnouncementMedia[]
+  /** @deprecated use variant="grid" */
   compact?: boolean
+  variant?: 'feed' | 'grid'
 }) {
   const items = media?.filter(Boolean) ?? []
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null)
   const [docPreview, setDocPreview] = useState<AnnouncementMedia | null>(null)
+  const mode = variant === 'feed' && !compact ? 'feed' : 'grid'
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), [])
   const goPrev = useCallback(() => {
@@ -116,19 +224,28 @@ export function PortalMediaGallery({
 
   if (!items.length) return null
 
+  if (mode === 'feed') {
+    return (
+      <>
+        <FeedMediaCarousel items={items} onDocumentOpen={setDocPreview} />
+        <DocumentPreviewModal
+          open={!!docPreview}
+          onClose={() => setDocPreview(null)}
+          title={docPreview?.fileName ?? 'Document'}
+          fileName={docPreview?.fileName ?? 'file'}
+          url={docPreview?.url ?? null}
+        />
+      </>
+    )
+  }
+
   return (
     <>
-      <div
-        className={cn(
-          'grid gap-2',
-          compact ? 'mt-3 grid-cols-2 sm:grid-cols-3' : 'mt-3 grid-cols-1 sm:grid-cols-2',
-        )}
-      >
+      <div className="mt-3 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {items.map((m, i) => (
           <MediaThumb
             key={`${m.url}-${i}`}
             item={m}
-            compact={compact}
             onOpen={() => {
               if (m.kind === 'document') {
                 setDocPreview(m)
@@ -211,11 +328,9 @@ export function PortalMediaGallery({
 
 function MediaThumb({
   item,
-  compact,
   onOpen,
 }: {
   item: AnnouncementMedia
-  compact?: boolean
   onOpen: () => void
 }) {
   const src = useResolvedUrl(item.url)
@@ -231,28 +346,18 @@ function MediaThumb({
         <img
           src={src}
           alt=""
-          className={cn('w-full object-cover', compact ? 'aspect-video max-h-28' : 'aspect-video max-h-56')}
+          className="aspect-video max-h-28 w-full object-cover"
           loading="lazy"
         />
       ) : item.kind === 'video' ? (
-        <div
-          className={cn(
-            'relative flex w-full items-center justify-center bg-black',
-            compact ? 'aspect-video max-h-36' : 'aspect-video max-h-64',
-          )}
-        >
+        <div className="relative flex aspect-video max-h-36 w-full items-center justify-center bg-black">
           <video src={src} className="h-full w-full object-cover opacity-80" preload="metadata" muted />
           <span className="absolute inset-0 flex items-center justify-center text-xs font-semibold uppercase tracking-wide text-white/90">
             Video
           </span>
         </div>
       ) : (
-        <div
-          className={cn(
-            'flex aspect-video w-full flex-col items-center justify-center gap-2 bg-surface-2 px-3',
-            compact ? 'max-h-28' : 'max-h-40',
-          )}
-        >
+        <div className="flex aspect-video max-h-28 w-full flex-col items-center justify-center gap-2 bg-surface-2 px-3">
           <FileText className="h-8 w-8 text-muted" />
           <span className="line-clamp-2 text-center text-xs font-medium text-fg">{label}</span>
         </div>

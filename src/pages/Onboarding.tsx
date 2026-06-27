@@ -24,6 +24,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { TabBar } from '@/components/ui/TabBar'
 import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
 import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import { pages } from '@/content/copy'
@@ -215,20 +216,40 @@ export function OnboardingPage() {
         </Card>
       ) : null}
 
-      {/* Tabs */}
-      <div className="flex border-b border-border">
-        <TabButton active={tab === 'videos'} onClick={() => setTab('videos')}>
-          <PlayCircle className="h-4 w-4" /> {pages.gettingStarted.tabVideos}
-        </TabButton>
-        <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
-          <ListChecks className="h-4 w-4" /> {pages.gettingStarted.tabChecklist}
-        </TabButton>
-        {canSeeAdmin ? (
-          <TabButton active={tab === 'admin'} onClick={() => setTab('admin')}>
-            <Settings className="h-4 w-4" /> {pages.gettingStarted.tabAdmin}
-          </TabButton>
-        ) : null}
-      </div>
+      <TabBar
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          {
+            id: 'videos',
+            label: (
+              <>
+                <PlayCircle className="h-4 w-4" /> {pages.gettingStarted.tabVideos}
+              </>
+            ),
+          },
+          {
+            id: 'checklist',
+            label: (
+              <>
+                <ListChecks className="h-4 w-4" /> {pages.gettingStarted.tabChecklist}
+              </>
+            ),
+          },
+          ...(canSeeAdmin
+            ? [
+                {
+                  id: 'admin' as const,
+                  label: (
+                    <>
+                      <Settings className="h-4 w-4" /> {pages.gettingStarted.tabAdmin}
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* VIDEOS */}
       {tab === 'videos' ? (
@@ -657,30 +678,5 @@ export function OnboardingPage() {
         </form>
       </Modal>
     </div>
-  )
-}
-
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-fg',
-      )}
-    >
-      {children}
-      {active ? (
-        <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />
-      ) : null}
-    </button>
   )
 }

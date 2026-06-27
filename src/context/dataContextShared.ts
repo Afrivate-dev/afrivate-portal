@@ -83,6 +83,7 @@ export interface DataContextValue {
   recognition: RecognitionPost[]
   recognitionComments: RecognitionComment[]
   giveRecognition: (r: Omit<RecognitionPost, 'id' | 'createdAt' | 'reactedBy'>) => void
+  deleteRecognition: (id: string) => void
   toggleRecognitionReaction: (id: string, userId: string) => void
   addRecognitionComment: (recognitionId: string, body: string) => void
 
@@ -104,6 +105,15 @@ export interface DataContextValue {
   addDepartment: (d: Omit<Department, 'id' | 'createdAt'>) => void
   updateDepartment: (id: string, patch: Partial<Department>) => void
   deleteDepartment: (id: string) => void
+
+  /** HR/admin or department head — sets department + reports-to (dept head). */
+  assignUserToDepartment: (userId: string, departmentId: string) => Promise<{ ok: boolean; error?: string }>
+  /** HR/admin or team lead — add/remove team membership. */
+  setUserTeamMembership: (
+    userId: string,
+    teamId: string,
+    member: boolean,
+  ) => Promise<{ ok: boolean; error?: string }>
 
   /** Users with active=false awaiting admin approval */
   pendingUsers: User[]

@@ -28,10 +28,37 @@ export function storagePathFromReference(url: string): string {
   return url.startsWith(STORAGE_URL_PREFIX) ? url.slice(STORAGE_URL_PREFIX.length) : url
 }
 
+const signedUrlCache = new Map<string, { url: string; expiresAt: number }>()
+const SIGNED_URL_TTL_MS = 50 * 60 * 1000
+
 export async function resolveStorageReference(url: string): Promise<string> {
   if (!isStorageReference(url) || !supabase) return url
-  const signed = await getPortalFileDownloadUrl(supabase, storagePathFromReference(url))
-  return signed ?? url
+  const path = storagePathFromReference(url)
+  const cached = signedUrlCache.get(path)
+  if (cached && cached.expiresAt > Date.now()) return cached.url
+  const signed = await getPortalFileDownloadUrl(supabase, path)
+  if (signed) {
+    signedUrlCache.set(path, { url: signed, expiresAt: Date.now() + SIGNED_URL_TTL_MS })
+    return signed
+  }
+  return url
+}
+
+/** Warm signed URL cache (and browser cache) before playback. */
+export function prefetchMediaUrl(url: string): void {
+  if (isStorageReference(url)) {
+    void resolveStorageReference(url)
+    return
+  }
+  if (typeof document === 'undefined') return
+  const existing = document.querySelector(`link[data-prefetch-media="${url}"]`)
+  if (existing) return
+  const link = document.createElement('link')
+  link.rel = 'prefetch'
+  link.as = url.includes('.mp4') || url.includes('.webm') ? 'video' : 'fetch'
+  link.href = url
+  link.setAttribute('data-prefetch-media', url)
+  document.head.appendChild(link)
 }
 
 /**

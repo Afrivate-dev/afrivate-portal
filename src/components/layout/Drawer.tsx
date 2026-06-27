@@ -38,7 +38,7 @@ export function Drawer({ open, onClose }: DrawerProps) {
       <aside
         className={cn(
           'absolute left-0 top-0 flex h-full w-72 max-w-[85vw] flex-col bg-surface shadow-elevated transition-transform',
-          open ? 'translate-x-0' : '-translate-x-full',
+          open ? 'translate-x-0 animate-slide-in-right motion-reduce:animate-none' : '-translate-x-full',
         )}
       >
         <div className="flex h-16 items-center justify-between border-b border-border px-4">
