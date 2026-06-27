@@ -5,9 +5,12 @@ type AutoKey = 'profile_complete' | 'handbook_visit' | 'first_checkin' | 'direct
 
 const LABEL_AUTO: Record<string, AutoKey> = {
   'complete your profile': 'profile_complete',
+  'add your photo and contact details': 'profile_complete',
   'read the staff handbook': 'handbook_visit',
+  'browse the staff resources library': 'handbook_visit',
   'submit your first weekly check-in': 'first_checkin',
   'schedule a 1-on-1 with your team lead': 'directory_complete',
+  'find your team lead in the directory': 'directory_complete',
 }
 
 function autoKeyForItem(item: OnboardingChecklistItem): AutoKey | null {

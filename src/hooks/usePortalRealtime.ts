@@ -13,6 +13,7 @@ const LIVE_TABLES = [
   'portal_weekly_check_ins',
   'portal_tasks',
   'portal_recognition_posts',
+  'portal_recognition_comments',
   'portal_onboarding_progress',
 ] as const
 

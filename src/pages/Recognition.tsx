@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Heart,
   Plus,
@@ -9,6 +10,9 @@ import {
   Lightbulb,
   Star,
   Crown,
+  MessageCircle,
+  Share2,
+  Check,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
@@ -22,8 +26,10 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
+import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { cn, relativeTime } from '@/utils/helpers'
-import type { RecognitionPost } from '@/types'
+import type { AnnouncementMedia, RecognitionComment, RecognitionPost, User } from '@/types'
 
 type Tag = RecognitionPost['tag']
 
@@ -74,17 +80,105 @@ interface FormDraft {
   receiverId: string
   tag: Tag
   message: string
+  media: AnnouncementMedia[]
+}
+
+function shoutoutShareUrl(id: string) {
+  return `${window.location.origin}/recognition?open=${encodeURIComponent(id)}`
+}
+
+function RecognitionCommentThread({
+  postId,
+  comments,
+  users,
+  currentUserId,
+  onSend,
+}: {
+  postId: string
+  comments: RecognitionComment[]
+  users: User[]
+  currentUserId: string
+  onSend: (body: string) => void
+}) {
+  const [draft, setDraft] = useState('')
+  const rows = comments.filter((c) => c.recognitionId === postId)
+
+  const send = () => {
+    if (!draft.trim()) return
+    onSend(draft.trim())
+    setDraft('')
+  }
+
+  return (
+    <div className="mt-4 space-y-3 border-t border-border pt-4">
+      <p className="flex items-center gap-1.5 text-xs font-semibold uppercase tracking-wide text-muted">
+        <MessageCircle className="h-3.5 w-3.5" /> Comments
+        {rows.length > 0 ? <span className="font-normal normal-case">({rows.length})</span> : null}
+      </p>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted">Be the first to comment on this shout-out.</p>
+      ) : (
+        <ul className="max-h-56 space-y-3 overflow-y-auto text-sm">
+          {rows.map((c) => {
+            const author = users.find((u) => u.id === c.userId)
+            const mine = c.userId === currentUserId
+            return (
+              <li key={c.id} className={cn('flex gap-2', mine ? 'flex-row-reverse' : 'flex-row')}>
+                {author ? (
+                  <Avatar name={author.name} src={author.avatarUrl} size="xs" className="mt-0.5 shrink-0" />
+                ) : null}
+                <div
+                  className={cn(
+                    'max-w-[85%] rounded-lg px-3 py-2',
+                    mine ? 'bg-accent/15 text-fg' : 'bg-surface-2 text-fg',
+                  )}
+                >
+                  <p className="text-[11px] font-medium text-muted">{author?.name ?? 'User'}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
+                  <p className="mt-1 text-[10px] text-muted">{relativeTime(c.createdAt)}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+        <Textarea
+          label="Add a comment"
+          rows={2}
+          value={draft}
+          onChange={(e) => setDraft(e.target.value)}
+          placeholder="Say something nice…"
+        />
+        <Button type="button" size="sm" disabled={!draft.trim()} onClick={send} className="shrink-0">
+          Comment
+        </Button>
+      </div>
+    </div>
+  )
 }
 
 export function RecognitionPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { users, recognition, giveRecognition, toggleRecognitionReaction } = useData()
+  const {
+    users,
+    recognition,
+    recognitionComments,
+    giveRecognition,
+    toggleRecognitionReaction,
+    addRecognitionComment,
+  } = useData()
+  const [searchParams, setSearchParams] = useSearchParams()
   const [formOpen, setFormOpen] = useState(false)
+  const [highlightId, setHighlightId] = useState<string | null>(null)
+  const [copiedId, setCopiedId] = useState<string | null>(null)
+  const postRefs = useRef<Record<string, HTMLLIElement | null>>({})
   const [draft, setDraft] = useState<FormDraft>({
     receiverId: '',
     tag: 'great_work',
     message: '',
+    media: [],
   })
 
   const otherUsers = useMemo(
@@ -93,10 +187,7 @@ export function RecognitionPage() {
   )
 
   const sorted = useMemo(
-    () =>
-      [...recognition].sort((a, b) =>
-        a.createdAt > b.createdAt ? -1 : 1,
-      ),
+    () => [...recognition].sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1)),
     [recognition],
   )
 
@@ -108,6 +199,20 @@ export function RecognitionPage() {
     }
   }, [recognition, user])
 
+  useEffect(() => {
+    const openId = searchParams.get('open')
+    if (!openId) return
+    const target = recognition.find((r) => r.id === openId)
+    if (!target) return
+    setHighlightId(openId)
+    setSearchParams({}, { replace: true })
+    requestAnimationFrame(() => {
+      postRefs.current[openId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    })
+    const timer = setTimeout(() => setHighlightId(null), 2500)
+    return () => clearTimeout(timer)
+  }, [searchParams, setSearchParams, recognition])
+
   if (!user) return null
 
   const openForm = () => {
@@ -115,6 +220,7 @@ export function RecognitionPage() {
       receiverId: otherUsers[0]?.id ?? '',
       tag: 'great_work',
       message: '',
+      media: [],
     })
     setFormOpen(true)
   }
@@ -133,8 +239,28 @@ export function RecognitionPage() {
       receiverId: draft.receiverId,
       tag: draft.tag,
       message: draft.message.trim(),
+      media: draft.media.length ? draft.media : undefined,
     })
     setFormOpen(false)
+  }
+
+  const sharePost = async (post: RecognitionPost) => {
+    const url = shoutoutShareUrl(post.id)
+    if (navigator.share) {
+      try {
+        await navigator.share({
+          title: 'Shout-out on AfriVate',
+          text: post.message.slice(0, 120),
+          url,
+        })
+        return
+      } catch {
+        /* user cancelled or unsupported */
+      }
+    }
+    await navigator.clipboard.writeText(url)
+    setCopiedId(post.id)
+    setTimeout(() => setCopiedId(null), 2000)
   }
 
   return (
@@ -149,7 +275,6 @@ export function RecognitionPage() {
         }
       />
 
-      {/* Personal stats */}
       <div className="grid grid-cols-2 gap-3 sm:gap-4">
         <Card padding="md">
           <div className="flex items-center gap-3">
@@ -175,7 +300,6 @@ export function RecognitionPage() {
         </Card>
       </div>
 
-      {/* Feed */}
       {sorted.length === 0 ? (
         <EmptyState
           icon={Heart}
@@ -195,15 +319,22 @@ export function RecognitionPage() {
             const meta = TAG_META[r.tag]
             const reacted = r.reactedBy.includes(user.id)
             const TagIcon = meta.icon
+            const commentCount = recognitionComments.filter((c) => c.recognitionId === r.id).length
             if (!giver || !receiver) return null
-            const isMyShoutout = r.giverId === user.id
             const aboutMe = r.receiverId === user.id
+            const highlighted = highlightId === r.id
             return (
-              <li key={r.id}>
+              <li
+                key={r.id}
+                ref={(el) => {
+                  postRefs.current[r.id] = el
+                }}
+              >
                 <Card
                   padding="md"
                   className={cn(
                     aboutMe && 'ring-2 ring-pink-500/40',
+                    highlighted && 'ring-2 ring-accent animate-pulse',
                   )}
                 >
                   {aboutMe ? (
@@ -212,7 +343,6 @@ export function RecognitionPage() {
                     </div>
                   ) : null}
 
-                  {/* Header: giver -> receiver */}
                   <div className="flex items-center gap-2 text-sm">
                     <Avatar name={giver.name} src={giver.avatarUrl} size="sm" />
                     <span className="font-semibold text-fg">{giver.name}</span>
@@ -224,10 +354,10 @@ export function RecognitionPage() {
                     </span>
                   </div>
 
-                  {/* Message */}
                   <p className="mt-3 text-sm text-fg/90">{r.message}</p>
 
-                  {/* Footer */}
+                  {r.media?.length ? <PortalMediaGallery media={r.media} compact /> : null}
+
                   <div className="mt-3 flex flex-wrap items-center justify-between gap-2">
                     <span
                       className={cn(
@@ -243,24 +373,53 @@ export function RecognitionPage() {
                       <span>{relativeTime(r.createdAt)}</span>
                     </div>
 
-                    <button
-                      onClick={() => toggleRecognitionReaction(r.id, user.id)}
-                      disabled={isMyShoutout}
-                      title={isMyShoutout ? 'You can’t react to your own shoutout' : 'React'}
-                      className={cn(
-                        'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ring-focus',
-                        reacted
-                          ? 'border-pink-500/40 bg-pink-500/10 text-pink-600 dark:text-pink-300'
-                          : 'border-border bg-surface text-fg hover:bg-surface-2',
-                        isMyShoutout && 'cursor-not-allowed opacity-50',
-                      )}
-                    >
-                      <Heart
-                        className={cn('h-3.5 w-3.5', reacted && 'fill-current')}
-                      />
-                      {r.reactedBy.length}
-                    </button>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => toggleRecognitionReaction(r.id, user.id)}
+                        title="React"
+                        className={cn(
+                          'inline-flex items-center gap-1.5 rounded-full border px-3 py-1 text-xs font-medium transition-colors ring-focus',
+                          reacted
+                            ? 'border-pink-500/40 bg-pink-500/10 text-pink-600 dark:text-pink-300'
+                            : 'border-border bg-surface text-fg hover:bg-surface-2',
+                        )}
+                      >
+                        <Heart className={cn('h-3.5 w-3.5', reacted && 'fill-current')} />
+                        {r.reactedBy.length}
+                      </button>
+
+                      <span className="inline-flex items-center gap-1 text-xs text-muted">
+                        <MessageCircle className="h-3.5 w-3.5" />
+                        {commentCount}
+                      </span>
+
+                      <button
+                        type="button"
+                        onClick={() => void sharePost(r)}
+                        title="Share link to this shout-out"
+                        className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-3 py-1 text-xs font-medium text-fg transition-colors hover:bg-surface-2 ring-focus"
+                      >
+                        {copiedId === r.id ? (
+                          <>
+                            <Check className="h-3.5 w-3.5 text-success" /> Copied
+                          </>
+                        ) : (
+                          <>
+                            <Share2 className="h-3.5 w-3.5" /> Share
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
+
+                  <RecognitionCommentThread
+                    postId={r.id}
+                    comments={recognitionComments}
+                    users={users}
+                    currentUserId={user.id}
+                    onSend={(body) => addRecognitionComment(r.id, body)}
+                  />
                 </Card>
               </li>
             )
@@ -268,7 +427,6 @@ export function RecognitionPage() {
         </ul>
       )}
 
-      {/* Give shoutout modal */}
       <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
@@ -325,15 +483,17 @@ export function RecognitionPage() {
               <span
                 className={cn(
                   'text-[11px]',
-                  draft.message.length > MAX_LENGTH - 20
-                    ? 'text-warning'
-                    : 'text-muted',
+                  draft.message.length > MAX_LENGTH - 20 ? 'text-warning' : 'text-muted',
                 )}
               >
                 {draft.message.length}/{MAX_LENGTH}
               </span>
             </div>
           </div>
+          <MediaAttachmentEditor
+            items={draft.media}
+            onChange={(media) => setDraft({ ...draft, media })}
+          />
         </form>
       </Modal>
     </div>

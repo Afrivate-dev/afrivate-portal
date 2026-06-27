@@ -27,10 +27,10 @@ import {
   AnnouncementMediaGallery,
   MediaAttachmentEditor,
 } from '@/components/shared/AnnouncementAttachments'
-import { cn, fmtDate, fmtTime, isTeamLead, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
 import { pages, actions, confirms } from '@/content/copy'
-import type { Announcement, AnnouncementMedia, AnnouncementPriority } from '@/types'
+import type { Announcement, AnnouncementMedia, AnnouncementPriority, User } from '@/types'
 
 type PriorityFilter = 'all' | AnnouncementPriority
 
@@ -118,6 +118,13 @@ export function AnnouncementsPage() {
   }, [searchParams, setSearchParams, announcements, user, markAnnouncementRead])
 
   useEffect(() => {
+    if (searchParams.get('unread') === '1') {
+      setUnreadOnly(true)
+      setSearchParams({}, { replace: true })
+    }
+  }, [searchParams, setSearchParams])
+
+  useEffect(() => {
     if (readingId) {
       setActivity({ readingUpdateId: readingId, composingUpdate: undefined })
     } else if (formOpen && canPost) {
@@ -171,6 +178,9 @@ export function AnnouncementsPage() {
   const userById = (id: string) => users.find((u) => u.id === id)
 
   if (!user) return null
+
+  const canSeeMemoReaders = (a: Announcement) =>
+    a.postedById === user.id || isHR(user) || isAdmin(user)
 
   const openCreate = () => {
     setDraft(emptyDraft)
@@ -349,7 +359,7 @@ export function AnnouncementsPage() {
                             <span>{relativeTime(a.postedAt)}</span>
                           )}
                         </div>
-                        {canPost ? (
+                        {canSeeMemoReaders(a) ? (
                           <span className="inline-flex items-center gap-1 text-muted">
                             <Eye className="h-3 w-3" />
                             {U.openedCount.replace('{n}', String(a.readBy.length))}
@@ -413,7 +423,7 @@ export function AnnouncementsPage() {
               ) : (
                 <Badge tone="muted">{U.everyone}</Badge>
               )}
-              {canPost ? (
+              {canSeeMemoReaders(reading) ? (
                 <Badge tone="default">
                   <Eye className="h-3 w-3" />{' '}
                   {U.openedCount.replace('{n}', String(reading.readBy.length))}
@@ -440,6 +450,9 @@ export function AnnouncementsPage() {
             </div>
             <p className="whitespace-pre-line text-sm text-fg/90">{reading.body}</p>
             <AnnouncementMediaGallery media={reading.media} />
+            {canSeeMemoReaders(reading) ? (
+              <MemoReadersPanel readerIds={reading.readBy} userById={userById} />
+            ) : null}
           </div>
         ) : null}
       </Modal>
@@ -533,6 +546,37 @@ export function AnnouncementsPage() {
       >
         <p className="text-sm text-fg">{U.deleteConfirm}</p>
       </Modal>
+    </div>
+  )
+}
+
+function MemoReadersPanel({
+  readerIds,
+  userById,
+}: {
+  readerIds: string[]
+  userById: (id: string) => User | undefined
+}) {
+  const readers = readerIds.map((id) => userById(id)).filter(Boolean) as User[]
+
+  return (
+    <div className="rounded-md border border-border bg-surface-2/30 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">{U.readersTitle}</p>
+      {readers.length === 0 ? (
+        <p className="mt-2 text-sm text-muted">{U.readersEmpty}</p>
+      ) : (
+        <ul className="mt-2 flex flex-wrap gap-2">
+          {readers.map((u) => (
+            <li
+              key={u.id}
+              className="inline-flex items-center gap-2 rounded-full border border-border bg-surface px-2.5 py-1 text-xs text-fg"
+            >
+              <Avatar name={u.name} src={u.avatarUrl} size="xs" />
+              <span>{u.name}</span>
+            </li>
+          ))}
+        </ul>
+      )}
     </div>
   )
 }

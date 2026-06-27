@@ -39,6 +39,7 @@ import type {
 } from '@/types'
 
 import { startOfWeek, addDays } from 'date-fns'
+import { DEFAULT_GETTING_STARTED_CHECKLIST } from '@/content/gettingStartedChecklist'
 
 
 
@@ -92,19 +93,7 @@ export const seedOnboardingVideos: OnboardingVideo[] = []
 
 
 
-export const seedOnboardingChecklist: OnboardingChecklistItem[] = [
-
-  { id: 'ck_1', label: 'Complete your profile in the directory', order: 1 },
-
-  { id: 'ck_2', label: 'Read the staff handbook', link: '/documents', order: 2 },
-
-  { id: 'ck_3', label: 'Schedule a 1-on-1 with your team lead', order: 3 },
-
-  { id: 'ck_4', label: 'Set up your work tools', order: 4 },
-
-  { id: 'ck_5', label: 'Submit your first weekly check-in', order: 5 },
-
-]
+export const seedOnboardingChecklist: OnboardingChecklistItem[] = DEFAULT_GETTING_STARTED_CHECKLIST
 
 
 

@@ -31,6 +31,7 @@ import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { notifyError } from '@/lib/notify'
+import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
 import { pages } from '@/content/copy'
 import type { DocumentItem } from '@/types'
 
@@ -121,6 +122,7 @@ export function DocumentLibraryPage() {
   const [draft, setDraft] = useState<UploadDraft>(emptyDraft)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [downloadInfoDoc, setDownloadInfoDoc] = useState<DocumentItem | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<{ doc: DocumentItem; url: string } | null>(null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
@@ -208,7 +210,12 @@ export function DocumentLibraryPage() {
     let filePath: string | undefined
     let fileSize = '—'
     let fileName = draft.fileName.trim() || uploadFile?.name || 'document'
-    if (uploadFile && isSupabaseAuthEnabled() && supabase) {
+    if (uploadFile) {
+      if (!isSupabaseAuthEnabled() || !supabase) {
+        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
+        setUploading(false)
+        return
+      }
       const uploaded = await uploadPortalFile(supabase, 'documents', uploadFile, user.id)
       if ('error' in uploaded) {
         notifyError(uploaded.error)
@@ -239,7 +246,7 @@ export function DocumentLibraryPage() {
     if (doc.filePath && supabase) {
       const url = await getPortalFileDownloadUrl(supabase, doc.filePath)
       if (url) {
-        window.open(url, '_blank', 'noopener,noreferrer')
+        setPreviewDoc({ doc, url })
         return
       }
     }
@@ -398,7 +405,7 @@ export function DocumentLibraryPage() {
                     }}
                     className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg hover:bg-surface-2 ring-focus"
                   >
-                    {d.filePath ? 'Download' : 'View details'}
+                    {d.filePath ? 'Preview' : 'View details'}
                   </button>
                 </Card>
               </li>
@@ -531,6 +538,14 @@ export function DocumentLibraryPage() {
           </div>
         ) : null}
       </Modal>
+
+      <DocumentPreviewModal
+        open={!!previewDoc}
+        onClose={() => setPreviewDoc(null)}
+        title={previewDoc?.doc.title ?? 'Document'}
+        fileName={previewDoc?.doc.fileName ?? 'file'}
+        url={previewDoc?.url ?? null}
+      />
     </div>
   )
 }

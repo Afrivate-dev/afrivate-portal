@@ -143,7 +143,10 @@ export function DashboardPage() {
               <div className="flex items-center gap-2">
                 <PlayCircle className="h-5 w-5 text-accent" />
                 <p className="text-sm font-semibold text-fg">
-                  You've watched {onboardingStats.watched} of {onboardingStats.total} onboarding videos
+                  Getting started: {onboardingStats.watched} of {onboardingStats.total} videos watched
+                </p>
+                <p className="text-xs text-muted">
+                  Open your first-week checklist and onboarding videos.
                 </p>
               </div>
               <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-surface-2">
@@ -154,8 +157,8 @@ export function DashboardPage() {
               </div>
             </div>
             <Link
-              to="/onboarding"
-              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover"
+              to="/onboarding?tab=checklist"
+              className="inline-flex h-9 items-center gap-1.5 rounded-md bg-accent px-3 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover touch-manipulation"
             >
               Continue <ArrowRight className="h-3.5 w-3.5" />
             </Link>
@@ -179,10 +182,11 @@ export function DashboardPage() {
           tone="success"
         />
         <StatCard
-          label="Unread announcements"
+          label="Unread memos"
           value={stats.unread}
           icon={Megaphone}
           tone={stats.unread > 0 ? 'danger' : 'muted'}
+          to={stats.unread > 0 ? '/announcements?unread=1' : '/announcements'}
         />
       </div>
 
@@ -208,37 +212,42 @@ export function DashboardPage() {
               {recentAnnouncements.map((a) => {
                 const unread = !a.readBy.includes(user.id)
                 return (
-                  <li
-                    key={a.id}
-                    className="flex cursor-pointer items-start gap-3 py-3 first:pt-0 last:pb-0 hover:opacity-90"
-                    onClick={() => {
-                      setReadingId(a.id)
-                      markAnnouncementRead(a.id, user.id)
-                    }}
-                  >
-                    <span
-                      className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${unread ? 'bg-accent' : 'bg-transparent'}`}
-                    />
-                    <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2">
-                        <p className={`truncate text-sm ${unread ? 'font-semibold text-fg' : 'font-medium text-fg/90'}`}>
-                          {a.title}
-                        </p>
-                        <Badge
-                          tone={
-                            a.priority === 'urgent'
-                              ? 'danger'
-                              : a.priority === 'important'
-                                ? 'warning'
-                                : 'info'
-                          }
-                        >
-                          {a.priority}
-                        </Badge>
+                  <li key={a.id}>
+                    <button
+                      type="button"
+                      className="flex min-h-[52px] w-full touch-manipulation items-start gap-3 py-3 text-left first:pt-0 last:pb-0 hover:bg-surface-2/50 active:bg-surface-2 ring-focus"
+                      onClick={() => {
+                        setReadingId(a.id)
+                        markAnnouncementRead(a.id, user.id)
+                      }}
+                    >
+                      <span
+                        className={`mt-2 h-2 w-2 shrink-0 rounded-full ${unread ? 'bg-accent' : 'bg-transparent'}`}
+                        aria-hidden
+                      />
+                      <div className="min-w-0 flex-1">
+                        <div className="flex flex-wrap items-center gap-x-2 gap-y-1">
+                          <p
+                            className={`min-w-0 flex-1 text-sm ${unread ? 'font-semibold text-fg' : 'font-medium text-fg/90'}`}
+                          >
+                            {a.title}
+                          </p>
+                          <Badge
+                            tone={
+                              a.priority === 'urgent'
+                                ? 'danger'
+                                : a.priority === 'important'
+                                  ? 'warning'
+                                  : 'info'
+                            }
+                          >
+                            {a.priority}
+                          </Badge>
+                        </div>
+                        <p className="mt-0.5 line-clamp-2 text-xs text-muted">{a.body}</p>
+                        <p className="mt-1 text-[11px] text-muted">{relativeTime(a.postedAt)}</p>
                       </div>
-                      <p className="mt-0.5 line-clamp-2 text-xs text-muted">{a.body}</p>
-                      <p className="mt-1 text-[11px] text-muted">{relativeTime(a.postedAt)}</p>
-                    </div>
+                    </button>
                   </li>
                 )
               })}
@@ -282,13 +291,14 @@ export function DashboardPage() {
       {/* Announcement reader modal (lightweight inline) */}
       {currentAnnouncement ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-center sm:items-center"
+          className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-4"
           onClick={() => setReadingId(null)}
+          role="presentation"
         >
-          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" />
+          <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden />
           <Card
             padding="lg"
-            className="relative w-full max-w-lg animate-slide-up sm:animate-fade-in"
+            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-b-none sm:rounded-b-xl sm:animate-fade-in animate-slide-up pb-[max(1rem,env(safe-area-inset-bottom))]"
             onClick={(e) => e.stopPropagation()}
           >
             <div className="mb-3 flex items-start justify-between gap-3">

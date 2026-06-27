@@ -177,6 +177,11 @@ export function NotionNotesEditor({
   const [showRemoteRefresh, setShowRemoteRefresh] = useState(false)
   const timer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const lastMergedVersionRef = useRef(note.version)
+  const lastFlushedRef = useRef({
+    title: note.title,
+    iconEmoji: note.iconEmoji ?? '',
+    blocks: note.blocks,
+  })
   const taRefs = useRef<Record<string, HTMLTextAreaElement | null>>({})
   const rootRef = useRef<HTMLDivElement | null>(null)
   const paletteRef = useRef<PaletteState | null>(null)
@@ -194,6 +199,11 @@ export function NotionNotesEditor({
   /** Only resync from props when switching pages — not on every autosaved `note.blocks` update. */
   useEffect(() => {
     lastMergedVersionRef.current = note.version
+    lastFlushedRef.current = {
+      title: note.title,
+      iconEmoji: note.iconEmoji ?? '',
+      blocks: note.blocks,
+    }
     setTitle(note.title)
     setIconEmoji(note.iconEmoji ?? '')
     setBlocks(note.blocks)
@@ -204,23 +214,56 @@ export function NotionNotesEditor({
     // eslint-disable-next-line react-hooks/exhaustive-deps -- remote merge for same id not implemented; avoid closing menus on autosave
   }, [note.id])
 
+  const isLocallyDirty = useCallback(() => {
+    if (timer.current) return true
+    const f = lastFlushedRef.current
+    return (
+      title !== f.title ||
+      iconEmoji !== f.iconEmoji ||
+      JSON.stringify(blocks) !== JSON.stringify(f.blocks)
+    )
+  }, [title, iconEmoji, blocks])
+
   const flush = useCallback(() => {
     const body = blocksToPlain(blocks)
+    const nextTitle = title.trim() || N.untitledPlaceholder
     onSave(note.id, {
-      title: title.trim() || N.untitledPlaceholder,
+      title: nextTitle,
       iconEmoji: iconEmoji.trim() || undefined,
       blocks,
       body,
     })
+    lastFlushedRef.current = {
+      title: nextTitle,
+      iconEmoji: iconEmoji.trim(),
+      blocks,
+    }
   }, [note.id, title, iconEmoji, blocks, onSave])
 
   useEffect(() => {
-    if (
+    const inSync =
       title === note.title &&
       (iconEmoji || undefined) === note.iconEmoji &&
       JSON.stringify(blocks) === JSON.stringify(note.blocks)
-    )
+    if (inSync) {
+      lastFlushedRef.current = {
+        title: note.title,
+        iconEmoji: note.iconEmoji ?? '',
+        blocks: note.blocks,
+      }
       return
+    }
+
+    // Remote is ahead — don't autosave stale local content while waiting to merge
+    if (
+      user &&
+      note.updatedById !== user.id &&
+      note.version > lastMergedVersionRef.current &&
+      !isLocallyDirty()
+    ) {
+      return
+    }
+
     if (timer.current) clearTimeout(timer.current)
     timer.current = setTimeout(() => {
       flush()
@@ -229,29 +272,81 @@ export function NotionNotesEditor({
     return () => {
       if (timer.current) clearTimeout(timer.current)
     }
-  }, [title, iconEmoji, blocks, note.title, note.iconEmoji, note.blocks, flush])
+  }, [
+    title,
+    iconEmoji,
+    blocks,
+    note.title,
+    note.iconEmoji,
+    note.blocks,
+    note.version,
+    note.updatedById,
+    user,
+    flush,
+    isLocallyDirty,
+  ])
 
-  /** Another collaborator saved a newer version — offer to load it without clobbering local edits silently. */
+  /** Another collaborator saved a newer version — auto-merge when idle, banner only when editing. */
   useEffect(() => {
-    if (!user || note.updatedById === user.id) {
+    if (!user) return
+
+    if (note.updatedById === user.id) {
+      lastMergedVersionRef.current = Math.max(lastMergedVersionRef.current, note.version)
       setShowRemoteRefresh(false)
       return
     }
+
     if (note.version <= lastMergedVersionRef.current) return
-    const same = JSON.stringify(note.blocks) === JSON.stringify(blocks)
-    if (same) {
+
+    const inSync =
+      title === note.title &&
+      (iconEmoji || undefined) === note.iconEmoji &&
+      JSON.stringify(blocks) === JSON.stringify(note.blocks)
+
+    if (inSync) {
       lastMergedVersionRef.current = note.version
       setShowRemoteRefresh(false)
       return
     }
+
+    if (!isLocallyDirty()) {
+      setTitle(note.title)
+      setIconEmoji(note.iconEmoji ?? '')
+      setBlocks(note.blocks)
+      lastMergedVersionRef.current = note.version
+      lastFlushedRef.current = {
+        title: note.title,
+        iconEmoji: note.iconEmoji ?? '',
+        blocks: note.blocks,
+      }
+      setShowRemoteRefresh(false)
+      return
+    }
+
     setShowRemoteRefresh(true)
-  }, [note.version, note.updatedById, note.blocks, user, blocks])
+  }, [
+    note.version,
+    note.updatedById,
+    note.title,
+    note.iconEmoji,
+    note.blocks,
+    user,
+    blocks,
+    title,
+    iconEmoji,
+    isLocallyDirty,
+  ])
 
   const mergeRemoteNote = useCallback(() => {
     setTitle(note.title)
     setIconEmoji(note.iconEmoji ?? '')
     setBlocks(note.blocks)
     lastMergedVersionRef.current = note.version
+    lastFlushedRef.current = {
+      title: note.title,
+      iconEmoji: note.iconEmoji ?? '',
+      blocks: note.blocks,
+    }
     setShowRemoteRefresh(false)
     setPalette(null)
     setMention(null)

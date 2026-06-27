@@ -12,6 +12,7 @@ import type {
   OnboardingProgress,
   OnboardingVideo,
   RecognitionPost,
+  RecognitionComment,
   Task,
   TaskCategoryItem,
   User,
@@ -80,8 +81,10 @@ export interface DataContextValue {
   deleteDocument: (id: string) => void
 
   recognition: RecognitionPost[]
+  recognitionComments: RecognitionComment[]
   giveRecognition: (r: Omit<RecognitionPost, 'id' | 'createdAt' | 'reactedBy'>) => void
   toggleRecognitionReaction: (id: string, userId: string) => void
+  addRecognitionComment: (recognitionId: string, body: string) => void
 
   inbox: InboxNotification[]
   markInboxRead: (id: string) => void
