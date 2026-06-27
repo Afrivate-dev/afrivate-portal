@@ -418,7 +418,7 @@ export function StaffDirectoryPage() {
                           setAvatarUploadBusy(true)
                           setAvatarUploadError('')
                           try {
-                            const row = await uploadHostedMediaFile(file, user.id)
+                            const row = await uploadHostedMediaFile(file, user.id, 'avatars')
                             if (row.kind === 'video') {
                               setAvatarUploadError('Use an image file for your profile photo.')
                               return

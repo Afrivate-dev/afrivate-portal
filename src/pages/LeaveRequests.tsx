@@ -47,7 +47,7 @@ import { uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { useConfirm } from '@/context/ConfirmContext'
 import { notifyError } from '@/lib/notify'
 import { confirms } from '@/content/copy'
-import type { LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
+import type { LeaveComment, LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
 
 type Tab = 'my' | 'all' | 'calendar'
 
@@ -128,6 +128,8 @@ export function LeaveRequestsPage() {
   const [reviewNote, setReviewNote] = useState('')
   const [approvedDays, setApprovedDays] = useState('')
   const [threadComment, setThreadComment] = useState('')
+  const [detailRequest, setDetailRequest] = useState<LeaveRequest | null>(null)
+  const [detailReply, setDetailReply] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
 
   const myRequests = useMemo(
@@ -207,7 +209,12 @@ export function LeaveRequestsPage() {
     setSubmitting(true)
     let supportingDocPath: string | undefined
     let supportingDocName = draft.supportingDocName.trim() || undefined
-    if (supportingFile && isSupabaseAuthEnabled() && supabase) {
+    if (supportingFile) {
+      if (!isSupabaseAuthEnabled() || !supabase) {
+        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
+        setSubmitting(false)
+        return
+      }
       const uploaded = await uploadPortalFile(supabase, 'leave', supportingFile, user.id)
       if ('error' in uploaded) {
         notifyError(uploaded.error)
@@ -350,7 +357,14 @@ export function LeaveRequestsPage() {
             }
           />
         ) : (
-          <RequestsList requests={myRequests} users={users} showWho={false} />
+          <RequestsList
+            requests={myRequests}
+            users={users}
+            showWho={false}
+            leaveComments={leaveComments}
+            currentUserId={user.id}
+            onViewConversation={setDetailRequest}
+          />
         )
       ) : null}
 
@@ -371,6 +385,9 @@ export function LeaveRequestsPage() {
             )}
             users={users}
             showWho
+            leaveComments={leaveComments}
+            currentUserId={user.id}
+            onViewConversation={setDetailRequest}
             onApprove={(r) => startReview(r, 'approved')}
             onDecline={(r) => startReview(r, 'declined')}
           />
@@ -566,6 +583,13 @@ export function LeaveRequestsPage() {
               comments={leaveComments}
               users={users}
               currentUserId={user.id}
+              canReply
+              replyValue={threadComment}
+              onReplyChange={setThreadComment}
+              onSendReply={() => {
+                addLeaveComment(reviewing.request.id, threadComment)
+                setThreadComment('')
+              }}
             />
             <Textarea
               label="Note (optional)"
@@ -578,26 +602,66 @@ export function LeaveRequestsPage() {
                   : 'Reason for declining — this is sent to the requester.'
               }
             />
-            <Textarea
-              label="Ask a question or add a comment"
-              rows={2}
-              value={threadComment}
-              onChange={(e) => setThreadComment(e.target.value)}
-              placeholder="The requester will be notified in their inbox."
+          </div>
+        ) : null}
+      </Modal>
+
+      {/* Requester / conversation detail */}
+      <Modal
+        open={!!detailRequest}
+        onClose={() => {
+          setDetailRequest(null)
+          setDetailReply('')
+        }}
+        title="Leave request"
+        size="lg"
+        footer={
+          <Button
+            variant="ghost"
+            type="button"
+            onClick={() => {
+              setDetailRequest(null)
+              setDetailReply('')
+            }}
+          >
+            Close
+          </Button>
+        }
+      >
+        {detailRequest ? (
+          <div className="space-y-4">
+            <div className="rounded-md border border-border bg-surface-2/40 p-3 text-sm">
+              <p className="font-semibold text-fg">
+                {TYPE_META[detailRequest.type].label} leave ·{' '}
+                {dayCount(detailRequest.startDate, detailRequest.endDate)} day
+                {dayCount(detailRequest.startDate, detailRequest.endDate) === 1 ? '' : 's'}
+              </p>
+              <p className="mt-1 text-xs text-muted">
+                {fmtDate(detailRequest.startDate)} → {fmtDate(detailRequest.endDate)} ·{' '}
+                {STATUS_META[detailRequest.status].label}
+              </p>
+              <p className="mt-2 text-fg/90">{detailRequest.reason}</p>
+              {detailRequest.reviewerNote ? (
+                <p className="mt-2 rounded-md bg-surface px-2.5 py-1.5 text-xs text-fg/80">
+                  <span className="font-semibold">Note from reviewer:</span>{' '}
+                  {detailRequest.reviewerNote}
+                </p>
+              ) : null}
+            </div>
+            <LeaveCommentThread
+              leaveId={detailRequest.id}
+              comments={leaveComments}
+              users={users}
+              currentUserId={user.id}
+              canReply
+              replyValue={detailReply}
+              onReplyChange={setDetailReply}
+              onSendReply={() => {
+                addLeaveComment(detailRequest.id, detailReply)
+                setDetailReply('')
+              }}
+              emptyHint="No messages yet. HR or your lead may ask questions here — you can reply below."
             />
-            {threadComment.trim() ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                onClick={() => {
-                  addLeaveComment(reviewing.request.id, threadComment)
-                  setThreadComment('')
-                }}
-              >
-                Send comment
-              </Button>
-            ) : null}
           </div>
         ) : null}
       </Modal>
@@ -610,28 +674,75 @@ function LeaveCommentThread({
   comments,
   users,
   currentUserId,
+  canReply,
+  replyValue = '',
+  onReplyChange,
+  onSendReply,
+  emptyHint,
 }: {
   leaveId: string
-  comments: import('@/types').LeaveComment[]
+  comments: LeaveComment[]
   users: User[]
   currentUserId: string
+  canReply?: boolean
+  replyValue?: string
+  onReplyChange?: (value: string) => void
+  onSendReply?: () => void
+  emptyHint?: string
 }) {
   const rows = comments.filter((c) => c.leaveId === leaveId)
-  if (!rows.length) return null
   return (
-    <div className="space-y-2 rounded-md border border-border bg-surface-2/30 p-3">
+    <div className="space-y-3 rounded-md border border-border bg-surface-2/30 p-3">
       <p className="text-xs font-semibold uppercase tracking-wide text-muted">Conversation</p>
-      <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
-        {rows.map((c) => {
-          const author = users.find((u) => u.id === c.userId)
-          return (
-            <li key={c.id} className={cn(c.userId === currentUserId && 'text-right')}>
-              <span className="text-xs font-medium text-muted">{author?.name ?? 'User'} · </span>
-              <span className="text-fg">{c.body}</span>
-            </li>
-          )
-        })}
-      </ul>
+      {rows.length === 0 ? (
+        <p className="text-sm text-muted">{emptyHint ?? 'No messages yet.'}</p>
+      ) : (
+        <ul className="max-h-48 space-y-3 overflow-y-auto text-sm">
+          {rows.map((c) => {
+            const author = users.find((u) => u.id === c.userId)
+            const mine = c.userId === currentUserId
+            return (
+              <li
+                key={c.id}
+                className={cn('flex gap-2', mine ? 'flex-row-reverse' : 'flex-row')}
+              >
+                {author ? (
+                  <Avatar name={author.name} src={author.avatarUrl} size="xs" className="mt-0.5 shrink-0" />
+                ) : null}
+                <div
+                  className={cn(
+                    'max-w-[85%] rounded-lg px-3 py-2',
+                    mine ? 'bg-accent/15 text-fg' : 'bg-surface text-fg',
+                  )}
+                >
+                  <p className="text-[11px] font-medium text-muted">{author?.name ?? 'User'}</p>
+                  <p className="mt-0.5 whitespace-pre-wrap">{c.body}</p>
+                  <p className="mt-1 text-[10px] text-muted">{relativeTime(c.createdAt)}</p>
+                </div>
+              </li>
+            )
+          })}
+        </ul>
+      )}
+      {canReply && onReplyChange && onSendReply ? (
+        <div className="space-y-2 border-t border-border pt-3">
+          <Textarea
+            label="Your reply"
+            rows={2}
+            value={replyValue}
+            onChange={(e) => onReplyChange(e.target.value)}
+            placeholder="Reply to HR or your team lead…"
+          />
+          <Button
+            type="button"
+            size="sm"
+            disabled={!replyValue.trim()}
+            onClick={onSendReply}
+          >
+            Send reply
+          </Button>
+        </div>
+      ) : null}
     </div>
   )
 }
@@ -665,12 +776,18 @@ function RequestsList({
   requests,
   users,
   showWho,
+  leaveComments,
+  currentUserId,
+  onViewConversation,
   onApprove,
   onDecline,
 }: {
   requests: LeaveRequest[]
   users: User[]
   showWho: boolean
+  leaveComments?: LeaveComment[]
+  currentUserId?: string
+  onViewConversation?: (r: LeaveRequest) => void
   onApprove?: (r: LeaveRequest) => void
   onDecline?: (r: LeaveRequest) => void
 }) {
@@ -684,6 +801,10 @@ function RequestsList({
           const days = dayCount(r.startDate, r.endDate)
           const TypeIcon = typeMeta.icon
           const StatusIcon = statusMeta.icon
+          const messageCount = leaveComments?.filter((c) => c.leaveId === r.id).length ?? 0
+          const canConversation =
+            onViewConversation &&
+            (r.userId === currentUserId || onApprove != null)
           return (
             <li key={r.id} className="p-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -731,6 +852,15 @@ function RequestsList({
                   <Badge tone={statusMeta.tone}>
                     <StatusIcon className="h-3 w-3" /> {statusMeta.label}
                   </Badge>
+                  {canConversation ? (
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      onClick={() => onViewConversation(r)}
+                    >
+                      {messageCount > 0 ? `${messageCount} message${messageCount === 1 ? '' : 's'}` : 'View / Reply'}
+                    </Button>
+                  ) : null}
                   {onApprove && onDecline && r.status === 'pending' ? (
                     <div className="flex items-center gap-1.5">
                       <Button size="sm" variant="primary" onClick={() => onApprove(r)}>

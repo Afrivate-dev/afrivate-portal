@@ -211,7 +211,14 @@ export function CollabProvider({ children }: { children: ReactNode }) {
             if (idx === -1) {
               return [incoming, ...prev].sort((a, b) => b.updatedAt.localeCompare(a.updatedAt))
             }
-            if (incoming.version < prev[idx].version) return prev
+            const cur = prev[idx]
+            if (incoming.version < cur.version) return prev
+            if (
+              incoming.version === cur.version &&
+              JSON.stringify(incoming.blocks) === JSON.stringify(cur.blocks)
+            ) {
+              return prev
+            }
             const next = [...prev]
             next[idx] = incoming
             return next
@@ -236,6 +243,14 @@ export function CollabProvider({ children }: { children: ReactNode }) {
         }
         const cur = prev[idx]
         if (incoming.version < cur.version) return prev
+        if (
+          incoming.version === cur.version &&
+          JSON.stringify(incoming.blocks) === JSON.stringify(cur.blocks) &&
+          incoming.title === cur.title &&
+          incoming.body === cur.body
+        ) {
+          return prev
+        }
         const next = [...prev]
         next[idx] = incoming
         return next

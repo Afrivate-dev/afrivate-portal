@@ -5,6 +5,7 @@ import { useData } from '@/context/DataContext'
 import { PendingApprovalScreen } from '@/components/shared/PendingApprovalScreen'
 import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScreen'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
+import { PageLoadFallback } from '@/components/shared/PageLoadFallback'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
@@ -81,14 +82,22 @@ export function AppLayout() {
   if (!user) {
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
-    if (code) return <Navigate to={`/reset-password?code=${code}`} replace />
     const hash = window.location.hash
+    if (code) {
+      const type = params.get('type')
+      if (type === 'recovery' || type === 'invite') {
+        return <Navigate to={`/reset-password?code=${code}`} replace />
+      }
+      return <Navigate to={`/login?code=${code}`} replace />
+    }
     if (
-      hash.includes('access_token') ||
-      hash.includes('type=recovery') ||
-      hash.includes('type=invite')
+      hash.includes('access_token') &&
+      (hash.includes('type=recovery') || hash.includes('type=invite'))
     ) {
       return <Navigate to={`/reset-password${hash}`} replace />
+    }
+    if (hash.includes('access_token')) {
+      return <Navigate to={`/login${hash}`} replace />
     }
     return <Navigate to="/login" replace />
   }
@@ -155,7 +164,7 @@ export function AppLayout() {
       onOpenDrawer={() => setDrawerOpen(true)}
       onCloseDrawer={() => setDrawerOpen(false)}
     >
-      <Suspense fallback={<ScreenLoader message="Loading page…" className="min-h-[50vh]" />}>
+      <Suspense fallback={<PageLoadFallback />}>
         <Outlet />
       </Suspense>
     </AppShell>

@@ -9,6 +9,7 @@ import type {
   OnboardingProgress,
   OnboardingVideo,
   RecognitionPost,
+  RecognitionComment,
   Role,
   Task,
   TaskActivityEntry,
@@ -276,6 +277,11 @@ export function rowToDocument(r: Record<string, unknown>): DocumentItem {
 }
 
 export function rowToRecognition(r: Record<string, unknown>): RecognitionPost {
+  const mediaRaw = r.media
+  const media =
+    Array.isArray(mediaRaw) && mediaRaw.length
+      ? (mediaRaw as RecognitionPost['media'])
+      : undefined
   return {
     id: String(r.id),
     giverId: String(r.giver_id),
@@ -284,6 +290,17 @@ export function rowToRecognition(r: Record<string, unknown>): RecognitionPost {
     tag: String(r.tag) as RecognitionPost['tag'],
     createdAt: String(r.created_at),
     reactedBy: readStringArray(r.reacted_by),
+    media,
+  }
+}
+
+export function rowToRecognitionComment(r: Record<string, unknown>): RecognitionComment {
+  return {
+    id: String(r.id),
+    recognitionId: String(r.recognition_id),
+    userId: String(r.user_id),
+    body: String(r.body ?? ''),
+    createdAt: String(r.created_at),
   }
 }
 

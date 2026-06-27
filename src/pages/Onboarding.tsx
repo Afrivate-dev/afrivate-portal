@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { Link, useSearchParams } from 'react-router-dom'
 import {
   PlayCircle,
   CheckCircle2,
@@ -25,6 +26,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
 import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
+import { pages } from '@/content/copy'
+import { checklistMetaFor } from '@/content/gettingStartedChecklist'
 import type { OnboardingVideo } from '@/types'
 
 type Tab = 'videos' | 'checklist' | 'admin'
@@ -70,7 +73,11 @@ export function OnboardingPage() {
 
   const canSeeAdmin = isHR(user)
 
-  const [tab, setTab] = useState<Tab>('videos')
+  const [searchParams] = useSearchParams()
+  const initialTab = searchParams.get('tab')
+  const [tab, setTab] = useState<Tab>(() =>
+    initialTab === 'checklist' || initialTab === 'admin' ? initialTab : 'videos',
+  )
   const sortedVideos = useMemo(
     () => [...onboardingVideos].sort((a, b) => a.order - b.order),
     [onboardingVideos],
@@ -156,8 +163,8 @@ export function OnboardingPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Onboarding"
-        description="Get up to speed with AfriVate — your first steps on the journey."
+        title={pages.gettingStarted.title}
+        description={pages.gettingStarted.subtitle}
         actions={
           <Badge tone={totals.overall === 100 ? 'success' : 'brand'}>
             {totals.overall}% complete
@@ -211,14 +218,14 @@ export function OnboardingPage() {
       {/* Tabs */}
       <div className="flex border-b border-border">
         <TabButton active={tab === 'videos'} onClick={() => setTab('videos')}>
-          <PlayCircle className="h-4 w-4" /> Videos
+          <PlayCircle className="h-4 w-4" /> {pages.gettingStarted.tabVideos}
         </TabButton>
         <TabButton active={tab === 'checklist'} onClick={() => setTab('checklist')}>
-          <ListChecks className="h-4 w-4" /> Checklist
+          <ListChecks className="h-4 w-4" /> {pages.gettingStarted.tabChecklist}
         </TabButton>
         {canSeeAdmin ? (
           <TabButton active={tab === 'admin'} onClick={() => setTab('admin')}>
-            <Settings className="h-4 w-4" /> Admin
+            <Settings className="h-4 w-4" /> {pages.gettingStarted.tabAdmin}
           </TabButton>
         ) : null}
       </div>
@@ -373,53 +380,90 @@ export function OnboardingPage() {
         onboardingChecklist.length === 0 ? (
           <EmptyState icon={ListChecks} title="No checklist items" />
         ) : (
-          <Card padding="md">
-            <ul className="divide-y divide-border">
-              {onboardingChecklist
-                .sort((a, b) => a.order - b.order)
-                .map((item) => {
-                  const done = checkedIds.has(item.id)
-                  return (
-                    <li key={item.id}>
-                      <button
-                        onClick={() => toggleChecklistItem(user.id, item.id)}
-                        className="flex w-full items-center gap-3 py-3 text-left ring-focus"
-                      >
-                        <span
-                          className={cn(
-                            'flex h-5 w-5 shrink-0 items-center justify-center rounded border transition-colors',
-                            done
-                              ? 'border-emerald-500 bg-emerald-500 text-white'
-                              : 'border-border bg-surface',
-                          )}
-                        >
-                          {done ? <CheckCircle2 className="h-4 w-4" /> : null}
-                        </span>
-                        <span
-                          className={cn(
-                            'flex-1 text-sm',
-                            done ? 'text-muted line-through' : 'text-fg',
-                          )}
-                        >
-                          {item.label}
-                        </span>
-                        {item.link ? (
-                          <a
-                            href={item.link}
-                            target="_blank"
-                            rel="noreferrer"
-                            onClick={(e) => e.stopPropagation()}
-                            className="inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline"
+          <div className="space-y-4">
+            <Card padding="md" accentBorder="info" className="border-l-4 border-l-accent">
+              <p className="text-sm text-fg">
+                Work through these at your own pace during your first few weeks. Items with a{' '}
+                <strong>Go</strong> link take you straight to the right place — we also tick some off
+                automatically when you complete the action.
+              </p>
+              <p className="mt-2 text-xs text-muted">
+                {totals.checklist.checked} of {totals.checklist.total} complete
+              </p>
+            </Card>
+            <Card padding="md">
+              <ul className="divide-y divide-border">
+                {onboardingChecklist
+                  .sort((a, b) => a.order - b.order)
+                  .map((item) => {
+                    const done = checkedIds.has(item.id)
+                    const meta = checklistMetaFor(item)
+                    const isInternalLink = item.link?.startsWith('/')
+                    return (
+                      <li key={item.id}>
+                        <div className="flex flex-col gap-3 py-4 sm:flex-row sm:items-start">
+                          <button
+                            type="button"
+                            onClick={() => toggleChecklistItem(user.id, item.id)}
+                            className="flex min-h-[44px] flex-1 touch-manipulation items-start gap-3 text-left ring-focus"
+                            aria-pressed={done}
                           >
-                            Open <ExternalLink className="h-3 w-3" />
-                          </a>
-                        ) : null}
-                      </button>
-                    </li>
-                  )
-                })}
-            </ul>
-          </Card>
+                            <span
+                              className={cn(
+                                'mt-0.5 flex h-6 w-6 shrink-0 items-center justify-center rounded-md border transition-colors',
+                                done
+                                  ? 'border-emerald-500 bg-emerald-500 text-white'
+                                  : 'border-border bg-surface',
+                              )}
+                            >
+                              {done ? <CheckCircle2 className="h-4 w-4" /> : null}
+                            </span>
+                            <span className="min-w-0 flex-1">
+                              <span
+                                className={cn(
+                                  'block text-sm font-medium',
+                                  done ? 'text-muted line-through' : 'text-fg',
+                                )}
+                              >
+                                {item.label}
+                              </span>
+                              <span className="mt-1 block text-xs leading-relaxed text-muted">
+                                {meta.description}
+                              </span>
+                            </span>
+                          </button>
+                          {item.link ? (
+                            isInternalLink ? (
+                              <Link
+                                to={item.link}
+                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-2 px-4 text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation"
+                                onClick={() => {
+                                  if (item.link === '/documents') {
+                                    sessionStorage.setItem('av-visited-handbook', '1')
+                                    setVisitedHandbook(true)
+                                  }
+                                }}
+                              >
+                                {meta.cta} <ChevronRight className="h-4 w-4" />
+                              </Link>
+                            ) : (
+                              <a
+                                href={item.link}
+                                target="_blank"
+                                rel="noreferrer"
+                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-2 px-4 text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation"
+                              >
+                                {meta.cta} <ExternalLink className="h-3.5 w-3.5" />
+                              </a>
+                            )
+                          ) : null}
+                        </div>
+                      </li>
+                    )
+                  })}
+              </ul>
+            </Card>
+          </div>
         )
       ) : null}
 

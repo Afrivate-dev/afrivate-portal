@@ -50,6 +50,11 @@ const TYPE_META: Record<
     label: 'Leave message',
     iconClass: 'text-accent',
   },
+  recognition_comment: {
+    icon: Heart,
+    label: 'Shout-out comment',
+    iconClass: 'text-pink-600 dark:text-pink-300',
+  },
   access_request: {
     icon: UserPlus,
     label: 'Access request',
@@ -88,7 +93,9 @@ export function InboxPage() {
           ? n.link
           : n.leaveId && (n.type === 'leave_update' || n.type === 'leave_comment')
             ? '/leave'
-            : n.link
+            : n.recognitionId && n.type === 'recognition_comment'
+              ? `/recognition?open=${encodeURIComponent(n.recognitionId)}`
+              : n.link
     navigate(link)
   }
 

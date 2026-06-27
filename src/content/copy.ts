@@ -403,6 +403,8 @@ export const pages = {
     priorityAll: 'All levels',
     priorityFilterLabel: 'Urgency',
     openedCount: '{n} opened',
+    readersTitle: 'Opened by',
+    readersEmpty: 'No one has opened this memo yet.',
     everyone: 'Everyone',
     unknownAuthor: 'Unknown',
     emptyFilteredTitle: 'Nothing matches',

@@ -12,7 +12,9 @@ export class MediaUploadError extends Error {
 }
 
 function inferKind(file: File): AnnouncementMedia['kind'] {
-  return file.type.startsWith('video/') ? 'video' : 'image'
+  if (file.type.startsWith('video/')) return 'video'
+  if (file.type.startsWith('image/')) return 'image'
+  return 'document'
 }
 
 /** Prefix stored in avatar_url / media url fields when using Supabase Storage. */
@@ -38,14 +40,24 @@ export async function resolveStorageReference(url: string): Promise<string> {
 export async function uploadHostedMediaFile(
   file: File,
   userId?: string,
+  folder: 'documents' | 'leave' | 'avatars' | 'media' = 'media',
 ): Promise<AnnouncementMedia> {
-  if (isSupabaseAuthEnabled() && supabase && userId) {
-    const uploaded = await uploadPortalFile(supabase, 'media', file, userId)
-    if (!('error' in uploaded)) {
-      const signed = await getPortalFileDownloadUrl(supabase, uploaded.path)
-      if (signed) {
+  if (isSupabaseAuthEnabled() && supabase) {
+    let uid = userId
+    if (!uid) {
+      const { data } = await supabase.auth.getUser()
+      uid = data.user?.id
+    }
+    if (uid) {
+      const uploaded = await uploadPortalFile(supabase, folder, file, uid)
+      if (!('error' in uploaded)) {
+        const signed = await getPortalFileDownloadUrl(supabase, uploaded.path)
+        if (signed) {
+          return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}` }
+        }
         return { kind: inferKind(file), url: `${STORAGE_URL_PREFIX}${uploaded.path}` }
       }
+      throw new MediaUploadError(uploaded.error)
     }
   }
 
@@ -98,7 +110,16 @@ export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {
       path.endsWith('.webm') ||
       path.endsWith('.mov') ||
       path.endsWith('.m4v')
-    return { kind: video ? 'video' : 'image', url }
+    const image =
+      path.endsWith('.png') ||
+      path.endsWith('.jpg') ||
+      path.endsWith('.jpeg') ||
+      path.endsWith('.gif') ||
+      path.endsWith('.webp') ||
+      path.endsWith('.svg')
+    const kind: AnnouncementMedia['kind'] = video ? 'video' : image ? 'image' : 'document'
+    const fileName = path.split('/').pop() || undefined
+    return { kind, url, fileName }
   } catch {
     return null
   }

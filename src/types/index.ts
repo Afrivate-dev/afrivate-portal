@@ -98,10 +98,11 @@ export interface WeeklyCheckIn {
 
 export type AnnouncementPriority = 'info' | 'important' | 'urgent'
 
-/** Image or video shown on an update — URLs usually point at afrivate.org uploads. */
+/** Image, video, or document attachment — used on memos, shout-outs, etc. */
 export interface AnnouncementMedia {
-  kind: 'image' | 'video'
+  kind: 'image' | 'video' | 'document'
   url: string
+  fileName?: string
   caption?: string
 }
 
@@ -194,6 +195,15 @@ export interface RecognitionPost {
   tag: 'great_work' | 'team_player' | 'innovation' | 'above_beyond' | 'leadership'
   createdAt: string
   reactedBy: string[]
+  media?: AnnouncementMedia[]
+}
+
+export interface RecognitionComment {
+  id: string
+  recognitionId: string
+  userId: string
+  body: string
+  createdAt: string
 }
 
 export type InboxNotificationType =
@@ -205,6 +215,7 @@ export type InboxNotificationType =
   | 'access_granted'
   | 'leave_update'
   | 'leave_comment'
+  | 'recognition_comment'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {

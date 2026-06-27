@@ -29,6 +29,7 @@ import type {
   OnboardingProgress,
   OnboardingVideo,
   RecognitionPost,
+  RecognitionComment,
   Role,
   Task,
   TaskActivityEntry,
@@ -74,6 +75,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   const [recognition, setRecognition] = useLocalStorage<RecognitionPost[]>(
     'av-recognition',
     seedRecognition,
+  )
+  const [recognitionComments, setRecognitionComments] = useLocalStorage<RecognitionComment[]>(
+    'av-recognition-comments',
+    [],
   )
   const [events, setEvents] = useLocalStorage<EventItem[]>('av-events', seedEvents)
   const [inbox, setInbox] = useLocalStorage<InboxNotification[]>('av-inbox', [])
@@ -510,7 +515,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
           type: 'recognition',
           title: giver ? `${giver.name} shouted you out` : 'New shout-out',
           body: r.message.length > 120 ? `${r.message.slice(0, 117)}…` : r.message,
-          link: '/recognition',
+          link: `/recognition?open=${encodeURIComponent(id)}`,
           read: false,
           createdAt: now,
           fromUserId: r.giverId,
@@ -534,6 +539,21 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
         }),
       ),
     [setRecognition],
+  )
+
+  const addRecognitionComment: DataContextValue['addRecognitionComment'] = useCallback(
+    (recognitionId, body) => {
+      if (!body.trim()) return
+      const row: RecognitionComment = {
+        id: 'rc_' + uid(),
+        recognitionId,
+        userId: users.find((u) => u.active)?.id ?? '',
+        body: body.trim(),
+        createdAt: new Date().toISOString(),
+      }
+      setRecognitionComments((prev) => [...prev, row])
+    },
+    [setRecognitionComments, users],
   )
 
   /* ------------------------------ Events -------------------------------- */
@@ -684,8 +704,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       addDocument,
       deleteDocument,
       recognition,
+      recognitionComments,
       giveRecognition,
       toggleRecognitionReaction,
+      addRecognitionComment,
       inbox,
       markInboxRead,
       markAllInboxRead,
@@ -716,13 +738,13 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       tasks, createTask, updateTask, deleteTask,
       checkIns, submitCheckIn, updateCheckIn,
       announcements, createAnnouncement, updateAnnouncement, deleteAnnouncement, markAnnouncementRead, markAllAnnouncementsRead,
-      leaveRequests, submitLeave, reviewLeave,
+      leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment,
       onboardingVideos, onboardingChecklist, onboardingProgress,
       toggleVideoWatched, toggleChecklistItem,
       addOnboardingVideo, updateOnboardingVideo, deleteOnboardingVideo,
       addOnboardingChecklistItem, updateOnboardingChecklistItem, deleteOnboardingChecklistItem,
       documents, addDocument, deleteDocument,
-      recognition, giveRecognition, toggleRecognitionReaction,
+      recognition, recognitionComments, giveRecognition, toggleRecognitionReaction, addRecognitionComment,
       inbox, markInboxRead, markAllInboxRead,
       events, addEvent,
       teams, addTeam, updateTeam, deleteTeam,

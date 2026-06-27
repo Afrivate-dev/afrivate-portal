@@ -1,4 +1,5 @@
 import type { LucideIcon } from 'lucide-react'
+import { Link } from 'react-router-dom'
 import { cn } from '@/utils/helpers'
 import { Card } from '@/components/ui/Card'
 
@@ -8,6 +9,8 @@ interface StatCardProps {
   icon?: LucideIcon
   tone?: 'brand' | 'success' | 'warning' | 'danger' | 'muted'
   hint?: string
+  /** When set, the whole card becomes a tappable link (mobile-friendly). */
+  to?: string
 }
 
 const toneStyles = {
@@ -18,19 +21,35 @@ const toneStyles = {
   muted: 'bg-surface-2 text-muted',
 }
 
-export function StatCard({ label, value, icon: Icon, tone = 'brand', hint }: StatCardProps) {
-  return (
-    <Card padding="md" className="flex items-center gap-4">
+export function StatCard({ label, value, icon: Icon, tone = 'brand', hint, to }: StatCardProps) {
+  const body = (
+    <>
       {Icon ? (
-        <div className={cn('flex h-12 w-12 items-center justify-center rounded-lg', toneStyles[tone])}>
+        <div className={cn('flex h-12 w-12 shrink-0 items-center justify-center rounded-lg', toneStyles[tone])}>
           <Icon className="h-5 w-5" />
         </div>
       ) : null}
-      <div className="min-w-0">
+      <div className="min-w-0 flex-1">
         <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
         <div className="mt-0.5 text-2xl font-bold text-fg">{value}</div>
         {hint ? <div className="text-xs text-muted">{hint}</div> : null}
       </div>
+    </>
+  )
+
+  if (to) {
+    return (
+      <Link to={to} className="block min-h-[44px] touch-manipulation ring-focus rounded-xl">
+        <Card padding="md" className="flex items-center gap-4 transition-colors hover:bg-surface-2/80 active:bg-surface-2">
+          {body}
+        </Card>
+      </Link>
+    )
+  }
+
+  return (
+    <Card padding="md" className="flex items-center gap-4">
+      {body}
     </Card>
   )
 }

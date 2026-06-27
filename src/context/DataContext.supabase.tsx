@@ -18,6 +18,7 @@ import {
   rowToAnnouncement,
   rowToCheckIn,
   rowToLeaveComment,
+  rowToRecognitionComment,
   rowToChecklistItem,
   rowToOnboardingVideo,
   taskToInsertRow,
@@ -37,6 +38,7 @@ import type {
   OnboardingProgress,
   OnboardingVideo,
   RecognitionPost,
+  RecognitionComment,
   Task,
   TaskActivityEntry,
   TaskCategoryItem,
@@ -76,6 +78,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgress[]>([])
   const [documents, setDocuments] = useState<DocumentItem[]>([])
   const [recognition, setRecognition] = useState<RecognitionPost[]>([])
+  const [recognitionComments, setRecognitionComments] = useState<RecognitionComment[]>([])
   const [inbox, setInbox] = useState<InboxNotification[]>([])
   const [events, setEvents] = useState<EventItem[]>([])
   const [teams, setTeams] = useState<DataContextValue['teams']>([])
@@ -100,6 +103,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setOnboardingProgress([])
       setDocuments([])
       setRecognition([])
+      setRecognitionComments([])
       setInbox([])
       setEvents([])
       setTeams([])
@@ -126,6 +130,15 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         .order('created_at', { ascending: true })
       if (commentRows) {
         setLeaveComments(commentRows.map((r) => rowToLeaveComment(r as Record<string, unknown>)))
+      }
+      const { data: recCommentRows } = await client
+        .from('portal_recognition_comments')
+        .select('*')
+        .order('created_at', { ascending: true })
+      if (recCommentRows) {
+        setRecognitionComments(
+          recCommentRows.map((r) => rowToRecognitionComment(r as Record<string, unknown>)),
+        )
       }
       setOnboardingVideos(d.onboardingVideos)
       setOnboardingChecklist(d.onboardingChecklist)
@@ -976,6 +989,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           tag: post.tag,
           created_at: post.createdAt,
           reacted_by: [],
+          media: post.media ?? [],
         })
         if (error) {
           reportDataError('send recognition', error)
@@ -990,7 +1004,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             type: 'recognition',
             title: giver ? `${giver.name} shouted you out` : 'New shout-out',
             body: r.message.length > 120 ? `${r.message.slice(0, 117)}…` : r.message,
-            link: '/recognition',
+            link: `/recognition?open=${encodeURIComponent(id)}`,
             read: false,
             createdAt: now,
             fromUserId: r.giverId,
@@ -1031,6 +1045,52 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       })()
     },
     [client, reloadData],
+  )
+
+  const addRecognitionComment: DataContextValue['addRecognitionComment'] = useCallback(
+    (recognitionId, body) => {
+      if (!user || !body.trim()) return
+      const trimmed = body.trim()
+      const row: RecognitionComment = {
+        id: 'rc_' + uid(),
+        recognitionId,
+        userId: user.id,
+        body: trimmed,
+        createdAt: new Date().toISOString(),
+      }
+      setRecognitionComments((prev) => [...prev, row])
+      void (async () => {
+        const { error } = await client.from('portal_recognition_comments').insert({
+          id: row.id,
+          recognition_id: recognitionId,
+          user_id: user.id,
+          body: trimmed,
+          created_at: row.createdAt,
+        })
+        if (error) reportDataError('add recognition comment', error)
+        const post = recognition.find((r) => r.id === recognitionId)
+        if (post) {
+          const targets = new Set<string>()
+          if (post.giverId !== user.id) targets.add(post.giverId)
+          if (post.receiverId !== user.id) targets.add(post.receiverId)
+          sendInboxNotifications(
+            [...targets].map((targetId) => ({
+              id: 'inbox_rc_' + row.id + '_' + targetId,
+              userId: targetId,
+              type: 'recognition_comment' as const,
+              title: `${user.name} commented on a shout-out`,
+              body: trimmed.slice(0, 120),
+              link: `/recognition?open=${encodeURIComponent(recognitionId)}`,
+              createdAt: row.createdAt,
+              fromUserId: user.id,
+              recognitionId,
+            })),
+          )
+        }
+        await reloadData()
+      })()
+    },
+    [client, user, recognition, reloadData, sendInboxNotifications],
   )
 
   const markInboxRead = useCallback(
@@ -1172,8 +1232,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addDocument,
       deleteDocument,
       recognition,
+      recognitionComments,
       giveRecognition,
       toggleRecognitionReaction,
+      addRecognitionComment,
       inbox,
       markInboxRead,
       markAllInboxRead,
@@ -1272,8 +1334,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addDocument,
       deleteDocument,
       recognition,
+      recognitionComments,
       giveRecognition,
       toggleRecognitionReaction,
+      addRecognitionComment,
       inbox,
       markInboxRead,
       markAllInboxRead,
