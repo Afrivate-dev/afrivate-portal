@@ -177,6 +177,10 @@ export function AdminPanelPage() {
 
   const saveTeam = async () => {
     if (!teamDraft?.name?.trim()) return
+    if (!teamDraft.departmentId) {
+      setAlertMessage('Please select a department for this team. Every team must belong to one department.')
+      return
+    }
     const ok = await confirm({
       title: confirms.saveTeamTitle,
       message: confirms.saveTeam,
@@ -1310,7 +1314,12 @@ export function AdminPanelPage() {
         footer={
           <>
             <Button variant="ghost" onClick={() => setTeamDraft(null)}>Cancel</Button>
-            <Button onClick={() => void saveTeam()} disabled={!teamDraft?.name?.trim()}>Save</Button>
+            <Button
+              onClick={() => void saveTeam()}
+              disabled={!teamDraft?.name?.trim() || !teamDraft?.departmentId}
+            >
+              Save
+            </Button>
           </>
         }
       >
@@ -1329,14 +1338,19 @@ export function AdminPanelPage() {
               placeholder="What this team works on"
             />
             <Select
-              label="Department (optional)"
+              label="Department"
               value={teamDraft.departmentId ?? ''}
               onChange={(e) => setTeamDraft({ ...teamDraft, departmentId: e.target.value || undefined })}
               options={[
-                { value: '', label: 'No department' },
+                { value: '', label: 'Select a department…' },
                 ...departments.map((d) => ({ value: d.id, label: d.name })),
               ]}
             />
+            {!teamDraft.departmentId ? (
+              <p className="text-xs text-muted">
+                Teams must belong to a department before members can be assigned.
+              </p>
+            ) : null}
             <Select
               label="Team lead (optional)"
               value={teamDraft.leadUserId ?? ''}

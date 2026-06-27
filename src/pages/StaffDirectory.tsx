@@ -17,6 +17,7 @@ import {
   ChevronRight,
   Upload,
   Loader2,
+  UsersRound,
 } from 'lucide-react'
 import { format, parseISO } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
@@ -38,8 +39,16 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
 import { sanitizeLinkedInUrl } from '@/utils/safeUrl'
-import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR, firstName } from '@/utils/helpers'
+import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR } from '@/utils/helpers'
 import { departmentSelectOptions } from '@/lib/departments'
+import {
+  assignableDepartments,
+  assignableTeams,
+  departmentByName,
+  resolveReportsTo,
+  userTeamMemberships,
+} from '@/lib/orgStructure'
+import { notifyError } from '@/lib/notify'
 import type { User } from '@/types'
 
 const P = pages.people
@@ -58,7 +67,7 @@ interface ProfileDraft {
 export function StaffDirectoryPage() {
   const { user, updateProfile } = useAuth()
   const confirm = useConfirm()
-  const { users, updateUser, dataStatus, departments: orgDepartments } = useData()
+  const { users, updateUser, dataStatus, departments: orgDepartments, teams, assignUserToDepartment, setUserTeamMembership } = useData()
   const { peers, multiplayerLive } = useCollab()
   const [searchParams, setSearchParams] = useSearchParams()
   const peerById = useMemo(() => new Map(peers.map((p) => [p.userId, p])), [peers])
@@ -78,6 +87,9 @@ export function StaffDirectoryPage() {
   })
   const [copiedUserId, setCopiedUserId] = useState<string | null>(null)
   const [avatarUploadBusy, setAvatarUploadBusy] = useState(false)
+  const [assignDeptId, setAssignDeptId] = useState('')
+  const [assignTeamId, setAssignTeamId] = useState('')
+  const [orgBusy, setOrgBusy] = useState(false)
   const [avatarUploadError, setAvatarUploadError] = useState('')
 
   useEffect(() => {
@@ -133,10 +145,26 @@ export function StaffDirectoryPage() {
   }, [users, departmentFilter, search])
 
   const opened = openId ? users.find((u) => u.id === openId) ?? null : null
-  const manager = opened?.reportsToId ? users.find((u) => u.id === opened.reportsToId) : undefined
+  const manager = opened ? resolveReportsTo(opened, users, orgDepartments) : undefined
+  const memberTeams = opened ? userTeamMemberships(opened.id, teams) : []
+  const deptOptions = user ? assignableDepartments(user, orgDepartments) : []
+  const teamOptions = useMemo(
+    () => (user ? assignableTeams(user, teams).filter((t) => t.departmentId) : []),
+    [user, teams],
+  )
+  const canAssignDept = !!(user && opened && opened.id !== user.id && deptOptions.length > 0)
+  const canAssignTeam = !!(user && opened && opened.id !== user.id && teamOptions.length > 0)
   const isOwnProfile = opened && user && opened.id === user.id
   /** Admins and HR can edit any profile; everyone else can only edit their own. */
   const canEditProfile = !!(opened && user && (opened.id === user.id || isAdmin(user) || isHR(user)))
+
+  useEffect(() => {
+    if (!opened) return
+    const currentDept = departmentByName(orgDepartments, opened.department)
+    setAssignDeptId(currentDept?.id ?? deptOptions[0]?.id ?? '')
+    const unassignedTeam = teamOptions.find((t) => !t.memberIds.includes(opened.id))
+    setAssignTeamId(unassignedTeam?.id ?? teamOptions[0]?.id ?? '')
+  }, [opened, orgDepartments, deptOptions, teamOptions])
 
   if (!user) return null
 
@@ -150,11 +178,7 @@ export function StaffDirectoryPage() {
     }
   }
 
-  const mailFor = (target: User) =>
-    mailtoHref(target.email, {
-      subject: P.emailSubject(firstName(target.name)),
-      body: P.emailBody(firstName(target.name), firstName(user.name)),
-    })
+  const mailFor = (target: User) => mailtoHref(target.email)
 
   const startEdit = () => {
     if (!opened) return
@@ -211,6 +235,49 @@ export function StaffDirectoryPage() {
     updateUser(opened.id, patch)
     if (opened.id === user.id) updateProfile(patch)
     setEditing(false)
+  }
+
+  const handleAssignDepartment = async () => {
+    if (!opened || !assignDeptId) return
+    const ok = await confirm({
+      title: confirms.assignDepartmentTitle,
+      message: confirms.assignDepartment,
+      confirmLabel: P.assignSave,
+    })
+    if (!ok) return
+    setOrgBusy(true)
+    const result = await assignUserToDepartment(opened.id, assignDeptId)
+    setOrgBusy(false)
+    if (!result.ok) notifyError(result.error ?? 'Could not assign department.')
+  }
+
+  const handleAddToTeam = async () => {
+    if (!opened || !assignTeamId) return
+    const ok = await confirm({
+      title: confirms.addToTeamTitle,
+      message: confirms.addToTeam,
+      confirmLabel: P.assignTeamAdd,
+    })
+    if (!ok) return
+    setOrgBusy(true)
+    const result = await setUserTeamMembership(opened.id, assignTeamId, true)
+    setOrgBusy(false)
+    if (!result.ok) notifyError(result.error ?? 'Could not add to team.')
+  }
+
+  const handleRemoveFromTeam = async (teamId: string) => {
+    if (!opened) return
+    const ok = await confirm({
+      title: confirms.removeFromTeamTitle,
+      message: confirms.removeFromTeam,
+      confirmLabel: P.removeFromTeam,
+      destructive: true,
+    })
+    if (!ok) return
+    setOrgBusy(true)
+    const result = await setUserTeamMembership(opened.id, teamId, false)
+    setOrgBusy(false)
+    if (!result.ok) notifyError(result.error ?? 'Could not remove from team.')
   }
 
   return (
@@ -520,12 +587,19 @@ export function StaffDirectoryPage() {
                     {P.organization}
                   </h4>
                   <dl className="grid gap-3 sm:grid-cols-2">
+                    <div className="rounded-md border border-border bg-surface-2/50 px-3 py-2.5">
+                      <dt className="text-[11px] font-medium uppercase tracking-wide text-muted">{P.department}</dt>
+                      <dd className="mt-1 text-sm font-medium text-fg">{opened.department}</dd>
+                    </div>
                     {manager ? (
                       <div className="rounded-md border border-border bg-surface-2/50 px-3 py-2.5">
                         <dt className="text-[11px] font-medium uppercase tracking-wide text-muted">{P.reportsTo}</dt>
                         <dd className="mt-1 flex items-center gap-2 text-sm font-medium text-fg">
                           <Avatar name={manager.name} src={manager.avatarUrl} size="xs" />
-                          {manager.name} · {manager.jobTitle}
+                          <span>
+                            {manager.name}
+                            <span className="block text-xs font-normal text-muted">{manager.jobTitle}</span>
+                          </span>
                         </dd>
                       </div>
                     ) : (
@@ -534,6 +608,52 @@ export function StaffDirectoryPage() {
                         <dd className="mt-1 text-sm text-muted">—</dd>
                       </div>
                     )}
+                    <div className="rounded-md border border-border bg-surface-2/50 px-3 py-2.5 sm:col-span-2">
+                      <dt className="mb-2 flex items-center gap-1.5 text-[11px] font-medium uppercase tracking-wide text-muted">
+                        <UsersRound className="h-3.5 w-3.5" />
+                        {P.teams}
+                      </dt>
+                      <dd>
+                        {memberTeams.length > 0 ? (
+                          <div className="flex flex-wrap gap-2">
+                            {memberTeams.map((t) => {
+                              const dept = orgDepartments.find((d) => d.id === t.departmentId)
+                              const canRemove =
+                                user &&
+                                opened.id !== user.id &&
+                                (isHR(user) ||
+                                  isAdmin(user) ||
+                                  t.leadUserId === user.id ||
+                                  t.asstLeadUserId === user.id)
+                              return (
+                                <span
+                                  key={t.id}
+                                  className="inline-flex items-center gap-1.5 rounded-full border border-border bg-surface px-2.5 py-1 text-xs font-medium text-fg"
+                                >
+                                  {t.name}
+                                  {dept ? (
+                                    <span className="text-muted">· {dept.name}</span>
+                                  ) : null}
+                                  {canRemove ? (
+                                    <button
+                                      type="button"
+                                      disabled={orgBusy}
+                                      onClick={() => void handleRemoveFromTeam(t.id)}
+                                      className="ml-0.5 rounded-full p-0.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
+                                      aria-label={`${P.removeFromTeam}: ${t.name}`}
+                                    >
+                                      <X className="h-3 w-3" />
+                                    </button>
+                                  ) : null}
+                                </span>
+                              )
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-sm text-muted">{P.noTeams}</p>
+                        )}
+                      </dd>
+                    </div>
                     <div className="rounded-md border border-border bg-surface-2/50 px-3 py-2.5">
                       <dt className="text-[11px] font-medium uppercase tracking-wide text-muted">{P.accessRole}</dt>
                       <dd className="mt-1 text-sm text-fg">{roleLabel[opened.role]}</dd>
@@ -555,6 +675,72 @@ export function StaffDirectoryPage() {
                       </div>
                     ) : null}
                   </dl>
+
+                  {canAssignDept || canAssignTeam ? (
+                    <div className="mt-4 space-y-4 rounded-lg border border-dashed border-border bg-surface-2/20 p-4">
+                      {canAssignDept ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-fg">{P.assignDepartment}</p>
+                          <p className="text-xs text-muted">{P.assignDepartmentHelp}</p>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="min-w-0 flex-1">
+                              <Select
+                                label=""
+                                aria-label={P.assignDepartment}
+                                value={assignDeptId}
+                                onChange={(e) => setAssignDeptId(e.target.value)}
+                                options={deptOptions.map((d) => ({ value: d.id, label: d.name }))}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              loading={orgBusy}
+                              disabled={!assignDeptId}
+                              onClick={() => void handleAssignDepartment()}
+                              className="w-full sm:w-auto"
+                            >
+                              {P.assignSave}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                      {canAssignTeam ? (
+                        <div className="space-y-2">
+                          <p className="text-sm font-medium text-fg">{P.assignTeam}</p>
+                          <p className="text-xs text-muted">{P.assignTeamHelp}</p>
+                          <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
+                            <div className="min-w-0 flex-1">
+                              <Select
+                                label=""
+                                aria-label={P.assignTeam}
+                                value={assignTeamId}
+                                onChange={(e) => setAssignTeamId(e.target.value)}
+                                options={teamOptions.map((t) => {
+                                  const dept = orgDepartments.find((d) => d.id === t.departmentId)
+                                  return {
+                                    value: t.id,
+                                    label: dept ? `${t.name} · ${dept.name}` : t.name,
+                                  }
+                                })}
+                              />
+                            </div>
+                            <Button
+                              type="button"
+                              size="sm"
+                              variant="secondary"
+                              loading={orgBusy}
+                              disabled={!assignTeamId || memberTeams.some((t) => t.id === assignTeamId)}
+                              onClick={() => void handleAddToTeam()}
+                              className="w-full sm:w-auto"
+                            >
+                              {P.assignTeamAdd}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : null}
+                    </div>
+                  ) : null}
                 </div>
 
                 {opened.bio ? (

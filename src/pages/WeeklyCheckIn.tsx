@@ -21,6 +21,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
+import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns, isHR } from '@/utils/helpers'
 import { departmentSelectOptions } from '@/lib/departments'
@@ -176,20 +177,40 @@ export function WeeklyCheckInPage() {
         }
       />
 
-      {/* Tabs */}
-      <div className="flex border-b border-border">
-        <TabButton active={tab === 'this-week'} onClick={() => setTab('this-week')}>
-          <CalendarCheck className="h-4 w-4" /> This week
-        </TabButton>
-        <TabButton active={tab === 'history'} onClick={() => setTab('history')}>
-          <History className="h-4 w-4" /> History
-        </TabButton>
-        {canSeeTeam ? (
-          <TabButton active={tab === 'team'} onClick={() => setTab('team')}>
-            <UsersIcon className="h-4 w-4" /> Team submissions
-          </TabButton>
-        ) : null}
-      </div>
+      <TabBar
+        active={tab}
+        onChange={setTab}
+        tabs={[
+          {
+            id: 'this-week',
+            label: (
+              <>
+                <CalendarCheck className="h-4 w-4" /> This week
+              </>
+            ),
+          },
+          {
+            id: 'history',
+            label: (
+              <>
+                <History className="h-4 w-4" /> History
+              </>
+            ),
+          },
+          ...(canSeeTeam
+            ? [
+                {
+                  id: 'team' as const,
+                  label: (
+                    <>
+                      <UsersIcon className="h-4 w-4" /> Team submissions
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* THIS WEEK */}
       {tab === 'this-week' ? (
@@ -306,31 +327,6 @@ export function WeeklyCheckInPage() {
 function isSameWeekISO(a: string, b: string) {
   return startOfWeek(parseISO(a), { weekStartsOn: 1 }).toISOString() ===
     startOfWeek(parseISO(b), { weekStartsOn: 1 }).toISOString()
-}
-
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      onClick={onClick}
-      className={cn(
-        'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-fg',
-      )}
-    >
-      {children}
-      {active ? (
-        <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />
-      ) : null}
-    </button>
-  )
 }
 
 function SubmittedView({ checkIn, onEdit }: { checkIn: WeeklyCheckIn; onEdit: () => void }) {

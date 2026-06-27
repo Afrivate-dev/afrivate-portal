@@ -7,6 +7,7 @@ import { usePortalRealtime } from '@/hooks/usePortalRealtime'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
+import { rpcAssignUserToDepartment, rpcSetTeamMember } from '@/lib/orgAssignments'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { patchPortalProfile } from '@/lib/patchPortalProfile'
@@ -1018,6 +1019,20 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     [client, users, queueInboxInsert, reloadData],
   )
 
+  const deleteRecognition: DataContextValue['deleteRecognition'] = useCallback(
+    (id) => {
+      setRecognition((prev) => prev.filter((r) => r.id !== id))
+      setRecognitionComments((prev) => prev.filter((c) => c.recognitionId !== id))
+      setInbox((prev) => prev.filter((n) => n.recognitionId !== id))
+      void (async () => {
+        const { error } = await client.from('portal_recognition_posts').delete().eq('id', id)
+        if (error) reportDataError('delete recognition', error)
+        await reloadData()
+      })()
+    },
+    [client, reloadData],
+  )
+
   const toggleRecognitionReaction: DataContextValue['toggleRecognitionReaction'] = useCallback(
     (id, userId) => {
       setRecognition((prev) =>
@@ -1234,6 +1249,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       recognition,
       recognitionComments,
       giveRecognition,
+      deleteRecognition,
       toggleRecognitionReaction,
       addRecognitionComment,
       inbox,
@@ -1271,6 +1287,24 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         await client.from('portal_departments').delete().eq('id', id)
         setDepartments((prev) => prev.filter((d) => d.id !== id))
       },
+      assignUserToDepartment: async (userId, departmentId) => {
+        const result = await rpcAssignUserToDepartment(client, userId, departmentId)
+        if (!result.ok) {
+          reportDataError('assign department', new Error(result.error))
+          return result
+        }
+        await reloadData()
+        return { ok: true as const }
+      },
+      setUserTeamMembership: async (userId, teamId, member) => {
+        const result = await rpcSetTeamMember(client, userId, teamId, member)
+        if (!result.ok) {
+          reportDataError('team membership', new Error(result.error))
+          return result
+        }
+        await reloadData()
+        return { ok: true as const }
+      },
       pendingUsers: pendingUsersList,
       accessRequests,
       approveUser: async (id, role, department, jobTitle) => {
@@ -1280,10 +1314,19 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           await reloadData()
           return { ok: false as const, error: result.error }
         }
+        const headUserId = departments.find((d) => d.name === department)?.headUserId
         setUsers((prev) =>
           prev.map((u) =>
             u.id === id
-              ? { ...u, role, department, jobTitle, active: true, approvedAt: new Date().toISOString() }
+              ? {
+                  ...u,
+                  role,
+                  department,
+                  jobTitle,
+                  reportsToId: headUserId,
+                  active: true,
+                  approvedAt: new Date().toISOString(),
+                }
               : u,
           ),
         )
@@ -1336,6 +1379,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       recognition,
       recognitionComments,
       giveRecognition,
+      deleteRecognition,
       toggleRecognitionReaction,
       addRecognitionComment,
       inbox,

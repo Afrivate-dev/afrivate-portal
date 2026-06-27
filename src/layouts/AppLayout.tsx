@@ -6,6 +6,7 @@ import { PendingApprovalScreen } from '@/components/shared/PendingApprovalScreen
 import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScreen'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { PageLoadFallback } from '@/components/shared/PageLoadFallback'
+import { AnimatedPage } from '@/components/shared/AnimatedPage'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
@@ -45,8 +46,8 @@ function AppShell({
             </button>
           </div>
         ) : null}
-        <main className="flex-1 px-4 py-6 pb-20 sm:px-6 lg:px-8 lg:pb-8">
-          <div className="mx-auto w-full max-w-7xl">{children}</div>
+        <main className="flex-1 px-3 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:pb-8">
+          <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
         </main>
         <MobileNav onOpenDrawer={onOpenDrawer} />
       </div>
@@ -165,7 +166,9 @@ export function AppLayout() {
       onCloseDrawer={() => setDrawerOpen(false)}
     >
       <Suspense fallback={<PageLoadFallback />}>
-        <Outlet />
+        <AnimatedPage>
+          <Outlet />
+        </AnimatedPage>
       </Suspense>
     </AppShell>
   )

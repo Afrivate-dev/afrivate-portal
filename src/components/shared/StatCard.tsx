@@ -31,7 +31,7 @@ export function StatCard({ label, value, icon: Icon, tone = 'brand', hint, to }:
       ) : null}
       <div className="min-w-0 flex-1">
         <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
-        <div className="mt-0.5 text-2xl font-bold text-fg">{value}</div>
+        <div className="mt-0.5 text-xl font-bold text-fg sm:text-2xl">{value}</div>
         {hint ? <div className="text-xs text-muted">{hint}</div> : null}
       </div>
     </>
@@ -40,7 +40,7 @@ export function StatCard({ label, value, icon: Icon, tone = 'brand', hint, to }:
   if (to) {
     return (
       <Link to={to} className="block min-h-[44px] touch-manipulation ring-focus rounded-xl">
-        <Card padding="md" className="flex items-center gap-4 transition-colors hover:bg-surface-2/80 active:bg-surface-2">
+        <Card padding="md" className="flex items-center gap-3 transition-all duration-200 hover:bg-surface-2/80 active:scale-[0.99] sm:gap-4 motion-reduce:active:scale-100">
           {body}
         </Card>
       </Link>

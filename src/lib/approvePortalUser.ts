@@ -17,6 +17,29 @@ function parseRpcApprove(data: unknown): ApproveUserResult {
   return { ok: false, error: 'Approval failed. Please try again.' }
 }
 
+/** Edge fallback does not run admin_approve_portal_user — sync reports_to from department head. */
+async function syncReportsToFromDepartment(
+  client: SupabaseClient,
+  userId: string,
+  department: string,
+): Promise<void> {
+  const deptName = department.trim()
+  if (!deptName) return
+
+  const { data: dept } = await client
+    .from('portal_departments')
+    .select('head_user_id')
+    .eq('name', deptName)
+    .maybeSingle()
+
+  if (!dept?.head_user_id) return
+
+  await client.rpc('admin_patch_portal_profile', {
+    p_user_id: userId,
+    p_patch: { reports_to_id: dept.head_user_id },
+  })
+}
+
 async function invokeEdgeApprove(
   client: SupabaseClient,
   userId: string,
@@ -47,6 +70,8 @@ async function invokeEdgeApprove(
     .from('portal_access_requests')
     .update({ status: 'approved' })
     .eq('user_id', userId)
+
+  await syncReportsToFromDepartment(client, userId, department)
 
   return { ok: true }
 }

@@ -27,6 +27,7 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
+import { TabBar } from '@/components/ui/TabBar'
 import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
@@ -198,20 +199,40 @@ export function EventsCalendarPage() {
         </p>
       ) : null}
 
-      {/* View toggle */}
-      <div className="flex flex-wrap border-b border-border">
-        <TabButton active={view === 'list'} onClick={() => setView('list')}>
-          <List className="h-4 w-4" /> {W.list}
-        </TabButton>
-        <TabButton active={view === 'schedule'} onClick={() => setView('schedule')}>
-          <CalendarIcon className="h-4 w-4" /> {W.schedule}
-        </TabButton>
-        {googleEmbed ? (
-          <TabButton active={view === 'google'} onClick={() => setView('google')}>
-            <ExternalLink className="h-4 w-4" /> {W.google}
-          </TabButton>
-        ) : null}
-      </div>
+      <TabBar
+        active={view}
+        onChange={setView}
+        tabs={[
+          {
+            id: 'list',
+            label: (
+              <>
+                <List className="h-4 w-4" /> {W.list}
+              </>
+            ),
+          },
+          {
+            id: 'schedule',
+            label: (
+              <>
+                <CalendarIcon className="h-4 w-4" /> {W.schedule}
+              </>
+            ),
+          },
+          ...(googleEmbed
+            ? [
+                {
+                  id: 'google' as const,
+                  label: (
+                    <>
+                      <ExternalLink className="h-4 w-4" /> {W.google}
+                    </>
+                  ),
+                },
+              ]
+            : []),
+        ]}
+      />
 
       {/* LIST VIEW */}
       {view === 'list' ? (
@@ -510,32 +531,6 @@ export function EventsCalendarPage() {
         </form>
       </Modal>
     </div>
-  )
-}
-
-function TabButton({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'relative flex items-center gap-2 px-4 py-2.5 text-sm font-medium transition-colors',
-        active ? 'text-accent' : 'text-muted hover:text-fg',
-      )}
-    >
-      {children}
-      {active ? (
-        <span className="absolute inset-x-2 -bottom-px h-0.5 rounded-full bg-accent" />
-      ) : null}
-    </button>
   )
 }
 

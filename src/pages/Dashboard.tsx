@@ -91,7 +91,7 @@ export function DashboardPage() {
   const currentAnnouncement = recentAnnouncements.find((a) => a.id === readingId)
 
   return (
-    <div className="space-y-6">
+    <div className="space-y-4 sm:space-y-6">
       {/* Welcome banner */}
       <Card padding="lg" className="relative overflow-hidden">
         <div
@@ -167,7 +167,7 @@ export function DashboardPage() {
       ) : null}
 
       {/* Stat cards */}
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="av-stagger grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard label="Tasks due today" value={stats.dueToday} icon={ListChecks} tone="brand" />
         <StatCard
           label="Pending leave"

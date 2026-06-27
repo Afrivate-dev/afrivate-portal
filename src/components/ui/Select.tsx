@@ -31,7 +31,7 @@ export const Select = forwardRef<HTMLSelectElement, SelectProps>(function Select
           id={selectId}
           className={cn(
             'w-full appearance-none rounded-md border bg-surface text-fg',
-            'h-11 pl-3.5 pr-10 text-sm',
+            'h-11 min-h-[44px] pl-3 pr-10 text-sm sm:pl-3.5',
             'transition-colors ring-focus',
             error ? 'border-danger' : 'border-border focus:border-accent',
             className,

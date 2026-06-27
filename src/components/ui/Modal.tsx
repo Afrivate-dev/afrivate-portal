@@ -48,27 +48,27 @@ export function Modal({ open, onClose, title, description, children, footer, siz
           'relative w-full bg-surface text-fg shadow-elevated',
           'rounded-t-xl sm:rounded-xl',
           'max-h-[90vh] flex flex-col',
-          'animate-slide-up sm:animate-fade-in',
+          'animate-slide-up sm:animate-scale-in motion-reduce:animate-none',
           'sm:w-full sm:mx-4',
           sizes[size],
         )}
       >
-        <header className="flex items-start justify-between gap-4 border-b border-border p-5">
-          <div>
-            {title ? <h2 className="text-lg font-semibold text-fg">{title}</h2> : null}
-            {description ? <p className="mt-1 text-sm text-muted">{description}</p> : null}
+        <header className="flex items-start justify-between gap-3 border-b border-border p-4 sm:gap-4 sm:p-5">
+          <div className="min-w-0 flex-1">
+            {title ? <h2 className="text-base font-semibold text-fg sm:text-lg">{title}</h2> : null}
+            {description ? <p className="mt-1 text-xs text-muted sm:text-sm">{description}</p> : null}
           </div>
           <button
             onClick={onClose}
             aria-label="Close"
-            className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
+            className="av-tap shrink-0 rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
           >
             <X className="h-5 w-5" />
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto p-5 scrollbar-thin">{children}</div>
+        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin sm:p-5">{children}</div>
         {footer ? (
-          <footer className="flex flex-wrap items-center justify-end gap-2 border-t border-border p-4">
+          <footer className="flex flex-col-reverse gap-2 border-t border-border p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
             {footer}
           </footer>
         ) : null}
