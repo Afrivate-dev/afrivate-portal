@@ -59,6 +59,8 @@ Save the file. Restart `npm run dev` after any `.env` change.
 | 7 | **`20260620_audit_remediation.sql`** | **REQUIRED** — access requests, announcement read RPCs, note link tokens, task categories |
 | 8 | **`20260621_request_access_rpc.sql`** | **REQUIRED** — Request access button works without Edge Function deploy |
 | 9 | `rls-section-5-and-6.sql` | **REQUIRED** — Realtime private channel policies |
+| 10 | **`20260628_access_request_flow_fix.sql`** | **REQUIRED** — access request approval workflow |
+| 11 | **`20260629_portal_features.sql`** | **REQUIRED** — check-in visibility, leave comments, realtime tables (fixed: uses `portal_recognition_posts`) |
 
 ### Important SQL tips
 
@@ -161,6 +163,47 @@ Dashboard → **Edge Functions → Secrets** (or Project Settings → Edge Funct
    - For faster onboarding, you may turn **OFF** “Confirm email” so new users can request access immediately after sign-up (otherwise they must confirm email first)
 3. **Edge Functions → Secrets:** remove `ALLOWED_EMAIL_DOMAIN` or set it empty to allow admin invites to any email address
 
+### Branded auth emails (AfriVate purple `#8D4087`)
+
+Hosted Supabase projects do **not** read `config.toml` from your repo. Paste the templates from the repo into the Dashboard:
+
+1. Open **Authentication → Email Templates** in Supabase Dashboard
+2. For each template below, set the **Subject** and paste the **HTML body** from the matching file in `supabase/templates/`
+3. Under **Authentication → Notifications**, enable **Password changed** and **Email changed** and paste the matching notification HTML
+
+| Template | Subject | File |
+|----------|---------|------|
+| Confirm signup | `Confirm your AfriVate Team Space account` | `supabase/templates/confirmation.html` |
+| Invite user | `You are invited to AfriVate Team Space` | `supabase/templates/invite.html` |
+| Reset password | `Reset your AfriVate Team Space password` | `supabase/templates/recovery.html` |
+| Magic link | `Your AfriVate Team Space sign-in link` | `supabase/templates/magic_link.html` |
+| Change email address | `Confirm your new AfriVate email address` | `supabase/templates/email_change.html` |
+| Reauthentication | `Verify your identity — AfriVate Team Space` | `supabase/templates/reauthentication.html` |
+| Password changed (notification) | `Your AfriVate Team Space password was changed` | `supabase/templates/notifications/password_changed.html` |
+| Email changed (notification) | `Your AfriVate Team Space email was changed` | `supabase/templates/notifications/email_changed.html` |
+
+Logo URL in templates: `{{ .SiteURL }}/afrivate-icon.svg` — ensure **Site URL** is your deployed portal (e.g. `https://portal.afrivate.org`) so the AfriVate icon loads in email clients that support SVG.
+
+3. Under **Authentication → URL Configuration**, set **Site URL** to your portal (e.g. `https://portal.afrivate.org`)
+4. Add redirect URLs: `https://portal.afrivate.org/login`, `https://portal.afrivate.org/account`, `http://localhost:5173/login`, `http://localhost:5173/account`, and your reset-password URLs
+5. Optional: **Project Settings → Auth → SMTP** — configure custom SMTP so emails come from e.g. `noreply@afrivate.org` instead of Supabase default
+
+For **local Supabase CLI** (`supabase start`), templates load automatically from `supabase/config.toml` and `supabase/templates/`.
+
+### Auth email & security test checklist
+
+After pasting templates and deploying the frontend:
+
+- [ ] **Confirm signup** — Request access → create account → confirmation email uses AfriVate branding → link completes signup
+- [ ] **Invite user** — Admin invites user → invite email branded → link opens reset-password flow
+- [ ] **Reset password** — Forgot password → recovery email branded → set new password works
+- [ ] **Magic link** — Login → Magic link tab → email arrives → link signs in (approved users only)
+- [ ] **Change email** — Account & security → change email → confirmation email to new address
+- [ ] **Reauthentication** — Account & security → Send verification email → link verifies identity
+- [ ] **Password changed notification** — Change password in Account & security → notification email received
+- [ ] **Email changed notification** — After confirming email change → notification to old/new address
+- [ ] **Access approval** — New signup appears under Approvals (not auto-activated in Users)
+
 ---
 
 ## Step 8 — Create your first admin user
@@ -212,6 +255,8 @@ npm run dev
 |---------|-----|
 | `policy already exists` | That migration already ran — skip it or use the updated files (now include `DROP POLICY IF EXISTS`) |
 | `syntax error at end` on security hardening | Re-copy the **latest** `20260619_security_hardening.sql` from the repo (plpgsql `IF` blocks were fixed) |
+| `unterminated quoted string` on access request fix | Re-copy the **latest** `20260628_access_request_flow_fix.sql` — older versions used `jsonb ?` which breaks in the Supabase SQL Editor |
+| `relation "public.portal_recognition" does not exist` | Re-copy the **latest** `20260629_portal_features.sql` — table is `portal_recognition_posts` |
 | Edge Function 403 | Use **Option B** (Dashboard deploy) or `supabase login` + `supabase link` |
 | “Loading workspace…” forever | Check `.env` keys, confirm `VITE_USE_SUPABASE_DATA=true`, check browser console for RLS errors |
 | Login works but no data | Run `20260619_security_hardening.sql`; verify JWT session in Network tab |

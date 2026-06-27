@@ -1,6 +1,6 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus } from 'lucide-react'
+import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus, CalendarDays, StickyNote } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
@@ -34,6 +34,21 @@ const TYPE_META: Record<
     icon: AtSign,
     label: 'Mention',
     iconClass: 'text-amber-600 dark:text-amber-300',
+  },
+  note_mention: {
+    icon: StickyNote,
+    label: 'Note mention',
+    iconClass: 'text-amber-600 dark:text-amber-300',
+  },
+  leave_update: {
+    icon: CalendarDays,
+    label: 'Leave update',
+    iconClass: 'text-accent',
+  },
+  leave_comment: {
+    icon: CalendarDays,
+    label: 'Leave message',
+    iconClass: 'text-accent',
   },
   access_request: {
     icon: UserPlus,
@@ -69,7 +84,11 @@ export function InboxPage() {
     const link =
       n.taskId && (n.type === 'task_assigned' || n.type === 'task_mention')
         ? `/tasks?open=${n.taskId}`
-        : n.link
+        : n.noteId && n.type === 'note_mention'
+          ? n.link
+          : n.leaveId && (n.type === 'leave_update' || n.type === 'leave_comment')
+            ? '/leave'
+            : n.link
     navigate(link)
   }
 

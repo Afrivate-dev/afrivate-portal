@@ -3,6 +3,7 @@
  * Requires logged-in user (JWT) for RLS. Enable with `VITE_USE_SUPABASE_DATA=true`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
+import { usePortalRealtime } from '@/hooks/usePortalRealtime'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
@@ -16,6 +17,7 @@ import {
   readStringArray,
   rowToAnnouncement,
   rowToCheckIn,
+  rowToLeaveComment,
   rowToChecklistItem,
   rowToOnboardingVideo,
   taskToInsertRow,
@@ -29,6 +31,7 @@ import type {
   DocumentItem,
   EventItem,
   InboxNotification,
+  LeaveComment,
   LeaveRequest,
   OnboardingChecklistItem,
   OnboardingProgress,
@@ -67,6 +70,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const [checkIns, setCheckIns] = useState<WeeklyCheckIn[]>([])
   const [announcements, setAnnouncements] = useState<Announcement[]>([])
   const [leaveRequests, setLeaveRequests] = useState<LeaveRequest[]>([])
+  const [leaveComments, setLeaveComments] = useState<LeaveComment[]>([])
   const [onboardingVideos, setOnboardingVideos] = useState<OnboardingVideo[]>([])
   const [onboardingChecklist, setOnboardingChecklist] = useState<OnboardingChecklistItem[]>([])
   const [onboardingProgress, setOnboardingProgress] = useState<OnboardingProgress[]>([])
@@ -90,6 +94,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setCheckIns([])
       setAnnouncements([])
       setLeaveRequests([])
+      setLeaveComments([])
       setOnboardingVideos([])
       setOnboardingChecklist([])
       setOnboardingProgress([])
@@ -115,6 +120,13 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setCheckIns(d.checkIns)
       setAnnouncements(d.announcements)
       setLeaveRequests(d.leaveRequests)
+      const { data: commentRows } = await client
+        .from('portal_leave_comments')
+        .select('*')
+        .order('created_at', { ascending: true })
+      if (commentRows) {
+        setLeaveComments(commentRows.map((r) => rowToLeaveComment(r as Record<string, unknown>)))
+      }
       setOnboardingVideos(d.onboardingVideos)
       setOnboardingChecklist(d.onboardingChecklist)
       setOnboardingProgress(d.onboardingProgress)
@@ -138,32 +150,36 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         .select('user_id, message, preferred_department_id, job_title, status, requested_at')
         .in('status', ['pending', 'acknowledged'])
 
+      const mapAccessRows = (rows: Record<string, unknown>[]) =>
+        rows.map((r) => ({
+          userId: String(r.user_id),
+          message: r.message ? String(r.message) : undefined,
+          preferredDepartmentId: r.preferred_department_id
+            ? String(r.preferred_department_id)
+            : undefined,
+          jobTitle: r.job_title ? String(r.job_title) : undefined,
+          status: String(r.status) as AccessRequest['status'],
+          requestedAt: String(r.requested_at),
+        }))
+
       if (accessErr?.message?.includes('preferred_department_id')) {
         const { data: basicRows } = await client
           .from('portal_access_requests')
           .select('user_id, message, status, requested_at')
           .in('status', ['pending', 'acknowledged'])
-        setAccessRequests(
-          (basicRows ?? []).map((r: Record<string, unknown>) => ({
-            userId: String(r.user_id),
-            message: r.message ? String(r.message) : undefined,
-            status: String(r.status) as AccessRequest['status'],
-            requestedAt: String(r.requested_at),
-          })),
-        )
+        setAccessRequests(mapAccessRows((basicRows ?? []) as Record<string, unknown>[]))
       } else if (accessRows) {
-        setAccessRequests(
-          accessRows.map((r: Record<string, unknown>) => ({
-            userId: String(r.user_id),
-            message: r.message ? String(r.message) : undefined,
-            preferredDepartmentId: r.preferred_department_id
-              ? String(r.preferred_department_id)
-              : undefined,
-            jobTitle: r.job_title ? String(r.job_title) : undefined,
-            status: String(r.status) as AccessRequest['status'],
-            requestedAt: String(r.requested_at),
-          })),
+        setAccessRequests(mapAccessRows(accessRows as Record<string, unknown>[]))
+      } else if (accessErr) {
+        const { data: rpcRows, error: rpcErr } = await client.rpc(
+          'list_portal_access_requests_for_admin',
         )
+        if (!rpcErr && rpcRows) {
+          setAccessRequests(mapAccessRows(rpcRows as Record<string, unknown>[]))
+        } else {
+          console.warn('[data] access requests load failed:', accessErr.message)
+          setAccessRequests([])
+        }
       } else {
         setAccessRequests([])
       }
@@ -233,6 +249,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   [client, user, users, reloadData],
   )
 
+  usePortalRealtime(user?.id, reloadData, client)
+
   const queueInboxInsert = useCallback(
     async (rows: InboxNotification[]) => {
       if (!rows.length) return
@@ -253,6 +271,16 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       if (error) reportDataError('save notification', error)
     },
     [client],
+  )
+
+  const sendInboxNotifications = useCallback<DataContextValue['sendInboxNotifications']>(
+    (rows) => {
+      if (!rows.length) return
+      const full: InboxNotification[] = rows.map((r) => ({ ...r, read: false }))
+      setInbox((prev) => [...full, ...prev])
+      void queueInboxInsert(full)
+    },
+    [queueInboxInsert],
   )
 
   const createTask: DataContextValue['createTask'] = useCallback(
@@ -436,6 +464,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           blockers: record.blockers ?? null,
           hours_worked: record.hoursWorked,
           submitted_at: record.submittedAt,
+          visibility: record.visibility ?? 'department',
         })
         if (error) reportDataError('submit check-in', error)
         await reloadData()
@@ -465,6 +494,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             next_week: next.nextWeek,
             blockers: next.blockers ?? null,
             hours_worked: next.hoursWorked,
+            visibility: next.visibility ?? 'department',
           })
           .eq('id', id)
         if (upErr) reportDataError('update check-in', upErr)
@@ -640,24 +670,100 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   )
 
   const reviewLeave: DataContextValue['reviewLeave'] = useCallback(
-    (id, status, reviewerId, note) => {
+    (id, status, reviewerId, note, approvedDays) => {
       setLeaveRequests((prev) =>
-        prev.map((l) => (l.id === id ? { ...l, status, reviewedById: reviewerId, reviewerNote: note } : l)),
+        prev.map((l) =>
+          l.id === id
+            ? { ...l, status, reviewedById: reviewerId, reviewerNote: note, approvedDays }
+            : l,
+        ),
       )
       void (async () => {
+        const target = leaveRequests.find((l) => l.id === id)
         const { error } = await client
           .from('portal_leave_requests')
           .update({
             status,
             reviewed_by_id: reviewerId,
             reviewer_note: note ?? null,
+            approved_days: approvedDays ?? null,
           })
           .eq('id', id)
         if (error) reportDataError('review leave request', error)
+        if (target && user) {
+          const reviewer = users.find((u) => u.id === reviewerId)
+          sendInboxNotifications([
+            {
+              id: 'inbox_leave_' + id + '_' + status,
+              userId: target.userId,
+              type: 'leave_update',
+              title:
+                status === 'approved'
+                  ? `${reviewer?.name ?? 'HR'} approved your leave request`
+                  : `${reviewer?.name ?? 'HR'} declined your leave request`,
+              body: note ?? undefined,
+              link: '/leave',
+              createdAt: new Date().toISOString(),
+              fromUserId: reviewerId,
+              leaveId: id,
+            },
+          ])
+        }
         await reloadData()
       })()
     },
-    [client, reloadData],
+    [client, leaveRequests, reloadData, sendInboxNotifications, user, users],
+  )
+
+  const addLeaveComment: DataContextValue['addLeaveComment'] = useCallback(
+    (leaveId, body) => {
+      if (!user || !body.trim()) return
+      const trimmed = body.trim()
+      const row: LeaveComment = {
+        id: 'lc_' + uid(),
+        leaveId,
+        userId: user.id,
+        body: trimmed,
+        createdAt: new Date().toISOString(),
+      }
+      setLeaveComments((prev) => [...prev, row])
+      void (async () => {
+        const { error } = await client.from('portal_leave_comments').insert({
+          id: row.id,
+          leave_id: leaveId,
+          user_id: user.id,
+          body: trimmed,
+          created_at: row.createdAt,
+        })
+        if (error) reportDataError('add leave comment', error)
+        const leave = leaveRequests.find((l) => l.id === leaveId)
+        if (leave) {
+          const notifyId = leave.userId === user.id ? leave.reviewedById : leave.userId
+          const hrIds = users.filter((u) => u.role === 'hr' || u.role === 'admin').map((u) => u.id)
+          const targets = new Set<string>()
+          if (notifyId && notifyId !== user.id) targets.add(notifyId)
+          if (leave.userId !== user.id) targets.add(leave.userId)
+          hrIds.forEach((id) => {
+            if (id !== user.id) targets.add(id)
+          })
+          sendInboxNotifications(
+            [...targets].map((uid) => ({
+              id: 'inbox_lc_' + row.id + '_' + uid,
+              userId: uid,
+              type: 'leave_comment' as const,
+              title: `${user.name} commented on a leave request`,
+              body: trimmed.slice(0, 120),
+              link: '/leave',
+              createdAt: row.createdAt,
+              fromUserId: user.id,
+              leaveId,
+            })),
+          )
+        }
+        await reloadData()
+      })()
+    },
+    [client, leaveRequests, reloadData, sendInboxNotifications, user, users],
   )
 
   const toggleVideoWatched: DataContextValue['toggleVideoWatched'] = useCallback(
@@ -988,8 +1094,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   }, [client])
 
   const pendingUsersList = useMemo(
-    () => usersAwaitingApproval(users, accessRequests),
-    [users, accessRequests],
+    () => usersAwaitingApproval(users),
+    [users],
   )
 
   const addTaskCategory = useCallback(
@@ -1047,8 +1153,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       markAnnouncementRead,
       markAllAnnouncementsRead,
       leaveRequests,
+      leaveComments,
       submitLeave,
       reviewLeave,
+      addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
       onboardingProgress,
@@ -1069,6 +1177,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       inbox,
       markInboxRead,
       markAllInboxRead,
+      sendInboxNotifications,
       events,
       addEvent,
       teams,
@@ -1110,7 +1219,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           return { ok: false as const, error: result.error }
         }
         setUsers((prev) =>
-          prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)),
+          prev.map((u) =>
+            u.id === id
+              ? { ...u, role, department, jobTitle, active: true, approvedAt: new Date().toISOString() }
+              : u,
+          ),
         )
         void reloadData()
         return { ok: true as const, emailSent: result.emailSent }
@@ -1140,8 +1253,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       markAnnouncementRead,
       markAllAnnouncementsRead,
       leaveRequests,
+      leaveComments,
       submitLeave,
       reviewLeave,
+      addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
       onboardingProgress,
@@ -1162,6 +1277,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       inbox,
       markInboxRead,
       markAllInboxRead,
+      sendInboxNotifications,
       events,
       addEvent,
       teams,

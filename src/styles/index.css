@@ -133,4 +133,21 @@
   .av-fullcalendar .fc-daygrid-day-number {
     @apply text-fg;
   }
+
+  @media (max-width: 639px) {
+    .av-fullcalendar .fc-toolbar {
+      flex-direction: column;
+      gap: 0.5rem;
+    }
+    .av-fullcalendar .fc-toolbar-chunk {
+      display: flex;
+      flex-wrap: wrap;
+      justify-content: center;
+      gap: 0.25rem;
+    }
+    .av-fullcalendar .fc-button {
+      padding: 0.25rem 0.5rem;
+      font-size: 0.75rem;
+    }
+  }
 }

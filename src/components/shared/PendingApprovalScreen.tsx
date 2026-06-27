@@ -8,7 +8,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/context/AuthContext'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { fetchSignupDepartments } from '@/lib/departments'
-import { fetchOwnAccessRequestStatus, submitAccessRequest } from '@/lib/requestAccess'
+import { fetchOwnAccessRequestStatus, submitAccessRequest, readPendingAccessDraft, clearPendingAccessDraft } from '@/lib/requestAccess'
 import { firstName } from '@/utils/helpers'
 import type { User } from '@/types'
 
@@ -57,6 +57,29 @@ export function PendingApprovalScreen({
       setStatus(s)
       if (s === 'approved') {
         setSuccess('Your access was approved — loading the portal…')
+        return
+      }
+
+      if (s === 'none') {
+        const draft = readPendingAccessDraft()
+        if (draft && !cancelled) {
+          setDepartmentId(draft.preferredDepartmentId)
+          setJobTitle(draft.jobTitle)
+          if (draft.message) setMessage(draft.message)
+          setSubmitting(true)
+          const result = await submitAccessRequest({
+            message: draft.message,
+            preferredDepartmentId: draft.preferredDepartmentId,
+            jobTitle: draft.jobTitle,
+          })
+          if (cancelled) return
+          setSubmitting(false)
+          if (result.ok) {
+            clearPendingAccessDraft()
+            setStatus('pending')
+            setSuccess('Access request sent. People & Culture will review your account shortly.')
+          }
+        }
       }
     }
 

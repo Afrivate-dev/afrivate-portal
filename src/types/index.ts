@@ -41,6 +41,8 @@ export interface User {
   /** People lead or line manager (user id). */
   reportsToId?: string
   active: boolean
+  /** Set when HR/admin approves first-time portal access (null = never approved). */
+  approvedAt?: string
 }
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'
@@ -90,6 +92,8 @@ export interface WeeklyCheckIn {
   blockers?: string
   hoursWorked: number
   submittedAt: string
+  /** department = visible to dept leads; all = HR/admin org-wide */
+  visibility?: 'department' | 'all'
 }
 
 export type AnnouncementPriority = 'info' | 'important' | 'urgent'
@@ -113,8 +117,16 @@ export interface Announcement {
   media?: AnnouncementMedia[]
 }
 
-export type LeaveType = 'annual' | 'sick' | 'compassionate'
+export type LeaveType = 'annual' | 'sick' | 'emergency'
 export type LeaveStatus = 'pending' | 'approved' | 'declined'
+
+export interface LeaveComment {
+  id: string
+  leaveId: string
+  userId: string
+  body: string
+  createdAt: string
+}
 
 export interface LeaveRequest {
   id: string
@@ -130,6 +142,8 @@ export interface LeaveRequest {
   submittedAt: string
   reviewedById?: string
   reviewerNote?: string
+  /** HR may approve fewer days than requested. */
+  approvedDays?: number
 }
 
 export interface OnboardingVideo {
@@ -147,6 +161,8 @@ export interface OnboardingChecklistItem {
   label: string
   link?: string
   order: number
+  /** Auto-complete when portal detects the related action. */
+  autoKey?: 'profile_complete' | 'handbook_visit' | 'first_checkin' | 'directory_complete'
 }
 
 export interface OnboardingProgress {
@@ -183,9 +199,12 @@ export interface RecognitionPost {
 export type InboxNotificationType =
   | 'recognition'
   | 'task_mention'
+  | 'note_mention'
   | 'task_assigned'
   | 'access_request'
   | 'access_granted'
+  | 'leave_update'
+  | 'leave_comment'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {
@@ -199,6 +218,8 @@ export interface InboxNotification {
   createdAt: string
   fromUserId?: string
   taskId?: string
+  noteId?: string
+  leaveId?: string
   recognitionId?: string
 }
 

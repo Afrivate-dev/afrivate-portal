@@ -30,6 +30,7 @@ import {
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
 import { useData } from '@/context/DataContext'
+import { isFirstTimePendingUser } from '@/context/dataContextShared'
 import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -72,7 +73,7 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
 const LEAVE_TYPE: Record<LeaveType, string> = {
   annual: 'Annual',
   sick: 'Sick',
-  compassionate: 'Compassionate',
+  emergency: 'Emergency',
 }
 
 function sameWeek(a: string, b: string) {
@@ -333,6 +334,12 @@ export function AdminPanelPage() {
 
   const handleActiveChange = async (u: User, active: boolean) => {
     if (active === u.active) return
+    if (active && isFirstTimePendingUser(u)) {
+      setSection('approvals')
+      openApprovalForUser(u)
+      setAlertMessage('New signups must be approved from the Approvals tab — choose a department and role, then confirm.')
+      return
+    }
     if (active) {
       const ok = await confirm({
         title: confirms.activateUserTitle,
@@ -707,18 +714,31 @@ export function AdminPanelPage() {
                       <td className="p-3 text-muted">{u.department}</td>
                       <td className="p-3 text-muted">{fmtDate(u.joinedAt)}</td>
                       <td className="p-3">
-                        <label className="flex cursor-pointer items-center gap-2 text-xs">
-                          <input
-                            type="checkbox"
-                            checked={u.active}
-                            disabled={u.id === user.id}
-                            onChange={(e) => void handleActiveChange(u, e.target.checked)}
-                            className="h-4 w-4 rounded border-border"
-                          />
-                          <span className={u.active ? 'text-emerald-600' : 'text-muted'}>
-                            {u.active ? 'Active' : 'Inactive'}
-                          </span>
-                        </label>
+                        {isFirstTimePendingUser(u) ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              setSection('approvals')
+                              openApprovalForUser(u)
+                            }}
+                          >
+                            Approve in Approvals
+                          </Button>
+                        ) : (
+                          <label className="flex cursor-pointer items-center gap-2 text-xs">
+                            <input
+                              type="checkbox"
+                              checked={u.active}
+                              disabled={u.id === user.id}
+                              onChange={(e) => void handleActiveChange(u, e.target.checked)}
+                              className="h-4 w-4 rounded border-border"
+                            />
+                            <span className={u.active ? 'text-emerald-600' : 'text-muted'}>
+                              {u.active ? 'Active' : 'Inactive'}
+                            </span>
+                          </label>
+                        )}
                       </td>
                     </tr>
                   ))}
@@ -751,13 +771,29 @@ export function AdminPanelPage() {
                     {u.department} · joined {fmtDate(u.joinedAt)}
                   </p>
                   <label className="flex items-center gap-2 text-sm">
-                    <input
-                      type="checkbox"
-                      checked={u.active}
-                      disabled={u.id === user.id}
-                      onChange={(e) => void handleActiveChange(u, e.target.checked)}
-                    />
-                    Active account
+                    {isFirstTimePendingUser(u) ? (
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        className="w-full"
+                        onClick={() => {
+                          setSection('approvals')
+                          openApprovalForUser(u)
+                        }}
+                      >
+                        Approve in Approvals
+                      </Button>
+                    ) : (
+                      <>
+                        <input
+                          type="checkbox"
+                          checked={u.active}
+                          disabled={u.id === user.id}
+                          onChange={(e) => void handleActiveChange(u, e.target.checked)}
+                        />
+                        Active account
+                      </>
+                    )}
                   </label>
                 </li>
               ))}
@@ -1563,7 +1599,7 @@ function SectionTab({
 const LEAVE_COLORS: Record<LeaveType, string> = {
   annual: '#3e8cff',
   sick: '#f59e0b',
-  compassionate: '#ec4899',
+  emergency: '#ec4899',
 }
 
 function LeaveAdminGrid({

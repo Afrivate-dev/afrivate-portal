@@ -53,6 +53,9 @@ const AdminPanelPage = lazy(() =>
 const PrivacyNoticePage = lazy(() =>
   import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
 )
+const AccountSecurityPage = lazy(() =>
+  import('@/pages/AccountSecurity').then((m) => ({ default: m.AccountSecurityPage })),
+)
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
@@ -62,9 +65,7 @@ function AdminRoute({ children }: { children: React.ReactNode }) {
 
 /**
  * Handles Supabase auth redirects at the app level.
- * When Supabase sends an invite or reset email it redirects to the Site URL
- * (e.g. portal.afrivate.org/?code=...). This component detects the auth code
- * or hash and sends the user to /reset-password to set their password.
+ * Recovery/invite → reset password. Magic link / signup confirm → login (session exchange).
  */
 function AuthRedirectHandler() {
   const navigate = useNavigate()
@@ -72,22 +73,37 @@ function AuthRedirectHandler() {
   useEffect(() => {
     if (!supabase) return
 
-    // Handle PKCE flow: ?code= in URL query string
     const params = new URLSearchParams(window.location.search)
     const code = params.get('code')
-    if (code) {
-      navigate(`/reset-password?code=${code}`, { replace: true })
+    const hash = window.location.hash
+    const path = window.location.pathname
+
+    if (code && (path === '/' || path === '/login')) {
+      const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
+      const type = hashParams.get('type') ?? params.get('type')
+      if (type === 'recovery' || type === 'invite') {
+        navigate(`/reset-password?code=${encodeURIComponent(code)}`, { replace: true })
+        return
+      }
+      navigate(`/login?code=${encodeURIComponent(code)}`, { replace: true })
       return
     }
 
-    // Handle implicit flow: #access_token=...&type=recovery in hash
-    const hash = window.location.hash
     if (hash.includes('type=recovery') || hash.includes('type=invite')) {
       navigate(`/reset-password${hash}`, { replace: true })
       return
     }
 
-    // Listen for PASSWORD_RECOVERY event from Supabase SDK
+    if (
+      hash.includes('type=magiclink') ||
+      hash.includes('type=signup') ||
+      hash.includes('type=email') ||
+      hash.includes('type=email_change')
+    ) {
+      navigate(`/login${hash}`, { replace: true })
+      return
+    }
+
     const { data: sub } = supabase.auth.onAuthStateChange((event) => {
       if (event === 'PASSWORD_RECOVERY') {
         navigate('/reset-password', { replace: true })
@@ -165,6 +181,7 @@ export default function App() {
                       <Route path="/search" element={<SearchPage />} />
                       <Route path="/notes" element={<NotesPage />} />
                       <Route path="/privacy" element={<PrivacyNoticePage />} />
+                      <Route path="/account" element={<AccountSecurityPage />} />
                       <Route
                         path="/admin"
                         element={

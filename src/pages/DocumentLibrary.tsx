@@ -31,6 +31,7 @@ import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { notifyError } from '@/lib/notify'
+import { pages } from '@/content/copy'
 import type { DocumentItem } from '@/types'
 
 type Category = DocumentItem['category']
@@ -106,6 +107,10 @@ export function DocumentLibraryPage() {
   const confirm = useConfirm()
   const { documents, users, addDocument, deleteDocument } = useData()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
+  useEffect(() => {
+    sessionStorage.setItem('av-visited-handbook', '1')
+  }, [])
+
   const canManage = isTeamLead(user)
 
   const [surfaceDocId, setSurfaceDocId] = useState<string | null>(null)
@@ -244,11 +249,11 @@ export function DocumentLibraryPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Document library"
-        description="Policies, SOPs, brand assets, templates and reports — all in one place."
+        title={pages.resources.title}
+        description={pages.resources.subtitle}
         actions={
           canManage ? (
-            <Button onClick={openUpload}>
+            <Button onClick={openUpload} className="w-full sm:w-auto">
               <Plus className="h-4 w-4" /> Upload document
             </Button>
           ) : undefined

@@ -119,6 +119,19 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setInbox],
   )
 
+  const sendInboxNotifications = useCallback<DataContextValue['sendInboxNotifications']>(
+    (rows) => {
+      const full: InboxNotification[] = rows.map((r) => ({ ...r, read: false }))
+      setInbox((prev) => [...full, ...prev])
+    },
+    [setInbox],
+  )
+
+  const [leaveComments, setLeaveComments] = useLocalStorage<import('@/types').LeaveComment[]>(
+    'av-leave-comments',
+    [],
+  )
+
   /* ------------------------------- Tasks -------------------------------- */
   const createTask: DataContextValue['createTask'] = useCallback(
     (input) => {
@@ -351,13 +364,32 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   )
 
   const reviewLeave: DataContextValue['reviewLeave'] = useCallback(
-    (id, status, reviewerId, note) =>
+    (id, status, reviewerId, note, approvedDays) =>
       setLeaveRequests((prev) =>
         prev.map((l) =>
-          l.id === id ? { ...l, status, reviewedById: reviewerId, reviewerNote: note } : l,
+          l.id === id
+            ? { ...l, status, reviewedById: reviewerId, reviewerNote: note, approvedDays }
+            : l,
         ),
       ),
     [setLeaveRequests],
+  )
+
+  const addLeaveComment: DataContextValue['addLeaveComment'] = useCallback(
+    (leaveId, body) => {
+      if (!body.trim()) return
+      setLeaveComments((prev) => [
+        ...prev,
+        {
+          id: 'lc_' + uid(),
+          leaveId,
+          userId: 'local',
+          body: body.trim(),
+          createdAt: new Date().toISOString(),
+        },
+      ])
+    },
+    [setLeaveComments],
   )
 
   /* ----------------------------- Onboarding ----------------------------- */
@@ -577,14 +609,18 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   }, [users])
 
   const pendingUsers = useMemo(
-    () => usersAwaitingApproval(users, accessRequests),
-    [users, accessRequests],
+    () => usersAwaitingApproval(users),
+    [users],
   )
 
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {
       setUsers((prev) =>
-        prev.map((u) => (u.id === id ? { ...u, role, department, jobTitle, active: true } : u)),
+        prev.map((u) =>
+          u.id === id
+            ? { ...u, role, department, jobTitle, active: true, approvedAt: new Date().toISOString() }
+            : u,
+        ),
       )
       return { ok: true as const, emailSent: false }
     },
@@ -629,8 +665,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       markAnnouncementRead,
       markAllAnnouncementsRead,
       leaveRequests,
+      leaveComments,
       submitLeave,
       reviewLeave,
+      addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
       onboardingProgress,
@@ -651,6 +689,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       inbox,
       markInboxRead,
       markAllInboxRead,
+      sendInboxNotifications,
       events,
       addEvent,
       teams,

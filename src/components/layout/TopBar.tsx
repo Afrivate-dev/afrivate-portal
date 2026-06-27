@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Menu, Moon, Sun, LogOut, User as UserIcon, Bell, Search } from 'lucide-react'
+import { Menu, Moon, Sun, LogOut, User as UserIcon, Bell, Search, Shield } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
 import { useTheme } from '@/context/ThemeContext'
@@ -146,6 +146,19 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
                   >
                     <UserIcon className="h-4 w-4 text-muted" />
                     My profile
+                  </button>
+                </li>
+                <li>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setMenuOpen(false)
+                      navigate('/account')
+                    }}
+                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg hover:bg-surface-2"
+                  >
+                    <Shield className="h-4 w-4 text-muted" />
+                    Account &amp; security
                   </button>
                 </li>
                 <li>
