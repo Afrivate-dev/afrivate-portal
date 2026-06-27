@@ -49,6 +49,10 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'other',       label: 'Other' },
 ]
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
+import {
+  DEFAULT_DOCUMENT_CATEGORIES,
+  DEFAULT_RECOGNITION_TAGS,
+} from '@/lib/portalLabelCategories'
 
 export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   const [users, setUsers] = useLocalStorage<User[]>('av-users', [])
@@ -721,6 +725,34 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     setTaskCategories((prev) => prev.filter((c) => c.id !== id))
   }, [setTaskCategories])
 
+  const [documentCategories, setDocumentCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-document-categories',
+    DEFAULT_DOCUMENT_CATEGORIES,
+  )
+  const addDocumentCategory = useCallback((label: string) => {
+    setDocumentCategories((prev) => [...prev, { id: 'doccat_' + uid(), label }])
+  }, [setDocumentCategories])
+  const updateDocumentCategory = useCallback((id: string, label: string) => {
+    setDocumentCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setDocumentCategories])
+  const deleteDocumentCategory = useCallback((id: string) => {
+    setDocumentCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setDocumentCategories])
+
+  const [recognitionTags, setRecognitionTags] = useLocalStorage<TaskCategoryItem[]>(
+    'av-recognition-tags',
+    DEFAULT_RECOGNITION_TAGS,
+  )
+  const addRecognitionTag = useCallback((label: string) => {
+    setRecognitionTags((prev) => [...prev, { id: 'tag_' + uid(), label }])
+  }, [setRecognitionTags])
+  const updateRecognitionTag = useCallback((id: string, label: string) => {
+    setRecognitionTags((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setRecognitionTags])
+  const deleteRecognitionTag = useCallback((id: string) => {
+    setRecognitionTags((prev) => prev.filter((c) => c.id !== id))
+  }, [setRecognitionTags])
+
   const value = useMemo<DataContextValue>(
     () => ({
       users,
@@ -787,6 +819,14 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       addTaskCategory,
       updateTaskCategory,
       deleteTaskCategory,
+      documentCategories,
+      addDocumentCategory,
+      updateDocumentCategory,
+      deleteDocumentCategory,
+      recognitionTags,
+      addRecognitionTag,
+      updateRecognitionTag,
+      deleteRecognitionTag,
       dataStatus: 'ready',
       dataError: null,
       reloadData,
@@ -810,6 +850,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       assignUserToDepartment, setUserTeamMembership,
       pendingUsers, accessRequests, approveUser,
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
+      documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory,
+      recognitionTags, addRecognitionTag, updateRecognitionTag, deleteRecognitionTag,
       reloadData,
     ],
   )

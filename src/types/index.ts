@@ -102,6 +102,8 @@ export type AnnouncementPriority = 'info' | 'important' | 'urgent'
 export interface AnnouncementMedia {
   kind: 'image' | 'video' | 'document'
   url: string
+  /** YouTube/Vimeo iframe src when link is an embed provider. */
+  embedUrl?: string
   fileName?: string
   caption?: string
 }
@@ -176,7 +178,8 @@ export interface DocumentItem {
   id: string
   title: string
   description?: string
-  category: 'policies' | 'sops' | 'brand' | 'templates' | 'reports'
+  /** Category id from documentCategories (managed in Resources). */
+  category: string
   fileName: string
   fileSize: string
   /** Supabase storage path when file storage is enabled */
@@ -192,7 +195,8 @@ export interface RecognitionPost {
   giverId: string
   receiverId: string
   message: string
-  tag: 'great_work' | 'team_player' | 'innovation' | 'above_beyond' | 'leadership'
+  /** Tag id from recognitionTags (managed in Shout-outs). */
+  tag: string
   createdAt: string
   reactedBy: string[]
   media?: AnnouncementMedia[]

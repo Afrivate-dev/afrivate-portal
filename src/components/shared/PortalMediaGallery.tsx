@@ -2,54 +2,16 @@ import { useCallback, useEffect, useState } from 'react'
 import {
   ChevronLeft,
   ChevronRight,
-  Download,
   FileText,
   Maximize2,
   X,
 } from 'lucide-react'
-import { Button } from '@/components/ui/Button'
 import { cn } from '@/utils/helpers'
-import { isStorageReference, prefetchMediaUrl } from '@/utils/mediaUpload'
+import { prefetchMediaUrl } from '@/utils/mediaUpload'
 import type { AnnouncementMedia } from '@/types'
-import { AdaptiveMediaImage, AdaptiveMediaThumb } from '@/components/shared/AdaptiveMediaImage'
+import { AdaptiveMediaThumb } from '@/components/shared/AdaptiveMediaImage'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
-import { PortalVideoPlayer } from '@/components/shared/PortalVideoPlayer'
-
-function FeedMediaSlide({
-  item,
-  onDocumentOpen,
-  eager,
-}: {
-  item: AnnouncementMedia
-  onDocumentOpen?: () => void
-  eager?: boolean
-}) {
-  const label = item.fileName ?? item.caption ?? 'Attachment'
-
-  useEffect(() => {
-    if (item.kind === 'video' && eager) prefetchMediaUrl(item.url)
-  }, [item.kind, item.url, eager])
-
-  if (item.kind === 'document') {
-    return (
-      <button
-        type="button"
-        onClick={onDocumentOpen}
-        className="flex min-h-[200px] w-full flex-col items-center justify-center gap-3 bg-surface-2 px-6 py-10 ring-focus"
-      >
-        <FileText className="h-12 w-12 text-muted" />
-        <span className="line-clamp-2 text-center text-sm font-medium text-fg">{label}</span>
-        <span className="text-xs font-medium text-accent">Tap to preview</span>
-      </button>
-    )
-  }
-
-  if (item.kind === 'video') {
-    return <PortalVideoPlayer src={item.url} className="w-full" eager={eager} />
-  }
-
-  return <AdaptiveMediaImage src={item.url} alt={label} eager={eager} className="w-full" />
-}
+import { MediaSlideContent } from '@/components/shared/MediaSlideContent'
 
 function FeedMediaCarousel({
   items,
@@ -63,10 +25,8 @@ function FeedMediaCarousel({
 
   useEffect(() => {
     items.forEach((item, i) => {
-      if (item.kind !== 'video') return
-      if (i === index || i === index + 1 || i === index - 1) {
-        prefetchMediaUrl(item.url)
-      }
+      if (item.kind !== 'video' || item.embedUrl) return
+      if (i === index || i === index + 1 || i === index - 1) prefetchMediaUrl(item.url)
     })
   }, [items, index])
 
@@ -75,7 +35,7 @@ function FeedMediaCarousel({
   return (
     <div className="relative flex w-full justify-center bg-black">
       <div className="w-full max-w-full">
-        <FeedMediaSlide
+        <MediaSlideContent
           item={current}
           eager
           onDocumentOpen={() => onDocumentOpen(current)}
@@ -119,54 +79,12 @@ function FeedMediaCarousel({
   )
 }
 
-function LightboxSlide({
-  item,
-  onExpand,
-}: {
-  item: AnnouncementMedia
-  onExpand?: () => void
-}) {
-  const label = item.fileName ?? item.caption ?? 'Attachment'
-
-  if (item.kind === 'document') {
-    return (
-      <div className="flex flex-col items-center justify-center gap-4 px-6 py-10 text-center">
-        <FileText className="h-14 w-14 text-muted" />
-        <p className="text-sm font-medium text-fg">{label}</p>
-        <div className="flex flex-wrap justify-center gap-2">
-          {onExpand ? (
-            <Button type="button" variant="secondary" size="sm" onClick={onExpand}>
-              Preview document
-            </Button>
-          ) : null}
-          <a
-            href={isStorageReference(item.url) ? undefined : item.url}
-            download={item.fileName}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1.5 rounded-md border border-border px-3 py-1.5 text-sm font-medium text-fg hover:bg-surface-2"
-          >
-            <Download className="h-4 w-4" /> Download
-          </a>
-        </div>
-      </div>
-    )
-  }
-
-  if (item.kind === 'video') {
-    return <PortalVideoPlayer src={item.url} className="w-full" eager />
-  }
-
-  return <AdaptiveMediaImage src={item.url} alt={label} className="w-full rounded-lg" eager />
-}
-
 export function PortalMediaGallery({
   media,
   compact,
   variant = compact ? 'grid' : 'feed',
 }: {
   media?: AnnouncementMedia[]
-  /** @deprecated use variant="grid" */
   compact?: boolean
   variant?: 'feed' | 'grid'
 }) {
@@ -219,11 +137,8 @@ export function PortalMediaGallery({
             key={`${m.url}-${i}`}
             item={m}
             onOpen={() => {
-              if (m.kind === 'document') {
-                setDocPreview(m)
-              } else {
-                setLightboxIndex(i)
-              }
+              if (m.kind === 'document') setDocPreview(m)
+              else setLightboxIndex(i)
             }}
           />
         ))}
@@ -271,9 +186,11 @@ export function PortalMediaGallery({
               </>
             ) : null}
             <div className="w-full max-w-4xl">
-              <LightboxSlide
+              <MediaSlideContent
                 item={items[lightboxIndex]}
-                onExpand={
+                eager
+                imageFullscreen
+                onDocumentOpen={
                   items[lightboxIndex].kind === 'document'
                     ? () => {
                         setDocPreview(items[lightboxIndex])
@@ -305,7 +222,7 @@ function MediaThumb({
   item: AnnouncementMedia
   onOpen: () => void
 }) {
-  const label = item.fileName ?? item.caption ?? 'Attachment'
+  const label = item.fileName ?? item.caption ?? 'Open attachment'
 
   return (
     <button
@@ -314,7 +231,12 @@ function MediaThumb({
       className="group relative overflow-hidden rounded-lg border border-border bg-surface-2/30 text-left ring-focus transition hover:border-accent/40"
     >
       {item.kind === 'image' || item.kind === 'video' ? (
-        <AdaptiveMediaThumb src={item.url} alt={label} kind={item.kind} />
+        <AdaptiveMediaThumb
+          src={item.url}
+          alt={label}
+          kind={item.kind}
+          embedUrl={item.embedUrl}
+        />
       ) : (
         <div className="flex aspect-square max-h-36 w-full flex-col items-center justify-center gap-2 bg-surface-2 px-3">
           <FileText className="h-8 w-8 text-muted" />

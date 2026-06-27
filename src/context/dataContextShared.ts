@@ -126,11 +126,23 @@ export interface DataContextValue {
     jobTitle: string,
   ) => Promise<{ ok: boolean; error?: string; emailSent?: boolean }>
 
-  /** Task categories — managed by assistant_lead and above. Stored client-side. */
+  /** Task categories — managed by assistant_lead and above. */
   taskCategories: TaskCategoryItem[]
   addTaskCategory: (label: string) => void
   updateTaskCategory: (id: string, label: string) => void
   deleteTaskCategory: (id: string) => void
+
+  /** Resources document categories — managed by team leads and above. */
+  documentCategories: TaskCategoryItem[]
+  addDocumentCategory: (label: string) => void
+  updateDocumentCategory: (id: string, label: string) => void
+  deleteDocumentCategory: (id: string) => void
+
+  /** Shout-out tags — managed by team leads and above. */
+  recognitionTags: TaskCategoryItem[]
+  addRecognitionTag: (label: string) => void
+  updateRecognitionTag: (id: string, label: string) => void
+  deleteRecognitionTag: (id: string) => void
 
   /** `loading` only in Supabase mode during fetch. Local mode stays `ready`. */
   dataStatus: 'ready' | 'loading' | 'error'

@@ -14,6 +14,7 @@ import {
   Share2,
   Check,
   Trash2,
+  Settings2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
@@ -30,51 +31,50 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
-import { cn, relativeTime } from '@/utils/helpers'
+import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
+import { cn, relativeTime, isTeamLead } from '@/utils/helpers'
 import type { AnnouncementMedia, RecognitionComment, RecognitionPost, User } from '@/types'
 
-type Tag = RecognitionPost['tag']
+type Tag = string
 
-const TAG_META: Record<
-  Tag,
-  { label: string; icon: typeof Sparkles; chipBg: string; chipText: string }
-> = {
-  great_work: {
-    label: 'Great Work',
+const TAG_STYLE_PRESETS: {
+  icon: typeof Sparkles
+  chipBg: string
+  chipText: string
+}[] = [
+  {
     icon: Sparkles,
     chipBg: 'bg-amber-500/15',
     chipText: 'text-amber-600 dark:text-amber-300',
   },
-  team_player: {
-    label: 'Team Player',
+  {
     icon: UsersIcon,
     chipBg: 'bg-blue-500/15',
     chipText: 'text-blue-600 dark:text-blue-300',
   },
-  innovation: {
-    label: 'Innovation',
+  {
     icon: Lightbulb,
     chipBg: 'bg-purple-500/15',
     chipText: 'text-purple-600 dark:text-purple-300',
   },
-  above_beyond: {
-    label: 'Above & Beyond',
+  {
     icon: Star,
     chipBg: 'bg-pink-500/15',
     chipText: 'text-pink-600 dark:text-pink-300',
   },
-  leadership: {
-    label: 'Leadership',
+  {
     icon: Crown,
     chipBg: 'bg-emerald-500/15',
     chipText: 'text-emerald-600 dark:text-emerald-300',
   },
-}
+]
 
-const TAG_OPTIONS = (Object.keys(TAG_META) as Tag[]).map((t) => ({
-  value: t,
-  label: TAG_META[t].label,
-}))
+function resolveTagMeta(tagId: string, tags: { id: string; label: string }[]) {
+  const index = tags.findIndex((t) => t.id === tagId)
+  const preset = TAG_STYLE_PRESETS[index >= 0 ? index % TAG_STYLE_PRESETS.length : 0]
+  const label = tags.find((t) => t.id === tagId)?.label ?? tagId.replace(/_/g, ' ')
+  return { label, ...preset }
+}
 
 const MAX_LENGTH = 280
 
@@ -174,9 +174,14 @@ export function RecognitionPage() {
     deleteRecognition,
     toggleRecognitionReaction,
     addRecognitionComment,
+    recognitionTags,
+    addRecognitionTag,
+    updateRecognitionTag,
+    deleteRecognitionTag,
   } = useData()
   const [searchParams, setSearchParams] = useSearchParams()
   const [formOpen, setFormOpen] = useState(false)
+  const [manageTagsOpen, setManageTagsOpen] = useState(false)
   const [highlightId, setHighlightId] = useState<string | null>(null)
   const [copiedId, setCopiedId] = useState<string | null>(null)
   const postRefs = useRef<Record<string, HTMLLIElement | null>>({})
@@ -186,6 +191,9 @@ export function RecognitionPage() {
     message: '',
     media: [],
   })
+
+  const canManageTags = isTeamLead(user)
+  const defaultTagId = recognitionTags[0]?.id ?? 'great_work'
 
   const otherUsers = useMemo(
     () => (user ? users.filter((u) => u.active && u.id !== user.id) : []),
@@ -224,7 +232,7 @@ export function RecognitionPage() {
   const openForm = () => {
     setDraft({
       receiverId: otherUsers[0]?.id ?? '',
-      tag: 'great_work',
+      tag: defaultTagId,
       message: '',
       media: [],
     })
@@ -286,9 +294,16 @@ export function RecognitionPage() {
         title="Recognition wall"
         description="Shoutouts for great work across the team."
         actions={
-          <Button onClick={openForm} disabled={otherUsers.length === 0}>
-            <Plus className="h-4 w-4" /> Give shoutout
-          </Button>
+          <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+            {canManageTags ? (
+              <Button variant="secondary" onClick={() => setManageTagsOpen(true)} className="w-full sm:w-auto">
+                <Settings2 className="h-4 w-4" /> Manage tags
+              </Button>
+            ) : null}
+            <Button onClick={openForm} disabled={otherUsers.length === 0} className="w-full sm:w-auto">
+              <Plus className="h-4 w-4" /> Give shoutout
+            </Button>
+          </div>
         }
       />
 
@@ -333,7 +348,7 @@ export function RecognitionPage() {
           {sorted.map((r) => {
             const giver = users.find((u) => u.id === r.giverId)
             const receiver = users.find((u) => u.id === r.receiverId)
-            const meta = TAG_META[r.tag]
+            const meta = resolveTagMeta(r.tag, recognitionTags)
             const reacted = r.reactedBy.includes(user.id)
             const TagIcon = meta.icon
             const commentCount = recognitionComments.filter((c) => c.recognitionId === r.id).length
@@ -500,8 +515,11 @@ export function RecognitionPage() {
           <Select
             label="Tag"
             value={draft.tag}
-            onChange={(e) => setDraft({ ...draft, tag: e.target.value as Tag })}
-            options={TAG_OPTIONS}
+            onChange={(e) => setDraft({ ...draft, tag: e.target.value })}
+            options={recognitionTags.map((t) => ({
+              value: t.id,
+              label: t.label,
+            }))}
           />
           <div>
             <Textarea
@@ -530,6 +548,17 @@ export function RecognitionPage() {
           />
         </form>
       </Modal>
+
+      <ManageLabelCategoriesModal
+        open={manageTagsOpen}
+        onClose={() => setManageTagsOpen(false)}
+        title="Manage shout-out tags"
+        description="Create and edit tags for recognition posts. Team leads and above can manage these."
+        items={recognitionTags}
+        onAdd={addRecognitionTag}
+        onUpdate={updateRecognitionTag}
+        onDelete={deleteRecognitionTag}
+      />
     </div>
   )
 }

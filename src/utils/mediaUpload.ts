@@ -1,7 +1,7 @@
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileBlobUrl, getPortalFileSignedUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
-import { sanitizeMediaUrl } from '@/utils/safeUrl'
+import { sanitizeMediaUrl, sanitizeVimeoEmbedUrl, sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
 export class MediaUploadError extends Error {
@@ -12,7 +12,11 @@ export class MediaUploadError extends Error {
 }
 
 function inferKind(file: File): AnnouncementMedia['kind'] {
-  if (file.type.startsWith('video/')) return 'video'
+  if (file.type.startsWith('video/')) {
+    throw new MediaUploadError(
+      'Video file upload is not supported. Paste a YouTube, Vimeo, or direct https video link instead.',
+    )
+  }
   if (file.type.startsWith('image/')) return 'image'
   return 'document'
 }
@@ -190,23 +194,40 @@ export const uploadAnnouncementMedia = uploadHostedMediaFile
 export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {
   const url = sanitizeMediaUrl(raw)
   if (!url) return null
+
+  const youtubeEmbed = sanitizeYouTubeEmbedUrl(url)
+  if (youtubeEmbed) {
+    return { kind: 'video', url, embedUrl: youtubeEmbed, fileName: 'YouTube video' }
+  }
+
+  const vimeoEmbed = sanitizeVimeoEmbedUrl(url)
+  if (vimeoEmbed) {
+    return { kind: 'video', url, embedUrl: vimeoEmbed, fileName: 'Vimeo video' }
+  }
+
   try {
-    const path = new URL(url).pathname.toLowerCase()
-    const video =
-      path.endsWith('.mp4') ||
-      path.endsWith('.webm') ||
-      path.endsWith('.mov') ||
-      path.endsWith('.m4v')
-    const image =
-      path.endsWith('.png') ||
-      path.endsWith('.jpg') ||
-      path.endsWith('.jpeg') ||
-      path.endsWith('.gif') ||
-      path.endsWith('.webp') ||
-      path.endsWith('.svg')
-    const kind: AnnouncementMedia['kind'] = video ? 'video' : image ? 'image' : 'document'
-    const fileName = path.split('/').pop() || undefined
-    return { kind, url, fileName }
+    const parsed = new URL(url)
+    const path = parsed.pathname.toLowerCase()
+    const pathFile = path.split('/').pop() ?? ''
+    const ext = pathFile.includes('.') ? pathFile.split('.').pop() ?? '' : ''
+
+    const videoExt = ['mp4', 'webm', 'mov', 'm4v', 'ogv']
+    const imageExt = ['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp']
+
+    if (videoExt.includes(ext)) {
+      return { kind: 'video', url, fileName: pathFile || undefined }
+    }
+    if (imageExt.includes(ext)) {
+      return { kind: 'image', url, fileName: pathFile || undefined }
+    }
+
+    // Common CDN patterns without extensions in path
+    if (/\.(googleusercontent|cloudinary|imgix|imgur)/i.test(parsed.hostname)) {
+      return { kind: 'image', url, fileName: pathFile || 'Image' }
+    }
+
+    const kind: AnnouncementMedia['kind'] = 'document'
+    return { kind, url, fileName: pathFile || undefined }
   } catch {
     return null
   }
