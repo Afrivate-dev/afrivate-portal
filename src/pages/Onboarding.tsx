@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   PlayCircle,
   CheckCircle2,
@@ -11,6 +11,7 @@ import {
   PartyPopper,
   Clock,
 } from 'lucide-react'
+import { useOnboardingAutoCheck } from '@/hooks/useOnboardingAutoCheck'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -51,10 +52,21 @@ export function OnboardingPage() {
     onboardingChecklist,
     onboardingProgress,
     users,
+    checkIns,
     toggleVideoWatched,
     toggleChecklistItem,
     addOnboardingVideo,
   } = useData()
+
+  const [visitedHandbook, setVisitedHandbook] = useState(() =>
+    typeof window !== 'undefined' ? sessionStorage.getItem('av-visited-handbook') === '1' : false,
+  )
+
+  useEffect(() => {
+    if (typeof window !== 'undefined' && sessionStorage.getItem('av-visited-handbook') === '1') {
+      setVisitedHandbook(true)
+    }
+  }, [])
 
   const canSeeAdmin = isHR(user)
 
@@ -79,6 +91,15 @@ export function OnboardingPage() {
     () => new Set(myProgress?.completedChecklistIds ?? []),
     [myProgress],
   )
+
+  useOnboardingAutoCheck({
+    user,
+    checklist: onboardingChecklist,
+    progressIds: checkedIds,
+    checkIns,
+    visitedHandbook,
+    toggleChecklistItem,
+  })
 
   const totals = useMemo(() => {
     const totalVideos = sortedVideos.length

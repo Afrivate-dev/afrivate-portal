@@ -59,7 +59,7 @@ export function StaffDirectoryPage() {
   const { user, updateProfile } = useAuth()
   const confirm = useConfirm()
   const { users, updateUser, dataStatus, departments: orgDepartments } = useData()
-  const { peers, multiplayerLive, myAvailability } = useCollab()
+  const { peers, multiplayerLive } = useCollab()
   const [searchParams, setSearchParams] = useSearchParams()
   const peerById = useMemo(() => new Map(peers.map((p) => [p.userId, p])), [peers])
   const [search, setSearch] = useState('')
@@ -263,7 +263,7 @@ export function StaffDirectoryPage() {
             const isMe = u.id === user.id
             const peer = peerById.get(u.id)
             const presenceVis = isMe
-              ? myAvailability
+              ? 'online'
               : availabilityFromPeer(peer, multiplayerLive)
             return (
               <li key={u.id}>

@@ -4,7 +4,7 @@ import {
   Calendar as CalendarIcon,
   Plane,
   Stethoscope,
-  HeartHandshake,
+  AlertTriangle,
   ChevronLeft,
   ChevronRight,
   Check,
@@ -54,7 +54,7 @@ type Tab = 'my' | 'all' | 'calendar'
 const ANNUAL_ALLOWANCE: Record<LeaveType, number> = {
   annual: 20,
   sick: 10,
-  compassionate: 5,
+  emergency: 7,
 }
 
 const TYPE_META: Record<
@@ -75,9 +75,9 @@ const TYPE_META: Record<
     chipBg: 'bg-amber-500/15',
     chipText: 'text-amber-600 dark:text-amber-300',
   },
-  compassionate: {
-    label: 'Compassionate',
-    icon: HeartHandshake,
+  emergency: {
+    label: 'Emergency',
+    icon: AlertTriangle,
     color: '#ec4899',
     chipBg: 'bg-pink-500/15',
     chipText: 'text-pink-600 dark:text-pink-300',
@@ -116,7 +116,7 @@ function dayCount(startISO: string, endISO: string) {
 export function LeaveRequestsPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { users, leaveRequests, submitLeave, reviewLeave } = useData()
+  const { users, leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment } = useData()
 
   const canManage = isLead(user)
   const [tab, setTab] = useState<Tab>('my')
@@ -126,6 +126,8 @@ export function LeaveRequestsPage() {
   const [supportingFile, setSupportingFile] = useState<File | null>(null)
   const [reviewing, setReviewing] = useState<{ request: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
   const [reviewNote, setReviewNote] = useState('')
+  const [approvedDays, setApprovedDays] = useState('')
+  const [threadComment, setThreadComment] = useState('')
   const [calendarMonth, setCalendarMonth] = useState(() => startOfMonth(new Date()))
 
   const myRequests = useMemo(
@@ -154,7 +156,10 @@ export function LeaveRequestsPage() {
       )
       const used = mine
         .filter((l) => l.status === 'approved')
-        .reduce((sum, l) => sum + dayCount(l.startDate, l.endDate), 0)
+        .reduce(
+          (sum, l) => sum + (l.approvedDays ?? dayCount(l.startDate, l.endDate)),
+          0,
+        )
       const pending = mine
         .filter((l) => l.status === 'pending')
         .reduce((sum, l) => sum + dayCount(l.startDate, l.endDate), 0)
@@ -228,6 +233,7 @@ export function LeaveRequestsPage() {
   const startReview = (r: LeaveRequest, status: 'approved' | 'declined') => {
     setReviewing({ request: r, status })
     setReviewNote('')
+    setApprovedDays(String(dayCount(r.startDate, r.endDate)))
   }
 
   const confirmReview = async () => {
@@ -239,9 +245,20 @@ export function LeaveRequestsPage() {
       destructive: reviewing.status === 'declined',
     })
     if (!ok) return
-    reviewLeave(reviewing.request.id, reviewing.status, user.id, reviewNote.trim() || undefined)
+    const days =
+      reviewing.status === 'approved' && approvedDays.trim()
+        ? Number(approvedDays)
+        : undefined
+    reviewLeave(
+      reviewing.request.id,
+      reviewing.status,
+      user.id,
+      reviewNote.trim() || undefined,
+      days,
+    )
     setReviewing(null)
     setReviewNote('')
+    setApprovedDays('')
   }
 
   return (
@@ -472,7 +489,11 @@ export function LeaveRequestsPage() {
             rows={3}
             value={draft.reason}
             onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
-            placeholder="Brief context for HR / your team lead"
+            placeholder={
+              draft.type === 'emergency'
+                ? 'Describe the emergency (e.g. family bereavement, medical crisis, urgent travel)…'
+                : 'Brief context for HR / your team lead'
+            }
           />
           <div>
             <label className="mb-1 block text-sm font-medium text-fg">
@@ -530,6 +551,22 @@ export function LeaveRequestsPage() {
               </p>
               <p className="mt-2 text-fg/90">{reviewing.request.reason}</p>
             </div>
+            {reviewing.status === 'approved' ? (
+              <Input
+                type="number"
+                min={1}
+                label="Days to approve"
+                value={approvedDays}
+                onChange={(e) => setApprovedDays(e.target.value)}
+                hint="You can approve fewer days than requested if needed."
+              />
+            ) : null}
+            <LeaveCommentThread
+              leaveId={reviewing.request.id}
+              comments={leaveComments}
+              users={users}
+              currentUserId={user.id}
+            />
             <Textarea
               label="Note (optional)"
               rows={3}
@@ -537,13 +574,64 @@ export function LeaveRequestsPage() {
               onChange={(e) => setReviewNote(e.target.value)}
               placeholder={
                 reviewing.status === 'approved'
-                  ? 'e.g. Enjoy your trip!'
+                  ? 'e.g. Approved for the dates requested.'
                   : 'Reason for declining — this is sent to the requester.'
               }
             />
+            <Textarea
+              label="Ask a question or add a comment"
+              rows={2}
+              value={threadComment}
+              onChange={(e) => setThreadComment(e.target.value)}
+              placeholder="The requester will be notified in their inbox."
+            />
+            {threadComment.trim() ? (
+              <Button
+                type="button"
+                size="sm"
+                variant="secondary"
+                onClick={() => {
+                  addLeaveComment(reviewing.request.id, threadComment)
+                  setThreadComment('')
+                }}
+              >
+                Send comment
+              </Button>
+            ) : null}
           </div>
         ) : null}
       </Modal>
+    </div>
+  )
+}
+
+function LeaveCommentThread({
+  leaveId,
+  comments,
+  users,
+  currentUserId,
+}: {
+  leaveId: string
+  comments: import('@/types').LeaveComment[]
+  users: User[]
+  currentUserId: string
+}) {
+  const rows = comments.filter((c) => c.leaveId === leaveId)
+  if (!rows.length) return null
+  return (
+    <div className="space-y-2 rounded-md border border-border bg-surface-2/30 p-3">
+      <p className="text-xs font-semibold uppercase tracking-wide text-muted">Conversation</p>
+      <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
+        {rows.map((c) => {
+          const author = users.find((u) => u.id === c.userId)
+          return (
+            <li key={c.id} className={cn(c.userId === currentUserId && 'text-right')}>
+              <span className="text-xs font-medium text-muted">{author?.name ?? 'User'} · </span>
+              <span className="text-fg">{c.body}</span>
+            </li>
+          )
+        })}
+      </ul>
     </div>
   )
 }

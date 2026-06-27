@@ -15,6 +15,41 @@ export interface AccessRequestResult {
 }
 
 const MOCK_REQUESTS_KEY = 'av-access-requests'
+export const PENDING_ACCESS_REQUEST_KEY = 'av-pending-access-request'
+
+type PendingAccessDraft = {
+  preferredDepartmentId: string
+  jobTitle: string
+  message?: string
+}
+
+export function savePendingAccessDraft(draft: PendingAccessDraft): void {
+  try {
+    sessionStorage.setItem(PENDING_ACCESS_REQUEST_KEY, JSON.stringify(draft))
+  } catch {
+    /* ignore quota errors */
+  }
+}
+
+export function readPendingAccessDraft(): PendingAccessDraft | null {
+  try {
+    const raw = sessionStorage.getItem(PENDING_ACCESS_REQUEST_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PendingAccessDraft
+    if (!parsed.preferredDepartmentId || !parsed.jobTitle?.trim()) return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+export function clearPendingAccessDraft(): void {
+  try {
+    sessionStorage.removeItem(PENDING_ACCESS_REQUEST_KEY)
+  } catch {
+    /* ignore */
+  }
+}
 
 type MockAccessRequest = {
   userId: string

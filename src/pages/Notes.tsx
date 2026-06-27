@@ -542,6 +542,7 @@ export function NotesPage() {
   const byParent = useNoteTree(notes)
   const roots = useMemo(() => byParent.get(null) ?? [], [byParent])
   const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [mobileShowEditor, setMobileShowEditor] = useState(false)
   const [shareForId, setShareForId] = useState<string | null>(null)
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
 
@@ -642,7 +643,12 @@ export function NotesPage() {
       ) : null}
 
       <div className="grid gap-4 lg:grid-cols-[minmax(240px,280px)_1fr] lg:items-start">
-        <aside className="overflow-hidden rounded-xl border border-border/60 bg-surface-2/20 shadow-sm lg:sticky lg:top-20">
+        <aside
+          className={cn(
+            'overflow-hidden rounded-xl border border-border/60 bg-surface-2/20 shadow-sm lg:sticky lg:top-20',
+            mobileShowEditor && selected ? 'hidden lg:block' : 'block',
+          )}
+        >
           <div className="border-b border-border/50 px-3 py-2.5">
             <p className="text-xs font-medium text-muted">{N.allNotes}</p>
           </div>
@@ -655,7 +661,10 @@ export function NotesPage() {
                 depth={0}
                 byParent={byParent}
                 activeId={activeId}
-                onSelect={setSelectedId}
+                onSelect={(id) => {
+                  setSelectedId(id)
+                  setMobileShowEditor(true)
+                }}
                 onAddChild={(parentId) => {
                   const id = createNote(parentId)
                   setSelectedId(id)
@@ -665,8 +674,22 @@ export function NotesPage() {
           </ul>
         </aside>
 
-        <div className="min-h-[min(72vh,760px)] rounded-xl border border-border/60 bg-surface shadow-sm">
+        <div
+          className={cn(
+            'min-h-[min(72vh,760px)] rounded-xl border border-border/60 bg-surface shadow-sm',
+            !mobileShowEditor && !selected ? 'hidden lg:block' : 'block',
+          )}
+        >
           <div className="px-4 py-6 sm:px-10 sm:py-8">
+            {selected ? (
+              <button
+                type="button"
+                className="mb-4 text-sm text-accent lg:hidden"
+                onClick={() => setMobileShowEditor(false)}
+              >
+                ← All notes
+              </button>
+            ) : null}
             {!selected ? (
               <EmptyState
                 icon={StickyNote}

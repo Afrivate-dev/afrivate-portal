@@ -25,7 +25,7 @@ import type { NoteSavePatch } from '@/context/CollabContext'
 import { useData } from '@/context/DataContext'
 import { Button } from '@/components/ui/Button'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, fmtShortDate, isAdmin } from '@/utils/helpers'
+import { cn, fmtShortDate, firstName, isAdmin } from '@/utils/helpers'
 import { pages } from '@/content/copy'
 import type { NoteBlock, NoteBlockType, PresencePeer, WorkspaceNote } from '@/types'
 import { blocksToPlain, newNoteBlock, noteBlockAsType, NOTE_BLOCK_LABELS } from '@/utils/noteModel'
@@ -456,7 +456,7 @@ export function NotionNotesEditor({
         const pick = users[m.highlight]
         if (pick) {
           e.preventDefault()
-          insertMentionPick(m.blockId, m.start, m.end, pick.name + ' ')
+          insertMentionPick(m.blockId, m.start, m.end, `@${firstName(pick.name)} `)
         }
       }
     }
@@ -701,7 +701,7 @@ export function NotionNotesEditor({
                     onMouseEnter={() => setMention((m) => (m ? { ...m, highlight: i } : m))}
                     onMouseDown={(e) => e.preventDefault()}
                     onClick={() =>
-                      insertMentionPick(mention.blockId, mention.start, mention.end, u.name + ' ')
+                      insertMentionPick(mention.blockId, mention.start, mention.end, `@${firstName(u.name)} `)
                     }
                   >
                     <Avatar name={u.name} src={u.avatarUrl} size="xs" />

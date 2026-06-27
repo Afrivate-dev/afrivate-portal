@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Link, Navigate } from 'react-router-dom'
+import { Link, Navigate, useNavigate } from 'react-router-dom'
 import { Mail, Lock, ArrowLeft, Send, CheckCircle, User, Briefcase } from 'lucide-react'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Card } from '@/components/ui/Card'
@@ -10,13 +10,14 @@ import { Textarea } from '@/components/ui/Textarea'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
 import { fetchSignupDepartments } from '@/lib/departments'
-import { submitAccessRequest } from '@/lib/requestAccess'
+import { submitAccessRequest, savePendingAccessDraft, clearPendingAccessDraft } from '@/lib/requestAccess'
 import { pages, confirms } from '@/content/copy'
 import { validatePortalPassword, passwordPolicyHint } from '@/utils/passwordPolicy'
 
 export function RequestAccessPage() {
   const { user, register, authReady } = useAuth()
   const confirm = useConfirm()
+  const navigate = useNavigate()
   const [name, setName] = useState('')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -47,7 +48,6 @@ export function RequestAccessPage() {
   }
 
   if (user?.active === true) return <Navigate to="/" replace />
-  if (user) return <Navigate to="/" replace />
 
   const onSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -85,6 +85,11 @@ export function RequestAccessPage() {
     }
 
     if (created.needsEmailConfirmation) {
+      savePendingAccessDraft({
+        preferredDepartmentId: departmentId,
+        jobTitle: jobTitle.trim(),
+        message: message.trim() || undefined,
+      })
       setLoading(false)
       setSuccess(pages.requestAccess.confirmEmailSuccess)
       return
@@ -102,11 +107,13 @@ export function RequestAccessPage() {
       return
     }
 
+    clearPendingAccessDraft()
     setSuccess(
       result.alreadyRequested
         ? 'Account created. Your request is already with the team — People & Culture will review it soon.'
         : 'Account created and request sent. People & Culture will email you when your access is approved.',
     )
+    navigate('/', { replace: true })
   }
 
   const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }))

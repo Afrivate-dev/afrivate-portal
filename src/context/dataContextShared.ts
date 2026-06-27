@@ -6,6 +6,7 @@ import type {
   DocumentItem,
   EventItem,
   InboxNotification,
+  LeaveComment,
   LeaveRequest,
   OnboardingChecklistItem,
   OnboardingProgress,
@@ -18,14 +19,14 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
-/** Inactive users who have submitted a pending access request (not deactivated staff). */
-export function usersAwaitingApproval(users: User[], accessRequests: AccessRequest[]): User[] {
-  const awaitingIds = new Set(
-    accessRequests
-      .filter((r) => r.status === 'pending' || r.status === 'acknowledged')
-      .map((r) => r.userId),
-  )
-  return users.filter((u) => !u.active && awaitingIds.has(u.id))
+/** True when account has never been approved (new signup), vs deactivated staff. */
+export function isFirstTimePendingUser(u: User): boolean {
+  return !u.active && !u.approvedAt
+}
+
+/** Inactive users awaiting first-time approval (not deactivated staff). */
+export function usersAwaitingApproval(users: User[]): User[] {
+  return users.filter(isFirstTimePendingUser)
 }
 
 export interface DataContextValue {
@@ -51,8 +52,16 @@ export interface DataContextValue {
   markAllAnnouncementsRead: (userId: string) => void
 
   leaveRequests: LeaveRequest[]
+  leaveComments: LeaveComment[]
   submitLeave: (l: Omit<LeaveRequest, 'id' | 'submittedAt' | 'status'>) => LeaveRequest
-  reviewLeave: (id: string, status: 'approved' | 'declined', reviewerId: string, note?: string) => void
+  reviewLeave: (
+    id: string,
+    status: 'approved' | 'declined',
+    reviewerId: string,
+    note?: string,
+    approvedDays?: number,
+  ) => void
+  addLeaveComment: (leaveId: string, body: string) => void
 
   onboardingVideos: OnboardingVideo[]
   onboardingChecklist: OnboardingChecklistItem[]
@@ -77,6 +86,8 @@ export interface DataContextValue {
   inbox: InboxNotification[]
   markInboxRead: (id: string) => void
   markAllInboxRead: (userId: string) => void
+  /** Create inbox rows for mentions, leave updates, etc. */
+  sendInboxNotifications: (rows: Omit<InboxNotification, 'read'>[]) => void
 
   events: EventItem[]
   addEvent: (e: Omit<EventItem, 'id'>) => void

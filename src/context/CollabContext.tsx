@@ -37,7 +37,7 @@ import {
   newNoteBlock,
   normalizeWorkspaceNote,
 } from '@/utils/noteModel'
-import { uid } from '@/utils/helpers'
+import { uid, newlyMentionedUserIds } from '@/utils/helpers'
 
 const NOTES_KEY_V2 = 'av-workspace-notes-v2'
 const NOTES_KEY_V1 = 'av-workspace-notes-v1'
@@ -149,7 +149,7 @@ const CollabContext = createContext<CollabContextValue | null>(null)
 
 export function CollabProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth()
-  const { teams } = useData()
+  const { teams, users, sendInboxNotifications } = useData()
   const supabaseNotesEnabled = isSupabaseDataEnabled()
   const [localNotes, setLocalNotes] = useLocalStorage<WorkspaceNote[]>(NOTES_KEY_V2, loadNotesFromStorage)
   const [dbNotes, setDbNotes] = useState<WorkspaceNote[]>([])
@@ -495,16 +495,33 @@ export function CollabProvider({ children }: { children: ReactNode }) {
           updatedById: user.id,
           version: v,
         })
+        const oldBody = cur.body
         const next = [...prev]
         next[idx] = note
         queueMicrotask(() => {
           persistNote(note)
           sendNoteBroadcast({ kind: 'upsert', note })
+          const mentioned = newlyMentionedUserIds(oldBody, nextBody, users)
+          if (mentioned.length) {
+            sendInboxNotifications(
+              mentioned.map((targetId) => ({
+                id: 'inbox_note_' + note.id + '_' + targetId + '_' + v,
+                userId: targetId,
+                type: 'note_mention' as const,
+                title: `${user.name} mentioned you in a note`,
+                body: note.title || 'Workspace note',
+                link: `/notes?open=${encodeURIComponent(note.id)}`,
+                createdAt: now,
+                fromUserId: user.id,
+                noteId: note.id,
+              })),
+            )
+          }
         })
         return next
       })
     },
-    [user, setNotes, sendNoteBroadcast, persistNote],
+    [user, setNotes, sendNoteBroadcast, persistNote, users, sendInboxNotifications],
   )
 
   const deleteNote = useCallback(

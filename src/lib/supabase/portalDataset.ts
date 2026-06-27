@@ -53,6 +53,7 @@ export function profileRowToUser(row: Record<string, unknown>): User {
     linkedinUrl: row.linkedin_url ? String(row.linkedin_url) : undefined,
     reportsToId: row.reports_to_id ? String(row.reports_to_id) : undefined,
     active: row.active !== false,
+    approvedAt: row.approved_at ? String(row.approved_at) : undefined,
   }
 }
 
@@ -148,6 +149,7 @@ export function taskToInsertRow(t: Task): Record<string, unknown> {
 }
 
 export function rowToCheckIn(r: Record<string, unknown>): WeeklyCheckIn {
+  const vis = String(r.visibility ?? 'department')
   return {
     id: String(r.id),
     userId: String(r.user_id),
@@ -157,6 +159,7 @@ export function rowToCheckIn(r: Record<string, unknown>): WeeklyCheckIn {
     blockers: r.blockers ? String(r.blockers) : undefined,
     hoursWorked: Number(r.hours_worked ?? 0),
     submittedAt: String(r.submitted_at),
+    visibility: vis === 'all' ? 'all' : 'department',
   }
 }
 
@@ -177,10 +180,12 @@ export function rowToAnnouncement(r: Record<string, unknown>): Announcement {
 }
 
 export function rowToLeave(r: Record<string, unknown>): LeaveRequest {
+  const rawType = String(r.type)
+  const type = (rawType === 'compassionate' ? 'emergency' : rawType) as LeaveRequest['type']
   return {
     id: String(r.id),
     userId: String(r.user_id),
-    type: String(r.type) as LeaveRequest['type'],
+    type,
     startDate: String(r.start_date),
     endDate: String(r.end_date),
     reason: String(r.reason ?? ''),
@@ -190,6 +195,17 @@ export function rowToLeave(r: Record<string, unknown>): LeaveRequest {
     submittedAt: String(r.submitted_at),
     reviewedById: r.reviewed_by_id ? String(r.reviewed_by_id) : undefined,
     reviewerNote: r.reviewer_note ? String(r.reviewer_note) : undefined,
+    approvedDays: r.approved_days != null ? Number(r.approved_days) : undefined,
+  }
+}
+
+export function rowToLeaveComment(r: Record<string, unknown>): import('@/types').LeaveComment {
+  return {
+    id: String(r.id),
+    leaveId: String(r.leave_id),
+    userId: String(r.user_id),
+    body: String(r.body ?? ''),
+    createdAt: String(r.created_at),
   }
 }
 

@@ -22,7 +22,7 @@ import { Input } from '@/components/ui/Input'
 import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, isLead, relativeTime, weekLabel } from '@/utils/helpers'
+import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns, isHR } from '@/utils/helpers'
 import { departmentSelectOptions } from '@/lib/departments'
 import type { User, WeeklyCheckIn } from '@/types'
 
@@ -33,6 +33,7 @@ interface FormState {
   nextWeek: string
   blockers: string
   hoursWorked: string
+  visibility: 'department' | 'all'
 }
 
 const emptyForm: FormState = {
@@ -40,6 +41,7 @@ const emptyForm: FormState = {
   nextWeek: '',
   blockers: '',
   hoursWorked: '',
+  visibility: 'department',
 }
 
 const formFromCheckIn = (c: WeeklyCheckIn): FormState => ({
@@ -47,6 +49,7 @@ const formFromCheckIn = (c: WeeklyCheckIn): FormState => ({
   nextWeek: c.nextWeek,
   blockers: c.blockers ?? '',
   hoursWorked: c.hoursWorked.toString(),
+  visibility: c.visibility ?? 'department',
 })
 
 export function WeeklyCheckInPage() {
@@ -84,14 +87,21 @@ export function WeeklyCheckInPage() {
   }, [checkIns, user])
 
   const teamThisWeek = useMemo(() => {
-    if (!canSeeTeam) return []
-    const submissions = checkIns.filter((c) => isSameWeekISO(c.weekStart, currentWeekStart))
+    if (!canSeeTeam || !user) return []
+    const submissions = checkIns.filter((c) => {
+      if (!isSameWeekISO(c.weekStart, currentWeekStart)) return false
+      if (canViewAllCheckIns(user)) return true
+      if (c.visibility === 'all' && isHR(user)) return true
+      if (c.visibility === 'all' && !canViewAllCheckIns(user)) return false
+      const author = users.find((x) => x.id === c.userId)
+      return author?.department === user.department
+    })
     if (departmentFilter === 'all') return submissions
     return submissions.filter((c) => {
       const u = users.find((x) => x.id === c.userId)
       return u?.department === departmentFilter
     })
-  }, [checkIns, currentWeekStart, canSeeTeam, departmentFilter, users])
+  }, [checkIns, currentWeekStart, canSeeTeam, departmentFilter, users, user])
 
   const departmentFilterOptions = useMemo(
     () => departmentSelectOptions(orgDepartments, users, true),
@@ -136,6 +146,7 @@ export function WeeklyCheckInPage() {
       nextWeek: form.nextWeek.trim(),
       blockers: form.blockers.trim() || undefined,
       hoursWorked: Number(form.hoursWorked),
+      visibility: form.visibility,
     }
     if (mySubmissionThisWeek) {
       updateCheckIn(mySubmissionThisWeek.id, payload)
@@ -425,6 +436,17 @@ function CheckInForm({
           value={form.blockers}
           onChange={(e) => setForm({ ...form, blockers: e.target.value })}
           rows={3}
+        />
+        <Select
+          label="Who can see this check-in?"
+          value={form.visibility}
+          onChange={(e) =>
+            setForm({ ...form, visibility: e.target.value as 'department' | 'all' })
+          }
+          options={[
+            { value: 'department', label: 'My department (team leads in my dept)' },
+            { value: 'all', label: 'All departments (HR & admin only can view org-wide)' },
+          ]}
         />
         <div className="grid gap-4 sm:max-w-xs">
           <Input

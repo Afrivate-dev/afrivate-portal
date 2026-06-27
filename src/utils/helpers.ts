@@ -29,6 +29,9 @@ export const isTeamLead = (user: User | null | undefined) =>
 /** Any lead role — can approve leave and view team check-ins */
 export const isLead = (user: User | null | undefined) =>
   !!user && (['assistant_lead', 'team_lead', 'hr', 'admin'] as Role[]).includes(user.role)
+/** Whether HR/admin may view org-wide check-in submissions. */
+export const canViewAllCheckIns = (user: User | null | undefined) =>
+  !!user && (['hr', 'admin'] as Role[]).includes(user.role)
 
 export const roleLabel: Record<Role, string> = { ...roleTitles }
 
@@ -183,9 +186,9 @@ export function mailtoHref(
 ): string {
   const e = email.trim()
   if (!e) return '#'
-  const params = new URLSearchParams()
-  if (options?.subject) params.set('subject', options.subject)
-  if (options?.body) params.set('body', options.body)
-  const q = params.toString()
+  const parts: string[] = []
+  if (options?.subject) parts.push(`subject=${encodeURIComponent(options.subject)}`)
+  if (options?.body) parts.push(`body=${encodeURIComponent(options.body)}`)
+  const q = parts.join('&')
   return q ? `mailto:${e}?${q}` : `mailto:${e}`
 }

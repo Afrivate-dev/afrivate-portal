@@ -235,6 +235,10 @@ interface AuthContextValue {
   updateProfile: (patch: Partial<User>) => void
   reconcileUser: (patch: Partial<User>) => void
   refreshUser: () => Promise<void>
+  sendMagicLink: (email: string) => Promise<{ ok: boolean; error?: string }>
+  changeEmail: (newEmail: string) => Promise<{ ok: boolean; error?: string }>
+  changePassword: (newPassword: string) => Promise<{ ok: boolean; error?: string }>
+  sendReauthentication: () => Promise<{ ok: boolean; error?: string }>
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null)
@@ -453,6 +457,62 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     [supabaseMode, setStoredUser],
   )
 
+  const sendMagicLink = useCallback(
+    async (email: string) => {
+      if (!supabaseMode || !supabase) {
+        return { ok: false as const, error: 'Magic link sign-in requires Supabase auth.' }
+      }
+      const { error } = await supabase.auth.signInWithOtp({
+        email: email.trim().toLowerCase(),
+        options: {
+          shouldCreateUser: false,
+          emailRedirectTo: `${window.location.origin}/login`,
+        },
+      })
+      if (error) return { ok: false as const, error: error.message }
+      return { ok: true as const }
+    },
+    [supabaseMode],
+  )
+
+  const changeEmail = useCallback(
+    async (newEmail: string) => {
+      if (!supabaseMode || !supabase) {
+        return { ok: false as const, error: 'Email change requires Supabase auth.' }
+      }
+      const { error } = await supabase.auth.updateUser(
+        { email: newEmail.trim().toLowerCase() },
+        { emailRedirectTo: `${window.location.origin}/account` },
+      )
+      if (error) return { ok: false as const, error: error.message }
+      return { ok: true as const }
+    },
+    [supabaseMode],
+  )
+
+  const changePassword = useCallback(
+    async (newPassword: string) => {
+      if (!supabaseMode || !supabase) {
+        return { ok: false as const, error: 'Password change requires Supabase auth.' }
+      }
+      const pwError = validatePortalPassword(newPassword)
+      if (pwError) return { ok: false as const, error: pwError }
+      const { error } = await supabase.auth.updateUser({ password: newPassword })
+      if (error) return { ok: false as const, error: error.message }
+      return { ok: true as const }
+    },
+    [supabaseMode],
+  )
+
+  const sendReauthentication = useCallback(async () => {
+    if (!supabaseMode || !supabase) {
+      return { ok: false as const, error: 'Reauthentication requires Supabase auth.' }
+    }
+    const { error } = await supabase.auth.reauthenticate()
+    if (error) return { ok: false as const, error: error.message }
+    return { ok: true as const }
+  }, [supabaseMode])
+
   const value = useMemo<AuthContextValue>(
     () => ({
       user,
@@ -466,6 +526,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       reconcileUser,
       refreshUser,
+      sendMagicLink,
+      changeEmail,
+      changePassword,
+      sendReauthentication,
     }),
     [
       user,
@@ -478,6 +542,10 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       updateProfile,
       reconcileUser,
       refreshUser,
+      sendMagicLink,
+      changeEmail,
+      changePassword,
+      sendReauthentication,
     ],
   )
 

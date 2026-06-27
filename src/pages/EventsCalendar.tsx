@@ -32,7 +32,7 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, fmtTime, isTeamLead } from '@/utils/helpers'
+import { cn, fmtDate, fmtTime } from '@/utils/helpers'
 import { departmentSelectOptions } from '@/lib/departments'
 import { pages } from '@/content/copy'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
@@ -72,7 +72,7 @@ const emptyDraft: EventDraft = {
 export function EventsCalendarPage() {
   const { user } = useAuth()
   const { events, users, addEvent, departments: orgDepartments } = useData()
-  const canManage = isTeamLead(user)
+  const canManage = Boolean(user)
 
   const googleEmbed = import.meta.env.VITE_GOOGLE_CALENDAR_EMBED_URL?.trim()
   const icalJsonUrl = import.meta.env.VITE_TEAM_CALENDAR_JSON_URL?.trim()
@@ -185,7 +185,7 @@ export function EventsCalendarPage() {
         description={W.subtitle}
         actions={
           canManage ? (
-            <Button onClick={openForm}>
+            <Button onClick={openForm} className="w-full sm:w-auto">
               <Plus className="h-4 w-4" /> {W.newEvent}
             </Button>
           ) : undefined
@@ -279,7 +279,7 @@ export function EventsCalendarPage() {
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
-                right: 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+                right: window.innerWidth < 640 ? 'dayGridMonth,listWeek' : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
               }}
               events={fcEvents}
               height="auto"
