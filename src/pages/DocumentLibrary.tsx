@@ -11,6 +11,7 @@ import {
   File as FileIcon,
   Lock,
   FolderOpen,
+  Settings2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/ConfirmContext'
@@ -28,6 +29,7 @@ import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TabBar } from '@/components/ui/TabBar'
 import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
+import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
@@ -36,45 +38,50 @@ import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
 import { pages } from '@/content/copy'
 import type { DocumentItem } from '@/types'
 
-type Category = DocumentItem['category']
-type CategoryFilter = 'all' | Category
+type CategoryFilter = 'all' | string
 
-const CATEGORY_META: Record<
-  Category,
-  { label: string; tone: 'info' | 'success' | 'warning' | 'brand' | 'default' }
-> = {
-  policies: { label: 'Policies', tone: 'info' },
-  sops: { label: 'SOPs', tone: 'success' },
-  brand: { label: 'Brand Assets', tone: 'brand' },
-  templates: { label: 'Templates', tone: 'warning' },
-  reports: { label: 'Reports', tone: 'default' },
+const CATEGORY_TONES: Array<'info' | 'success' | 'warning' | 'brand' | 'default'> = [
+  'info',
+  'success',
+  'warning',
+  'brand',
+  'default',
+]
+
+const LEGACY_CATEGORY_TONES: Record<string, 'info' | 'success' | 'warning' | 'brand' | 'default'> = {
+  policies: 'info',
+  sops: 'success',
+  brand: 'brand',
+  templates: 'warning',
+  reports: 'default',
 }
 
-const CATEGORIES: { value: CategoryFilter; label: string }[] = [
-  { value: 'all', label: 'All' },
-  { value: 'policies', label: 'Policies' },
-  { value: 'sops', label: 'SOPs' },
-  { value: 'brand', label: 'Brand Assets' },
-  { value: 'templates', label: 'Templates' },
-  { value: 'reports', label: 'Reports' },
-]
+function categoryTone(id: string, index: number) {
+  return LEGACY_CATEGORY_TONES[id] ?? CATEGORY_TONES[index % CATEGORY_TONES.length]
+}
+
+function categoryLabel(id: string, categories: { id: string; label: string }[]) {
+  return categories.find((c) => c.id === id)?.label ?? id.replace(/_/g, ' ')
+}
 
 interface UploadDraft {
   title: string
   description: string
-  category: Category
+  category: string
   fileName: string
   hrOnly: boolean
   managementOnly: boolean
 }
 
-const emptyDraft: UploadDraft = {
-  title: '',
-  description: '',
-  category: 'policies',
-  fileName: '',
-  hrOnly: false,
-  managementOnly: false,
+function emptyDraft(defaultCategory: string): UploadDraft {
+  return {
+    title: '',
+    description: '',
+    category: defaultCategory,
+    fileName: '',
+    hrOnly: false,
+    managementOnly: false,
+  }
 }
 
 function fileIconFor(name: string) {
@@ -107,7 +114,7 @@ const toneStyles = {
 export function DocumentLibraryPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { documents, users, addDocument, deleteDocument } = useData()
+  const { documents, users, addDocument, deleteDocument, documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory } = useData()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
   useEffect(() => {
     sessionStorage.setItem('av-visited-handbook', '1')
@@ -120,7 +127,8 @@ export function DocumentLibraryPage() {
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [search, setSearch] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
-  const [draft, setDraft] = useState<UploadDraft>(emptyDraft)
+  const [manageCatsOpen, setManageCatsOpen] = useState(false)
+  const [draft, setDraft] = useState<UploadDraft>(() => emptyDraft(documentCategories[0]?.id ?? 'policies'))
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [downloadInfoDoc, setDownloadInfoDoc] = useState<DocumentItem | null>(null)
   const [previewDoc, setPreviewDoc] = useState<{ doc: DocumentItem; url: string } | null>(null)
@@ -166,16 +174,11 @@ export function DocumentLibraryPage() {
   }, [documents, user, category, search])
 
   const counts = useMemo(() => {
-    const c: Record<CategoryFilter, number> = {
-      all: 0,
-      policies: 0,
-      sops: 0,
-      brand: 0,
-      templates: 0,
-      reports: 0,
-    }
+    const c: Record<string, number> = { all: 0 }
+    documentCategories.forEach((cat) => {
+      c[cat.id] = 0
+    })
     documents.forEach((d) => {
-      // Apply access control to counts so users only see counts of what they can access
       if (!user) return
       if (d.hrOnly && user.role !== 'hr' && user.role !== 'admin') return
       if (
@@ -186,15 +189,23 @@ export function DocumentLibraryPage() {
       )
         return
       c.all += 1
-      c[d.category] += 1
+      c[d.category] = (c[d.category] ?? 0) + 1
     })
     return c
-  }, [documents, user])
+  }, [documents, user, documentCategories])
+
+  const categoryTabs = useMemo(
+    () => [
+      { id: 'all' as CategoryFilter, label: 'All' },
+      ...documentCategories.map((cat) => ({ id: cat.id as CategoryFilter, label: cat.label })),
+    ],
+    [documentCategories],
+  )
 
   if (!user) return null
 
   const openUpload = () => {
-    setDraft(emptyDraft)
+    setDraft(emptyDraft(documentCategories[0]?.id ?? 'policies'))
     setUploadFile(null)
     setUploadOpen(true)
   }
@@ -262,9 +273,14 @@ export function DocumentLibraryPage() {
         description={pages.resources.subtitle}
         actions={
           canManage ? (
-            <Button onClick={openUpload} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4" /> Upload document
-            </Button>
+            <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
+              <Button variant="secondary" onClick={() => setManageCatsOpen(true)} className="w-full sm:w-auto">
+                <Settings2 className="h-4 w-4" /> Manage categories
+              </Button>
+              <Button onClick={openUpload} className="w-full sm:w-auto">
+                <Plus className="h-4 w-4" /> Upload document
+              </Button>
+            </div>
           ) : undefined
         }
       />
@@ -281,12 +297,13 @@ export function DocumentLibraryPage() {
 
       <TabBar
         variant="chip"
+        scrollable
         active={category}
         onChange={setCategory}
-        tabs={CATEGORIES.map((c) => ({
-          id: c.value,
+        tabs={categoryTabs.map((c) => ({
+          id: c.id,
           label: c.label,
-          count: counts[c.value],
+          count: counts[c.id] ?? 0,
         }))}
       />
 
@@ -310,6 +327,9 @@ export function DocumentLibraryPage() {
             const tone = fileTone(d.fileName)
             const uploader = users.find((u) => u.id === d.uploadedById)
             const docViewers = multiplayerLive ? viewersForDocument(d.id) : []
+            const catIndex = documentCategories.findIndex((c) => c.id === d.category)
+            const catTone = categoryTone(d.category, catIndex >= 0 ? catIndex : 0)
+            const catLabel = categoryLabel(d.category, documentCategories)
             return (
               <li key={d.id}>
                 <Card
@@ -356,8 +376,8 @@ export function DocumentLibraryPage() {
                   ) : null}
 
                   <div className="mt-3 flex flex-wrap items-center gap-1.5">
-                    <Badge tone={CATEGORY_META[d.category].tone}>
-                      {CATEGORY_META[d.category].label}
+                    <Badge tone={catTone}>
+                      {catLabel}
                     </Badge>
                     {docViewers.length > 0 ? (
                       <Badge tone="brand">{docViewers.length} viewing</Badge>
@@ -435,9 +455,9 @@ export function DocumentLibraryPage() {
             <Select
               label="Category"
               value={draft.category}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value as Category })}
-              options={CATEGORIES.filter((c) => c.value !== 'all').map((c) => ({
-                value: c.value,
+              onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+              options={documentCategories.map((c) => ({
+                value: c.id,
                 label: c.label,
               }))}
             />
@@ -529,6 +549,17 @@ export function DocumentLibraryPage() {
         title={previewDoc?.doc.title ?? 'Document'}
         fileName={previewDoc?.doc.fileName ?? 'file'}
         url={previewDoc?.url ?? null}
+      />
+
+      <ManageLabelCategoriesModal
+        open={manageCatsOpen}
+        onClose={() => setManageCatsOpen(false)}
+        title="Manage document categories"
+        description="Create and edit categories for the resources library. Team leads and above can manage these."
+        items={documentCategories}
+        onAdd={addDocumentCategory}
+        onUpdate={updateDocumentCategory}
+        onDelete={deleteDocumentCategory}
       />
     </div>
   )

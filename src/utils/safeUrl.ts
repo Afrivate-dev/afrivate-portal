@@ -51,6 +51,27 @@ export function sanitizeYouTubeEmbedUrl(raw: string | undefined | null): string 
   return ''
 }
 
+/** Vimeo embed URL for iframe playback. */
+export function sanitizeVimeoEmbedUrl(raw: string | undefined | null): string {
+  const safe = sanitizeHttpUrl(raw)
+  if (!safe) return ''
+  try {
+    const parsed = new URL(safe)
+    const host = parsed.hostname.replace(/^www\./, '')
+    if (host === 'player.vimeo.com') {
+      const id = parsed.pathname.split('/').filter(Boolean).pop()
+      return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : ''
+    }
+    if (host === 'vimeo.com') {
+      const id = parsed.pathname.split('/').filter(Boolean).pop()
+      return id && /^\d+$/.test(id) ? `https://player.vimeo.com/video/${id}` : ''
+    }
+  } catch {
+    return ''
+  }
+  return ''
+}
+
 /** Media URLs for announcements — https only in production, http allowed on localhost. */
 export function sanitizeMediaUrl(raw: string | undefined | null): string | null {
   const safe = sanitizeHttpUrl(raw)

@@ -15,12 +15,12 @@ import type { AnnouncementMedia } from '@/types'
 export const AnnouncementMediaGallery = PortalMediaGallery
 
 const labels = {
-  heading: 'Photos, videos & files',
-  urlPlaceholder: 'https://www.afrivate.org/uploads/…',
+  heading: 'Photos & files',
+  urlPlaceholder: 'https://… (image, YouTube, Vimeo, or document link)',
   addLink: 'Add link',
   upload: 'Upload file',
   uploading: 'Uploading…',
-  help: 'Add photos, videos, or documents (PDF, Word, etc.). You can also paste a direct https link.',
+  help: 'Add photos or documents (PDF, Word, etc.), or paste a link — including YouTube/Vimeo for videos. Video file upload is not supported; use a link instead.',
   remove: 'Remove',
 }
 
@@ -39,7 +39,7 @@ export function MediaAttachmentEditor({
   const addUrl = () => {
     const parsed = parseMediaUrlInput(urlDraft)
     if (!parsed) {
-      setUrlError('Use a full https link to an image, video, or document file.')
+      setUrlError('Use a full https link to an image, YouTube/Vimeo video, or document.')
       return
     }
     setUrlError('')
@@ -51,6 +51,10 @@ export function MediaAttachmentEditor({
     const file = e.target.files?.[0]
     e.target.value = ''
     if (!file) return
+    if (file.type.startsWith('video/')) {
+      setUrlError('Video files cannot be uploaded. Paste a YouTube, Vimeo, or direct video link instead.')
+      return
+    }
     setBusy(true)
     setUrlError('')
     try {
@@ -63,9 +67,9 @@ export function MediaAttachmentEditor({
     }
   }
 
-  const kindIcon = (kind: AnnouncementMedia['kind']) => {
+  const kindIcon = (kind: AnnouncementMedia['kind'], embedUrl?: string) => {
     if (kind === 'image') return ImageIcon
-    if (kind === 'video') return Film
+    if (kind === 'video' || embedUrl) return Film
     return FileIcon
   }
 
@@ -75,7 +79,7 @@ export function MediaAttachmentEditor({
       <p className="text-xs text-muted">{labels.help}</p>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
-        <div className="flex-1">
+        <div className="min-w-0 flex-1">
           <Input
             label={labels.addLink}
             value={urlDraft}
@@ -87,7 +91,7 @@ export function MediaAttachmentEditor({
             leadingIcon={<Link2 className="h-4 w-4" />}
           />
         </div>
-        <Button type="button" variant="secondary" onClick={addUrl} disabled={!urlDraft.trim()}>
+        <Button type="button" variant="secondary" onClick={addUrl} disabled={!urlDraft.trim()} className="w-full sm:w-auto">
           {labels.addLink}
         </Button>
       </div>
@@ -96,7 +100,7 @@ export function MediaAttachmentEditor({
         <label className="inline-flex cursor-pointer">
           <input
             type="file"
-            accept="image/*,video/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md"
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md"
             className="sr-only"
             onChange={onFile}
             disabled={busy}
@@ -115,7 +119,7 @@ export function MediaAttachmentEditor({
           <PortalMediaGallery media={items} compact />
           <ul className="space-y-2 border-t border-border pt-3">
             {items.map((m, idx) => {
-              const Icon = kindIcon(m.kind)
+              const Icon = kindIcon(m.kind, m.embedUrl)
               return (
                 <li
                   key={`${m.url}-${idx}`}

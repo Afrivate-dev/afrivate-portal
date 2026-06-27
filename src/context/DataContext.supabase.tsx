@@ -58,6 +58,12 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
 ]
 import { newlyMentionedUserIds, uid, canChangeRoles } from '@/utils/helpers'
 import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
+import {
+  DEFAULT_DOCUMENT_CATEGORIES,
+  DEFAULT_RECOGNITION_TAGS,
+  fetchDocumentCategories,
+  fetchRecognitionTags,
+} from '@/lib/portalLabelCategories'
 
 function reportDataError(action: string, error: { message: string }): void {
   console.warn(`[data] ${action}`, error.message)
@@ -1209,6 +1215,105 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     [client],
   )
 
+  const [documentCategories, setDocumentCategories] = useState<TaskCategoryItem[]>(
+    DEFAULT_DOCUMENT_CATEGORIES,
+  )
+  const [recognitionTags, setRecognitionTags] = useState<TaskCategoryItem[]>(
+    DEFAULT_RECOGNITION_TAGS,
+  )
+
+  useEffect(() => {
+    void fetchDocumentCategories(client)
+      .then((rows) => {
+        if (rows.length) setDocumentCategories(rows)
+      })
+      .catch((e) => {
+        console.warn('[data] document categories', e instanceof Error ? e.message : e)
+      })
+  }, [client])
+
+  useEffect(() => {
+    void fetchRecognitionTags(client)
+      .then((rows) => {
+        if (rows.length) setRecognitionTags(rows)
+      })
+      .catch((e) => {
+        console.warn('[data] recognition tags', e instanceof Error ? e.message : e)
+      })
+  }, [client])
+
+  const addDocumentCategory = useCallback(
+    (label: string) => {
+      const id = 'doccat_' + uid()
+      void (async () => {
+        const { error } = await client.from('portal_document_categories').insert({
+          id,
+          label,
+          sort_order: documentCategories.length + 1,
+        })
+        if (error) reportDataError('add document category', error)
+        else setDocumentCategories((prev) => [...prev, { id, label }])
+      })()
+    },
+    [client, documentCategories.length],
+  )
+
+  const updateDocumentCategory = useCallback(
+    (id: string, label: string) => {
+      setDocumentCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+      void client.from('portal_document_categories').update({ label }).eq('id', id).then(({ error }) => {
+        if (error) reportDataError('update document category', error)
+      })
+    },
+    [client],
+  )
+
+  const deleteDocumentCategory = useCallback(
+    (id: string) => {
+      setDocumentCategories((prev) => prev.filter((c) => c.id !== id))
+      void client.from('portal_document_categories').delete().eq('id', id).then(({ error }) => {
+        if (error) reportDataError('delete document category', error)
+      })
+    },
+    [client],
+  )
+
+  const addRecognitionTag = useCallback(
+    (label: string) => {
+      const id = 'tag_' + uid()
+      void (async () => {
+        const { error } = await client.from('portal_recognition_tags').insert({
+          id,
+          label,
+          sort_order: recognitionTags.length + 1,
+        })
+        if (error) reportDataError('add recognition tag', error)
+        else setRecognitionTags((prev) => [...prev, { id, label }])
+      })()
+    },
+    [client, recognitionTags.length],
+  )
+
+  const updateRecognitionTag = useCallback(
+    (id: string, label: string) => {
+      setRecognitionTags((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+      void client.from('portal_recognition_tags').update({ label }).eq('id', id).then(({ error }) => {
+        if (error) reportDataError('update recognition tag', error)
+      })
+    },
+    [client],
+  )
+
+  const deleteRecognitionTag = useCallback(
+    (id: string) => {
+      setRecognitionTags((prev) => prev.filter((c) => c.id !== id))
+      void client.from('portal_recognition_tags').delete().eq('id', id).then(({ error }) => {
+        if (error) reportDataError('delete recognition tag', error)
+      })
+    },
+    [client],
+  )
+
   const value = useMemo<DataContextValue>(
     () => ({
       users,
@@ -1337,6 +1442,14 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addTaskCategory,
       updateTaskCategory,
       deleteTaskCategory,
+      documentCategories,
+      addDocumentCategory,
+      updateDocumentCategory,
+      deleteDocumentCategory,
+      recognitionTags,
+      addRecognitionTag,
+      updateRecognitionTag,
+      deleteRecognitionTag,
       dataStatus,
       dataError,
       reloadData,
@@ -1396,6 +1509,14 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addTaskCategory,
       updateTaskCategory,
       deleteTaskCategory,
+      documentCategories,
+      addDocumentCategory,
+      updateDocumentCategory,
+      deleteDocumentCategory,
+      recognitionTags,
+      addRecognitionTag,
+      updateRecognitionTag,
+      deleteRecognitionTag,
       dataStatus,
       dataError,
       reloadData,
