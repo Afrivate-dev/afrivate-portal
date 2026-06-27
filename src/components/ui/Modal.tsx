@@ -45,7 +45,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
       />
       <div
         className={cn(
-          'relative w-full bg-surface text-fg shadow-elevated',
+        'relative w-full max-w-full min-w-0 bg-surface text-fg shadow-elevated',
           'rounded-t-xl sm:rounded-xl',
           'max-h-[90vh] flex flex-col',
           'animate-slide-up sm:animate-scale-in motion-reduce:animate-none',
@@ -66,7 +66,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             <X className="h-5 w-5" />
           </button>
         </header>
-        <div className="flex-1 overflow-y-auto p-4 scrollbar-thin sm:p-5">{children}</div>
+        <div className="min-w-0 flex-1 overflow-x-clip overflow-y-auto p-4 scrollbar-thin sm:p-5">{children}</div>
         {footer ? (
           <footer className="flex flex-col-reverse gap-2 border-t border-border p-4 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end [&>*]:w-full sm:[&>*]:w-auto">
             {footer}

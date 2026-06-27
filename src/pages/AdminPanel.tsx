@@ -43,6 +43,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
+import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
 import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, roleLabel } from '@/utils/helpers'
 import { invitePortalUser } from '@/lib/invitePortalUser'
 import { supabase } from '@/lib/supabase'
@@ -310,6 +311,84 @@ export function AdminPanelPage() {
     [leaveRequests],
   )
 
+  const adminSectionTabs = useMemo((): TabBarItem<Section>[] => {
+    const tabs: TabBarItem<Section>[] = [
+      {
+        id: 'approvals',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <UserCheck className="h-4 w-4" /> Approvals
+          </span>
+        ),
+        count: pendingUsers.length > 0 ? pendingUsers.length : undefined,
+      },
+      {
+        id: 'users',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <UsersIcon className="h-4 w-4" /> Users
+          </span>
+        ),
+      },
+    ]
+    if (adminUser) {
+      tabs.push(
+        {
+          id: 'departments',
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <Building2 className="h-4 w-4" /> Departments
+            </span>
+          ),
+        },
+        {
+          id: 'teams',
+          label: (
+            <span className="inline-flex items-center gap-2">
+              <UsersRound className="h-4 w-4" /> Teams
+            </span>
+          ),
+        },
+      )
+    }
+    tabs.push(
+      {
+        id: 'announcements',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <Megaphone className="h-4 w-4" /> Announcements
+          </span>
+        ),
+      },
+      {
+        id: 'leave',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <CalendarDays className="h-4 w-4" /> Leave
+          </span>
+        ),
+        count: pendingLeave.length > 0 ? pendingLeave.length : undefined,
+      },
+      {
+        id: 'onboarding',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <GraduationCap className="h-4 w-4" /> Onboarding
+          </span>
+        ),
+      },
+      {
+        id: 'checkins',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <ClipboardList className="h-4 w-4" /> Check-ins
+          </span>
+        ),
+      },
+    )
+    return tabs
+  }, [adminUser, pendingLeave.length, pendingUsers.length])
+
   const patchUser = (id: string, patch: Partial<User>) => {
     if ('role' in patch && !adminUser) {
       setAlertMessage('Only administrators can change roles.')
@@ -456,52 +535,13 @@ export function AdminPanelPage() {
   if (!user) return null
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="Admin"
         description="User management, content moderation, and operational overview."
       />
 
-      <div className="flex flex-wrap gap-2 border-b border-border pb-1">
-        <SectionTab active={section === 'approvals'} onClick={() => setSection('approvals')}>
-          <UserCheck className="h-4 w-4" /> Approvals
-          {pendingUsers.length > 0 ? (
-            <span className="ml-1 rounded-full bg-danger px-1.5 py-0.5 text-[10px] font-bold text-white">
-              {pendingUsers.length}
-            </span>
-          ) : null}
-        </SectionTab>
-        <SectionTab active={section === 'users'} onClick={() => setSection('users')}>
-          <UsersIcon className="h-4 w-4" /> Users
-        </SectionTab>
-        {adminUser ? (
-          <>
-            <SectionTab active={section === 'departments'} onClick={() => setSection('departments')}>
-              <Building2 className="h-4 w-4" /> Departments
-            </SectionTab>
-            <SectionTab active={section === 'teams'} onClick={() => setSection('teams')}>
-              <UsersRound className="h-4 w-4" /> Teams
-            </SectionTab>
-          </>
-        ) : null}
-        <SectionTab active={section === 'announcements'} onClick={() => setSection('announcements')}>
-          <Megaphone className="h-4 w-4" /> Announcements
-        </SectionTab>
-        <SectionTab active={section === 'leave'} onClick={() => setSection('leave')}>
-          <CalendarDays className="h-4 w-4" /> Leave
-          {pendingLeave.length > 0 ? (
-            <Badge tone="warning" className="ml-1">
-              {pendingLeave.length}
-            </Badge>
-          ) : null}
-        </SectionTab>
-        <SectionTab active={section === 'onboarding'} onClick={() => setSection('onboarding')}>
-          <GraduationCap className="h-4 w-4" /> Onboarding
-        </SectionTab>
-        <SectionTab active={section === 'checkins'} onClick={() => setSection('checkins')}>
-          <ClipboardList className="h-4 w-4" /> Check-ins
-        </SectionTab>
-      </div>
+      <TabBar tabs={adminSectionTabs} active={section} onChange={setSection} variant="pill" />
 
       {/* APPROVALS */}
       {section === 'approvals' ? (
@@ -671,7 +711,7 @@ export function AdminPanelPage() {
 
       {/* USERS */}
       {section === 'users' ? (
-        <Card padding="none" className="overflow-x-auto">
+        <Card padding="none" className="av-scroll-x">
           <div className="hidden min-w-[720px] lg:block">
             <table className="w-full text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
@@ -966,8 +1006,8 @@ export function AdminPanelPage() {
               <Plus className="h-4 w-4" /> Add video
             </Button>
           </div>
-          <Card padding="none" className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <Card padding="none" className="av-scroll-x">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase text-muted">
                 <tr>
                   <th className="p-3 font-medium">Title</th>
@@ -1029,8 +1069,8 @@ export function AdminPanelPage() {
               <Plus className="h-4 w-4" /> Add item
             </Button>
           </div>
-          <Card padding="none" className="overflow-x-auto">
-            <table className="min-w-full text-sm">
+          <Card padding="none" className="av-scroll-x">
+            <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase text-muted">
                 <tr>
                   <th className="p-3 font-medium">Label</th>
@@ -1080,8 +1120,8 @@ export function AdminPanelPage() {
           {weekDigest.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No check-ins yet this week" />
           ) : (
-            <div className="hidden overflow-x-auto lg:block">
-              <table className="min-w-full text-sm">
+            <div className="hidden av-scroll-x lg:block">
+              <table className="w-full min-w-[640px] text-sm">
                 <thead className="text-left text-xs uppercase text-muted">
                   <tr>
                     <th className="pb-2 font-medium">Name</th>
@@ -1584,29 +1624,6 @@ export function AdminPanelPage() {
         ) : null}
       </Modal>
     </div>
-  )
-}
-
-function SectionTab({
-  active,
-  children,
-  onClick,
-}: {
-  active: boolean
-  children: React.ReactNode
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className={cn(
-        'relative inline-flex items-center gap-2 rounded-md px-3 py-2 text-sm font-medium transition-colors',
-        active ? 'bg-accent text-white' : 'text-muted hover:bg-surface-2 hover:text-fg',
-      )}
-    >
-      {children}
-    </button>
   )
 }
 

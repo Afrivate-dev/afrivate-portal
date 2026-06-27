@@ -11,7 +11,7 @@ export function PageHeader({ title, description, actions, className }: PageHeade
   return (
     <div
       className={cn(
-        'mb-4 flex flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between md:mb-6',
+        'mb-4 flex min-w-0 max-w-full flex-col gap-3 sm:mb-5 sm:flex-row sm:items-start sm:justify-between md:mb-6',
         'animate-fade-in-up motion-reduce:animate-none',
         className,
       )}

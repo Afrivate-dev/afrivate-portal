@@ -22,7 +22,7 @@ export function InstagramFeedCard({
   return (
     <article
       className={cn(
-        'overflow-hidden rounded-xl border border-border bg-surface shadow-sm',
+        'min-w-0 max-w-full overflow-hidden rounded-xl border border-border bg-surface shadow-sm',
         'transition-shadow duration-200 hover:shadow-md motion-reduce:transition-none',
         'animate-fade-in-up motion-reduce:animate-none',
         onClick && 'cursor-pointer',
@@ -43,7 +43,7 @@ export function InstagramFeedCard({
       }
     >
       <div className="flex items-center gap-3 px-4 py-3">{header}</div>
-      {media ? <div className="w-full">{media}</div> : null}
+      {media ? <div className="min-w-0 max-w-full overflow-hidden">{media}</div> : null}
       {actions ? (
         <div className="flex items-center gap-1 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           {actions}

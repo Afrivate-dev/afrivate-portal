@@ -379,7 +379,7 @@ export function StaffDirectoryPage() {
                       <a
                         href={mailFor(u)}
                         onClick={(e) => e.stopPropagation()}
-                        className="inline-flex flex-1 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-center text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent-hover min-w-[7rem] ring-focus"
+                        className="inline-flex min-w-0 flex-1 items-center justify-center gap-1.5 rounded-md bg-accent px-3 py-2 text-center text-xs font-medium text-white shadow-sm transition-colors hover:bg-accent-hover ring-focus"
                       >
                         <Mail className="h-3.5 w-3.5" />
                         {P.sendEmail}

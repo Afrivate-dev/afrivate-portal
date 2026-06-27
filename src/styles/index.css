@@ -35,15 +35,27 @@
     --accent-hover: 168 90 162;   /* lighter purple hover */
   }
 
+  html {
+    overflow-x: clip;
+    max-width: 100%;
+  }
+
   html,
   body,
   #root {
     height: 100%;
+    max-width: 100%;
   }
 
   body {
     @apply bg-bg text-fg font-sans antialiased;
+    overflow-x: clip;
     font-feature-settings: 'cv11', 'ss01';
+  }
+
+  #root {
+    min-width: 0;
+    overflow-x: clip;
   }
 
   * {
@@ -87,9 +99,20 @@
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
   }
 
+  /** Prevent flex/grid children from forcing horizontal page scroll */
+  .av-contain {
+    @apply min-w-0 max-w-full overflow-x-clip;
+  }
+
+  /** Scrollable region for wide tables on small screens */
+  .av-scroll-x {
+    @apply max-w-full overflow-x-auto overscroll-x-contain;
+    -webkit-overflow-scrolling: touch;
+  }
+
   /** Consistent page wrapper — spacing + staggered list children */
   .av-page {
-    @apply space-y-4 sm:space-y-5 md:space-y-6;
+    @apply av-contain space-y-4 sm:space-y-5 md:space-y-6;
   }
 
   .av-stagger > * {
@@ -139,6 +162,8 @@
 
   /** FullCalendar — align with portal tokens */
   .av-fullcalendar {
+    max-width: 100%;
+    min-width: 0;
     --fc-page-bg-color: rgb(var(--surface));
     --fc-neutral-bg-color: rgb(var(--surface-2) / 0.45);
     --fc-neutral-text-color: rgb(var(--muted));
@@ -152,6 +177,17 @@
     --fc-today-bg-color: rgb(var(--accent) / 0.12);
     --fc-highlight-color: rgb(var(--accent) / 0.18);
     --fc-now-indicator-color: rgb(var(--accent));
+  }
+
+  .av-fullcalendar .fc {
+    max-width: 100%;
+  }
+
+  @media (max-width: 639px) {
+    .av-fullcalendar {
+      overflow-x: auto;
+      -webkit-overflow-scrolling: touch;
+    }
   }
 
   .av-fullcalendar .fc-toolbar-title {

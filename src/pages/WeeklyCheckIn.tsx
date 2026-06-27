@@ -291,7 +291,7 @@ export function WeeklyCheckInPage() {
           ) : (
             <Card padding="none" className="overflow-hidden">
               {/* Desktop table */}
-              <div className="hidden overflow-x-auto lg:block">
+              <div className="hidden av-scroll-x lg:block">
                 <table className="min-w-full text-sm">
                   <thead className="bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
                     <tr>

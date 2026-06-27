@@ -759,7 +759,7 @@ export function TasksPage() {
             ))}
           </div>
 
-          <div className="mt-6 overflow-x-auto">
+          <div className="mt-6 hidden av-scroll-x lg:block">
             <table className="min-w-full text-sm">
               <thead>
                 <tr className="border-b border-border text-left text-xs uppercase tracking-wide text-muted">

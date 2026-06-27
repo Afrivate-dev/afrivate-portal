@@ -34,6 +34,7 @@ export function Card({
     <div
       className={cn(
         'rounded-lg border border-border bg-surface shadow-card',
+        'min-w-0 max-w-full',
         'transition-all duration-200 motion-reduce:transition-none',
         paddings[padding],
         accentBorders[accentBorder],

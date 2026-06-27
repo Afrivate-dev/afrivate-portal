@@ -11,7 +11,7 @@ export function MobileNav({ onOpenDrawer }: MobileNavProps) {
   const bottomItems = navItems.filter((i) => i.showInBottomBar).slice(0, 4)
 
   return (
-    <nav className="sticky bottom-0 z-30 grid grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
+    <nav className="sticky bottom-0 z-30 grid w-full max-w-full grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
       {bottomItems.map((item) => (
         <NavLink
           key={item.to}

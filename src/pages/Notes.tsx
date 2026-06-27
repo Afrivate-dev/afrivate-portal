@@ -612,7 +612,7 @@ export function NotesPage() {
             : N.statusSolo
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title={N.title}
         description={N.subtitle}
@@ -642,7 +642,7 @@ export function NotesPage() {
         </p>
       ) : null}
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(240px,280px)_1fr] lg:items-start">
+      <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:items-start">
         <aside
           className={cn(
             'overflow-hidden rounded-xl border border-border/60 bg-surface-2/20 shadow-sm lg:sticky lg:top-20',
@@ -676,7 +676,7 @@ export function NotesPage() {
 
         <div
           className={cn(
-            'min-h-[min(72vh,760px)] rounded-xl border border-border/60 bg-surface shadow-sm',
+            'min-h-[min(72vh,760px)] min-w-0 overflow-x-clip rounded-xl border border-border/60 bg-surface shadow-sm',
             !mobileShowEditor && !selected ? 'hidden lg:block' : 'block',
           )}
         >
