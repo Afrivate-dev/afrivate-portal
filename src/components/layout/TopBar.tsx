@@ -41,19 +41,24 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
 
   useEffect(() => {
     if (!menuOpen) return
-    const onClick = (e: MouseEvent) => {
-      if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
-        setMenuOpen(false)
-      }
+    const onPointerDown = (e: PointerEvent) => {
+      if (menuRef.current?.contains(e.target as Node)) return
+      setMenuOpen(false)
     }
-    document.addEventListener('mousedown', onClick)
-    return () => document.removeEventListener('mousedown', onClick)
+    // Defer so the same tap that opened the menu does not instantly close it (mobile).
+    const timer = window.setTimeout(() => {
+      document.addEventListener('pointerdown', onPointerDown)
+    }, 0)
+    return () => {
+      window.clearTimeout(timer)
+      document.removeEventListener('pointerdown', onPointerDown)
+    }
   }, [menuOpen])
 
   if (!user) return null
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 min-w-0 max-w-full shrink-0 items-center gap-2 overflow-hidden border-b border-border bg-surface/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
+    <header className="sticky top-0 z-30 flex h-16 min-w-0 max-w-full shrink-0 items-center gap-2 border-b border-border bg-surface/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
       <button
         onClick={onOpenDrawer}
         aria-label="Open menu"
@@ -116,10 +121,13 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           ) : null}
         </button>
 
-        <div className="relative" ref={menuRef}>
+        <div className="relative shrink-0" ref={menuRef}>
           <button
+            type="button"
             onClick={() => setMenuOpen((v) => !v)}
-            className="flex items-center gap-2.5 rounded-md p-1.5 hover:bg-surface-2 ring-focus"
+            aria-expanded={menuOpen}
+            aria-haspopup="menu"
+            className="flex touch-manipulation items-center gap-2.5 rounded-md p-1.5 hover:bg-surface-2 ring-focus"
           >
             <Avatar name={user.name} src={user.avatarUrl} size="sm" />
             <div className="hidden text-left sm:block">
@@ -129,7 +137,10 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           </button>
 
           {menuOpen ? (
-            <div className="absolute right-0 top-full z-40 mt-2 w-56 overflow-hidden rounded-md border border-border bg-surface shadow-elevated animate-fade-in">
+            <div
+              role="menu"
+              className="absolute right-0 top-full z-50 mt-2 w-56 overflow-hidden rounded-md border border-border bg-surface shadow-elevated animate-fade-in"
+            >
               <div className="border-b border-border p-3">
                 <div className="text-sm font-semibold text-fg">{firstName(user.name)}</div>
                 <div className="truncate text-xs text-muted">{user.email}</div>
