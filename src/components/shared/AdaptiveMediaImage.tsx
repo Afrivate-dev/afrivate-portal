@@ -1,9 +1,9 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Maximize2, X } from 'lucide-react'
 import { AdaptiveMediaFrame } from '@/components/shared/AdaptiveMediaFrame'
 import { useResolvedMediaUrl } from '@/hooks/useResolvedMediaUrl'
 import { cn } from '@/utils/helpers'
-import type { MediaDimensions } from '@/utils/mediaAspectRatio'
+import { MEDIA_MAX_HEIGHT, type MediaDimensions } from '@/utils/mediaAspectRatio'
 
 export function AdaptiveMediaImage({
   src,
@@ -21,31 +21,71 @@ export function AdaptiveMediaImage({
 }) {
   const { url, loading, ready } = useResolvedMediaUrl(src)
   const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
+  const [displayReady, setDisplayReady] = useState(false)
   const [lightbox, setLightbox] = useState(false)
   const [failed, setFailed] = useState(false)
 
-  const imageBody = ready && !failed ? (
-    <img
-      src={url}
-      alt={alt}
-      className="h-full w-full object-contain"
-      loading={eager ? 'eager' : 'lazy'}
-      decoding="async"
-      onLoad={(e) => {
-        const img = e.currentTarget
-        if (img.naturalWidth && img.naturalHeight) {
-          setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-        }
-        setFailed(false)
-      }}
-      onError={() => setFailed(true)}
-    />
-  ) : null
+  useEffect(() => {
+    if (!ready || !url) {
+      setDimensions(null)
+      setDisplayReady(false)
+      setFailed(false)
+      return
+    }
+
+    let cancelled = false
+    setDimensions(null)
+    setDisplayReady(false)
+    setFailed(false)
+
+    const img = new Image()
+    img.onload = () => {
+      if (cancelled) return
+      if (img.naturalWidth && img.naturalHeight) {
+        setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+      }
+      setDisplayReady(true)
+    }
+    img.onerror = () => {
+      if (!cancelled) setFailed(true)
+    }
+    img.src = url
+
+    return () => {
+      cancelled = true
+    }
+  }, [url, ready])
+
+  if (ready && !failed && !displayReady) {
+    return (
+      <div
+        className={cn('relative overflow-hidden bg-black', className)}
+        style={{ aspectRatio: '1 / 1', maxHeight: MEDIA_MAX_HEIGHT, marginInline: 'auto', width: '100%' }}
+        aria-busy="true"
+        aria-label={`Loading ${alt}`}
+      >
+        <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+          <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+        </div>
+      </div>
+    )
+  }
+
+  const imageBody =
+    displayReady && !failed ? (
+      <img
+        src={url}
+        alt={alt}
+        className="h-full w-full object-contain opacity-100 transition-opacity duration-200 motion-reduce:transition-none"
+        loading={eager ? 'eager' : 'lazy'}
+        decoding="async"
+      />
+    ) : null
 
   return (
     <>
       <AdaptiveMediaFrame dimensions={dimensions} className={className}>
-        {fullscreen && ready && !failed ? (
+        {fullscreen && displayReady && !failed ? (
           <button
             type="button"
             onClick={() => setLightbox(true)}
@@ -60,7 +100,7 @@ export function AdaptiveMediaImage({
         ) : (
           imageBody
         )}
-        {loading ? (
+        {loading && !displayReady ? (
           <div className="absolute inset-0 flex items-center justify-center bg-black/30">
             <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
           </div>
@@ -72,7 +112,7 @@ export function AdaptiveMediaImage({
         ) : null}
       </AdaptiveMediaFrame>
 
-      {lightbox && ready && !failed ? (
+      {lightbox && displayReady && !failed ? (
         <div
           className="fixed inset-0 z-[120] flex flex-col bg-black/95"
           role="dialog"
@@ -105,19 +145,38 @@ export function AdaptiveMediaThumb({
   kind,
   className,
   embedUrl,
+  embedAspect,
 }: {
   src: string
   alt: string
   kind: 'image' | 'video'
   className?: string
   embedUrl?: string
+  embedAspect?: { width: number; height: number }
 }) {
   const { url, ready } = useResolvedMediaUrl(src)
   const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
 
-  const onDimensions = (width: number, height: number) => {
-    if (width && height) setDimensions({ width, height })
-  }
+  useEffect(() => {
+    if (embedUrl || kind === 'video' || !ready || !url) {
+      setDimensions(null)
+      return
+    }
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (cancelled) return
+      if (img.naturalWidth && img.naturalHeight) {
+        setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+      }
+    }
+    img.src = url
+    return () => {
+      cancelled = true
+    }
+  }, [embedUrl, kind, ready, url])
+
+  const fallbackAspect = embedAspect ?? (embedUrl || kind === 'video' ? { width: 16, height: 9 } : { width: 1, height: 1 })
 
   return (
     <div
@@ -131,25 +190,24 @@ export function AdaptiveMediaThumb({
               aspectRatio: `${dimensions.width} / ${dimensions.height}`,
               maxHeight: '9rem',
             }
-          : { aspectRatio: embedUrl || kind === 'video' ? '16 / 9' : '1 / 1', maxHeight: '9rem' }
+          : {
+              aspectRatio: `${fallbackAspect.width} / ${fallbackAspect.height}`,
+              maxHeight: '9rem',
+            }
       }
     >
       {embedUrl ? (
         <div className="flex h-full w-full items-center justify-center bg-black text-xs font-semibold uppercase tracking-wide text-white/80">
           Video
         </div>
-      ) : ready && kind === 'image' ? (
-        <img
-          src={url}
-          alt={alt}
-          className="h-full w-full object-contain"
-          loading="lazy"
-          onLoad={(e) => onDimensions(e.currentTarget.naturalWidth, e.currentTarget.naturalHeight)}
-        />
+      ) : ready && kind === 'image' && dimensions ? (
+        <img src={url} alt={alt} className="h-full w-full object-contain" loading="lazy" />
       ) : ready && kind === 'video' ? (
         <div className="flex h-full w-full items-center justify-center bg-black text-xs font-semibold uppercase tracking-wide text-white/80">
           Video
         </div>
+      ) : kind === 'image' ? (
+        <div className="absolute inset-0 bg-black/40" aria-hidden />
       ) : null}
     </div>
   )

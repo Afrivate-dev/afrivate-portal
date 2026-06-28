@@ -42,6 +42,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
 import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, roleLabel } from '@/utils/helpers'
@@ -935,6 +936,7 @@ export function AdminPanelPage() {
                           {fmtDate(l.startDate)} → {fmtDate(l.endDate)} ·{' '}
                           {dayCountLeave(l.startDate, l.endDate)} days
                         </p>
+                        {user ? <LeaveSupportingDoc request={l} viewer={user} /> : null}
                       </div>
                       <div className="flex gap-1">
                         <Button size="sm" onClick={() => setReviewing({ req: l, status: 'approved' })}>
@@ -1483,8 +1485,9 @@ export function AdminPanelPage() {
           </>
         }
       >
-        {reviewing ? (
+        {reviewing && user ? (
           <div className="space-y-3">
+            <LeaveSupportingDoc request={reviewing.req} viewer={user} />
             <Textarea
               label="Note (optional)"
               rows={3}

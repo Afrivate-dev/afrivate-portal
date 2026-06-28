@@ -20,8 +20,9 @@ export function adaptiveMediaContainerStyle(
   if (!dimensions?.width || !dimensions?.height) {
     return {
       width: '100%',
-      minHeight: '12rem',
+      aspectRatio: '1 / 1',
       maxHeight: MEDIA_MAX_HEIGHT,
+      marginInline: 'auto',
     }
   }
 
