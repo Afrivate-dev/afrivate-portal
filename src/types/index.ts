@@ -104,6 +104,8 @@ export interface AnnouncementMedia {
   url: string
   /** YouTube/Vimeo iframe src when link is an embed provider. */
   embedUrl?: string
+  /** Display aspect ratio for embed players (defaults to 16:9). */
+  embedAspect?: { width: number; height: number }
   fileName?: string
   caption?: string
 }

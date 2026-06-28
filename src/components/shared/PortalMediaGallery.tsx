@@ -236,6 +236,7 @@ function MediaThumb({
           alt={label}
           kind={item.kind}
           embedUrl={item.embedUrl}
+          embedAspect={item.embedAspect}
         />
       ) : (
         <div className="flex aspect-square max-h-36 w-full flex-col items-center justify-center gap-2 bg-surface-2 px-3">

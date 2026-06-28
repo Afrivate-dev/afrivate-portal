@@ -72,6 +72,150 @@ export function sanitizeVimeoEmbedUrl(raw: string | undefined | null): string {
   return ''
 }
 
+/** TikTok embed URL — portrait 9:16. */
+export function sanitizeTikTokEmbedUrl(raw: string | undefined | null): string {
+  const safe = sanitizeHttpUrl(raw)
+  if (!safe) return ''
+  try {
+    const parsed = new URL(safe)
+    const host = parsed.hostname.replace(/^www\./, '')
+    if (host !== 'tiktok.com' && !host.endsWith('.tiktok.com')) return ''
+    const videoMatch = parsed.pathname.match(/\/video\/(\d+)/)
+    if (videoMatch) return `https://www.tiktok.com/embed/v2/${videoMatch[1]}`
+  } catch {
+    return ''
+  }
+  return ''
+}
+
+/** Instagram reel/post/tv embed — aspect varies by format. */
+export function sanitizeInstagramEmbedUrl(
+  raw: string | undefined | null,
+): { embedUrl: string; aspect: { width: number; height: number } } | null {
+  const safe = sanitizeHttpUrl(raw)
+  if (!safe) return null
+  try {
+    const parsed = new URL(safe)
+    const host = parsed.hostname.replace(/^www\./, '')
+    if (host !== 'instagram.com') return null
+
+    const reelMatch = parsed.pathname.match(/\/reel\/([\w-]+)/)
+    if (reelMatch) {
+      return {
+        embedUrl: `https://www.instagram.com/reel/${reelMatch[1]}/embed`,
+        aspect: { width: 9, height: 16 },
+      }
+    }
+
+    const postMatch = parsed.pathname.match(/\/p\/([\w-]+)/)
+    if (postMatch) {
+      return {
+        embedUrl: `https://www.instagram.com/p/${postMatch[1]}/embed`,
+        aspect: { width: 4, height: 5 },
+      }
+    }
+
+    const tvMatch = parsed.pathname.match(/\/tv\/([\w-]+)/)
+    if (tvMatch) {
+      return {
+        embedUrl: `https://www.instagram.com/tv/${tvMatch[1]}/embed`,
+        aspect: { width: 16, height: 9 },
+      }
+    }
+  } catch {
+    return null
+  }
+  return null
+}
+
+/** X (Twitter) status embed for posts with video. */
+export function sanitizeXEmbedUrl(raw: string | undefined | null): string {
+  const safe = sanitizeHttpUrl(raw)
+  if (!safe) return ''
+  try {
+    const parsed = new URL(safe)
+    const host = parsed.hostname.replace(/^www\./, '')
+    if (host !== 'twitter.com' && host !== 'x.com') return ''
+    const statusMatch = parsed.pathname.match(/\/status\/(\d+)/)
+    if (statusMatch) {
+      return `https://platform.twitter.com/embed/Tweet.html?id=${statusMatch[1]}&dnt=true`
+    }
+  } catch {
+    return ''
+  }
+  return ''
+}
+
+export type VideoEmbedResult = {
+  embedUrl: string
+  aspect: { width: number; height: number }
+  label: string
+}
+
+const LANDSCAPE = { width: 16, height: 9 } as const
+const PORTRAIT = { width: 9, height: 16 } as const
+
+/** Resolve a social or streaming URL to a safe iframe embed + aspect ratio. */
+export function resolveVideoEmbedUrl(raw: string | undefined | null): VideoEmbedResult | null {
+  const url = raw?.trim() ?? ''
+  if (!url) return null
+
+  const youtubeEmbed = sanitizeYouTubeEmbedUrl(url)
+  if (youtubeEmbed) {
+    return { embedUrl: youtubeEmbed, aspect: LANDSCAPE, label: 'YouTube video' }
+  }
+
+  const vimeoEmbed = sanitizeVimeoEmbedUrl(url)
+  if (vimeoEmbed) {
+    return { embedUrl: vimeoEmbed, aspect: LANDSCAPE, label: 'Vimeo video' }
+  }
+
+  const tiktokEmbed = sanitizeTikTokEmbedUrl(url)
+  if (tiktokEmbed) {
+    return { embedUrl: tiktokEmbed, aspect: PORTRAIT, label: 'TikTok video' }
+  }
+
+  const instagramEmbed = sanitizeInstagramEmbedUrl(url)
+  if (instagramEmbed) {
+    return {
+      embedUrl: instagramEmbed.embedUrl,
+      aspect: instagramEmbed.aspect,
+      label: 'Instagram video',
+    }
+  }
+
+  const xEmbed = sanitizeXEmbedUrl(url)
+  if (xEmbed) {
+    return { embedUrl: xEmbed, aspect: LANDSCAPE, label: 'X video' }
+  }
+
+  return null
+}
+
+const VIDEO_PAGE_HOSTS = [
+  'tiktok.com',
+  'instagram.com',
+  'twitter.com',
+  'x.com',
+  'facebook.com',
+  'fb.watch',
+  'twitch.tv',
+  'dailymotion.com',
+  'loom.com',
+]
+
+/** Hostname looks like a video page even when embed parsing failed. */
+export function isLikelyVideoPageUrl(raw: string | undefined | null): boolean {
+  const safe = sanitizeHttpUrl(raw)
+  if (!safe) return false
+  try {
+    const host = new URL(safe).hostname.replace(/^www\./, '')
+    return VIDEO_PAGE_HOSTS.some((h) => host === h || host.endsWith(`.${h}`))
+  } catch {
+    return false
+  }
+}
+
 /** Media URLs for announcements — https only in production, http allowed on localhost. */
 export function sanitizeMediaUrl(raw: string | undefined | null): string | null {
   const safe = sanitizeHttpUrl(raw)

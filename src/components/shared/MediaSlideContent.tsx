@@ -5,6 +5,7 @@ import { AdaptiveMediaImage } from '@/components/shared/AdaptiveMediaImage'
 import { MediaEmbedPlayer } from '@/components/shared/MediaEmbedPlayer'
 import { PortalVideoPlayer } from '@/components/shared/PortalVideoPlayer'
 import { isStorageReference, prefetchMediaUrl, resolveStorageReference } from '@/utils/mediaUpload'
+import { resolveVideoEmbedUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
 export function MediaSlideContent({
@@ -50,11 +51,37 @@ export function MediaSlideContent({
   }
 
   if (item.kind === 'video' && item.embedUrl) {
-    return <MediaEmbedPlayer embedUrl={item.embedUrl} title={label} className={className} />
+    return (
+      <MediaEmbedPlayer
+        embedUrl={item.embedUrl}
+        title={label}
+        className={className}
+        aspect={item.embedAspect ?? { width: 16, height: 9 }}
+      />
+    )
+  }
+
+  if (item.kind === 'video' && !item.embedUrl) {
+    const embed = resolveVideoEmbedUrl(item.url)
+    if (embed) {
+      return (
+        <MediaEmbedPlayer
+          embedUrl={embed.embedUrl}
+          title={label}
+          className={className}
+          aspect={embed.aspect}
+        />
+      )
+    }
   }
 
   if (item.kind === 'video') {
-    return <PortalVideoPlayer src={item.url} className={className ?? 'w-full'} eager={eager} />
+    const isDirectFile =
+      isStorageReference(item.url) || /\.(mp4|webm|mov|m4v|ogv)($|\?)/i.test(item.url)
+    if (isDirectFile) {
+      return <PortalVideoPlayer src={item.url} className={className ?? 'w-full'} eager={eager} />
+    }
+    return <ExternalLinkCard url={item.url} label={label} />
   }
 
   return (

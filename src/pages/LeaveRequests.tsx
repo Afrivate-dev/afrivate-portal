@@ -9,7 +9,6 @@ import {
   ChevronRight,
   Check,
   X,
-  Paperclip,
   Inbox,
   CheckCircle2,
   XCircle,
@@ -41,6 +40,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { cn, fmtDate, firstName, isLead, relativeTime } from '@/utils/helpers'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
@@ -380,6 +380,7 @@ export function LeaveRequestsPage() {
             requests={myRequests}
             users={users}
             showWho={false}
+            viewer={user}
             leaveComments={leaveComments}
             currentUserId={user.id}
             onViewConversation={setDetailRequest}
@@ -404,6 +405,7 @@ export function LeaveRequestsPage() {
             )}
             users={users}
             showWho
+            viewer={user}
             leaveComments={leaveComments}
             currentUserId={user.id}
             onViewConversation={setDetailRequest}
@@ -586,6 +588,7 @@ export function LeaveRequestsPage() {
                 {dayCount(reviewing.request.startDate, reviewing.request.endDate)} days
               </p>
               <p className="mt-2 text-fg/90">{reviewing.request.reason}</p>
+              <LeaveSupportingDoc request={reviewing.request} viewer={user} />
             </div>
             {reviewing.status === 'approved' ? (
               <Input
@@ -660,6 +663,7 @@ export function LeaveRequestsPage() {
                 {STATUS_META[detailRequest.status].label}
               </p>
               <p className="mt-2 text-fg/90">{detailRequest.reason}</p>
+              <LeaveSupportingDoc request={detailRequest} viewer={user} />
               {detailRequest.reviewerNote ? (
                 <p className="mt-2 rounded-md bg-surface px-2.5 py-1.5 text-xs text-fg/80">
                   <span className="font-semibold">Note from reviewer:</span>{' '}
@@ -770,6 +774,7 @@ function RequestsList({
   requests,
   users,
   showWho,
+  viewer,
   leaveComments,
   currentUserId,
   onViewConversation,
@@ -779,6 +784,7 @@ function RequestsList({
   requests: LeaveRequest[]
   users: User[]
   showWho: boolean
+  viewer: User
   leaveComments?: LeaveComment[]
   currentUserId?: string
   onViewConversation?: (r: LeaveRequest) => void
@@ -828,12 +834,7 @@ function RequestsList({
                       {relativeTime(r.submittedAt)}
                     </p>
                     <p className="mt-2 text-sm text-fg/90">{r.reason}</p>
-                    {r.supportingDocName ? (
-                      <p className="mt-1.5 inline-flex items-center gap-1.5 text-xs text-muted">
-                        <Paperclip className="h-3 w-3" />
-                        {r.supportingDocName}
-                      </p>
-                    ) : null}
+                    <LeaveSupportingDoc request={r} viewer={viewer} />
                     {r.reviewerNote ? (
                       <p className="mt-2 rounded-md bg-surface-2 px-2.5 py-1.5 text-xs text-fg/80">
                         <span className="font-semibold">Note from reviewer:</span>{' '}

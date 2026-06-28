@@ -1,7 +1,7 @@
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileBlobUrl, getPortalFileSignedUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
-import { sanitizeMediaUrl, sanitizeVimeoEmbedUrl, sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
+import { sanitizeMediaUrl, resolveVideoEmbedUrl, isLikelyVideoPageUrl } from '@/utils/safeUrl'
 import type { AnnouncementMedia } from '@/types'
 
 export class MediaUploadError extends Error {
@@ -195,14 +195,15 @@ export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {
   const url = sanitizeMediaUrl(raw)
   if (!url) return null
 
-  const youtubeEmbed = sanitizeYouTubeEmbedUrl(url)
-  if (youtubeEmbed) {
-    return { kind: 'video', url, embedUrl: youtubeEmbed, fileName: 'YouTube video' }
-  }
-
-  const vimeoEmbed = sanitizeVimeoEmbedUrl(url)
-  if (vimeoEmbed) {
-    return { kind: 'video', url, embedUrl: vimeoEmbed, fileName: 'Vimeo video' }
+  const embed = resolveVideoEmbedUrl(url)
+  if (embed) {
+    return {
+      kind: 'video',
+      url,
+      embedUrl: embed.embedUrl,
+      embedAspect: embed.aspect,
+      fileName: embed.label,
+    }
   }
 
   try {
@@ -219,6 +220,10 @@ export function parseMediaUrlInput(raw: string): AnnouncementMedia | null {
     }
     if (imageExt.includes(ext)) {
       return { kind: 'image', url, fileName: pathFile || undefined }
+    }
+
+    if (isLikelyVideoPageUrl(url)) {
+      return { kind: 'video', url, fileName: 'Video link' }
     }
 
     // Common CDN patterns without extensions in path
