@@ -28,7 +28,7 @@ import {
 } from 'date-fns'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -177,8 +177,11 @@ export function TasksPage() {
     if (!openId) return
     const target = tasks.find((t) => t.id === openId)
     if (!target) return
-    setDetailId(openId)
-    setSearchParams({}, { replace: true })
+    const frameId = requestAnimationFrame(() => {
+      setDetailId(openId)
+      setSearchParams({}, { replace: true })
+    })
+    return () => cancelAnimationFrame(frameId)
   }, [searchParams, setSearchParams, tasks])
 
   const isMyTask = useCallback(

@@ -4,7 +4,7 @@ import { X, LogOut, ShieldCheck } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { confirms, actions } from '@/content/copy'
 import { Avatar } from '@/components/ui/Avatar'
 

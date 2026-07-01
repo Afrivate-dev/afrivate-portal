@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { useSearchParams } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { useCollab } from '@/context/CollabContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -35,6 +35,13 @@ import { pages, actions, confirms } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority, User } from '@/types'
 
 type PriorityFilter = 'all' | AnnouncementPriority
+type MemoFilter = 'all' | 'general' | 'digest' | 'policy'
+
+const MEMO_LABELS: Record<Exclude<MemoFilter, 'all'>, string> = {
+  general: 'Memo',
+  digest: 'HR digest',
+  policy: 'Policy',
+}
 
 const U = pages.updates
 
@@ -64,6 +71,7 @@ interface FormDraft {
   body: string
   audience: string
   priority: AnnouncementPriority
+  memoCategory: 'general' | 'digest' | 'policy'
   media: AnnouncementMedia[]
 }
 
@@ -72,6 +80,7 @@ const emptyDraft: FormDraft = {
   body: '',
   audience: 'all',
   priority: 'info',
+  memoCategory: 'general',
   media: [],
 }
 
@@ -81,6 +90,7 @@ const draftFromAnnouncement = (a: Announcement): FormDraft => ({
   body: a.body,
   audience: a.audience,
   priority: a.priority,
+  memoCategory: a.memoCategory ?? 'general',
   media: a.media ? [...a.media] : [],
 })
 
@@ -103,6 +113,7 @@ export function AnnouncementsPage() {
   const canPost = isTeamLead(user)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
+  const [memoFilter, setMemoFilter] = useState<MemoFilter>('all')
   const [unreadOnly, setUnreadOnly] = useState(false)
   const [readingId, setReadingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
@@ -148,6 +159,8 @@ export function AnnouncementsPage() {
       if (a.audience !== 'all' && a.audience !== user.department) return false
       // Priority filter
       if (priorityFilter !== 'all' && a.priority !== priorityFilter) return false
+      const cat = a.memoCategory ?? 'general'
+      if (memoFilter !== 'all' && cat !== memoFilter) return false
       if (unreadOnly && a.readBy.includes(user.id)) return false
       // Search
       if (search.trim()) {
@@ -161,7 +174,7 @@ export function AnnouncementsPage() {
       }
       return true
     })
-  }, [announcements, user, priorityFilter, search, unreadOnly])
+  }, [announcements, user, priorityFilter, memoFilter, search, unreadOnly])
 
   const hasUnread = useMemo(() => {
     if (!user) return false
@@ -172,7 +185,7 @@ export function AnnouncementsPage() {
     )
   }, [announcements, user])
 
-  const filtersActive = !!search.trim() || priorityFilter !== 'all' || unreadOnly
+  const filtersActive = !!search.trim() || priorityFilter !== 'all' || memoFilter !== 'all' || unreadOnly
   const reading = readingId ? announcements.find((a) => a.id === readingId) ?? null : null
   const readingReaders =
     reading && multiplayerLive ? readersForUpdate(reading.id) : []
@@ -207,13 +220,21 @@ export function AnnouncementsPage() {
       body: draft.body.trim(),
       audience: draft.audience,
       priority: draft.priority,
-      postedById: user.id,
+      memoCategory: draft.memoCategory,
       media: draft.media.length > 0 ? draft.media : [],
+      ...(draft.id ? {} : { postedById: user.id }),
     }
     if (draft.id) {
-      updateAnnouncement(draft.id, payload)
+      updateAnnouncement(draft.id, {
+        title: payload.title,
+        body: payload.body,
+        audience: payload.audience,
+        priority: payload.priority,
+        memoCategory: payload.memoCategory,
+        media: payload.media,
+      })
     } else {
-      createAnnouncement(payload)
+      createAnnouncement({ ...payload, postedById: user.id })
     }
     closeForm()
   }
@@ -247,6 +268,19 @@ export function AnnouncementsPage() {
                 placeholder={U.searchPlaceholder}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
+              />
+            </div>
+            <div className="w-full sm:w-52">
+              <Select
+                label="Type"
+                value={memoFilter}
+                onChange={(e) => setMemoFilter(e.target.value as MemoFilter)}
+                options={[
+                  { value: 'all', label: 'All types' },
+                  { value: 'general', label: 'General memos' },
+                  { value: 'digest', label: 'HR digest' },
+                  { value: 'policy', label: 'Policy notices' },
+                ]}
               />
             </div>
             <div className="w-full sm:w-52">
@@ -334,6 +368,11 @@ export function AnnouncementsPage() {
                           <span className="h-2 w-2 rounded-full bg-accent" aria-label="Unread" />
                         ) : null}
                         <Badge tone={meta.tone}>{announcementPriorityLabel(a.priority)}</Badge>
+                        {(a.memoCategory === 'digest' || a.memoCategory === 'policy') ? (
+                          <Badge tone={a.memoCategory === 'digest' ? 'info' : 'warning'}>
+                            {MEMO_LABELS[a.memoCategory]}
+                          </Badge>
+                        ) : null}
                         {canEdit || canDelete ? (
                           <div className="flex items-center gap-0.5">
                             {canEdit ? (
@@ -514,6 +553,23 @@ export function AnnouncementsPage() {
               ]}
             />
           </div>
+          {(isHR(user) || isAdmin(user)) ? (
+            <Select
+              label="Memo type"
+              value={draft.memoCategory}
+              onChange={(e) =>
+                setDraft({
+                  ...draft,
+                  memoCategory: e.target.value as FormDraft['memoCategory'],
+                })
+              }
+              options={[
+                { value: 'general', label: 'General memo' },
+                { value: 'digest', label: 'HR digest (email mirror)' },
+                { value: 'policy', label: 'Policy notice' },
+              ]}
+            />
+          ) : null}
         </form>
       </Modal>
 

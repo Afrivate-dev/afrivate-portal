@@ -1,19 +1,10 @@
-import { createContext, useCallback, useContext, useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import { Modal } from '@/components/ui/Modal'
 import { Button } from '@/components/ui/Button'
 import { actions, confirms } from '@/content/copy'
+import { ConfirmContext, type ConfirmFn, type ConfirmOptions } from '@/context/confirmContextShared'
 
-export type ConfirmOptions = {
-  title?: string
-  message: string
-  confirmLabel?: string
-  cancelLabel?: string
-  destructive?: boolean
-}
-
-type ConfirmFn = (options: ConfirmOptions) => Promise<boolean>
-
-const ConfirmContext = createContext<ConfirmFn | null>(null)
+export type { ConfirmOptions, ConfirmFn }
 
 export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   const [state, setState] = useState<(ConfirmOptions & { resolve: (v: boolean) => void }) | null>(
@@ -27,9 +18,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   const close = useCallback((result: boolean) => {
-    state?.resolve(result)
-    setState(null)
-  }, [state])
+    setState((prev) => {
+      prev?.resolve(result)
+      return null
+    })
+  }, [])
 
   const value = useMemo(() => confirm, [confirm])
 
@@ -59,10 +52,4 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
       </Modal>
     </ConfirmContext.Provider>
   )
-}
-
-export function useConfirm(): ConfirmFn {
-  const ctx = useContext(ConfirmContext)
-  if (!ctx) throw new Error('useConfirm must be used within ConfirmProvider')
-  return ctx
 }

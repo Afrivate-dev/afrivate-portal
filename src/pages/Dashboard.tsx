@@ -11,6 +11,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { PeopleActionBanners } from '@/components/people/PeopleActionBanners'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { Badge } from '@/components/ui/Badge'
@@ -120,7 +121,7 @@ export function DashboardPage() {
               <Plus className="h-4 w-4" /> New task
             </Link>
             <Link
-              to="/leave"
+              to="/people/leave"
               className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-transparent px-5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
             >
               Request leave
@@ -166,6 +167,8 @@ export function DashboardPage() {
         </Card>
       ) : null}
 
+      <PeopleActionBanners />
+
       {/* Stat cards */}
       <div className="av-stagger grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
         <StatCard label="Tasks due today" value={stats.dueToday} icon={ListChecks} tone="brand" />
@@ -174,6 +177,7 @@ export function DashboardPage() {
           value={stats.pendingLeave}
           icon={CalendarDays}
           tone="warning"
+          to={stats.pendingLeave > 0 ? '/people/leave' : undefined}
         />
         <StatCard
           label="Events this week"

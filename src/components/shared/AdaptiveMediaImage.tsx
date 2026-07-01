@@ -5,39 +5,26 @@ import { useResolvedMediaUrl } from '@/hooks/useResolvedMediaUrl'
 import { cn } from '@/utils/helpers'
 import { MEDIA_MAX_HEIGHT, type MediaDimensions } from '@/utils/mediaAspectRatio'
 
-export function AdaptiveMediaImage({
-  src,
+function AdaptiveMediaImageLoaded({
+  url,
   alt,
   className,
-  eager = false,
-  fullscreen = true,
+  eager,
+  fullscreen,
 }: {
-  src: string
+  url: string
   alt: string
   className?: string
   eager?: boolean
-  /** Tap to open full-screen lightbox */
   fullscreen?: boolean
 }) {
-  const { url, loading, ready } = useResolvedMediaUrl(src)
   const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
   const [displayReady, setDisplayReady] = useState(false)
   const [lightbox, setLightbox] = useState(false)
   const [failed, setFailed] = useState(false)
 
   useEffect(() => {
-    if (!ready || !url) {
-      setDimensions(null)
-      setDisplayReady(false)
-      setFailed(false)
-      return
-    }
-
     let cancelled = false
-    setDimensions(null)
-    setDisplayReady(false)
-    setFailed(false)
-
     const img = new Image()
     img.onload = () => {
       if (cancelled) return
@@ -50,13 +37,12 @@ export function AdaptiveMediaImage({
       if (!cancelled) setFailed(true)
     }
     img.src = url
-
     return () => {
       cancelled = true
     }
-  }, [url, ready])
+  }, [url])
 
-  if (ready && !failed && !displayReady) {
+  if (!failed && !displayReady) {
     return (
       <div
         className={cn('relative overflow-hidden bg-black', className)}
@@ -100,11 +86,6 @@ export function AdaptiveMediaImage({
         ) : (
           imageBody
         )}
-        {loading && !displayReady ? (
-          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
-            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
-          </div>
-        ) : null}
         {failed ? (
           <div className="absolute inset-0 flex items-center justify-center bg-surface-2 px-4 text-center text-sm text-muted">
             Could not load this image.
@@ -138,6 +119,104 @@ export function AdaptiveMediaImage({
   )
 }
 
+export function AdaptiveMediaImage({
+  src,
+  alt,
+  className,
+  eager = false,
+  fullscreen = true,
+}: {
+  src: string
+  alt: string
+  className?: string
+  eager?: boolean
+  /** Tap to open full-screen lightbox */
+  fullscreen?: boolean
+}) {
+  const { url, loading, ready } = useResolvedMediaUrl(src)
+
+  if (!ready || !url) {
+    return (
+      <div
+        className={cn('relative overflow-hidden bg-black', className)}
+        style={{ aspectRatio: '1 / 1', maxHeight: MEDIA_MAX_HEIGHT, marginInline: 'auto', width: '100%' }}
+        aria-busy="true"
+        aria-label={`Loading ${alt}`}
+      >
+        {loading ? (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/30">
+            <span className="h-8 w-8 animate-spin rounded-full border-2 border-white/30 border-t-white" />
+          </div>
+        ) : null}
+      </div>
+    )
+  }
+
+  return (
+    <AdaptiveMediaImageLoaded
+      key={url}
+      url={url}
+      alt={alt}
+      className={className}
+      eager={eager}
+      fullscreen={fullscreen}
+    />
+  )
+}
+
+function AdaptiveMediaThumbLoaded({
+  url,
+  alt,
+  className,
+}: {
+  url: string
+  alt: string
+  className?: string
+}) {
+  const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    const img = new Image()
+    img.onload = () => {
+      if (cancelled) return
+      if (img.naturalWidth && img.naturalHeight) {
+        setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
+      }
+    }
+    img.src = url
+    return () => {
+      cancelled = true
+    }
+  }, [url])
+
+  return (
+    <div
+      className={cn(
+        'relative flex max-h-36 w-full items-center justify-center overflow-hidden bg-black',
+        className,
+      )}
+      style={
+        dimensions
+          ? {
+              aspectRatio: `${dimensions.width} / ${dimensions.height}`,
+              maxHeight: '9rem',
+            }
+          : {
+              aspectRatio: '1 / 1',
+              maxHeight: '9rem',
+            }
+      }
+    >
+      {dimensions ? (
+        <img src={url} alt={alt} className="h-full w-full object-contain" loading="lazy" />
+      ) : (
+        <div className="absolute inset-0 bg-black/40" aria-hidden />
+      )}
+    </div>
+  )
+}
+
 /** Compact thumbnail — preserves aspect ratio within a bounded box. */
 export function AdaptiveMediaThumb({
   src,
@@ -155,60 +234,49 @@ export function AdaptiveMediaThumb({
   embedAspect?: { width: number; height: number }
 }) {
   const { url, ready } = useResolvedMediaUrl(src)
-  const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
-
-  useEffect(() => {
-    if (embedUrl || kind === 'video' || !ready || !url) {
-      setDimensions(null)
-      return
-    }
-    let cancelled = false
-    const img = new Image()
-    img.onload = () => {
-      if (cancelled) return
-      if (img.naturalWidth && img.naturalHeight) {
-        setDimensions({ width: img.naturalWidth, height: img.naturalHeight })
-      }
-    }
-    img.src = url
-    return () => {
-      cancelled = true
-    }
-  }, [embedUrl, kind, ready, url])
-
   const fallbackAspect = embedAspect ?? (embedUrl || kind === 'video' ? { width: 16, height: 9 } : { width: 1, height: 1 })
 
-  return (
-    <div
-      className={cn(
-        'relative flex max-h-36 w-full items-center justify-center overflow-hidden bg-black',
-        className,
-      )}
-      style={
-        dimensions
-          ? {
-              aspectRatio: `${dimensions.width} / ${dimensions.height}`,
-              maxHeight: '9rem',
-            }
-          : {
-              aspectRatio: `${fallbackAspect.width} / ${fallbackAspect.height}`,
-              maxHeight: '9rem',
-            }
-      }
-    >
-      {embedUrl ? (
+  if (embedUrl) {
+    return (
+      <div
+        className={cn(
+          'relative flex max-h-36 w-full items-center justify-center overflow-hidden bg-black',
+          className,
+        )}
+        style={{
+          aspectRatio: `${fallbackAspect.width} / ${fallbackAspect.height}`,
+          maxHeight: '9rem',
+        }}
+      >
         <div className="flex h-full w-full items-center justify-center bg-black text-xs font-semibold uppercase tracking-wide text-white/80">
           Video
         </div>
-      ) : ready && kind === 'image' && dimensions ? (
-        <img src={url} alt={alt} className="h-full w-full object-contain" loading="lazy" />
-      ) : ready && kind === 'video' ? (
-        <div className="flex h-full w-full items-center justify-center bg-black text-xs font-semibold uppercase tracking-wide text-white/80">
-          Video
-        </div>
-      ) : kind === 'image' ? (
-        <div className="absolute inset-0 bg-black/40" aria-hidden />
-      ) : null}
-    </div>
-  )
+      </div>
+    )
+  }
+
+  if (kind === 'video' || !ready || !url) {
+    return (
+      <div
+        className={cn(
+          'relative flex max-h-36 w-full items-center justify-center overflow-hidden bg-black',
+          className,
+        )}
+        style={{
+          aspectRatio: `${fallbackAspect.width} / ${fallbackAspect.height}`,
+          maxHeight: '9rem',
+        }}
+      >
+        {kind === 'video' ? (
+          <div className="flex h-full w-full items-center justify-center bg-black text-xs font-semibold uppercase tracking-wide text-white/80">
+            Video
+          </div>
+        ) : (
+          <div className="absolute inset-0 bg-black/40" aria-hidden />
+        )}
+      </div>
+    )
+  }
+
+  return <AdaptiveMediaThumbLoaded key={url} url={url} alt={alt} className={className} />
 }

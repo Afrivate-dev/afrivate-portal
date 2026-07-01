@@ -2,7 +2,7 @@ import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus, CalendarDays, StickyNote } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -92,9 +92,9 @@ export function InboxPage() {
         : n.noteId && n.type === 'note_mention'
           ? n.link
           : n.leaveId && (n.type === 'leave_update' || n.type === 'leave_comment')
-            ? '/leave'
+            ? '/people/leave'
             : n.recognitionId && n.type === 'recognition_comment'
-              ? `/recognition?open=${encodeURIComponent(n.recognitionId)}`
+              ? `/people/shout-outs?open=${encodeURIComponent(n.recognitionId)}`
               : n.link
     navigate(link)
   }

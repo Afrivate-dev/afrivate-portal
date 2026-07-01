@@ -26,21 +26,28 @@ const textSize: Record<NonNullable<AvatarProps['size']>, string> = {
   xl: 'text-xl',
 }
 
-export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+function AvatarImage({
+  name,
+  src,
+  size = 'md',
+  className,
+}: {
+  name: string
+  src: string
+  size?: AvatarProps['size']
+  className?: string
+}) {
   const [imgFailed, setImgFailed] = useState(false)
-  const [resolvedSrc, setResolvedSrc] = useState<string | null>(null)
+  const [resolvedSrc, setResolvedSrc] = useState<string | null>(() => {
+    const raw = src.trim()
+    if (!raw) return null
+    return isStorageReference(raw) ? null : raw
+  })
 
   useEffect(() => {
-    setImgFailed(false)
-    const raw = src?.trim()
-    if (!raw) {
-      setResolvedSrc(null)
-      return
-    }
-    if (!isStorageReference(raw)) {
-      setResolvedSrc(raw)
-      return
-    }
+    const raw = src.trim()
+    if (!raw) return
+    if (!isStorageReference(raw)) return
     let cancelled = false
     void resolveStorageReference(raw).then((url) => {
       if (!cancelled) setResolvedSrc(url)
@@ -82,4 +89,27 @@ export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
       {initials(name)}
     </span>
   )
+}
+
+export function Avatar({ name, src, size = 'md', className }: AvatarProps) {
+  const raw = src?.trim()
+  if (!raw) {
+    return (
+      <span
+        className={cn(
+          'inline-flex shrink-0 items-center justify-center rounded-full font-semibold text-white',
+          frame[size],
+          textSize[size],
+          className,
+        )}
+        style={{ background: colorForName(name) }}
+        aria-label={name}
+        title={name}
+      >
+        {initials(name)}
+      </span>
+    )
+  }
+
+  return <AvatarImage key={raw} name={name} src={raw} size={size} className={className} />
 }

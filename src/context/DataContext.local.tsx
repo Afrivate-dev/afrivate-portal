@@ -504,6 +504,14 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setDocuments],
   )
 
+  const updateDocument: DataContextValue['updateDocument'] = useCallback(
+    (id, patch) =>
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...patch, id: d.id, uploadedAt: d.uploadedAt } : d)),
+      ),
+    [setDocuments],
+  )
+
   /* ---------------------------- Recognition ----------------------------- */
   const giveRecognition: DataContextValue['giveRecognition'] = useCallback(
     (r) => {
@@ -519,7 +527,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
           type: 'recognition',
           title: giver ? `${giver.name} shouted you out` : 'New shout-out',
           body: r.message.length > 120 ? `${r.message.slice(0, 117)}…` : r.message,
-          link: `/recognition?open=${encodeURIComponent(id)}`,
+          link: `/people/shout-outs?open=${encodeURIComponent(id)}`,
           read: false,
           createdAt: now,
           fromUserId: r.giverId,
@@ -676,7 +684,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     } catch {
       return []
     }
-  }, [users])
+  }, [])
 
   const pendingUsers = useMemo(
     () => usersAwaitingApproval(users),
@@ -789,6 +797,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       deleteOnboardingChecklistItem,
       documents,
       addDocument,
+      updateDocument,
       deleteDocument,
       recognition,
       recognitionComments,
@@ -841,7 +850,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       toggleVideoWatched, toggleChecklistItem,
       addOnboardingVideo, updateOnboardingVideo, deleteOnboardingVideo,
       addOnboardingChecklistItem, updateOnboardingChecklistItem, deleteOnboardingChecklistItem,
-      documents, addDocument, deleteDocument,
+      documents, addDocument, updateDocument, deleteDocument,
       recognition, recognitionComments, giveRecognition, deleteRecognition, toggleRecognitionReaction, addRecognitionComment,
       inbox, markInboxRead, markAllInboxRead,
       events, addEvent,
@@ -852,6 +861,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory,
       recognitionTags, addRecognitionTag, updateRecognitionTag, deleteRecognitionTag,
+      sendInboxNotifications,
       reloadData,
     ],
   )
