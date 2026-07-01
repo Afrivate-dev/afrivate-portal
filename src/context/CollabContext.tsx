@@ -296,7 +296,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     void fetchWorkspaceNotes(supabase)
       .then((rows) => setNotes(rows))
       .catch((e) => console.warn('[collab] notes load:', e instanceof Error ? e.message : e))
-  }, [user?.id, supabaseNotesEnabled, setNotes])
+  }, [user, supabaseNotesEnabled, setNotes])
 
   /* ------------------------ Postgres realtime (notes table) -------------- */
   useEffect(() => {
@@ -325,7 +325,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     return () => {
       void sb.removeChannel(ch)
     }
-  }, [user?.id, supabaseNotesEnabled, applyRemoteNote])
+  }, [user, supabaseNotesEnabled, applyRemoteNote])
 
   const setActivity = useCallback((patch: Partial<WorkspaceActivity>) => {
     setActivityState((prev) => {

@@ -120,6 +120,8 @@ export interface Announcement {
   postedAt: string
   readBy: string[] // user ids who have marked it read
   media?: AnnouncementMedia[]
+  /** general | digest (HR digest mirror) | policy */
+  memoCategory?: 'general' | 'digest' | 'policy'
 }
 
 export type LeaveType = 'annual' | 'sick' | 'emergency'
@@ -190,6 +192,8 @@ export interface DocumentItem {
   uploadedAt: string
   hrOnly?: boolean
   managementOnly?: boolean
+  /** Staff must acknowledge reading this policy */
+  requiresAcknowledgment?: boolean
 }
 
 export interface RecognitionPost {

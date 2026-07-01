@@ -25,6 +25,7 @@ export const nav = {
   updates: 'Memos',
   timeOff: 'Time off',
   people: 'People',
+  peopleHub: 'People',
   resources: 'Resources',
   shoutOuts: 'Shout-outs',
   whatsOn: 'Calendar',

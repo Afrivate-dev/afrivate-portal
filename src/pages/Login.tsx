@@ -31,7 +31,7 @@ export function LoginPage() {
 
     const code = searchParams.get('code')
     if (code) {
-      setLoading(true)
+      queueMicrotask(() => setLoading(true))
       void supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
         setLoading(false)
         if (exchangeError) {
@@ -52,7 +52,7 @@ export function LoginPage() {
         hash.includes('type=signup') ||
         hash.includes('type=email'))
     ) {
-      setLoading(true)
+      queueMicrotask(() => setLoading(true))
       void supabase.auth.getSession().then(({ data }) => {
         setLoading(false)
         window.history.replaceState({}, '', '/login')

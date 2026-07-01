@@ -1,7 +1,9 @@
 ﻿import { useMemo, useState, useEffect } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Search,
   Plus,
+  Pencil,
   Trash2,
   FileText,
   FileImage,
@@ -14,7 +16,7 @@ import {
   Settings2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { confirms } from '@/content/copy'
 import { useCollab } from '@/context/CollabContext'
@@ -30,10 +32,12 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { TabBar } from '@/components/ui/TabBar'
 import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
+import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
+import { useHr } from '@/context/HrContext'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
-import { notifyError } from '@/lib/notify'
+import { notifyError, notifySuccess } from '@/lib/notify'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
 import { pages } from '@/content/copy'
 import type { DocumentItem } from '@/types'
@@ -71,6 +75,7 @@ interface UploadDraft {
   fileName: string
   hrOnly: boolean
   managementOnly: boolean
+  requiresAcknowledgment: boolean
 }
 
 function emptyDraft(defaultCategory: string): UploadDraft {
@@ -81,6 +86,7 @@ function emptyDraft(defaultCategory: string): UploadDraft {
     fileName: '',
     hrOnly: false,
     managementOnly: false,
+    requiresAcknowledgment: false,
   }
 }
 
@@ -114,19 +120,29 @@ const toneStyles = {
 export function DocumentLibraryPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { documents, users, addDocument, deleteDocument, documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory } = useData()
+  const { documents, users, addDocument, updateDocument, deleteDocument, documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory } = useData()
+  const { documentAcknowledgments, acknowledgeDocument } = useHr()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
+  const [searchParams] = useSearchParams()
+  const [surfaceDocId, setSurfaceDocId] = useState<string | null>(null)
+
   useEffect(() => {
     sessionStorage.setItem('av-visited-handbook', '1')
   }, [])
 
-  const canManage = isTeamLead(user)
+  useEffect(() => {
+    const docId = searchParams.get('doc')
+    if (docId && documents.some((d) => d.id === docId)) {
+      setSurfaceDocId(docId)
+    }
+  }, [searchParams, documents])
 
-  const [surfaceDocId, setSurfaceDocId] = useState<string | null>(null)
+  const canManage = isTeamLead(user)
 
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [search, setSearch] = useState('')
   const [uploadOpen, setUploadOpen] = useState(false)
+  const [editDocId, setEditDocId] = useState<string | null>(null)
   const [manageCatsOpen, setManageCatsOpen] = useState(false)
   const [draft, setDraft] = useState<UploadDraft>(() => emptyDraft(documentCategories[0]?.id ?? 'policies'))
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
@@ -207,12 +223,42 @@ export function DocumentLibraryPage() {
   const openUpload = () => {
     setDraft(emptyDraft(documentCategories[0]?.id ?? 'policies'))
     setUploadFile(null)
+    setEditDocId(null)
+    setUploadOpen(true)
+  }
+
+  const openEdit = (doc: DocumentItem) => {
+    setDraft({
+      title: doc.title,
+      description: doc.description ?? '',
+      category: doc.category,
+      fileName: doc.fileName,
+      hrOnly: doc.hrOnly ?? false,
+      managementOnly: doc.managementOnly ?? false,
+      requiresAcknowledgment: doc.requiresAcknowledgment ?? false,
+    })
+    setEditDocId(doc.id)
+    setUploadFile(null)
     setUploadOpen(true)
   }
 
   const submitUpload = async (e: React.FormEvent) => {
     e.preventDefault()
-    if (!draft.title.trim() || (!draft.fileName.trim() && !uploadFile)) return
+    if (!draft.title.trim()) return
+    if (editDocId) {
+      updateDocument(editDocId, {
+        title: draft.title.trim(),
+        description: draft.description.trim() || undefined,
+        category: draft.category,
+        hrOnly: draft.hrOnly,
+        managementOnly: draft.managementOnly,
+        requiresAcknowledgment: draft.requiresAcknowledgment,
+      })
+      setUploadOpen(false)
+      setEditDocId(null)
+      return
+    }
+    if (!draft.fileName.trim() && !uploadFile) return
     const ok = await confirm({
       title: confirms.uploadDocumentTitle,
       message: confirms.uploadDocument,
@@ -249,6 +295,7 @@ export function DocumentLibraryPage() {
       uploadedById: user.id,
       hrOnly: draft.hrOnly,
       managementOnly: draft.managementOnly,
+      requiresAcknowledgment: draft.requiresAcknowledgment,
     })
     setUploadOpen(false)
     setUploadFile(null)
@@ -357,17 +404,30 @@ export function DocumentLibraryPage() {
                       <p className="mt-0.5 truncate text-xs text-muted">{d.fileName}</p>
                     </div>
                     {canManage ? (
-                      <button
-                        type="button"
-                        onClick={(e) => {
-                          e.stopPropagation()
-                          setDeleteConfirmId(d.id)
-                        }}
-                        aria-label="Delete document"
-                        className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
-                      >
-                        <Trash2 className="h-4 w-4" />
-                      </button>
+                      <div className="flex shrink-0 gap-0.5">
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            openEdit(d)
+                          }}
+                          aria-label="Edit document"
+                          className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
+                        >
+                          <Pencil className="h-4 w-4" />
+                        </button>
+                        <button
+                          type="button"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            setDeleteConfirmId(d.id)
+                          }}
+                          aria-label="Delete document"
+                          className="rounded-md p-1.5 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </button>
+                      </div>
                     ) : null}
                   </div>
 
@@ -411,6 +471,23 @@ export function DocumentLibraryPage() {
                   >
                     {d.filePath ? 'Preview' : 'View details'}
                   </button>
+                  {d.requiresAcknowledgment && user ? (
+                    documentAcknowledgments.some((a) => a.documentId === d.id && a.userId === user.id) ? (
+                      <p className="mt-2 text-xs font-medium text-success">Policy acknowledged ✓</p>
+                    ) : (
+                      <button
+                        type="button"
+                        onClick={(e) => {
+                          e.stopPropagation()
+                          acknowledgeDocument(d.id, user.id)
+                          notifySuccess('Policy acknowledged.')
+                        }}
+                        className="mt-2 w-full rounded-md bg-accent px-3 py-2 text-xs font-semibold text-white hover:bg-accent-hover ring-focus"
+                      >
+                        I have read this policy
+                      </button>
+                    )
+                  ) : null}
                 </Card>
               </li>
             )
@@ -421,17 +498,24 @@ export function DocumentLibraryPage() {
       {/* Upload modal */}
       <Modal
         open={uploadOpen}
-        onClose={() => setUploadOpen(false)}
-        title="Upload document"
-        description="Upload a file or enter document details. Files are stored securely when storage is configured."
+        onClose={() => {
+          setUploadOpen(false)
+          setEditDocId(null)
+        }}
+        title={editDocId ? 'Edit document' : 'Upload document'}
+        description={
+          editDocId
+            ? 'Update title, category, access, and policy acknowledgment settings.'
+            : 'Upload a file or enter document details. Files are stored securely when storage is configured.'
+        }
         size="lg"
         footer={
           <>
-            <Button variant="ghost" type="button" onClick={() => setUploadOpen(false)}>
+            <Button variant="ghost" type="button" onClick={() => { setUploadOpen(false); setEditDocId(null) }}>
               Cancel
             </Button>
             <Button type="submit" form="upload-document-form" loading={uploading}>
-              Save document
+              {editDocId ? 'Save changes' : 'Save document'}
             </Button>
           </>
         }
@@ -461,21 +545,37 @@ export function DocumentLibraryPage() {
                 label: c.label,
               }))}
             />
-            <Input
-              label="File name"
-              value={draft.fileName}
-              onChange={(e) => setDraft({ ...draft, fileName: e.target.value })}
-              placeholder="staff-handbook-2026.pdf"
-            />
+            {!editDocId ? (
+              <Input
+                label="File name"
+                value={draft.fileName}
+                onChange={(e) => setDraft({ ...draft, fileName: e.target.value })}
+                placeholder="staff-handbook-2026.pdf"
+              />
+            ) : null}
           </div>
-          <div>
-            <label className="mb-1 block text-sm font-medium text-fg">Attach file (optional)</label>
+          <label className="flex items-center gap-2 text-sm text-fg">
             <input
-              type="file"
-              className="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
-              onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+              type="checkbox"
+              checked={draft.requiresAcknowledgment}
+              onChange={(e) => setDraft({ ...draft, requiresAcknowledgment: e.target.checked })}
+              className="h-4 w-4 rounded border-border text-accent focus:ring-accent"
             />
-          </div>
+            Require staff to acknowledge reading (policies)
+          </label>
+          {!editDocId ? (
+            <div>
+              <label className="mb-1 block text-sm font-medium text-fg">Attach file (optional)</label>
+              <div className="flex flex-wrap items-center gap-2">
+                <input
+                  type="file"
+                  className="block text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
+                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                />
+                <GoogleDrivePickerButton onPicked={(file) => setUploadFile(file)} />
+              </div>
+            </div>
+          ) : null}
           <div className="space-y-2 rounded-md border border-border bg-surface-2/40 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Visibility</p>
             <label className="flex items-center gap-2 text-sm text-fg">

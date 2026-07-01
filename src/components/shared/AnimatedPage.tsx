@@ -2,16 +2,13 @@ import { useEffect, useState } from 'react'
 import { useLocation } from 'react-router-dom'
 import { cn } from '@/utils/helpers'
 
-/** Wraps route content with enter animation and consistent responsive page spacing. */
-export function AnimatedPage({ children }: { children: React.ReactNode }) {
-  const location = useLocation()
+function AnimatedPageInner({ children }: { children: React.ReactNode }) {
   const [visible, setVisible] = useState(false)
 
   useEffect(() => {
-    setVisible(false)
     const id = requestAnimationFrame(() => setVisible(true))
     return () => cancelAnimationFrame(id)
-  }, [location.pathname])
+  }, [])
 
   return (
     <div
@@ -23,4 +20,10 @@ export function AnimatedPage({ children }: { children: React.ReactNode }) {
       {children}
     </div>
   )
+}
+
+/** Wraps route content with enter animation and consistent responsive page spacing. */
+export function AnimatedPage({ children }: { children: React.ReactNode }) {
+  const location = useLocation()
+  return <AnimatedPageInner key={location.pathname}>{children}</AnimatedPageInner>
 }

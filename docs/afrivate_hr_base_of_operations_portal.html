@@ -1,0 +1,668 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>AfriVate · HR Base of Operations · Portal Edition</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --ink:#0D1A0F; --forest:#1C2B1E; --canopy:#2E4D32; --leaf:#4E7A4B;
+  --sprout:#7EC87A; --mist:#C8E5C6; --dew:#EEF6ED; --soil:#F2EFE9;
+  --paper:#FAFAF7; --bone:#F3F0EB; --gold:#B8872A; --gold-bg:#FBF5E8;
+  --amber:#E07B2A; --amber-bg:#FEF3E8; --blue:#2E6DA4; --blue-bg:#EBF3FB;
+  --plum:#6B3D8C; --plum-bg:#F4EEFA; --accent:#8D4087; --accent-bg:#F4EEFA;
+  --border:#E0DBD4; --t2:#445544; --t3:#8A9A8A; --r:8px;
+}
+html { scroll-behavior: smooth; }
+body { font-family:'Segoe UI',system-ui,sans-serif; background:var(--soil); color:var(--ink); font-size:15px; line-height:1.6; }
+.site-nav { position:sticky; top:0; z-index:500; background:var(--forest); height:52px; display:flex; align-items:center; justify-content:space-between; padding:0 1rem; box-shadow:0 1px 0 rgba(255,255,255,.06); gap:8px; }
+.nav-brand { font-size:11px; font-weight:800; letter-spacing:.14em; text-transform:uppercase; color:#fff; flex-shrink:0; }
+.nav-brand em { color:var(--sprout); font-style:normal; }
+.nav-pills { display:flex; gap:3px; overflow-x:auto; scrollbar-width:none; }
+.nav-pills::-webkit-scrollbar { display:none; }
+.npill { background:none; border:none; color:#8aaa8a; font-size:10px; font-weight:600; padding:5px 10px; border-radius:5px; cursor:pointer; white-space:nowrap; font-family:inherit; }
+.npill:hover { background:rgba(255,255,255,.09); color:#fff; }
+.npill.active { background:rgba(126,200,122,.2); color:var(--sprout); }
+.cover { background:var(--forest); padding:5rem 2rem 4rem; text-align:center; position:relative; overflow:hidden; }
+.cover-grid { position:absolute; inset:0; background-image:linear-gradient(rgba(126,200,122,.06) 1px,transparent 1px),linear-gradient(90deg,rgba(126,200,122,.06) 1px,transparent 1px); background-size:48px 48px; }
+.cover-inner { position:relative; max-width:800px; margin:0 auto; }
+.cover-badge { display:inline-flex; align-items:center; gap:8px; background:rgba(126,200,122,.12); border:1px solid rgba(126,200,122,.28); color:var(--sprout); font-size:11px; font-weight:700; letter-spacing:.12em; text-transform:uppercase; padding:5px 14px; border-radius:20px; margin-bottom:22px; }
+.cover-title { font-size:clamp(28px,5vw,48px); font-weight:800; color:#fff; line-height:1.1; letter-spacing:-.02em; margin-bottom:18px; }
+.cover-title em { color:var(--sprout); font-style:normal; }
+.cover-sub { font-size:16px; color:#9aad9b; line-height:1.7; max-width:620px; margin:0 auto 2rem; }
+.cover-stats { display:flex; justify-content:center; flex-wrap:wrap; gap:2px; border:1px solid rgba(255,255,255,.08); border-radius:var(--r); overflow:hidden; max-width:720px; margin:0 auto; }
+.cstat { flex:1; min-width:90px; padding:1.25rem .75rem; text-align:center; border-right:1px solid rgba(255,255,255,.06); background:rgba(255,255,255,.03); }
+.cstat:last-child { border-right:none; }
+.cstat-n { font-size:26px; font-weight:800; color:var(--sprout); line-height:1; }
+.cstat-l { font-size:9px; color:#6a8a6a; margin-top:4px; text-transform:uppercase; letter-spacing:.08em; }
+.section { max-width:980px; margin:0 auto; padding:3.5rem 1.5rem; }
+.section + .section { padding-top:0; }
+.section-head { margin-bottom:2rem; }
+.sec-eyebrow { font-size:10px; font-weight:800; letter-spacing:.16em; text-transform:uppercase; color:var(--leaf); margin-bottom:8px; }
+.sec-title { font-size:clamp(22px,3vw,30px); font-weight:800; color:var(--forest); margin-bottom:8px; line-height:1.2; }
+.sec-sub { font-size:14px; color:var(--t2); line-height:1.7; max-width:680px; }
+.hdivider { border:none; border-top:1px solid var(--border); margin:0 1.5rem; }
+.ref-row { display:flex; gap:8px; flex-wrap:wrap; margin-bottom:1.5rem; }
+.ref-pill { font-size:11px; font-weight:600; padding:4px 12px; border-radius:20px; border:1px solid var(--border); background:var(--paper); color:var(--t2); display:flex; align-items:center; gap:5px; }
+.callout { border-radius:10px; padding:1.1rem 1.4rem; display:flex; gap:12px; align-items:flex-start; margin-bottom:1.25rem; }
+.callout-icon { font-size:18px; flex-shrink:0; }
+.callout-text { font-size:13px; line-height:1.7; }
+.callout-text strong { font-weight:700; display:block; margin-bottom:2px; }
+.callout.green { background:var(--dew); border:1px solid var(--mist); color:var(--t2); }
+.callout.gold { background:var(--gold-bg); border:1px solid #E8D5A8; color:#6a4a10; }
+.callout.blue { background:var(--blue-bg); border:1px solid #B8D4EE; color:#1a4a7a; }
+.callout.plum { background:var(--accent-bg); border:1px solid #D4B8E0; color:#4a2060; }
+.stack-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:10px; margin-bottom:1.5rem; }
+.stack-card { background:var(--paper); border-radius:12px; border:.5px solid var(--border); padding:1rem 1.25rem; }
+.stack-layer { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--t3); margin-bottom:4px; }
+.stack-tool { font-size:15px; font-weight:700; color:var(--forest); margin-bottom:4px; }
+.stack-role { font-size:12px; color:var(--t2); line-height:1.55; }
+.pillars { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
+.pillar-card { background:var(--paper); border-radius:12px; border:.5px solid var(--border); overflow:hidden; }
+.pillar-card:hover { box-shadow:0 6px 24px rgba(0,0,0,.07); }
+.pc-top { padding:18px 20px 14px; border-bottom:1px solid var(--bone); display:flex; gap:12px; align-items:flex-start; }
+.pc-icon { width:40px; height:40px; border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:18px; flex-shrink:0; }
+.pc-name { font-size:15px; font-weight:700; color:var(--forest); }
+.pc-sub { font-size:12px; color:var(--t3); }
+.pc-body { padding:14px 20px 18px; }
+.pc-items { list-style:none; display:flex; flex-direction:column; gap:7px; margin-bottom:12px; }
+.pc-item { display:flex; gap:8px; font-size:12px; color:var(--t2); line-height:1.55; }
+.pc-dot { width:5px; height:5px; border-radius:50%; background:var(--sprout); flex-shrink:0; margin-top:6px; }
+.sop { background:var(--dew); border-radius:8px; padding:12px 14px; margin-top:10px; }
+.sop-title { font-size:10px; font-weight:800; text-transform:uppercase; letter-spacing:.1em; color:var(--leaf); margin-bottom:8px; }
+.sop ol { margin:0; padding-left:1.2rem; font-size:12px; color:var(--t2); }
+.sop ol li { margin-bottom:4px; }
+.route { font-family:Consolas,Monaco,monospace; font-size:11px; background:var(--bone); color:var(--canopy); padding:1px 6px; border-radius:4px; white-space:nowrap; }
+.fn-table { width:100%; border-collapse:collapse; background:var(--paper); border-radius:12px; overflow:hidden; box-shadow:0 1px 4px rgba(0,0,0,.06); font-size:12px; margin-bottom:1rem; }
+.fn-table th { background:var(--forest); color:#fff; font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.08em; padding:11px 14px; text-align:left; }
+.fn-table td { padding:10px 14px; border-bottom:1px solid var(--border); vertical-align:top; line-height:1.5; }
+.fn-table tr:last-child td { border-bottom:none; }
+.fn-table tr:hover td { background:var(--dew); }
+.fn-table td:first-child { font-weight:600; color:var(--forest); }
+.fn-freq { display:inline-block; font-size:10px; font-weight:700; padding:2px 8px; border-radius:20px; }
+.roadmap .phase-block { margin-bottom:2rem; }
+.phase-header { display:flex; align-items:center; gap:12px; margin-bottom:.75rem; }
+.phase-dot { width:14px; height:14px; border-radius:50%; flex-shrink:0; }
+.phase-name { font-size:13px; font-weight:700; color:var(--forest); }
+.phase-period { font-size:12px; color:var(--t3); margin-left:auto; }
+.phase-bar { height:3px; border-radius:2px; margin:4px 0 0 26px; }
+.phase-actions { margin-left:26px; margin-top:12px; display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:8px; }
+.action-card { background:var(--paper); border-radius:var(--r); border:.5px solid var(--border); padding:12px 14px; font-size:12px; }
+.action-cat { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; margin-bottom:5px; }
+.action-text { color:var(--t2); line-height:1.55; }
+.exit-criteria { margin-left:26px; margin-top:10px; font-size:12px; color:var(--leaf); font-weight:600; background:var(--dew); padding:8px 12px; border-radius:6px; border-left:3px solid var(--sprout); }
+.metrics-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(220px,1fr)); gap:1rem; }
+.metric-card { background:var(--paper); border-radius:12px; border:.5px solid var(--border); padding:1.25rem; }
+.metric-icon { font-size:22px; margin-bottom:8px; }
+.metric-name { font-size:13px; font-weight:700; color:var(--forest); margin-bottom:4px; }
+.metric-desc { font-size:12px; color:var(--t2); line-height:1.6; margin-bottom:6px; }
+.metric-source { font-size:11px; color:var(--accent); font-weight:600; margin-bottom:6px; }
+.metric-target { font-size:11px; font-weight:700; color:var(--leaf); background:var(--dew); padding:3px 9px; border-radius:4px; display:inline-block; }
+.tool-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(240px,1fr)); gap:10px; }
+.tool-card { background:var(--paper); border-radius:var(--r); border:.5px solid var(--border); padding:14px 16px; }
+.tool-cat { font-size:10px; font-weight:700; text-transform:uppercase; letter-spacing:.1em; color:var(--t3); margin-bottom:6px; }
+.tool-name { font-size:14px; font-weight:700; color:var(--forest); margin-bottom:3px; }
+.tool-desc { font-size:12px; color:var(--t2); line-height:1.6; margin-bottom:6px; }
+.tool-tag { font-size:10px; font-weight:700; padding:2px 8px; border-radius:4px; display:inline-block; }
+.workflow-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(280px,1fr)); gap:1rem; }
+.workflow-card { background:var(--paper); border-radius:12px; border:.5px solid var(--border); padding:1.25rem; }
+.workflow-title { font-size:14px; font-weight:700; color:var(--forest); margin-bottom:10px; }
+.workflow-card ol { padding-left:1.2rem; font-size:12px; color:var(--t2); }
+.workflow-card ol li { margin-bottom:5px; }
+.checklist { list-style:none; display:flex; flex-direction:column; gap:8px; }
+.checklist li { display:flex; gap:10px; align-items:flex-start; font-size:13px; color:var(--t2); background:var(--paper); border:1px solid var(--border); border-radius:8px; padding:10px 14px; }
+.checklist li::before { content:'☐'; color:var(--leaf); font-size:16px; flex-shrink:0; }
+.success-list { list-style:none; counter-reset:success; }
+.success-list li { counter-increment:success; display:flex; gap:12px; margin-bottom:10px; font-size:13px; color:var(--t2); background:var(--paper); border-radius:8px; padding:12px 14px; border:1px solid var(--border); }
+.success-list li::before { content:counter(success); background:var(--forest); color:var(--sprout); font-weight:800; font-size:12px; width:24px; height:24px; border-radius:50%; display:flex; align-items:center; justify-content:center; flex-shrink:0; }
+.footer-cta { background:var(--forest); border-radius:14px; padding:2.5rem; margin-top:2rem; text-align:center; }
+.footer-cta .eyebrow { font-size:11px; font-weight:700; letter-spacing:.14em; text-transform:uppercase; color:var(--sprout); margin-bottom:12px; }
+.footer-cta p { font-size:17px; color:#e8f0e8; line-height:1.75; max-width:620px; margin:0 auto; font-family:Georgia,serif; }
+.footer-meta { font-size:12px; color:var(--sprout); margin-top:1.5rem; letter-spacing:.08em; text-transform:uppercase; }
+.table-wrap { overflow-x:auto; margin-bottom:1rem; }
+@media (max-width:640px) {
+  .cover { padding:3.5rem 1rem 2.5rem; }
+  .cstat { border-right:none; border-bottom:1px solid rgba(255,255,255,.06); }
+  .section { padding:2.5rem 1rem; }
+  .nav-pills .npill { font-size:9px; padding:5px 7px; }
+}
+@media print {
+  .site-nav { position:static; }
+  .pillar-card, .metric-card { break-inside:avoid; }
+}
+</style>
+</head>
+<body>
+
+<nav class="site-nav">
+  <div class="nav-brand">AFRI<em>VATE</em> · Portal HR</div>
+  <div class="nav-pills">
+    <button class="npill active" onclick="scrollTo('cover')">Overview</button>
+    <button class="npill" onclick="scrollTo('stack')">Tech Stack</button>
+    <button class="npill" onclick="scrollTo('portal')">Portal Map</button>
+    <button class="npill" onclick="scrollTo('pillars')">8 Pillars</button>
+    <button class="npill" onclick="scrollTo('roadmap')">Roadmap</button>
+    <button class="npill" onclick="scrollTo('calendar')">Rhythm</button>
+    <button class="npill" onclick="scrollTo('metrics')">KPIs</button>
+    <button class="npill" onclick="scrollTo('workflows')">Workflows</button>
+    <button class="npill" onclick="scrollTo('toolkit')">Toolkit</button>
+  </div>
+</nav>
+
+<div id="cover" class="cover">
+  <div class="cover-grid"></div>
+  <div class="cover-inner">
+    <div class="cover-badge"><span>●</span> Version 2.0 · Portal Edition · 2025–2026</div>
+    <h1 class="cover-title">How <em>AfriVate HR</em> runs on the Team Space portal</h1>
+    <p class="cover-sub">The complete implementation blueprint — portal as operating system, Gmail for broadcast, Alison for learning, Drive for master files. Built for a 10–30 person social enterprise.</p>
+    <div class="cover-stats">
+      <div class="cstat"><div class="cstat-n">8</div><div class="cstat-l">HR Pillars</div></div>
+      <div class="cstat"><div class="cstat-n">4</div><div class="cstat-l">Core Tools</div></div>
+      <div class="cstat"><div class="cstat-n">3</div><div class="cstat-l">Phases</div></div>
+      <div class="cstat"><div class="cstat-n">12</div><div class="cstat-l">KPIs</div></div>
+      <div class="cstat"><div class="cstat-n">1</div><div class="cstat-l">People Hub</div></div>
+    </div>
+    <p style="margin-top:1.5rem;font-size:13px;color:#7a9a7a;">Live at <strong style="color:var(--sprout)">portal.afrivate.org</strong></p>
+  </div>
+</div>
+
+<div class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Foundation · The Shift</div>
+    <h2 class="sec-title">HR is not support. HR is strategy.</h2>
+    <p class="sec-sub">The original Base of Operations described <em>what</em> world-class People &amp; Culture looks like. This edition describes <em>how AfriVate runs it</em> — with the portal as the system of record, not Google Forms and Sheets.</p>
+  </div>
+  <div class="callout green">
+    <div class="callout-icon">💡</div>
+    <div class="callout-text"><strong>The AfriVate HR Mandate</strong>HR exists to attract the right people, develop them relentlessly, connect them to purpose, and build culture that sustains performance. Admin, compliance, and payroll are infrastructure — not the mission.</div>
+  </div>
+  <div class="callout plum">
+    <div class="callout-icon">🖥</div>
+    <div class="callout-text"><strong>The portal principle</strong>Needs a record, approval, or audit trail → <strong>portal</strong>. Needs inbox reach → <strong>Gmail</strong>. Teaches a skill → <strong>Alison</strong>. Master document → <strong>Drive</strong> (with a portal copy for staff).</div>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="stack" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 1 · Technology Stack</div>
+    <h2 class="sec-title">Every tool and its role</h2>
+    <p class="sec-sub">Four core systems plus optional integrations. No duplicate tracking — if it's in the portal, don't rebuild it in Forms.</p>
+  </div>
+  <div class="stack-grid">
+    <div class="stack-card" style="border-top:3px solid var(--accent);">
+      <div class="stack-layer">Operating system</div>
+      <div class="stack-tool">AfriVate Team Space Portal</div>
+      <div class="stack-role">Leave, learning submissions, pulse surveys, OKRs, 1:1s, shout-outs, policies, HR dashboard, recruitment lite, grievances, exit interviews.</div>
+    </div>
+    <div class="stack-card" style="border-top:3px solid #EA4335;">
+      <div class="stack-layer">Broadcast</div>
+      <div class="stack-tool">Gmail · hr@afrivate.org</div>
+      <div class="stack-role">HR digest email, course announcements, birthdays, holidays, interview scheduling, confidential comp letters.</div>
+    </div>
+    <div class="stack-card" style="border-top:3px solid #00A651;">
+      <div class="stack-layer">Classroom</div>
+      <div class="stack-tool">Alison.com</div>
+      <div class="stack-role">Course delivery and certificates. Portal assigns courses and collects proof of completion.</div>
+    </div>
+    <div class="stack-card" style="border-top:3px solid #4285F4;">
+      <div class="stack-layer">File vault</div>
+      <div class="stack-tool">Google Drive</div>
+      <div class="stack-role">Master policies, signed contracts, salary bands (confidential), interview guides. Optional picker imports into portal Resources.</div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-layer">Live meetings</div>
+      <div class="stack-tool">Google Meet / Zoom</div>
+      <div class="stack-role">Town halls, 1:1s, interviews. Log completion in portal Growth tab.</div>
+    </div>
+    <div class="stack-card">
+      <div class="stack-layer">Employer brand</div>
+      <div class="stack-tool">LinkedIn · Instagram</div>
+      <div class="stack-role">Job posts and culture marketing — external to portal.</div>
+    </div>
+  </div>
+  <div class="callout gold">
+    <div class="callout-icon">⚠</div>
+    <div class="callout-text"><strong>Intentionally outside the portal</strong>Payroll, salary amounts, compensation bands, WhatsApp/Slack as official record, full ATS. Use Drive + Gmail + Finance until AfriVate reaches ~50 people.</div>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="portal" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 2 · Portal Navigation</div>
+    <h2 class="sec-title">Where everything lives</h2>
+    <p class="sec-sub">Main sidebar stays lean. All people/culture work is under <strong>People</strong> (<span class="route">/people</span>). HR operations live in <strong>Admin → HR dashboard</strong>.</p>
+  </div>
+  <div class="table-wrap">
+    <table class="fn-table">
+      <thead><tr><th>Area</th><th>Route</th><th>HR use</th></tr></thead>
+      <tbody>
+        <tr><td>People hub</td><td><span class="route">/people</span></td><td>Overview, action banners, digest snippets</td></tr>
+        <tr><td>Time off</td><td><span class="route">/people/leave</span></td><td>Requests, attachments, approval</td></tr>
+        <tr><td>Shout-outs</td><td><span class="route">/people/shout-outs</span></td><td>Peer recognition</td></tr>
+        <tr><td>Learning</td><td><span class="route">/people/learning</span></td><td>Alison assignments + certificate upload</td></tr>
+        <tr><td>Surveys</td><td><span class="route">/people/surveys</span></td><td>Monthly pulse + quarterly eNPS</td></tr>
+        <tr><td>Growth</td><td><span class="route">/people/growth</span></td><td>OKRs, 1:1s, IDPs, 360°, milestones, awards, grievances</td></tr>
+        <tr><td>Memos</td><td><span class="route">/announcements</span></td><td>HR digest mirror, policy notices, urgent updates</td></tr>
+        <tr><td>Resources</td><td><span class="route">/documents</span></td><td>Policies with acknowledgment tracking</td></tr>
+        <tr><td>Getting started</td><td><span class="route">/onboarding</span></td><td>Videos, checklist, Day 1 orientation</td></tr>
+        <tr><td>Admin HR</td><td><span class="route">/admin</span> → HR tab</td><td>KPIs, assign courses, pulse, recruitment, awards, exits</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="pillars" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 3 · The 8 Pillars · Portal Implementation</div>
+    <h2 class="sec-title">What HR does and where to do it</h2>
+    <p class="sec-sub">Each pillar includes portal location, external tool, owner, and a step-by-step SOP.</p>
+  </div>
+  <div class="pillars">
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#EDE7F6;">🎯</div><div><div class="pc-name">1 · Talent Acquisition</div><div class="pc-sub">Structured, values-aligned hiring</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Open requisitions → <span class="route">Admin → HR dashboard</span></li>
+          <li class="pc-item"><div class="pc-dot"></div>Candidate pipeline: Applied → Hired</li>
+          <li class="pc-item"><div class="pc-dot"></div>Job posts → LinkedIn / Instagram</li>
+          <li class="pc-item"><div class="pc-dot"></div>Interviews → Meet + guide in Drive</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · New hire pipeline</div><ol>
+          <li>Create requisition in HR dashboard</li>
+          <li>Post on LinkedIn; applications to hr@afrivate.org</li>
+          <li>Track candidates through stages in dashboard</li>
+          <li>On Hired: invite to portal, set department + reports-to</li>
+        </ol></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#E8F5E9;">🚀</div><div><div class="pc-name">2 · Onboarding</div><div class="pc-sub">30-60-90 integration</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Videos + checklist → <span class="route">/onboarding</span></li>
+          <li class="pc-item"><div class="pc-dot"></div>Milestones → <span class="route">/people/growth</span> Milestones</li>
+          <li class="pc-item"><div class="pc-dot"></div>Day 7/30/90 1:1s → Growth → 1:1 + Meet</li>
+          <li class="pc-item"><div class="pc-dot"></div>Day 90 survey → Surveys</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · First 90 days</div><ol>
+          <li>HR approves user, assigns dept/team/reports-to</li>
+          <li>Day 1: complete Getting started</li>
+          <li>Milestones auto-seed on first Growth visit</li>
+          <li>Manager logs 1:1s monthly; HR runs Day 90 pulse</li>
+        </ol></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#E3F2FD;">📊</div><div><div class="pc-name">3 · Performance</div><div class="pc-sub">OKRs, 1:1s, 360° — not annual theatre</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Quarterly OKRs → Growth → OKRs</li>
+          <li class="pc-item"><div class="pc-dot"></div>Monthly 1:1s → Growth → 1:1 (toggle completed)</li>
+          <li class="pc-item"><div class="pc-dot"></div>Bi-annual 360° → Growth → 360°</li>
+          <li class="pc-item"><div class="pc-dot"></div>PIP templates → Drive + IDP in portal</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · Monthly 1:1</div><ol>
+          <li>Manager schedules Meet with each report</li>
+          <li>After meeting: mark completed in Growth → 1:1</li>
+          <li>HR dashboard tracks 1:1 completion rate KPI</li>
+        </ol></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#FFF3E0;">📚</div><div><div class="pc-name">4 · Learning &amp; Development</div><div class="pc-sub">Alison + portal submissions</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Assign course → Admin HR dashboard</li>
+          <li class="pc-item"><div class="pc-dot"></div>Announce → Gmail Course of the Month</li>
+          <li class="pc-item"><div class="pc-dot"></div>Complete → Alison.com</li>
+          <li class="pc-item"><div class="pc-dot"></div>Submit cert → <span class="route">/people/learning</span></li>
+          <li class="pc-item"><div class="pc-dot"></div>IDP → Growth → IDP (bi-annual)</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · Monthly L&amp;D cycle</div><ol>
+          <li>Day 1: assign course in HR dashboard</li>
+          <li>Send Gmail with Alison link + portal submission reminder</li>
+          <li>HR approves certificates; celebrate in digest</li>
+        </ol></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#FCE4EC;">💬</div><div><div class="pc-name">5 · Engagement</div><div class="pc-sub">Listen, recognise, communicate</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>HR digest → Gmail + Memos (type: HR digest)</li>
+          <li class="pc-item"><div class="pc-dot"></div>Pulse / eNPS → Surveys</li>
+          <li class="pc-item"><div class="pc-dot"></div>Shout-outs + AfriVate Awards → People hub</li>
+          <li class="pc-item"><div class="pc-dot"></div>Town hall → Events + Meet</li>
+          <li class="pc-item"><div class="pc-dot"></div>Grievances + exit interviews → Growth / Admin</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · Bi-weekly digest</div><ol>
+          <li>Draft content (spotlight, course, celebrations)</li>
+          <li>Send Gmail to all staff</li>
+          <li>Post same content: Memos → type HR digest</li>
+        </ol></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#E8F5E9;">💰</div><div><div class="pc-name">6 · Compensation</div><div class="pc-sub">External until HRIS scale</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Salary bands → Drive (confidential Sheet)</li>
+          <li class="pc-item"><div class="pc-dot"></div>Annual review → HR + CEO via Gmail</li>
+          <li class="pc-item"><div class="pc-dot"></div>OKR-linked bonus talks → Growth OKRs + 1:1</li>
+          <li class="pc-item"><div class="pc-dot"></div>Leave benefit → <span class="route">/people/leave</span></li>
+        </ul>
+        <div class="sop"><div class="sop-title">Not in portal</div><p style="font-size:12px;color:var(--t2);">Payroll and pay amounts stay in Finance systems. Portal links performance (OKRs) to conversations, not payroll execution.</p></div>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#FFF8E1;">🌱</div><div><div class="pc-name">7 · Wellbeing &amp; Inclusion</div><div class="pc-sub">Visible in listening channels</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Wellbeing questions in monthly pulse</li>
+          <li class="pc-item"><div class="pc-dot"></div>Flexible leave via portal</li>
+          <li class="pc-item"><div class="pc-dot"></div>Safe reporting → Grievance tab + hr@</li>
+          <li class="pc-item"><div class="pc-dot"></div>December wellbeing course → Alison + Learning</li>
+        </ul>
+      </div>
+    </div>
+
+    <div class="pillar-card">
+      <div class="pc-top"><div class="pc-icon" style="background:#E3F2FD;">📋</div><div><div class="pc-name">8 · HR Operations</div><div class="pc-sub">Records, policies, reporting</div></div></div>
+      <div class="pc-body">
+        <ul class="pc-items">
+          <li class="pc-item"><div class="pc-dot"></div>Employee records → Admin + Directory</li>
+          <li class="pc-item"><div class="pc-dot"></div>Policies → Resources + acknowledgment</li>
+          <li class="pc-item"><div class="pc-dot"></div>Contracts → Drive (signed PDFs)</li>
+          <li class="pc-item"><div class="pc-dot"></div>Monthly HR report → Admin KPIs</li>
+        </ul>
+        <div class="sop"><div class="sop-title">SOP · Publish policy</div><ol>
+          <li>Finalize master in Drive</li>
+          <li>Upload to Resources; enable Requires acknowledgment</li>
+          <li>Post Memo type Policy notice</li>
+          <li>Track acks until 100% within 30 days</li>
+        </ol></div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="roadmap" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 4 · Revival Roadmap</div>
+    <h2 class="sec-title">3 phases to full HR operation</h2>
+    <p class="sec-sub">Each phase has portal-specific exit criteria. Don't rush Phase 2 until Phase 1 is stable.</p>
+  </div>
+  <div class="roadmap">
+    <div class="phase-block">
+      <div class="phase-header">
+        <div class="phase-dot" style="background:#7EC87A;"></div>
+        <span class="phase-name">Phase 1 · Foundation (Months 1–2)</span>
+        <span class="phase-period">Re-establish rhythm</span>
+      </div>
+      <div class="phase-bar" style="background:linear-gradient(90deg,#7EC87A 100%,var(--bone) 0);"></div>
+      <div class="phase-actions">
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">Portal</div><div class="action-text">All active users onboarded. First pulse survey launched. First HR digest memo posted.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">L&amp;D</div><div class="action-text">Month 1 Alison course assigned via HR dashboard + Gmail announcement.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">Culture</div><div class="action-text">Shout-outs live. AfriVate Way in Resources + onboarding videos.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">Ops</div><div class="action-text">Departments/reports-to set in Admin. Leave policy uploaded with ack.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">Performance</div><div class="action-text">Managers introduced to Growth → 1:1 logging.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#1B5E20;">Email</div><div class="action-text">hr@afrivate.org established. Welcome-back Gmail + portal Memo.</div></div>
+      </div>
+      <div class="exit-criteria">✓ Exit: first pulse done · digest posted · course assigned · leave policy ack'd</div>
+    </div>
+    <div class="phase-block">
+      <div class="phase-header">
+        <div class="phase-dot" style="background:#C8933A;"></div>
+        <span class="phase-name">Phase 2 · Systems &amp; Rhythm (Months 3–5)</span>
+        <span class="phase-period">Build habits</span>
+      </div>
+      <div class="phase-bar" style="background:linear-gradient(90deg,#C8933A 100%,var(--bone) 0);"></div>
+      <div class="phase-actions">
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">OKRs</div><div class="action-text">First quarterly OKR session — all entered in Growth → OKRs.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">IDPs</div><div class="action-text">Every staff member has IDP in Growth; manager review Month 4.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">Recruitment</div><div class="action-text">Pipeline in HR dashboard. Interview guide in Drive.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">Awards</div><div class="action-text">AfriVate Awards Q1 recorded in Admin; featured in digest.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">Policies</div><div class="action-text">5 core policies in Resources with acknowledgment.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#7A4A00;">Onboarding</div><div class="action-text">30-60-90 milestones documented and tested on next hire.</div></div>
+      </div>
+      <div class="exit-criteria">✓ Exit: OKRs for all · IDPs drafted · 5 policies ack'd · Q1 awards logged</div>
+    </div>
+    <div class="phase-block">
+      <div class="phase-header">
+        <div class="phase-dot" style="background:#2E6DA4;"></div>
+        <span class="phase-name">Phase 3 · Growth (Months 6–12)</span>
+        <span class="phase-period">Internalise &amp; measure</span>
+      </div>
+      <div class="phase-bar" style="background:linear-gradient(90deg,#2E6DA4 100%,var(--bone) 0);"></div>
+      <div class="phase-actions">
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">360°</div><div class="action-text">First full feedback cycle in Growth → 360°.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">eNPS</div><div class="action-text">Quarterly eNPS survey (type: enps) in Surveys.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">Comp</div><div class="action-text">Annual compensation review — external Sheet; outcomes via Gmail.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">Analytics</div><div class="action-text">Monthly HR dashboard review + CEO report.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">Strategy</div><div class="action-text">HR presents year-end report with portal data at leadership review.</div></div>
+        <div class="action-card"><div class="action-cat" style="color:#0D47A1;">L&amp;D Year 2</div><div class="action-text">Next year's Alison calendar + monthly dashboard assigns.</div></div>
+      </div>
+      <div class="exit-criteria">✓ Exit: 360 done · eNPS baseline · attrition tracked · year-end HR report delivered</div>
+    </div>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="calendar" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 5 · Operating Rhythm</div>
+    <h2 class="sec-title">What HR does every month</h2>
+    <p class="sec-sub">Always running: pulse (monthly), digest (×2), manager 1:1s, HR dashboard review.</p>
+  </div>
+  <div class="table-wrap">
+    <table class="fn-table">
+      <thead><tr><th>Activity</th><th>Frequency</th><th>Portal</th><th>Email</th><th>Owner</th></tr></thead>
+      <tbody>
+        <tr><td>HR digest</td><td><span class="fn-freq" style="background:#EDE7F6;color:#4527A0;">Bi-weekly</span></td><td>Memos (digest)</td><td>Gmail</td><td>HR</td></tr>
+        <tr><td>Course of the month</td><td><span class="fn-freq" style="background:#E8F5E9;color:#1B5E20;">Monthly</span></td><td>Learning assign</td><td>Gmail</td><td>HR</td></tr>
+        <tr><td>Pulse survey</td><td><span class="fn-freq" style="background:#E8F5E9;color:#1B5E20;">Monthly</span></td><td>Surveys</td><td>Digest reminder</td><td>HR</td></tr>
+        <tr><td>Town hall</td><td><span class="fn-freq" style="background:#E8F5E9;color:#1B5E20;">Monthly</span></td><td>Events + Memo</td><td>Gmail invite</td><td>HR + CEO</td></tr>
+        <tr><td>Manager 1:1s</td><td><span class="fn-freq" style="background:#E8F5E9;color:#1B5E20;">Monthly</span></td><td>Growth → 1:1</td><td>—</td><td>Managers</td></tr>
+        <tr><td>OKR setting</td><td><span class="fn-freq" style="background:#FFF3E0;color:#E65100;">Quarterly</span></td><td>Growth → OKRs</td><td>Memo</td><td>HR + managers</td></tr>
+        <tr><td>AfriVate Awards</td><td><span class="fn-freq" style="background:#FFF3E0;color:#E65100;">Quarterly</span></td><td>Admin + Growth</td><td>Digest</td><td>HR</td></tr>
+        <tr><td>360° feedback</td><td><span class="fn-freq" style="background:#FFF3E0;color:#E65100;">Bi-annual</span></td><td>Growth → 360°</td><td>Gmail launch</td><td>HR</td></tr>
+        <tr><td>HR leadership report</td><td><span class="fn-freq" style="background:#E8F5E9;color:#1B5E20;">Monthly</span></td><td>Admin KPIs</td><td>Optional PDF</td><td>HR</td></tr>
+      </tbody>
+    </table>
+  </div>
+  <div class="callout blue">
+    <div class="callout-icon">📅</div>
+    <div class="callout-text"><strong>Sample month</strong><strong>Week 1:</strong> Assign Alison course + Gmail · keep pulse open.<br><strong>Week 2:</strong> Publish digest (Gmail + Memo).<br><strong>Week 3:</strong> Review learning submissions; nudge in digest.<br><strong>Week 4:</strong> Close pulse · export KPIs · chase 1:1 completion.</div>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="metrics" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 6 · The 12 KPIs</div>
+    <h2 class="sec-title">What to measure and where</h2>
+    <p class="sec-sub">Most KPIs live in Admin → HR dashboard today. Remaining metrics use a linked Sheet until full analytics ship.</p>
+  </div>
+  <div class="metrics-grid">
+    <div class="metric-card"><div class="metric-icon">❤️</div><div class="metric-name">Engagement score</div><div class="metric-desc">Monthly pulse average — predicts attrition and culture health.</div><div class="metric-source">Admin → HR dashboard</div><div class="metric-target">Target: 7.5+/10 by Month 6</div></div>
+    <div class="metric-card"><div class="metric-icon">🚪</div><div class="metric-name">Voluntary attrition</div><div class="metric-desc">% leaving by choice annually. Log exits in HR dashboard.</div><div class="metric-source">Dashboard + Sheet</div><div class="metric-target">Target: &lt;15% annually</div></div>
+    <div class="metric-card"><div class="metric-icon">📚</div><div class="metric-name">L&amp;D completion</div><div class="metric-desc">Approved certificates ÷ active assignments.</div><div class="metric-source">Admin → HR dashboard</div><div class="metric-target">Target: 70% → 85%</div></div>
+    <div class="metric-card"><div class="metric-icon">🎯</div><div class="metric-name">OKR achievement</div><div class="metric-desc">Key results at 70%+ progress (Google standard).</div><div class="metric-source">Growth → OKRs</div><div class="metric-target">Target: 65–70%</div></div>
+    <div class="metric-card"><div class="metric-icon">⏱</div><div class="metric-name">Time-to-hire</div><div class="metric-desc">Requisition open → candidate hired.</div><div class="metric-source">HR dashboard recruitment</div><div class="metric-target">Target: &lt;30 days</div></div>
+    <div class="metric-card"><div class="metric-icon">🤝</div><div class="metric-name">Onboarding satisfaction</div><div class="metric-desc">Day 90 survey score.</div><div class="metric-source">Surveys (onboarding pulse)</div><div class="metric-target">Target: 8+/10</div></div>
+    <div class="metric-card"><div class="metric-icon">💬</div><div class="metric-name">1:1 completion rate</div><div class="metric-desc">Managers logging structured monthly 1:1s.</div><div class="metric-source">Admin → HR dashboard</div><div class="metric-target">Target: 90% monthly</div></div>
+    <div class="metric-card"><div class="metric-icon">🌟</div><div class="metric-name">Recognition volume</div><div class="metric-desc">Shout-outs per month — culture health signal.</div><div class="metric-source">Shout-outs count</div><div class="metric-target">Target: 3+/month</div></div>
+    <div class="metric-card"><div class="metric-icon">📊</div><div class="metric-name">eNPS</div><div class="metric-desc">"Would you recommend AfriVate?" 0–10 scale.</div><div class="metric-source">Surveys (type: enps)</div><div class="metric-target">Target: 30+ by year-end</div></div>
+    <div class="metric-card"><div class="metric-icon">🏆</div><div class="metric-name">Internal promotion rate</div><div class="metric-desc">Roles filled by existing staff.</div><div class="metric-source">Recruitment notes</div><div class="metric-target">Target: 40%+</div></div>
+    <div class="metric-card"><div class="metric-icon">📋</div><div class="metric-name">Policy awareness</div><div class="metric-desc">Staff who acknowledged core policies.</div><div class="metric-source">Resources acks</div><div class="metric-target">Target: 100% in 30 days</div></div>
+    <div class="metric-card"><div class="metric-icon">🌍</div><div class="metric-name">Values alignment</div><div class="metric-desc">360° average on AfriVate Way behaviours.</div><div class="metric-source">Growth → 360°</div><div class="metric-target">Target: 7+/10</div></div>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="workflows" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 7 · Standard Workflows</div>
+    <h2 class="sec-title">Quick-reference playbooks</h2>
+  </div>
+  <div class="workflow-grid">
+    <div class="workflow-card">
+      <div class="workflow-title">A · New employee (week 1)</div>
+      <ol>
+        <li>Admin invites → approve → set dept + reports-to</li>
+        <li>Employee completes Getting started</li>
+        <li>HR assigns Month 1 course + welcome Memo</li>
+        <li>Manager schedules Day 7 1:1; verify milestones in Growth</li>
+      </ol>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-title">B · Monthly HR cycle (~2 hrs)</div>
+      <ol>
+        <li>Assign course in HR dashboard</li>
+        <li>Send Gmail course email</li>
+        <li>Ensure pulse survey active</li>
+        <li>Publish digest (Gmail + Memo digest type)</li>
+        <li>Approve learning submissions</li>
+        <li>Review KPIs; email CEO summary</li>
+      </ol>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-title">C · Quarterly awards</div>
+      <ol>
+        <li>Collect nominations (shout-outs or email)</li>
+        <li>Select winners: Innovation, Team Spirit, Most Improved, Embodied the Way</li>
+        <li>Record in Admin → HR dashboard</li>
+        <li>Feature in digest + town hall</li>
+      </ol>
+    </div>
+    <div class="workflow-card">
+      <div class="workflow-title">D · Departure</div>
+      <ol>
+        <li>Log exit interview in HR dashboard</li>
+        <li>Deactivate portal account on last day</li>
+        <li>Archive Drive access per policy</li>
+      </ol>
+    </div>
+  </div>
+  <div class="section-head" style="margin-top:2rem;margin-bottom:1rem;">
+    <h2 class="sec-title" style="font-size:20px;">Roles &amp; permissions</h2>
+  </div>
+  <div class="table-wrap">
+    <table class="fn-table">
+      <thead><tr><th>Role</th><th>Portal capabilities</th></tr></thead>
+      <tbody>
+        <tr><td>Staff</td><td>People hub, leave, learning, surveys, growth, shout-outs, policy acks, grievance submit</td></tr>
+        <tr><td>Team lead</td><td>Above + team check-in visibility, 1:1 logging, milestone updates</td></tr>
+        <tr><td>Department lead</td><td>Above + assign users to department (with HR/admin)</td></tr>
+        <tr><td>HR</td><td>Admin panel, HR dashboard, all leave/docs, digest memos, learning review</td></tr>
+        <tr><td>Admin</td><td>Full workspace admin, user approval, role changes, HR dashboard</td></tr>
+      </tbody>
+    </table>
+  </div>
+</div>
+
+<div class="hdivider"></div>
+
+<div id="toolkit" class="section">
+  <div class="section-head">
+    <div class="sec-eyebrow">Section 8 · Toolkit · Portal Edition</div>
+    <h2 class="sec-title">What replaced Google Forms &amp; Sheets</h2>
+    <p class="sec-sub">The original plan used 12 free tools. This edition consolidates people data into the portal.</p>
+  </div>
+  <div class="tool-grid">
+    <div class="tool-card"><div class="tool-cat">Was: Google Forms pulse</div><div class="tool-name">People → Surveys</div><div class="tool-desc">Monthly pulse and quarterly eNPS — no duplicate Forms.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Forms course tracking</div><div class="tool-name">People → Learning</div><div class="tool-desc">Alison completion + certificate upload + HR approval.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal + Alison</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Forms recognition</div><div class="tool-name">People → Shout-outs</div><div class="tool-desc">Peer recognition feed with reactions and comments.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Sheets OKR tracker</div><div class="tool-name">Growth → OKRs</div><div class="tool-desc">Quarterly objectives and key results with progress %.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Sheets leave tracker</div><div class="tool-name">People → Leave</div><div class="tool-desc">Requests, approvals, attachments, calendar integration.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Sheets HR dashboard</div><div class="tool-name">Admin → HR dashboard</div><div class="tool-desc">Headcount, engagement, L&amp;D %, 1:1 rate, grievances, pending leave.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Was: Forms policy sign-off</div><div class="tool-name">Resources → Acknowledgment</div><div class="tool-desc">"I have read this policy" button with tracked acks.</div><div class="tool-tag" style="background:#E8F5E9;color:#1B5E20;">Portal</div></div>
+    <div class="tool-card"><div class="tool-cat">Still: Gmail</div><div class="tool-name">hr@afrivate.org</div><div class="tool-desc">Digest, course emails, birthdays, holidays, confidential comp.</div><div class="tool-tag" style="background:#EBF3FB;color:#0D47A1;">External</div></div>
+    <div class="tool-card"><div class="tool-cat">Still: Google Drive</div><div class="tool-name">HR Drive folder</div><div class="tool-desc">Contracts, salary bands, interview guides, confidential files.</div><div class="tool-tag" style="background:#EBF3FB;color:#0D47A1;">External</div></div>
+    <div class="tool-card"><div class="tool-cat">Still: Alison</div><div class="tool-name">alison.com</div><div class="tool-desc">Course delivery. Portal owns assignment + submission.</div><div class="tool-tag" style="background:#FBF5E8;color:#7A4A00;">External classroom</div></div>
+    <div class="tool-card"><div class="tool-cat">Optional: WhatsApp/Slack</div><div class="tool-name">Team chat</div><div class="tool-desc">Informal only. Memos + digest = official record.</div><div class="tool-tag" style="background:var(--bone);color:var(--t3);">Informal</div></div>
+    <div class="tool-card"><div class="tool-cat">Future: HRIS</div><div class="tool-name">BambooHR / HiBob</div><div class="tool-desc">Consider at ~50 people for payroll and comp modules.</div><div class="tool-tag" style="background:#FFF3E0;color:#E65100;">When scaling</div></div>
+  </div>
+
+  <div class="section-head" style="margin-top:2rem;margin-bottom:1rem;">
+    <h2 class="sec-title" style="font-size:20px;">Production setup checklist</h2>
+  </div>
+  <ul class="checklist">
+    <li>All SQL migrations applied (through 20260704_hr_operations.sql)</li>
+    <li>.env: VITE_USE_SUPABASE_AUTH=true and VITE_USE_SUPABASE_DATA=true</li>
+    <li>Edge Functions deployed (invite, request-access, admin-patch-profile)</li>
+    <li>Supabase Auth URLs set for portal.afrivate.org</li>
+    <li>HR/admin users promoted in Supabase</li>
+    <li>Departments and teams configured in Admin</li>
+    <li>First policies uploaded with Requires acknowledgment</li>
+    <li>First pulse survey and Alison assignment created</li>
+    <li>Optional: Google Drive picker env vars configured</li>
+  </ul>
+
+  <div class="section-head" style="margin-top:2rem;margin-bottom:1rem;">
+    <h2 class="sec-title" style="font-size:20px;">Success definition — HR at full power</h2>
+  </div>
+  <ol class="success-list">
+    <li>Every employee logs into the portal weekly</li>
+    <li>Bi-weekly digest goes out on Gmail <em>and</em> as HR digest memos</li>
+    <li>Monthly pulse achieves &gt;70% response rate</li>
+    <li>Monthly Alison course achieves &gt;70% approved completion</li>
+    <li>Managers hit 90% 1:1 completion logged in Growth</li>
+    <li>Quarterly OKRs exist for every active employee</li>
+    <li>Policies acknowledged by 100% of staff within 30 days</li>
+    <li>HR dashboard reviewed monthly and shared with CEO</li>
+    <li>No duplicate tracking in Google Forms for portal data</li>
+  </ol>
+
+  <div class="footer-cta">
+    <div class="eyebrow">The AfriVate HR Mission</div>
+    <p>"AfriVate HR exists to build a team of people who are deeply aligned to the mission, continuously growing in capability, and proud to be part of something that matters — so that AfriVate can do for African entrepreneurs what it set out to do when it was founded."</p>
+    <div class="footer-meta">AfriVate People &amp; Culture · Base of Operations · Portal Edition · 2025–2026</div>
+  </div>
+  <p style="margin-top:1rem;font-size:11px;color:var(--t3);text-align:center;">Also available as Markdown: docs/HR_BASE_OF_OPERATIONS.md · Open this file in any browser · Print-friendly</p>
+</div>
+
+<script>
+function scrollTo(id) {
+  const el = document.getElementById(id);
+  if (el) el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  document.querySelectorAll('.npill').forEach(p => p.classList.remove('active'));
+  if (event && event.target) event.target.classList.add('active');
+}
+const sections = ['cover','stack','portal','pillars','roadmap','calendar','metrics','workflows','toolkit'];
+const pills = document.querySelectorAll('.npill');
+const observer = new IntersectionObserver((entries) => {
+  entries.forEach(entry => {
+    if (entry.isIntersecting) {
+      const idx = sections.indexOf(entry.target.id);
+      if (idx !== -1) {
+        pills.forEach(p => p.classList.remove('active'));
+        if (pills[idx]) pills[idx].classList.add('active');
+      }
+    }
+  });
+}, { threshold: 0.25, rootMargin: '-80px 0px -60% 0px' });
+sections.forEach(id => { const el = document.getElementById(id); if (el) observer.observe(el); });
+</script>
+</body>
+</html>

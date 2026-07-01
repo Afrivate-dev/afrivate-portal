@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { Link, useSearchParams } from 'react-router-dom'
 import {
   PlayCircle,
@@ -65,12 +65,6 @@ export function OnboardingPage() {
   const [visitedHandbook, setVisitedHandbook] = useState(() =>
     typeof window !== 'undefined' ? sessionStorage.getItem('av-visited-handbook') === '1' : false,
   )
-
-  useEffect(() => {
-    if (typeof window !== 'undefined' && sessionStorage.getItem('av-visited-handbook') === '1') {
-      setVisitedHandbook(true)
-    }
-  }, [])
 
   const canSeeAdmin = isHR(user)
 
@@ -209,8 +203,14 @@ export function OnboardingPage() {
             <div>
               <h3 className="text-base font-semibold text-fg">Onboarding complete</h3>
               <p className="mt-1 text-sm text-muted">
-                Great work! You’ve finished every onboarding video and checklist item. Reach out to your team lead if you have any open questions.
+                Great work! You’ve finished every onboarding video and checklist item. Track your 30-60-90 milestones in Growth.
               </p>
+              <Link
+                to="/people/growth?tab=milestones"
+                className="mt-3 inline-flex text-sm font-medium text-accent hover:underline"
+              >
+                View onboarding milestones →
+              </Link>
             </div>
           </div>
         </Card>

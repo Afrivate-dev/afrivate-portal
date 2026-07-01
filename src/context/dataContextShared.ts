@@ -78,6 +78,7 @@ export interface DataContextValue {
 
   documents: DocumentItem[]
   addDocument: (d: Omit<DocumentItem, 'id' | 'uploadedAt'>) => void
+  updateDocument: (id: string, patch: Partial<DocumentItem>) => void
   deleteDocument: (id: string) => void
 
   recognition: RecognitionPost[]

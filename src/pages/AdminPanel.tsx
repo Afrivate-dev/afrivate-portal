@@ -13,6 +13,7 @@ import {
   Eye,
   Building2,
   UsersRound,
+  BarChart3,
   UserCheck,
 } from 'lucide-react'
 import {
@@ -28,7 +29,7 @@ import {
   startOfWeek,
 } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { isFirstTimePendingUser } from '@/context/dataContextShared'
 import { confirms } from '@/content/copy'
@@ -43,6 +44,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
+import { HrDashboardSection } from '@/pages/admin/HrDashboardSection'
+import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
 import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, roleLabel } from '@/utils/helpers'
@@ -62,7 +65,7 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
-type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins'
+type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Staff' },
@@ -93,6 +96,7 @@ function dayCountLeave(startISO: string, endISO: string) {
 
 export function AdminPanelPage() {
   const { user, updateProfile } = useAuth()
+  const { getMetrics } = useHr()
   const confirm = useConfirm()
   const {
     users,
@@ -281,6 +285,7 @@ export function AdminPanelPage() {
     body: string
     audience: string
     priority: AnnouncementPriority
+    memoCategory: 'general' | 'digest' | 'policy'
     media: AnnouncementMedia[]
   } | null>(null)
   const [reviewing, setReviewing] = useState<{ req: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
@@ -386,6 +391,14 @@ export function AdminPanelPage() {
           </span>
         ),
       },
+      {
+        id: 'hr',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <BarChart3 className="h-4 w-4" /> HR dashboard
+          </span>
+        ),
+      },
     )
     return tabs
   }, [adminUser, pendingLeave.length, pendingUsers.length])
@@ -450,6 +463,7 @@ export function AdminPanelPage() {
       body: a.body,
       audience: a.audience,
       priority: a.priority,
+      memoCategory: a.memoCategory ?? 'general',
       media: a.media ? [...a.media] : [],
     })
   }
@@ -467,6 +481,7 @@ export function AdminPanelPage() {
       body: annDraft.body.trim(),
       audience: annDraft.audience,
       priority: annDraft.priority,
+      memoCategory: annDraft.memoCategory,
       media: annDraft.media.length > 0 ? annDraft.media : [],
     }
     if (annDraft.id) {
@@ -858,6 +873,7 @@ export function AdminPanelPage() {
                   body: '',
                   audience: 'all',
                   priority: 'info',
+                  memoCategory: 'general',
                   media: [],
                 })
               }
@@ -1171,6 +1187,8 @@ export function AdminPanelPage() {
         </Card>
       ) : null}
 
+      {section === 'hr' ? <HrDashboardSection metrics={getMetrics()} /> : null}
+
       {/* Modals */}
 
       {/* Invite modal */}
@@ -1452,6 +1470,21 @@ export function AdminPanelPage() {
               options={[
                 { value: 'all', label: 'Everyone' },
                 ...departments.map((d) => ({ value: d.name, label: d.name })),
+              ]}
+            />
+            <Select
+              label="Memo type"
+              value={annDraft.memoCategory}
+              onChange={(e) =>
+                setAnnDraft({
+                  ...annDraft,
+                  memoCategory: e.target.value as 'general' | 'digest' | 'policy',
+                })
+              }
+              options={[
+                { value: 'general', label: 'General memo' },
+                { value: 'digest', label: 'HR digest (mirrors email content)' },
+                { value: 'policy', label: 'Policy notice' },
               ]}
             />
             <Select

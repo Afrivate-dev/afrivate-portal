@@ -66,7 +66,9 @@ export function useVideoPlaybackUrl(src: string) {
   )
 
   useEffect(() => {
-    void load(false)
+    queueMicrotask(() => {
+      void load(false)
+    })
     return () => {
       requestIdRef.current += 1
       clearBlob()

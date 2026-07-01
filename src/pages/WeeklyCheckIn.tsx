@@ -10,7 +10,7 @@ import {
 } from 'lucide-react'
 import { format, parseISO, startOfWeek } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { confirms } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'

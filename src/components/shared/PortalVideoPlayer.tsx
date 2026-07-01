@@ -48,28 +48,29 @@ function waitForVideoMetadata(video: HTMLVideoElement, timeoutMs = 20000): Promi
   })
 }
 
-export function PortalVideoPlayer({
-  src,
+function PortalVideoPlayerInner({
+  playbackUrl,
+  urlLoading,
+  urlError,
+  urlReady,
+  usingBlob,
+  retryWithBlob,
+  retry,
   className,
   poster,
-  eager = false,
+  eager,
 }: {
-  src: string
+  playbackUrl: string
+  urlLoading: boolean
+  urlError: string | null
+  urlReady: boolean
+  usingBlob: boolean
+  retryWithBlob: () => void
+  retry: () => void
   className?: string
   poster?: string
-  /** When true, buffer immediately for faster start (feed / visible slides). */
   eager?: boolean
 }) {
-  const {
-    url: playbackUrl,
-    loading: urlLoading,
-    error: urlError,
-    ready: urlReady,
-    usingBlob,
-    retryWithBlob,
-    retry,
-  } = useVideoPlaybackUrl(src)
-
   const videoRef = useRef<HTMLVideoElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const stageRef = useRef<HTMLDivElement>(null)
@@ -80,9 +81,11 @@ export function PortalVideoPlayer({
   const [fullscreen, setFullscreen] = useState(false)
   const [showControls, setShowControls] = useState(true)
   const [buffering, setBuffering] = useState(false)
-  const [playbackError, setPlaybackError] = useState<string | null>(null)
+  const [localPlaybackError, setLocalPlaybackError] = useState<string | null>(null)
   const [dimensions, setDimensions] = useState<MediaDimensions | null>(null)
   const hideTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const playbackError = localPlaybackError ?? urlError
 
   const scheduleHideControls = useCallback(() => {
     if (hideTimer.current) clearTimeout(hideTimer.current)
@@ -93,11 +96,12 @@ export function PortalVideoPlayer({
   }, [playing])
 
   useEffect(() => {
-    scheduleHideControls()
+    if (!playing) return
+    hideTimer.current = setTimeout(() => setShowControls(false), 2800)
     return () => {
       if (hideTimer.current) clearTimeout(hideTimer.current)
     }
-  }, [playing, scheduleHideControls])
+  }, [playing])
 
   useEffect(() => {
     const onFs = () => setFullscreen(!!document.fullscreenElement)
@@ -114,19 +118,6 @@ export function PortalVideoPlayer({
     }
   }, [eager, urlReady, playbackUrl])
 
-  useEffect(() => {
-    setDimensions(null)
-    setPlaying(false)
-    setCurrent(0)
-    setDuration(0)
-    setPlaybackError(null)
-    setBuffering(false)
-  }, [playbackUrl])
-
-  useEffect(() => {
-    if (urlError) setPlaybackError(urlError)
-  }, [urlError])
-
   const captureDimensions = useCallback(() => {
     const v = videoRef.current
     if (!v?.videoWidth || !v?.videoHeight) return
@@ -140,7 +131,7 @@ export function PortalVideoPlayer({
       retryWithBlob()
       return
     }
-    setPlaybackError('This video could not be played in your browser.')
+    setLocalPlaybackError('This video could not be played in your browser.')
   }, [retryWithBlob, usingBlob])
 
   const togglePlay = async () => {
@@ -149,7 +140,7 @@ export function PortalVideoPlayer({
     if (!v) return
 
     if (v.paused) {
-      setPlaybackError(null)
+      setLocalPlaybackError(null)
       setBuffering(true)
       try {
         v.preload = 'auto'
@@ -160,7 +151,7 @@ export function PortalVideoPlayer({
         if (!usingBlob) {
           retryWithBlob()
         } else {
-          setPlaybackError('This video could not be played. Try tapping Retry.')
+          setLocalPlaybackError('This video could not be played. Try tapping Retry.')
         }
       } finally {
         setBuffering(false)
@@ -203,6 +194,7 @@ export function PortalVideoPlayer({
   const progress = duration > 0 ? (current / duration) * 100 : 0
   const showUrlSpinner = urlLoading
   const showPlayOverlay = urlReady && !playing && !showUrlSpinner && !playbackError
+  const controlsVisible = !playing || showControls
 
   return (
     <div ref={containerRef} className={cn('w-full', className)}>
@@ -221,7 +213,6 @@ export function PortalVideoPlayer({
         >
           {urlReady && playbackUrl ? (
             <video
-              key={playbackUrl}
               ref={videoRef}
               src={playbackUrl}
               poster={poster}
@@ -246,7 +237,7 @@ export function PortalVideoPlayer({
               onPlaying={() => {
                 setPlaying(true)
                 setBuffering(false)
-                setPlaybackError(null)
+                setLocalPlaybackError(null)
               }}
               onPlay={() => setPlaying(true)}
               onPause={() => setPlaying(false)}
@@ -267,7 +258,7 @@ export function PortalVideoPlayer({
               <button
                 type="button"
                 onClick={() => {
-                  setPlaybackError(null)
+                  setLocalPlaybackError(null)
                   retry()
                 }}
                 className="rounded-md bg-white px-4 py-2 text-sm font-medium text-black ring-focus touch-manipulation"
@@ -305,7 +296,7 @@ export function PortalVideoPlayer({
             <div
               className={cn(
                 'absolute inset-x-0 bottom-0 z-20 bg-gradient-to-t from-black/85 via-black/45 to-transparent px-2 pb-2 pt-6 transition-opacity sm:px-3 sm:pb-3 sm:pt-8',
-                showControls || !playing ? 'opacity-100' : 'opacity-0 pointer-events-none',
+                controlsVisible ? 'opacity-100' : 'opacity-0 pointer-events-none',
               )}
             >
               <input
@@ -357,5 +348,36 @@ export function PortalVideoPlayer({
         </div>
       </AdaptiveMediaFrame>
     </div>
+  )
+}
+
+export function PortalVideoPlayer({
+  src,
+  className,
+  poster,
+  eager = false,
+}: {
+  src: string
+  className?: string
+  poster?: string
+  /** When true, buffer immediately for faster start (feed / visible slides). */
+  eager?: boolean
+}) {
+  const playback = useVideoPlaybackUrl(src)
+
+  return (
+    <PortalVideoPlayerInner
+      key={playback.url || src}
+      playbackUrl={playback.url}
+      urlLoading={playback.loading}
+      urlError={playback.error}
+      urlReady={playback.ready}
+      usingBlob={playback.usingBlob}
+      retryWithBlob={playback.retryWithBlob}
+      retry={playback.retry}
+      className={className}
+      poster={poster}
+      eager={eager}
+    />
   )
 }

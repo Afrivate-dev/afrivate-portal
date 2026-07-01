@@ -17,7 +17,7 @@ import {
   Settings2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { confirms } from '@/content/copy'
 import { useData } from '@/context/DataContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -86,7 +86,7 @@ interface FormDraft {
 }
 
 function shoutoutShareUrl(id: string) {
-  return `${window.location.origin}/recognition?open=${encodeURIComponent(id)}`
+  return `${window.location.origin}/people/shout-outs?open=${encodeURIComponent(id)}`
 }
 
 function RecognitionCommentThread({
@@ -218,13 +218,18 @@ export function RecognitionPage() {
     if (!openId) return
     const target = recognition.find((r) => r.id === openId)
     if (!target) return
-    setHighlightId(openId)
-    setSearchParams({}, { replace: true })
-    requestAnimationFrame(() => {
-      postRefs.current[openId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    const frameId = requestAnimationFrame(() => {
+      setHighlightId(openId)
+      setSearchParams({}, { replace: true })
+      requestAnimationFrame(() => {
+        postRefs.current[openId]?.scrollIntoView({ behavior: 'smooth', block: 'center' })
+      })
     })
     const timer = setTimeout(() => setHighlightId(null), 2500)
-    return () => clearTimeout(timer)
+    return () => {
+      cancelAnimationFrame(frameId)
+      clearTimeout(timer)
+    }
   }, [searchParams, setSearchParams, recognition])
 
   if (!user) return null
@@ -291,8 +296,8 @@ export function RecognitionPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Recognition wall"
-        description="Shoutouts for great work across the team."
+        title="Shout-outs"
+        description="Celebrate great work across the team."
         actions={
           <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
             {canManageTags ? (

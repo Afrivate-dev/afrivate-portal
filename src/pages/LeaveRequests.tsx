@@ -41,11 +41,12 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
-import { cn, fmtDate, firstName, isLead, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, firstName, isHR, isLead, relativeTime } from '@/utils/helpers'
+import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { uploadPortalFile } from '@/lib/supabase/fileStorage'
-import { useConfirm } from '@/context/ConfirmContext'
+import { useConfirm } from '@/context/useConfirm'
 import { notifyError } from '@/lib/notify'
 import { confirms } from '@/content/copy'
 import type { LeaveComment, LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
@@ -172,9 +173,14 @@ export function LeaveRequestsPage() {
     return out
   }, [leaveRequests, user])
 
+  const manageRequests = useMemo(
+    () => (user && canManage ? leaveRequestsForManager(leaveRequests, user, users) : []),
+    [leaveRequests, user, users, canManage],
+  )
+
   const pendingCount = useMemo(
-    () => leaveRequests.filter((l) => l.status === 'pending').length,
-    [leaveRequests],
+    () => manageRequests.filter((l) => l.status === 'pending').length,
+    [manageRequests],
   )
 
   if (!user) return null
@@ -272,7 +278,7 @@ export function LeaveRequestsPage() {
   return (
     <div className="space-y-6">
       <PageHeader
-        title="Leave"
+        title="Time off"
         description="Request, track and manage time off."
         actions={
           <Button onClick={openForm}>
@@ -344,7 +350,7 @@ export function LeaveRequestsPage() {
                   id: 'all' as const,
                   label: (
                     <>
-                      <Inbox className="h-4 w-4" /> All requests
+                      <Inbox className="h-4 w-4" /> {isHR(user) ? 'All requests' : 'Team requests'}
                     </>
                   ),
                   count: pendingCount > 0 ? pendingCount : undefined,
@@ -390,11 +396,11 @@ export function LeaveRequestsPage() {
 
       {/* ALL REQUESTS (Lead/HR/Admin) */}
       {tab === 'all' && canManage ? (
-        leaveRequests.length === 0 ? (
+        manageRequests.length === 0 ? (
           <EmptyState icon={Inbox} title="Nothing to review" />
         ) : (
           <RequestsList
-            requests={[...leaveRequests].sort((a, b) =>
+            requests={[...manageRequests].sort((a, b) =>
               a.status === 'pending' && b.status !== 'pending'
                 ? -1
                 : a.status !== 'pending' && b.status === 'pending'
@@ -439,7 +445,7 @@ export function LeaveRequestsPage() {
           </div>
           <LeaveCalendar
             month={calendarMonth}
-            requests={leaveRequests.filter((r) => r.status !== 'declined')}
+            requests={manageRequests.filter((r) => r.status !== 'declined')}
             users={users}
           />
 

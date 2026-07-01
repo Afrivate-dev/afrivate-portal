@@ -5,13 +5,8 @@ import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
 import { getPortalFileSignedUrl } from '@/lib/supabase/fileStorage'
 import { notifyError } from '@/lib/notify'
-import { isHR, isLead } from '@/utils/helpers'
+import { canViewLeaveSupportingDoc } from '@/utils/leaveSupportingDocAccess'
 import type { LeaveRequest, User } from '@/types'
-
-export function canViewLeaveSupportingDoc(viewer: User, request: LeaveRequest): boolean {
-  if (request.userId === viewer.id) return true
-  return isHR(viewer) || isLead(viewer)
-}
 
 export function LeaveSupportingDoc({
   request,

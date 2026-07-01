@@ -173,6 +173,9 @@ export function rowToAnnouncement(r: Record<string, unknown>): Announcement {
     body: String(r.body ?? ''),
     audience: String(r.audience ?? 'all') as Announcement['audience'],
     priority: String(r.priority ?? 'info') as Announcement['priority'],
+    memoCategory: r.memo_category
+      ? (String(r.memo_category) as Announcement['memoCategory'])
+      : 'general',
     postedById: String(r.posted_by_id),
     postedAt: String(r.posted_at),
     readBy: readStringArray(r.read_by),
@@ -273,6 +276,7 @@ export function rowToDocument(r: Record<string, unknown>): DocumentItem {
     uploadedAt: String(r.uploaded_at),
     hrOnly: Boolean(r.hr_only),
     managementOnly: Boolean(r.management_only),
+    requiresAcknowledgment: Boolean(r.requires_acknowledgment),
   }
 }
 

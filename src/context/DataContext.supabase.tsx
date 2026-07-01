@@ -540,6 +540,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           body: a.body,
           audience: a.audience,
           priority: a.priority,
+          memo_category: a.memoCategory ?? 'general',
           posted_by_id: a.postedById,
           posted_at: a.postedAt,
           read_by: [],
@@ -572,6 +573,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             body: next.body,
             audience: next.audience,
             priority: next.priority,
+            memo_category: next.memoCategory ?? 'general',
             media: next.media ?? [],
           })
           .eq('id', id)
@@ -722,7 +724,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
                   ? `${reviewer?.name ?? 'HR'} approved your leave request`
                   : `${reviewer?.name ?? 'HR'} declined your leave request`,
               body: note ?? undefined,
-              link: '/leave',
+              link: '/people/leave',
               createdAt: new Date().toISOString(),
               fromUserId: reviewerId,
               leaveId: id,
@@ -773,7 +775,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
               type: 'leave_comment' as const,
               title: `${user.name} commented on a leave request`,
               body: trimmed.slice(0, 120),
-              link: '/leave',
+              link: '/people/leave',
               createdAt: row.createdAt,
               fromUserId: user.id,
               leaveId,
@@ -961,6 +963,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           uploaded_at: doc.uploadedAt,
           hr_only: doc.hrOnly ?? false,
           management_only: doc.managementOnly ?? false,
+          requires_acknowledgment: doc.requiresAcknowledgment ?? false,
         })
         if (error) reportDataError('upload document', error)
         await reloadData()
@@ -975,6 +978,33 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       void (async () => {
         const { error } = await client.from('portal_documents').delete().eq('id', id)
         if (error) reportDataError('delete document', error)
+        await reloadData()
+      })()
+    },
+    [client, reloadData],
+  )
+
+  const updateDocument: DataContextValue['updateDocument'] = useCallback(
+    (id, patch) => {
+      setDocuments((prev) =>
+        prev.map((d) => (d.id === id ? { ...d, ...patch, id: d.id, uploadedAt: d.uploadedAt } : d)),
+      )
+      void (async () => {
+        const row: Record<string, unknown> = {}
+        if (patch.title !== undefined) row.title = patch.title
+        if (patch.description !== undefined) row.description = patch.description ?? null
+        if (patch.category !== undefined) row.category = patch.category
+        if (patch.fileName !== undefined) row.file_name = patch.fileName
+        if (patch.fileSize !== undefined) row.file_size = patch.fileSize
+        if (patch.filePath !== undefined) row.file_path = patch.filePath ?? null
+        if (patch.hrOnly !== undefined) row.hr_only = patch.hrOnly
+        if (patch.managementOnly !== undefined) row.management_only = patch.managementOnly
+        if (patch.requiresAcknowledgment !== undefined) {
+          row.requires_acknowledgment = patch.requiresAcknowledgment
+        }
+        if (Object.keys(row).length === 0) return
+        const { error } = await client.from('portal_documents').update(row).eq('id', id)
+        if (error) reportDataError('update document', error)
         await reloadData()
       })()
     },
@@ -1011,7 +1041,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             type: 'recognition',
             title: giver ? `${giver.name} shouted you out` : 'New shout-out',
             body: r.message.length > 120 ? `${r.message.slice(0, 117)}…` : r.message,
-            link: `/recognition?open=${encodeURIComponent(id)}`,
+            link: `/people/shout-outs?open=${encodeURIComponent(id)}`,
             read: false,
             createdAt: now,
             fromUserId: r.giverId,
@@ -1101,7 +1131,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
               type: 'recognition_comment' as const,
               title: `${user.name} commented on a shout-out`,
               body: trimmed.slice(0, 120),
-              link: `/recognition?open=${encodeURIComponent(recognitionId)}`,
+              link: `/people/shout-outs?open=${encodeURIComponent(recognitionId)}`,
               createdAt: row.createdAt,
               fromUserId: user.id,
               recognitionId,
@@ -1350,6 +1380,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       deleteOnboardingChecklistItem,
       documents,
       addDocument,
+      updateDocument,
       deleteDocument,
       recognition,
       recognitionComments,
@@ -1488,6 +1519,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       deleteOnboardingChecklistItem,
       documents,
       addDocument,
+      updateDocument,
       deleteDocument,
       recognition,
       recognitionComments,

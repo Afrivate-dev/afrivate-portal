@@ -244,6 +244,23 @@ test.describe('Navigation — admin', () => {
 
   })
 
+  test('admin can open HR dashboard section', async ({ page }) => {
+    test.skip(!hasAdminCreds, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env.test.local')
+
+    await login(page, ADMIN.email, ADMIN.password)
+
+    await page.goto('/admin')
+
+    const hrTab = page.getByRole('button', { name: /hr dashboard|hr ops|people ops/i }).first()
+    if (await hrTab.isVisible()) {
+      await hrTab.click()
+    }
+
+    await expect(page.getByText(/hr dashboard|assign alison|pulse survey|eNPS/i).first()).toBeVisible({
+      timeout: 10_000,
+    })
+  })
+
 })
 
 
@@ -277,6 +294,51 @@ test.describe('Core interactions', () => {
   })
 
 
+
+  test('people hub overview loads', async ({ page }) => {
+    await page.goto('/people')
+    await expect(page.getByRole('heading', { name: /^people$/i })).toBeVisible()
+  })
+
+  test('people learning page loads', async ({ page }) => {
+    await page.goto('/people/learning')
+    await expect(page.getByRole('heading', { name: /learning/i })).toBeVisible()
+  })
+
+  test('people growth page loads', async ({ page }) => {
+    await page.goto('/people/growth')
+    await expect(page.getByRole('heading', { name: /growth/i })).toBeVisible()
+  })
+
+  test('people surveys page loads', async ({ page }) => {
+    await page.goto('/people/surveys')
+    await expect(page.getByRole('heading', { name: /surveys/i })).toBeVisible()
+  })
+
+  test('people shout-outs page loads', async ({ page }) => {
+    await page.goto('/people/shout-outs')
+    await expect(page.getByRole('heading', { name: /shout-outs/i })).toBeVisible()
+  })
+
+  test('people leave page loads', async ({ page }) => {
+    await page.goto('/people/leave')
+    await expect(page.getByRole('heading', { name: /time off/i })).toBeVisible()
+  })
+
+  test('people directory page loads', async ({ page }) => {
+    await page.goto('/people/directory')
+    await expect(page.getByPlaceholder(/search/i).first()).toBeVisible()
+  })
+
+  test('legacy directory redirect preserves query params', async ({ page }) => {
+    await page.goto('/directory?profile=1')
+    await expect(page).toHaveURL(/\/people\/directory\?profile=1/)
+  })
+
+  test('unknown route shows 404 in app shell', async ({ page }) => {
+    await page.goto('/this-route-does-not-exist')
+    await expect(page.getByRole('heading', { name: /not found|page not found/i })).toBeVisible()
+  })
 
   test('leave: request form visible', async ({ page }) => {
 

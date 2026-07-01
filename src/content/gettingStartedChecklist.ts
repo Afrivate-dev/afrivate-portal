@@ -5,7 +5,7 @@ export const DEFAULT_GETTING_STARTED_CHECKLIST: OnboardingChecklistItem[] = [
   {
     id: 'ck_profile',
     label: 'Add your photo and contact details',
-    link: '/directory?profile=1',
+    link: '/people/directory?profile=1',
     order: 1,
     autoKey: 'profile_complete',
   },
@@ -32,7 +32,7 @@ export const DEFAULT_GETTING_STARTED_CHECKLIST: OnboardingChecklistItem[] = [
   {
     id: 'ck_people',
     label: 'Find your team lead in the directory',
-    link: '/directory',
+    link: '/people/directory',
     order: 5,
     autoKey: 'directory_complete',
   },

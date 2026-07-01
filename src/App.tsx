@@ -1,9 +1,11 @@
 import { lazy, useEffect, useState } from 'react'
 import { BrowserRouter, Route, Routes, Navigate, useNavigate } from 'react-router-dom'
+import { LegacyRedirect } from '@/components/routing/LegacyRedirect'
 import { supabase } from '@/lib/supabase'
 import { ThemeProvider } from '@/context/ThemeContext'
 import { AuthProvider, useAuth } from '@/context/AuthContext'
 import { DataProvider } from '@/context/DataContext'
+import { HrProvider } from '@/context/HrContext'
 import { CollabProvider } from '@/context/CollabContext'
 import { AppLayout } from '@/layouts/AppLayout'
 import { AuthLayout } from '@/layouts/AuthLayout'
@@ -49,6 +51,24 @@ const EventsCalendarPage = lazy(() =>
 const NotesPage = lazy(() => import('@/pages/Notes').then((m) => ({ default: m.NotesPage })))
 const AdminPanelPage = lazy(() =>
   import('@/pages/AdminPanel').then((m) => ({ default: m.AdminPanelPage })),
+)
+const PeopleLayout = lazy(() =>
+  import('@/pages/people/PeopleLayout').then((m) => ({ default: m.PeopleLayout })),
+)
+const PeopleOverviewPage = lazy(() =>
+  import('@/pages/people/PeopleOverviewPage').then((m) => ({ default: m.PeopleOverviewPage })),
+)
+const NotFoundPage = lazy(() =>
+  import('@/pages/NotFoundPage').then((m) => ({ default: m.NotFoundPage })),
+)
+const PeopleLearningPage = lazy(() =>
+  import('@/pages/people/PeopleLearningPage').then((m) => ({ default: m.PeopleLearningPage })),
+)
+const PeopleSurveysPage = lazy(() =>
+  import('@/pages/people/PeopleSurveysPage').then((m) => ({ default: m.PeopleSurveysPage })),
+)
+const PeopleGrowthPage = lazy(() =>
+  import('@/pages/people/PeopleGrowthPage').then((m) => ({ default: m.PeopleGrowthPage })),
 )
 const PrivacyNoticePage = lazy(() =>
   import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
@@ -146,6 +166,7 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <DataProvider>
+          <HrProvider>
           <CollabProvider>
             <ConfirmProvider>
             <BrowserRouter>
@@ -171,11 +192,20 @@ export default function App() {
                       <Route path="/checkin" element={<WeeklyCheckInPage />} />
                       <Route path="/onboarding" element={<OnboardingPage />} />
                       <Route path="/announcements" element={<AnnouncementsPage />} />
-                      <Route path="/leave" element={<LeaveRequestsPage />} />
-                      <Route path="/profile" element={<Navigate to="/directory?profile=1" replace />} />
-                      <Route path="/directory" element={<StaffDirectoryPage />} />
+                      <Route path="/people" element={<PeopleLayout />}>
+                        <Route index element={<PeopleOverviewPage />} />
+                        <Route path="leave" element={<LeaveRequestsPage />} />
+                        <Route path="shout-outs" element={<RecognitionPage />} />
+                        <Route path="learning" element={<PeopleLearningPage />} />
+                        <Route path="surveys" element={<PeopleSurveysPage />} />
+                        <Route path="growth" element={<PeopleGrowthPage />} />
+                        <Route path="directory" element={<StaffDirectoryPage />} />
+                      </Route>
+                      <Route path="/directory" element={<LegacyRedirect to="/people/directory" />} />
+                      <Route path="/leave" element={<LegacyRedirect to="/people/leave" />} />
+                      <Route path="/recognition" element={<LegacyRedirect to="/people/shout-outs" />} />
+                      <Route path="/profile" element={<Navigate to="/people/directory?profile=1" replace />} />
                       <Route path="/documents" element={<DocumentLibraryPage />} />
-                      <Route path="/recognition" element={<RecognitionPage />} />
                       <Route path="/events" element={<EventsCalendarPage />} />
                       <Route path="/inbox" element={<InboxPage />} />
                       <Route path="/search" element={<SearchPage />} />
@@ -190,15 +220,14 @@ export default function App() {
                           </AdminRoute>
                         }
                       />
+                      <Route path="*" element={<NotFoundPage />} />
                     </Route>
-
-                    {/* Unknown URLs → home (login redirect handled in AppLayout) */}
-                    <Route path="*" element={<Navigate to="/" replace />} />
                 </Routes>
               </ErrorBoundary>
             </BrowserRouter>
             </ConfirmProvider>
           </CollabProvider>
+          </HrProvider>
         </DataProvider>
       </AuthProvider>
     </ThemeProvider>
