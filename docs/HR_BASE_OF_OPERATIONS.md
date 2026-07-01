@@ -66,12 +66,19 @@ The sidebar stays lean. All people/culture work lives under **People** (`/people
 | Growth | `/people/growth` | OKRs, 1:1s, IDPs, 360°, 30-60-90, awards, grievances |
 | Directory | `/people/directory` | Org structure link |
 
+### Admin → Portal labels
+
+Route: **Admin → HR dashboard → Portal labels** (bottom of HR dashboard)  
+Used by: HR, admin
+
+Manage task categories, document categories, recognition tags, award categories, grievance categories, exit interview reasons, and memo types (including HR digest). Changes sync live via Supabase realtime.
+
 ### Admin → HR dashboard
 
 Route: **Admin → HR dashboard** tab  
 Used by: HR, admin
 
-Quick actions: assign Alison course, launch pulse survey, recruitment lite, quarterly awards, exit interviews, grievance resolution, KPI cards.
+Quick actions: assign Alison course, launch pulse survey, send survey reminders, recruitment lite, quarterly awards, exit interviews, grievance resolution, open 360° cycles from templates, peer assignment panel, policy ack tracking, KPI export, HR digest memo, portal labels admin.
 
 ---
 
@@ -159,9 +166,10 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 
 **Implementation SOP — 360° (bi-annual)**
 
-1. HR creates feedback cycle in Growth (or Admin when cycle UI expanded): title, year, H1/H2, status `open`.
-2. Employees complete **self-assessment**; peers/managers assigned (full peer workflow = Phase 3 enhancement).
-3. HR closes cycle; shares summary in 1:1 — not public leaderboard.
+1. HR creates feedback **template** in Admin → HR dashboard → 360° templates.
+2. HR opens cycle from template — auto-assigns self, manager, and upward reviews for all active staff.
+3. HR adds peer reviewers in the **360° assignments** panel as needed.
+4. Employees complete assigned reviews in **Growth → 360°**; HR closes cycle when done.
 
 ---
 
@@ -487,7 +495,7 @@ Recurring activities every month: **pulse survey**, **digest** (×2), **manager 
 
 For HR systems to work in production:
 
-- [ ] All SQL migrations applied (through `20260704_hr_operations.sql`)
+- [ ] All SQL migrations applied (through `20260709_hr_audit_round4.sql`)
 - [ ] `.env`: `VITE_USE_SUPABASE_AUTH=true`, `VITE_USE_SUPABASE_DATA=true`
 - [ ] Edge Functions deployed (invite, request-access, admin-patch-profile)
 - [ ] Supabase Auth URLs set for production domain
@@ -506,9 +514,10 @@ These are intentional or on the roadmap — not blockers to operating the plan:
 
 | Item | Status | Workaround |
 |------|--------|------------|
-| Full 360° peer/manager assignment UI | Basic self-assessment live | HR coordinates reviewers manually; expand in Phase 3 |
-| Auto-seed milestones on hire | Manual seed on first Growth visit | HR verifies new hire opened Growth |
-| eNPS / attrition / time-to-hire on dashboard | Partial KPIs live | Monthly Sheet for remaining metrics |
+| Full 360° peer assignment UI | **Live** — HR assignment panel + auto self/manager/upward | Add peers per cycle in Admin |
+| Auto-seed milestones on hire | RPC on user approval (`20260709`) | HR verifies new hire opened Growth |
+| eNPS / attrition / time-to-hire / policy ack / survey completion on dashboard | **Live** on HR dashboard + CSV export | Monthly leadership report via Export KPIs |
+| Portal labels (categories, tags, exit reasons) | **Live** — Admin → HR dashboard → Portal labels | Edit in admin UI |
 | Payroll & salary bands | External | Drive + Finance |
 | WhatsApp/Slack integration | External | Portal remains system of record |
 | Buddy system field | Informal | Team assignment + WhatsApp |

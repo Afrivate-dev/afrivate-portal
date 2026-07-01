@@ -24,6 +24,15 @@ export interface PulseSurvey {
   createdAt: string
 }
 
+/** HR-managed reusable survey blueprint — launched as a live pulse/eNPS survey. */
+export interface PulseSurveyTemplate {
+  id: string
+  label: string
+  surveyType: PulseSurveyType
+  description?: string
+  questions: PulseQuestion[]
+}
+
 export interface PulseResponse {
   id: string
   surveyId: string
@@ -129,6 +138,24 @@ export interface FeedbackEntry {
   submittedAt: string
 }
 
+/** HR-managed reusable 360° question set. */
+export interface FeedbackTemplate {
+  id: string
+  label: string
+  description?: string
+  questions: PulseQuestion[]
+}
+
+/** Who reviews whom in a 360° cycle. */
+export interface FeedbackAssignment {
+  id: string
+  cycleId: string
+  subjectUserId: string
+  reviewerId: string
+  relationship: FeedbackRelationship
+  createdAt: string
+}
+
 export type JobRequisitionStatus = 'open' | 'filled' | 'closed'
 export type CandidateStage =
   | 'applied'
@@ -156,6 +183,7 @@ export interface JobCandidate {
   stage: CandidateStage
   notes?: string
   score?: number
+  appliedAt?: string
   updatedAt: string
 }
 
@@ -164,42 +192,19 @@ export interface ExitInterview {
   userId?: string
   departingName: string
   lastDay?: string
+  /** Config reason IDs from portal_exit_reasons. */
   reasons: string[]
   notes?: string
   conductedById?: string
   createdAt: string
 }
 
-export const EXIT_REASON_OPTIONS = [
-  'Better opportunity',
-  'Compensation',
-  'Work-life balance',
-  'Relocation',
-  'Career change',
-  'Management or culture',
-  'Role fit',
-  'Personal reasons',
-  'Retirement',
-  'Other',
-] as const
-
-export type ExitReason = (typeof EXIT_REASON_OPTIONS)[number]
-
 export type GrievanceStatus = 'open' | 'reviewing' | 'resolved'
-
-export const GRIEVANCE_CATEGORIES = ['workplace', 'harassment', 'other'] as const
-export type GrievanceCategory = (typeof GRIEVANCE_CATEGORIES)[number]
-
-export const GRIEVANCE_CATEGORY_LABELS: Record<GrievanceCategory, string> = {
-  workplace: 'Workplace concern',
-  harassment: 'Harassment or safety',
-  other: 'Other',
-}
 
 export interface Grievance {
   id: string
   userId: string
-  category: GrievanceCategory | string
+  category: string
   body: string
   status: GrievanceStatus
   hrNote?: string
@@ -219,26 +224,13 @@ export interface OnboardingMilestone {
   dueDate?: string
 }
 
-export type AwardCategory =
-  | 'innovation'
-  | 'team_spirit'
-  | 'most_improved'
-  | 'embodied_the_way'
-
 export interface QuarterlyAward {
   id: string
   year: number
   quarter: 'Q1' | 'Q2' | 'Q3' | 'Q4'
-  category: AwardCategory
+  category: string
   winnerId: string
   nominatedById?: string
   note?: string
   createdAt: string
-}
-
-export const AWARD_CATEGORY_LABELS: Record<AwardCategory, string> = {
-  innovation: 'Innovation',
-  team_spirit: 'Team Spirit',
-  most_improved: 'Most Improved',
-  embodied_the_way: 'Embodied the Way',
 }

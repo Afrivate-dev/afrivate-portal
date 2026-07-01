@@ -127,23 +127,53 @@ export interface DataContextValue {
     jobTitle: string,
   ) => Promise<{ ok: boolean; error?: string; emailSent?: boolean }>
 
-  /** Task categories — managed by assistant_lead and above. */
+  /** Task categories — managed by HR and admin. */
   taskCategories: TaskCategoryItem[]
   addTaskCategory: (label: string) => void
   updateTaskCategory: (id: string, label: string) => void
   deleteTaskCategory: (id: string) => void
 
-  /** Resources document categories — managed by team leads and above. */
+  /** Resources document categories — managed by HR and admin. */
   documentCategories: TaskCategoryItem[]
   addDocumentCategory: (label: string) => void
   updateDocumentCategory: (id: string, label: string) => void
   deleteDocumentCategory: (id: string) => void
 
-  /** Shout-out tags — managed by team leads and above. */
+  /** Shout-out tags — managed by HR and admin. */
   recognitionTags: TaskCategoryItem[]
   addRecognitionTag: (label: string) => void
   updateRecognitionTag: (id: string, label: string) => void
   deleteRecognitionTag: (id: string) => void
+
+  /** Award categories — HR/admin managed (Growth + HR dashboard). */
+  awardCategories: TaskCategoryItem[]
+  addAwardCategory: (label: string) => void
+  updateAwardCategory: (id: string, label: string) => void
+  deleteAwardCategory: (id: string) => void
+
+  /** Grievance categories — HR/admin managed. */
+  grievanceCategories: TaskCategoryItem[]
+  addGrievanceCategory: (label: string) => void
+  updateGrievanceCategory: (id: string, label: string) => void
+  deleteGrievanceCategory: (id: string) => void
+
+  /** Exit interview reasons — HR/admin managed. */
+  exitReasons: TaskCategoryItem[]
+  addExitReason: (label: string) => void
+  updateExitReason: (id: string, label: string) => void
+  deleteExitReason: (id: string) => void
+
+  /** Memo / announcement types — HR/admin managed. */
+  memoCategories: TaskCategoryItem[]
+  addMemoCategory: (label: string) => void
+  updateMemoCategory: (id: string, label: string) => void
+  deleteMemoCategory: (id: string) => void
+
+  /** Pulse / eNPS survey templates — HR/admin managed question sets. */
+  pulseSurveyTemplates: import('@/types/hr').PulseSurveyTemplate[]
+  addPulseSurveyTemplate: (template: Omit<import('@/types/hr').PulseSurveyTemplate, 'id'>) => void
+  updatePulseSurveyTemplate: (id: string, patch: Partial<import('@/types/hr').PulseSurveyTemplate>) => void
+  deletePulseSurveyTemplate: (id: string) => void
 
   /** `loading` only in Supabase mode during fetch. Local mode stays `ready`. */
   dataStatus: 'ready' | 'loading' | 'error'

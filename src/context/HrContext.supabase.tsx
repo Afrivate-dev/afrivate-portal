@@ -6,6 +6,11 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHrPortalRealtime } from '@/hooks/usePortalRealtime'
 import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrContextShared'
+import {
+  DEFAULT_FEEDBACK_TEMPLATES,
+  fetchFeedbackTemplates,
+  insertFeedbackTemplate,
+} from '@/lib/feedbackConfig'
 import { fetchHrDataset } from '@/lib/supabase/hrDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
@@ -14,8 +19,10 @@ import { computeHrMetrics, directReportIds } from '@/utils/hrMetrics'
 import { isHR, isLead } from '@/utils/helpers'
 import { uid } from '@/utils/helpers'
 import type {
+  FeedbackAssignment,
   FeedbackCycle,
   FeedbackEntry,
+  FeedbackTemplate,
   Grievance,
   IndividualDevelopmentPlan,
   JobCandidate,
@@ -44,7 +51,7 @@ const DEFAULT_MILESTONES = (userId: string): OnboardingMilestone[] => [
 
 export function SupabaseHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, leaveRequests } = useData()
+  const { users, leaveRequests, documents } = useData()
   const client = supabase!
 
   const [hrStatus, setHrStatus] = useState<'ready' | 'loading'>('loading')
@@ -58,6 +65,8 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   const [idps, setIdps] = useState<IndividualDevelopmentPlan[]>([])
   const [feedbackCycles, setFeedbackCycles] = useState<FeedbackCycle[]>([])
   const [feedbackEntries, setFeedbackEntries] = useState<FeedbackEntry[]>([])
+  const [feedbackTemplates, setFeedbackTemplates] = useState<FeedbackTemplate[]>(DEFAULT_FEEDBACK_TEMPLATES)
+  const [feedbackAssignments, setFeedbackAssignments] = useState<FeedbackAssignment[]>([])
   const [jobRequisitions, setJobRequisitions] = useState<JobRequisition[]>([])
   const [jobCandidates, setJobCandidates] = useState<JobCandidate[]>([])
   const [exitInterviews, setExitInterviews] = useState<HrContextValue['exitInterviews']>([])
@@ -81,6 +90,8 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       setIdps([])
       setFeedbackCycles([])
       setFeedbackEntries([])
+      setFeedbackTemplates(DEFAULT_FEEDBACK_TEMPLATES)
+      setFeedbackAssignments([])
       setJobRequisitions([])
       setJobCandidates([])
       setExitInterviews([])
@@ -104,6 +115,14 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       setIdps(d.idps)
       setFeedbackCycles(d.feedbackCycles)
       setFeedbackEntries(d.feedbackEntries)
+      setFeedbackAssignments(d.feedbackAssignments)
+      try {
+        const templates = await fetchFeedbackTemplates(client)
+        setFeedbackTemplates(templates.length ? templates : DEFAULT_FEEDBACK_TEMPLATES)
+      } catch (e) {
+        console.warn('[hr] feedback templates', e instanceof Error ? e.message : e)
+        setFeedbackTemplates(DEFAULT_FEEDBACK_TEMPLATES)
+      }
       setJobRequisitions(d.jobRequisitions)
       setJobCandidates(d.jobCandidates)
       setExitInterviews(d.exitInterviews)
@@ -214,6 +233,21 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       })()
     },
     [client, pulseSurveys, reloadHr],
+  )
+
+  const sendPulseSurveyReminders = useCallback(
+    async (surveyId: string): Promise<number> => {
+      const { data, error } = await client.rpc('portal_send_pulse_survey_reminders', {
+        p_survey_id: surveyId,
+      })
+      if (error) {
+        reportHrError('send survey reminders', error)
+        return 0
+      }
+      await reloadHr()
+      return Number(data ?? 0)
+    },
+    [client, reloadHr],
   )
 
   const addLearningAssignment = useCallback(
@@ -561,6 +595,102 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     [client, feedbackEntries, reloadHr],
   )
 
+  const addFeedbackTemplate = useCallback(
+    (t: Omit<FeedbackTemplate, 'id'>) => {
+      void (async () => {
+        try {
+          const row = await insertFeedbackTemplate(client, t, feedbackTemplates.length + 1)
+          setFeedbackTemplates((prev) => [...prev, row])
+        } catch (e) {
+          reportHrError('add feedback template', e instanceof Error ? e : { message: String(e) })
+        }
+      })()
+    },
+    [client, feedbackTemplates.length],
+  )
+
+  const updateFeedbackTemplate = useCallback(
+    (id: string, patch: Partial<FeedbackTemplate>) => {
+      setFeedbackTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      void (async () => {
+        const cur = feedbackTemplates.find((t) => t.id === id)
+        if (!cur) return
+        const next = { ...cur, ...patch }
+        const { error } = await client
+          .from('portal_feedback_templates')
+          .update({
+            label: next.label,
+            description: next.description ?? null,
+            questions: next.questions,
+          })
+          .eq('id', id)
+        if (error) reportHrError('update feedback template', error)
+      })()
+    },
+    [client, feedbackTemplates],
+  )
+
+  const deleteFeedbackTemplate = useCallback(
+    (id: string) => {
+      setFeedbackTemplates((prev) => prev.filter((t) => t.id !== id))
+      void (async () => {
+        const { error } = await client.from('portal_feedback_templates').delete().eq('id', id)
+        if (error) reportHrError('delete feedback template', error)
+      })()
+    },
+    [client],
+  )
+
+  const addFeedbackAssignment = useCallback(
+    (a: Omit<FeedbackAssignment, 'id' | 'createdAt'>) => {
+      const row: FeedbackAssignment = { ...a, id: 'fa_' + uid(), createdAt: new Date().toISOString() }
+      setFeedbackAssignments((prev) => [...prev, row])
+      void (async () => {
+        const { error } = await client.from('portal_feedback_assignments').insert({
+          id: row.id,
+          cycle_id: row.cycleId,
+          subject_user_id: row.subjectUserId,
+          reviewer_id: row.reviewerId,
+          relationship: row.relationship,
+          created_at: row.createdAt,
+        })
+        if (error) reportHrError('add feedback assignment', error)
+        await reloadHr()
+      })()
+    },
+    [client, reloadHr],
+  )
+
+  const removeFeedbackAssignment = useCallback(
+    (id: string) => {
+      setFeedbackAssignments((prev) => prev.filter((a) => a.id !== id))
+      void (async () => {
+        const { error } = await client.from('portal_feedback_assignments').delete().eq('id', id)
+        if (error) reportHrError('remove feedback assignment', error)
+        await reloadHr()
+      })()
+    },
+    [client, reloadHr],
+  )
+
+  const openFeedbackCycleFromTemplate = useCallback(
+    async (templateId: string, title?: string): Promise<string | null> => {
+      const { data, error } = await client.rpc('portal_open_feedback_cycle', {
+        p_template_id: templateId,
+        p_title: title ?? null,
+        p_year: null,
+        p_half: null,
+      })
+      if (error) {
+        reportHrError('open feedback cycle', error)
+        return null
+      }
+      await reloadHr()
+      return data ? String(data) : null
+    },
+    [client, reloadHr],
+  )
+
   const addJobRequisition = useCallback(
     (r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
       const row: JobRequisition = {
@@ -812,6 +942,10 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           grievances,
           users,
           leaveRequests,
+          exitInterviews,
+          jobCandidates,
+          documents,
+          documentAcknowledgments,
         },
         { memberIds, pulseOverrides },
       )
@@ -827,6 +961,10 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       grievances,
       users,
       leaveRequests,
+      exitInterviews,
+      jobCandidates,
+      documents,
+      documentAcknowledgments,
     ],
   )
 
@@ -837,6 +975,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       submitPulseResponse,
       createPulseSurvey,
       updatePulseSurvey,
+      sendPulseSurveyReminders,
       learningAssignments,
       learningSubmissions,
       addLearningAssignment,
@@ -855,6 +994,14 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       reviewIdp,
       feedbackCycles,
       feedbackEntries,
+      feedbackTemplates,
+      addFeedbackTemplate,
+      updateFeedbackTemplate,
+      deleteFeedbackTemplate,
+      feedbackAssignments,
+      addFeedbackAssignment,
+      removeFeedbackAssignment,
+      openFeedbackCycleFromTemplate,
       createFeedbackCycle,
       updateFeedbackCycle,
       submitFeedback,
@@ -884,6 +1031,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       submitPulseResponse,
       createPulseSurvey,
       updatePulseSurvey,
+      sendPulseSurveyReminders,
       learningAssignments,
       learningSubmissions,
       addLearningAssignment,
@@ -902,6 +1050,14 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       reviewIdp,
       feedbackCycles,
       feedbackEntries,
+      feedbackTemplates,
+      addFeedbackTemplate,
+      updateFeedbackTemplate,
+      deleteFeedbackTemplate,
+      feedbackAssignments,
+      addFeedbackAssignment,
+      removeFeedbackAssignment,
+      openFeedbackCycleFromTemplate,
       createFeedbackCycle,
       updateFeedbackCycle,
       submitFeedback,

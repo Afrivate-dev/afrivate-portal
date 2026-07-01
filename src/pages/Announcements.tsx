@@ -29,19 +29,14 @@ import {
 } from '@/components/shared/AnnouncementAttachments'
 import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
-import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
+import { labelForConfigId } from '@/lib/portalConfig'
+import { cn, fmtDate, fmtTime, isAdmin, isHR, isLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
 import { pages, actions, confirms } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority, User } from '@/types'
 
 type PriorityFilter = 'all' | AnnouncementPriority
-type MemoFilter = 'all' | 'general' | 'digest' | 'policy'
-
-const MEMO_LABELS: Record<Exclude<MemoFilter, 'all'>, string> = {
-  general: 'Memo',
-  digest: 'HR digest',
-  policy: 'Policy',
-}
+type MemoFilter = 'all' | string
 
 const U = pages.updates
 
@@ -71,7 +66,7 @@ interface FormDraft {
   body: string
   audience: string
   priority: AnnouncementPriority
-  memoCategory: 'general' | 'digest' | 'policy'
+  memoCategory: string
   media: AnnouncementMedia[]
 }
 
@@ -102,6 +97,7 @@ export function AnnouncementsPage() {
     announcements,
     users,
     departments: orgDepartments,
+    memoCategories,
     createAnnouncement,
     updateAnnouncement,
     deleteAnnouncement,
@@ -110,7 +106,7 @@ export function AnnouncementsPage() {
   } = useData()
   const { setActivity, readersForUpdate, multiplayerLive } = useCollab()
 
-  const canPost = isTeamLead(user)
+  const canPost = isLead(user)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [memoFilter, setMemoFilter] = useState<MemoFilter>('all')
@@ -277,9 +273,7 @@ export function AnnouncementsPage() {
                 onChange={(e) => setMemoFilter(e.target.value as MemoFilter)}
                 options={[
                   { value: 'all', label: 'All types' },
-                  { value: 'general', label: 'General memos' },
-                  { value: 'digest', label: 'HR digest' },
-                  { value: 'policy', label: 'Policy notices' },
+                  ...memoCategories.map((c) => ({ value: c.id, label: c.label })),
                 ]}
               />
             </div>
@@ -368,9 +362,9 @@ export function AnnouncementsPage() {
                           <span className="h-2 w-2 rounded-full bg-accent" aria-label="Unread" />
                         ) : null}
                         <Badge tone={meta.tone}>{announcementPriorityLabel(a.priority)}</Badge>
-                        {(a.memoCategory === 'digest' || a.memoCategory === 'policy') ? (
+                        {a.memoCategory && a.memoCategory !== 'general' ? (
                           <Badge tone={a.memoCategory === 'digest' ? 'info' : 'warning'}>
-                            {MEMO_LABELS[a.memoCategory]}
+                            {labelForConfigId(a.memoCategory, memoCategories)}
                           </Badge>
                         ) : null}
                         {canEdit || canDelete ? (
@@ -563,11 +557,7 @@ export function AnnouncementsPage() {
                   memoCategory: e.target.value as FormDraft['memoCategory'],
                 })
               }
-              options={[
-                { value: 'general', label: 'General memo' },
-                { value: 'digest', label: 'HR digest (email mirror)' },
-                { value: 'policy', label: 'Policy notice' },
-              ]}
+              options={memoCategories.map((c) => ({ value: c.id, label: c.label }))}
             />
           ) : null}
         </form>

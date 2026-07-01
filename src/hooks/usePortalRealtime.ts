@@ -3,6 +3,17 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseDataEnabled } from '@/lib/dataMode'
 import { supabase } from '@/lib/supabase'
 
+export const PORTAL_CONFIG_LIVE_TABLES = [
+  'portal_task_categories',
+  'portal_document_categories',
+  'portal_recognition_tags',
+  'portal_award_categories',
+  'portal_grievance_categories',
+  'portal_exit_reasons',
+  'portal_memo_categories',
+  'portal_pulse_survey_templates',
+] as const
+
 export const PORTAL_DATA_LIVE_TABLES = [
   'portal_inbox_notifications',
   'portal_announcements',
@@ -28,6 +39,8 @@ export const PORTAL_HR_LIVE_TABLES = [
   'portal_idps',
   'portal_feedback_cycles',
   'portal_feedback_entries',
+  'portal_feedback_templates',
+  'portal_feedback_assignments',
   'portal_job_requisitions',
   'portal_job_candidates',
   'portal_grievances',

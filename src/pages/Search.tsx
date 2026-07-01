@@ -31,6 +31,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { userSeesAnnouncement, userCanSeeTask, isHR, isLead } from '@/utils/helpers'
 import { directReportIds } from '@/utils/hrMetrics'
+import { leaveRequestsForManager } from '@/utils/leaveScope'
+import { labelForConfigId } from '@/lib/portalConfig'
 import { canUserViewNote } from '@/utils/noteModel'
 import { pages } from '@/content/copy'
 
@@ -38,7 +40,7 @@ const S = pages.search
 
 export function SearchPage() {
   const { user } = useAuth()
-  const { users, teams, announcements, tasks, documents, events, leaveRequests, recognition } = useData()
+  const { users, teams, announcements, tasks, documents, events, leaveRequests, recognition, awardCategories, grievanceCategories, exitReasons } = useData()
   const { notes } = useCollab()
   const { pulseSurveys, okrs, learningAssignments, idps, jobRequisitions, grievances, quarterlyAwards, feedbackCycles, jobCandidates, exitInterviews } = useHr()
   const [params, setParams] = useSearchParams()
@@ -108,8 +110,12 @@ export function SearchPage() {
 
   const leaveHits = useMemo(() => {
     if (!user || !q) return []
-    return leaveRequests.filter((l) => {
-      if (user.role === 'staff' && l.userId !== user.id) return false
+    const managed = leaveRequestsForManager(leaveRequests, user, users)
+    const own = leaveRequests.filter((l) => l.userId === user.id)
+    const visible = new Map<string, typeof leaveRequests[0]>()
+    for (const l of managed) visible.set(l.id, l)
+    for (const l of own) visible.set(l.id, l)
+    return [...visible.values()].filter((l) => {
       const requester = users.find((u) => u.id === l.userId)
       const hay = `${l.reason ?? ''} ${l.type} ${requester?.name ?? ''}`.toLowerCase()
       return hay.includes(q)
@@ -178,19 +184,21 @@ export function SearchPage() {
     if (!isHR(user)) return []
     return grievances.filter((g) => {
       const submitter = users.find((u) => u.id === g.userId)
-      const hay = `${g.category} ${g.body} ${submitter?.name ?? ''}`.toLowerCase()
+      const categoryLabel = labelForConfigId(g.category, grievanceCategories)
+      const hay = `${categoryLabel} ${g.body} ${g.confidential ? '' : submitter?.name ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [grievances, users, user, q])
+  }, [grievances, users, user, q, grievanceCategories])
 
   const awardHits = useMemo(() => {
     if (!user || !q) return []
     return quarterlyAwards.filter((a) => {
       const winner = users.find((u) => u.id === a.winnerId)
-      const hay = `${a.category} ${a.quarter} ${a.year} ${winner?.name ?? ''} ${a.note ?? ''}`.toLowerCase()
+      const categoryLabel = labelForConfigId(a.category, awardCategories)
+      const hay = `${categoryLabel} ${a.quarter} ${a.year} ${winner?.name ?? ''} ${a.note ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [quarterlyAwards, users, user, q])
+  }, [quarterlyAwards, users, user, q, awardCategories])
 
   const feedbackCycleHits = useMemo(() => {
     if (!user || !q) return []
@@ -214,10 +222,11 @@ export function SearchPage() {
     if (!user || !q) return []
     if (!isHR(user)) return []
     return exitInterviews.filter((ex) => {
-      const hay = `${ex.departingName} ${ex.notes ?? ''} ${ex.reasons.join(' ')}`.toLowerCase()
+      const reasonLabels = ex.reasons.map((r) => labelForConfigId(r, exitReasons)).join(' ')
+      const hay = `${ex.departingName} ${ex.notes ?? ''} ${reasonLabels}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [exitInterviews, user, q])
+  }, [exitInterviews, user, q, exitReasons])
 
   const totalHits =
     personHits.length +
@@ -579,7 +588,7 @@ export function SearchPage() {
                       <Link to="/people/growth?tab=awards">
                         <Card padding="md" className="transition-colors hover:border-accent/40">
                           <p className="font-medium text-fg">{winner?.name ?? 'Team member'}</p>
-                          <p className="mt-1 text-xs text-muted capitalize">{a.category.replace(/_/g, ' ')} · {a.quarter} {a.year}</p>
+                          <p className="mt-1 text-xs text-muted capitalize">{labelForConfigId(a.category, awardCategories)} · {a.quarter} {a.year}</p>
                         </Card>
                       </Link>
                     </li>
@@ -600,7 +609,7 @@ export function SearchPage() {
                   <li key={g.id}>
                     <Link to="/admin">
                       <Card padding="md" className="transition-colors hover:border-accent/40">
-                        <p className="font-medium capitalize text-fg">{g.category}</p>
+                        <p className="font-medium capitalize text-fg">{labelForConfigId(g.category, grievanceCategories)}</p>
                         <p className="mt-1 line-clamp-2 text-sm text-muted">{g.body}</p>
                       </Card>
                     </Link>
@@ -623,7 +632,7 @@ export function SearchPage() {
                       <Card padding="md" className="transition-colors hover:border-accent/40">
                         <p className="font-medium text-fg">{ex.departingName}</p>
                         {ex.reasons.length > 0 ? (
-                          <p className="mt-1 text-xs text-muted">{ex.reasons.join(' · ')}</p>
+                          <p className="mt-1 text-xs text-muted">{ex.reasons.map((r) => labelForConfigId(r, exitReasons)).join(' · ')}</p>
                         ) : null}
                       </Card>
                     </Link>
