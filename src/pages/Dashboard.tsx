@@ -140,13 +140,15 @@ export function DashboardPage() {
       {onboardingStats ? (
         <Card padding="md" accentBorder="info" className="border-l-4 border-l-accent">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <div className="flex-1">
-              <div className="flex items-center gap-2">
-                <PlayCircle className="h-5 w-5 text-accent" />
-                <p className="text-sm font-semibold text-fg">
-                  Getting started: {onboardingStats.watched} of {onboardingStats.total} videos watched
-                </p>
-                <p className="text-xs text-muted">
+            <div className="min-w-0 flex-1">
+              <div className="flex flex-col gap-1 sm:flex-row sm:flex-wrap sm:items-center sm:gap-x-2 sm:gap-y-1">
+                <div className="flex items-center gap-2">
+                  <PlayCircle className="h-5 w-5 shrink-0 text-accent" />
+                  <p className="text-sm font-semibold text-fg">
+                    Getting started: {onboardingStats.watched} of {onboardingStats.total} videos watched
+                  </p>
+                </div>
+                <p className="text-xs text-muted sm:pl-7">
                   Open your first-week checklist and onboarding videos.
                 </p>
               </div>
@@ -170,7 +172,7 @@ export function DashboardPage() {
       <PeopleActionBanners />
 
       {/* Stat cards */}
-      <div className="av-stagger grid grid-cols-2 gap-2 sm:gap-3 md:gap-4 lg:grid-cols-4">
+      <div className="av-stagger av-stat-grid">
         <StatCard label="Tasks due today" value={stats.dueToday} icon={ListChecks} tone="brand" />
         <StatCard
           label="Pending leave"

@@ -62,15 +62,16 @@ export function FeedbackAssignmentPanel() {
 
   return (
     <Card padding="md">
-      <div className="mb-3 flex items-center gap-2">
-        <UserPlus className="h-4 w-4 text-accent" />
-        <h3 className="text-sm font-semibold text-fg">360° assignments — {openCycle.title}</h3>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <UserPlus className="h-4 w-4 shrink-0 text-accent" />
+        <h3 className="min-w-0 flex-1 text-sm font-semibold text-fg">360° assignments — {openCycle.title}</h3>
       </div>
       <p className="mb-4 text-xs text-muted">
         Self, manager, and upward reviews are auto-assigned when a cycle opens. Add peer reviewers here.
       </p>
 
       <div className="flex flex-wrap gap-2">
+        <div className="w-full min-w-[min(100%,12rem)] sm:flex-1">
         <Select
           value={subjectId}
           onChange={(e) => setSubjectId(e.target.value)}
@@ -79,6 +80,8 @@ export function FeedbackAssignmentPanel() {
             ...activeUsers.map((u) => ({ value: u.id, label: u.name })),
           ]}
         />
+        </div>
+        <div className="w-full min-w-[min(100%,12rem)] sm:flex-1">
         <Select
           value={reviewerId}
           onChange={(e) => setReviewerId(e.target.value)}
@@ -87,6 +90,8 @@ export function FeedbackAssignmentPanel() {
             ...activeUsers.filter((u) => u.id !== subjectId).map((u) => ({ value: u.id, label: u.name })),
           ]}
         />
+        </div>
+        <div className="w-full min-w-[min(100%,12rem)] sm:flex-1">
         <Select
           value={relationship}
           onChange={(e) => setRelationship(e.target.value as FeedbackRelationship)}
@@ -96,7 +101,8 @@ export function FeedbackAssignmentPanel() {
             { value: 'report', label: 'Upward (manual)' },
           ]}
         />
-        <Button size="sm" disabled={!subjectId || !reviewerId} onClick={addPeerAssignment}>
+        </div>
+        <Button size="sm" className="w-full sm:w-auto" disabled={!subjectId || !reviewerId} onClick={addPeerAssignment}>
           Add assignment
         </Button>
       </div>
@@ -109,12 +115,12 @@ export function FeedbackAssignmentPanel() {
             return (
               <li
                 key={a.id}
-                className="flex items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
               >
-                <span className="text-fg">
+                <span className="min-w-0 flex-1 truncate text-fg">
                   {reviewer?.name ?? 'Reviewer'} → {subject?.name ?? 'Subject'}
                 </span>
-                <div className="flex items-center gap-2">
+                <div className="flex shrink-0 items-center gap-2">
                   <Badge tone="info">{RELATIONSHIP_LABELS[a.relationship]}</Badge>
                   <button
                     type="button"

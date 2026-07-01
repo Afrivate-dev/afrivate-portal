@@ -141,6 +141,11 @@
     @apply grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3 xl:grid-cols-4;
   }
 
+  /** KPI / stat card grids — single column on very small phones */
+  .av-stat-grid {
+    @apply grid grid-cols-1 gap-2 min-[400px]:grid-cols-2 sm:gap-3 md:gap-4 lg:grid-cols-4;
+  }
+
   /** Full-width buttons on mobile, auto on sm+ */
   .av-action-row {
     @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center;

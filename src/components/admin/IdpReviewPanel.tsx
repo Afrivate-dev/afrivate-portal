@@ -43,9 +43,9 @@ export function IdpReviewPanel() {
           const person = users.find((u) => u.id === idp.userId)
           return (
             <li key={idp.id} className="rounded-md border border-border p-3 text-sm">
-              <div className="flex items-center justify-between gap-2">
-                <p className="font-medium text-fg">{person?.name ?? 'Team member'}</p>
-                <Badge tone="warning">Submitted</Badge>
+              <div className="flex flex-wrap items-center justify-between gap-2">
+                <p className="min-w-0 font-medium text-fg">{person?.name ?? 'Team member'}</p>
+                <Badge tone="warning" className="shrink-0">Submitted</Badge>
               </div>
               <p className="mt-2 whitespace-pre-wrap text-muted">{idp.content}</p>
               <Textarea

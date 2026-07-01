@@ -51,7 +51,7 @@ export function PeopleOverviewPage() {
 
       <PeopleActionBanners />
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-5">
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {quickLinks.map((link) => (
           <Link key={link.to} to={link.to} className="group ring-focus">
             <Card padding="md" hoverable className="h-full">
@@ -98,7 +98,7 @@ export function PeopleOverviewPage() {
                 : null}
             </p>
           ) : null}
-          <div className="mt-3 grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-6">
+          <div className="mt-3 grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:grid-cols-3 lg:grid-cols-6">
             <div className="rounded-md bg-surface-2/50 px-3 py-2">
               <p className="text-xs text-muted">Headcount</p>
               <p className="text-lg font-bold text-fg">{metrics.headcount}</p>
