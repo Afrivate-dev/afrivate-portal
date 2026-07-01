@@ -357,7 +357,7 @@ export function AnnouncementsPage() {
                         </p>
                         <p className="text-xs text-muted">{relativeTime(a.postedAt)}</p>
                       </div>
-                      <div className="flex shrink-0 flex-wrap items-center gap-1.5">
+                      <div className="flex flex-wrap items-center gap-1.5">
                         {unread ? (
                           <span className="h-2 w-2 rounded-full bg-accent" aria-label="Unread" />
                         ) : null}

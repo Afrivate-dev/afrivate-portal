@@ -169,8 +169,8 @@ export function OnboardingPage() {
 
       {/* Overall progress */}
       <Card padding="md">
-        <div className="flex items-center justify-between">
-          <div>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <div className="min-w-0">
             <p className="text-sm font-semibold text-fg">
               {totals.videos.watched + totals.checklist.checked} of {totals.videos.total + totals.checklist.total} items complete
             </p>

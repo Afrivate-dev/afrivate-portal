@@ -612,7 +612,8 @@ export function AdminPanelPage() {
           {departments.length === 0 ? (
             <EmptyState icon={Building2} title="No departments yet" description="Create departments to organise your team structure." />
           ) : (
-            <Card padding="none" className="overflow-hidden">
+            <Card padding="none" className="av-scroll-x">
+              <div className="hidden min-w-[640px] lg:block">
               <table className="w-full text-sm">
                 <thead className="border-b border-border bg-surface-2">
                   <tr>
@@ -657,6 +658,41 @@ export function AdminPanelPage() {
                   })}
                 </tbody>
               </table>
+              </div>
+              <ul className="divide-y divide-border lg:hidden">
+                {departments.map((d) => {
+                  const head = users.find((u) => u.id === d.headUserId)
+                  const deptTeams = teams.filter((t) => t.departmentId === d.id)
+                  return (
+                    <li key={d.id} className="space-y-2 p-4">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-fg">{d.name}</p>
+                        {d.description ? <p className="text-xs text-muted">{d.description}</p> : null}
+                      </div>
+                      <p className="text-xs text-muted">
+                        Head: {head?.name ?? '—'} · {deptTeams.length} team{deptTeams.length === 1 ? '' : 's'}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setDeptDraft(d)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-danger"
+                          onClick={() => setConfirmState({
+                            title: 'Delete department',
+                            message: `Delete "${d.name}"? This cannot be undone.`,
+                            onConfirm: () => deleteDepartment(d.id),
+                          })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
             </Card>
           )}
         </div>
@@ -673,7 +709,8 @@ export function AdminPanelPage() {
           {teams.length === 0 ? (
             <EmptyState icon={UsersRound} title="No teams yet" description="Create teams and assign team leads to manage your people." />
           ) : (
-            <Card padding="none" className="overflow-hidden">
+            <Card padding="none" className="av-scroll-x">
+              <div className="hidden min-w-[720px] lg:block">
               <table className="w-full text-sm">
                 <thead className="border-b border-border bg-surface-2">
                   <tr>
@@ -721,6 +758,43 @@ export function AdminPanelPage() {
                   })}
                 </tbody>
               </table>
+              </div>
+              <ul className="divide-y divide-border lg:hidden">
+                {teams.map((t) => {
+                  const dept = departments.find((d) => d.id === t.departmentId)
+                  const lead = users.find((u) => u.id === t.leadUserId)
+                  const asst = users.find((u) => u.id === t.asstLeadUserId)
+                  return (
+                    <li key={t.id} className="space-y-2 p-4">
+                      <div className="min-w-0">
+                        <p className="font-semibold text-fg">{t.name}</p>
+                        {t.description ? <p className="text-xs text-muted">{t.description}</p> : null}
+                      </div>
+                      <p className="text-xs text-muted">
+                        {dept?.name ?? 'No department'} · Lead: {lead?.name ?? '—'}
+                        {asst ? ` · Asst: ${asst.name}` : ''}
+                      </p>
+                      <div className="flex gap-2">
+                        <Button size="sm" variant="outline" onClick={() => setTeamDraft(t)}>
+                          <Pencil className="h-3.5 w-3.5" /> Edit
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="text-danger"
+                          onClick={() => setConfirmState({
+                            title: 'Delete team',
+                            message: `Delete "${t.name}"? This cannot be undone.`,
+                            onConfirm: () => deleteTeam(t.id),
+                          })}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </div>
+                    </li>
+                  )
+                })}
+              </ul>
             </Card>
           )}
         </div>
@@ -975,7 +1049,7 @@ export function AdminPanelPage() {
           </Card>
 
           <Card padding="md">
-            <div className="mb-4 flex items-center justify-between">
+            <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
               <h3 className="text-sm font-semibold text-fg">Leave calendar (approved & pending)</h3>
               <div className="flex items-center gap-2">
                 <button
@@ -1139,6 +1213,7 @@ export function AdminPanelPage() {
           {weekDigest.length === 0 ? (
             <EmptyState icon={ClipboardList} title="No check-ins yet this week" />
           ) : (
+            <>
             <div className="hidden av-scroll-x lg:block">
               <table className="w-full min-w-[640px] text-sm">
                 <thead className="text-left text-xs uppercase text-muted">
@@ -1172,19 +1247,32 @@ export function AdminPanelPage() {
                 </tbody>
               </table>
             </div>
+            <ul className="space-y-3 lg:hidden">
+              {weekDigest.map((c) => {
+                const u = users.find((x) => x.id === c.userId)
+                return (
+                  <li key={c.id} className="rounded-md border border-border p-3">
+                    <p className="font-semibold text-fg">{u?.name}</p>
+                    <p className="text-xs text-muted">{c.hoursWorked}h · {relativeTime(c.submittedAt)}</p>
+                    <p className="mt-2 text-sm whitespace-pre-line">{c.completed}</p>
+                    {c.nextWeek ? (
+                      <p className="mt-2 text-sm text-muted">
+                        <span className="font-medium text-fg">Next week: </span>
+                        {c.nextWeek}
+                      </p>
+                    ) : null}
+                    {c.blockers ? (
+                      <p className="mt-1 text-sm text-muted">
+                        <span className="font-medium text-fg">Blockers: </span>
+                        {c.blockers}
+                      </p>
+                    ) : null}
+                  </li>
+                )
+              })}
+            </ul>
+            </>
           )}
-          <ul className="space-y-3 lg:hidden">
-            {weekDigest.map((c) => {
-              const u = users.find((x) => x.id === c.userId)
-              return (
-                <li key={c.id} className="rounded-md border border-border p-3">
-                  <p className="font-semibold text-fg">{u?.name}</p>
-                  <p className="text-xs text-muted">{c.hoursWorked}h · {relativeTime(c.submittedAt)}</p>
-                  <p className="mt-2 text-sm">{c.completed}</p>
-                </li>
-              )
-            })}
-          </ul>
         </Card>
       ) : null}
 
@@ -1564,7 +1652,7 @@ export function AdminPanelPage() {
               value={videoDraft.youtubeUrl}
               onChange={(e) => setVideoDraft({ ...videoDraft, youtubeUrl: e.target.value })}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
               <Input
                 label="Duration"
                 value={videoDraft.duration}
@@ -1685,7 +1773,8 @@ function LeaveAdminGrid({
     requests.filter((r) => isWithinInterval(d, { start: parseISO(r.startDate), end: parseISO(r.endDate) }))
 
   return (
-    <div className="hidden lg:block">
+    <>
+      <div className="hidden lg:block">
       <div className="grid grid-cols-7 border border-border text-[11px] uppercase tracking-wide text-muted">
         {['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'].map((d) => (
           <div key={d} className="border-b border-border px-1 py-2">
@@ -1727,6 +1816,41 @@ function LeaveAdminGrid({
           )
         })}
       </div>
-    </div>
+      </div>
+      <div className="space-y-2 lg:hidden">
+        {days
+          .filter((d) => isSameMonth(d, monthStart))
+          .map((d) => {
+            const items = onDay(d)
+            if (items.length === 0) return null
+            return (
+              <div key={d.toISOString()} className="rounded-md border border-border bg-surface p-3">
+                <p className="text-xs font-semibold text-fg">{format(d, 'EEE d MMM')}</p>
+                <ul className="mt-2 space-y-1">
+                  {items.map((l) => {
+                    const u = users.find((x) => x.id === l.userId)
+                    return (
+                      <li
+                        key={l.id}
+                        className={cn(
+                          'flex items-center gap-2 rounded px-2 py-1 text-xs text-white',
+                          l.status === 'pending' && 'opacity-60',
+                        )}
+                        style={{ background: LEAVE_COLORS[l.type] }}
+                      >
+                        <span className="min-w-0 flex-1 truncate font-medium">{u?.name ?? 'Unknown'}</span>
+                        <span className="shrink-0 capitalize">{l.type}</span>
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })}
+        {days.filter((d) => isSameMonth(d, monthStart) && onDay(d).length > 0).length === 0 ? (
+          <EmptyState icon={CalendarDays} title="No leave booked this month" />
+        ) : null}
+      </div>
+    </>
   )
 }

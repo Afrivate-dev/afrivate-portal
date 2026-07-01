@@ -322,9 +322,9 @@ export function PeopleGrowthPage() {
                     (l) => l.employeeId === r.id && l.managerId === user.id && l.month === month && l.completed,
                   )
                   return (
-                    <li key={r.id} className="flex items-center justify-between rounded-md border border-border px-3 py-2 text-sm">
-                      <span>{r.name}</span>
-                      <Button size="sm" variant={done ? 'secondary' : 'primary'} onClick={() => setOneOnOneCompleted(r.id, user.id, month, !done)}>
+                    <li key={r.id} className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
+                      <span className="min-w-0 font-medium">{r.name}</span>
+                      <Button size="sm" variant={done ? 'secondary' : 'primary'} className="w-full shrink-0 sm:w-auto" onClick={() => setOneOnOneCompleted(r.id, user.id, month, !done)}>
                         {done ? 'Completed ✓' : 'Mark done'}
                       </Button>
                     </li>

@@ -460,7 +460,7 @@ export function LeaveRequestsPage() {
                 {TYPE_META[t].label}
               </span>
             ))}
-            <span className="ml-auto text-muted">Pending requests shown at 50% opacity</span>
+            <span className="w-full text-muted sm:w-auto">Pending requests shown at 50% opacity</span>
           </div>
         </Card>
       ) : null}
@@ -826,10 +826,10 @@ function RequestsList({
                   </div>
                   <div className="min-w-0 flex-1">
                     {showWho && u ? (
-                      <div className="mb-1 flex items-center gap-2">
+                      <div className="mb-1 flex flex-wrap items-center gap-x-2 gap-y-0.5">
                         <Avatar name={u.name} src={u.avatarUrl} size="xs" />
                         <p className="truncate text-sm font-semibold text-fg">{u.name}</p>
-                        <span className="text-xs text-muted">· {u.department}</span>
+                        <span className="truncate text-xs text-muted max-sm:w-full max-sm:pl-7">{u.department}</span>
                       </div>
                     ) : null}
                     <p className="text-sm font-medium text-fg">

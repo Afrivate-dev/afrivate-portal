@@ -465,7 +465,7 @@ export function TasksPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-4">
+      <div className="av-stat-grid">
         <StatCard label={T.statTotal} value={stats.total} icon={ListChecks} tone="muted" />
         <StatCard label={T.statInProgress} value={stats.inProgress} icon={Loader2} tone="brand" />
         <StatCard label={T.statDone} value={stats.done} icon={CheckCircle2} tone="success" />
@@ -1067,7 +1067,7 @@ export function TasksPage() {
               </div>
             ) : null}
 
-            <div className="grid grid-cols-2 gap-3 text-sm">
+            <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 text-sm">
               <div>
                 <p className="text-xs uppercase tracking-wide text-muted">{T.detailHoursLogged}</p>
                 <p className="font-semibold text-fg">{detailTask.hoursLogged ?? 0}h</p>

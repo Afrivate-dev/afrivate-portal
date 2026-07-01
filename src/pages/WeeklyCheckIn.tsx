@@ -546,15 +546,15 @@ function TeamMobileRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User
   if (!u) return null
   return (
     <div className="space-y-3 p-4">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
+      <div className="flex flex-wrap items-start justify-between gap-2">
+        <div className="flex min-w-0 flex-1 items-center gap-3">
           <Avatar name={u.name} src={u.avatarUrl} size="sm" />
-          <div>
-            <p className="text-sm font-semibold text-fg">{u.name}</p>
-            <p className="text-xs text-muted">{u.department}</p>
+          <div className="min-w-0">
+            <p className="truncate text-sm font-semibold text-fg">{u.name}</p>
+            <p className="truncate text-xs text-muted">{u.department}</p>
           </div>
         </div>
-        <Badge tone="muted">{checkIn.hoursWorked}h</Badge>
+        <Badge tone="muted" className="shrink-0">{checkIn.hoursWorked}h</Badge>
       </div>
       <div className="space-y-2 text-sm">
         <div>

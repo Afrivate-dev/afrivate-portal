@@ -44,12 +44,12 @@ function DocumentPreviewBody({
 
   return (
     <>
-      <div className="flex items-center justify-between gap-3 border-b border-border px-4 py-3">
-        <div className="min-w-0">
+      <div className="flex flex-wrap items-center justify-between gap-3 border-b border-border px-4 py-3">
+        <div className="min-w-0 flex-1">
           <h2 className="truncate text-base font-semibold text-fg">{title}</h2>
           <p className="truncate text-xs text-muted">{fileName}</p>
         </div>
-        <div className="flex shrink-0 items-center gap-2">
+        <div className="flex w-full shrink-0 items-center justify-end gap-2 sm:w-auto">
           {resolved ? (
             <a
               href={resolved}

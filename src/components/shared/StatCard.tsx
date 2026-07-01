@@ -30,7 +30,7 @@ export function StatCard({ label, value, icon: Icon, tone = 'brand', hint, to }:
         </div>
       ) : null}
       <div className="min-w-0 flex-1">
-        <div className="text-xs font-medium uppercase tracking-wide text-muted">{label}</div>
+        <div className="text-xs font-medium uppercase leading-snug tracking-wide text-muted break-words">{label}</div>
         <div className="mt-0.5 text-xl font-bold text-fg sm:text-2xl">{value}</div>
         {hint ? <div className="text-xs text-muted">{hint}</div> : null}
       </div>

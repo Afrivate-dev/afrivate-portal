@@ -56,7 +56,7 @@ export function PeopleActionBanners() {
           className="flex items-center gap-3 rounded-lg border border-accent/30 bg-accent/5 px-4 py-3 text-sm ring-focus transition hover:bg-accent/10"
         >
           <BarChart3 className="h-5 w-5 shrink-0 text-accent" />
-          <span className="flex-1 font-medium text-fg">
+          <span className="min-w-0 flex-1 font-medium text-fg">
             {survey.surveyType === 'enps' ? 'eNPS survey open' : 'Pulse survey open'} — share your feedback
           </span>
           <ArrowRight className="h-4 w-4 text-muted" />
@@ -68,7 +68,7 @@ export function PeopleActionBanners() {
           className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm ring-focus transition hover:bg-surface-2"
         >
           <GraduationCap className="h-5 w-5 shrink-0 text-brand" />
-          <span className="flex-1 text-fg">Course submission due — complete on Alison and submit proof</span>
+          <span className="min-w-0 flex-1 text-fg">Course submission due — complete on Alison and submit proof</span>
           <ArrowRight className="h-4 w-4 text-muted" />
         </Link>
       ) : null}
@@ -78,7 +78,7 @@ export function PeopleActionBanners() {
           className="flex items-center gap-3 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm ring-focus"
         >
           <AlertCircle className="h-5 w-5 shrink-0 text-warning" />
-          <span className="flex-1 text-fg">
+          <span className="min-w-0 flex-1 text-fg">
             {pendingAcks.length} policy document{pendingAcks.length === 1 ? '' : 's'} to acknowledge
           </span>
           <ArrowRight className="h-4 w-4 text-muted" />

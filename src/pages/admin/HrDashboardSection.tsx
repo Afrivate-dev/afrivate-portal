@@ -93,7 +93,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <HrKpiExport metrics={metrics} />
       </div>
 
-      <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
+      <div className="av-stat-grid">
         <StatCard label="Headcount" value={String(metrics.headcount)} />
         <StatCard label="Engagement" value={metrics.engagementScore?.toFixed(1) ?? '—'} />
         <StatCard label="eNPS" value={metrics.enpsScore != null ? String(metrics.enpsScore) : '—'} />
@@ -251,7 +251,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
               <p className="mb-2 text-xs font-medium text-muted">Add candidate</p>
               <div className="flex flex-wrap gap-2">
                 <select
-                  className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+                  className="w-full min-w-[min(100%,12rem)] rounded-md border border-border bg-surface px-2 py-1.5 text-sm sm:flex-1"
                   value={selectedJobId}
                   onChange={(e) => setSelectedJobId(e.target.value)}
                 >
@@ -260,9 +260,10 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                     <option key={j.id} value={j.id}>{j.title}</option>
                   ))}
                 </select>
-                <Input value={candidateName} onChange={(e) => setCandidateName(e.target.value)} placeholder="Candidate name" />
+                <Input className="w-full min-w-[min(100%,12rem)] sm:flex-1" value={candidateName} onChange={(e) => setCandidateName(e.target.value)} placeholder="Candidate name" />
                 <Button
                   size="sm"
+                  className="w-full sm:w-auto"
                   disabled={!selectedJobId || !candidateName.trim()}
                   onClick={() => {
                     addJobCandidate({
@@ -279,10 +280,10 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
               {jobCandidates.length > 0 ? (
                 <ul className="mt-2 space-y-1 text-xs text-muted">
                   {jobCandidates.slice(0, 4).map((c) => (
-                    <li key={c.id} className="flex items-center justify-between gap-2">
-                      <span>{c.name}</span>
+                    <li key={c.id} className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                      <span className="min-w-0 truncate font-medium text-fg">{c.name}</span>
                       <select
-                        className="rounded border border-border bg-surface px-1 py-0.5"
+                        className="w-full rounded border border-border bg-surface px-1 py-0.5 sm:w-auto sm:min-w-[8rem]"
                         value={c.stage}
                         onChange={(e) => updateJobCandidate(c.id, { stage: e.target.value as CandidateStage })}
                       >

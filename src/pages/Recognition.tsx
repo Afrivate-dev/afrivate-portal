@@ -312,7 +312,7 @@ export function RecognitionPage() {
         }
       />
 
-      <div className="grid grid-cols-2 gap-3 sm:gap-4">
+      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-4">
         <Card padding="md">
           <div className="flex items-center gap-3">
             <div className="flex h-12 w-12 items-center justify-center rounded-lg bg-pink-500/15 text-pink-600 dark:text-pink-300">

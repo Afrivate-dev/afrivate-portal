@@ -454,11 +454,11 @@ export function DocumentLibraryPage() {
                     ) : null}
                   </div>
 
-                  <div className="mt-auto flex items-center justify-between border-t border-border pt-3 text-xs text-muted">
-                    <span>
+                  <div className="mt-auto flex flex-wrap items-center justify-between gap-x-2 gap-y-1 border-t border-border pt-3 text-xs text-muted">
+                    <span className="min-w-0 truncate">
                       {uploader?.name ?? 'Unknown'} · {fmtDate(d.uploadedAt)}
                     </span>
-                    <span className="font-medium">{d.fileSize}</span>
+                    <span className="shrink-0 font-medium">{d.fileSize}</span>
                   </div>
 
                   <button

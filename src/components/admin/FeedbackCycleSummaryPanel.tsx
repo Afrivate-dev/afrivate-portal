@@ -51,9 +51,9 @@ export function FeedbackCycleSummaryPanel() {
 
   return (
     <Card padding="md">
-      <div className="mb-3 flex items-center gap-2">
-        <MessageSquare className="h-4 w-4 text-accent" />
-        <h3 className="text-sm font-semibold text-fg">360° — {cycle.title}</h3>
+      <div className="mb-3 flex flex-wrap items-center gap-2">
+        <MessageSquare className="h-4 w-4 shrink-0 text-accent" />
+        <h3 className="min-w-0 text-sm font-semibold text-fg">360° — {cycle.title}</h3>
         <Badge tone={cycle.status === 'open' ? 'success' : 'muted'}>{cycle.status}</Badge>
       </div>
       {stats.length === 0 ? (

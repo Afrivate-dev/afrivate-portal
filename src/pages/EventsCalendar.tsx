@@ -23,6 +23,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useIsMobileViewport } from '@/hooks/useMediaQuery'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -89,6 +90,7 @@ export function EventsCalendarPage() {
   >(null)
 
   const calendarRef = useRef<ComponentRef<typeof FullCalendar> | null>(null)
+  const isMobile = useIsMobileViewport()
 
   const audienceOptions = useMemo(
     () => [
@@ -300,7 +302,7 @@ export function EventsCalendarPage() {
               headerToolbar={{
                 left: 'prev,next today',
                 center: 'title',
-                right: window.innerWidth < 640 ? 'dayGridMonth,listWeek' : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
+                right: isMobile ? 'dayGridMonth,listWeek' : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
               }}
               events={fcEvents}
               height="auto"
