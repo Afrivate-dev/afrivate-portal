@@ -2,8 +2,10 @@ import { createContext, useContext } from 'react'
 import type {
   DocumentAcknowledgment,
   ExitInterview,
+  FeedbackAssignment,
   FeedbackCycle,
   FeedbackEntry,
+  FeedbackTemplate,
   Grievance,
   IndividualDevelopmentPlan,
   JobCandidate,
@@ -28,6 +30,14 @@ export interface HrMetrics {
   activeSurveys: number
   headcount: number
   pendingLeave: number
+  /** Exit interviews in the last 12 months as % of headcount. */
+  attritionRate: number | null
+  /** Average days from application to hire for hired candidates. */
+  avgTimeToHireDays: number | null
+  /** % of active staff who acknowledged all required policies. */
+  policyAckRate: number | null
+  /** % of staff who responded to open pulse/eNPS surveys. */
+  surveyCompletionRate: number | null
 }
 
 export interface HrContextValue {
@@ -36,6 +46,7 @@ export interface HrContextValue {
   submitPulseResponse: (surveyId: string, userId: string, answers: Record<string, string | number>) => void
   createPulseSurvey: (s: Omit<PulseSurvey, 'id' | 'createdAt'>) => void
   updatePulseSurvey: (id: string, patch: Partial<PulseSurvey>) => void
+  sendPulseSurveyReminders: (surveyId: string) => Promise<number>
 
   learningAssignments: LearningAssignment[]
   learningSubmissions: LearningSubmission[]
@@ -60,6 +71,14 @@ export interface HrContextValue {
 
   feedbackCycles: FeedbackCycle[]
   feedbackEntries: FeedbackEntry[]
+  feedbackTemplates: FeedbackTemplate[]
+  addFeedbackTemplate: (t: Omit<FeedbackTemplate, 'id'>) => void
+  updateFeedbackTemplate: (id: string, patch: Partial<FeedbackTemplate>) => void
+  deleteFeedbackTemplate: (id: string) => void
+  feedbackAssignments: FeedbackAssignment[]
+  addFeedbackAssignment: (a: Omit<FeedbackAssignment, 'id' | 'createdAt'>) => void
+  removeFeedbackAssignment: (id: string) => void
+  openFeedbackCycleFromTemplate: (templateId: string, title?: string) => Promise<string | null>
   createFeedbackCycle: (c: Omit<FeedbackCycle, 'id'>) => void
   updateFeedbackCycle: (id: string, patch: Partial<FeedbackCycle>) => void
   submitFeedback: (e: Omit<FeedbackEntry, 'id' | 'submittedAt'>) => void

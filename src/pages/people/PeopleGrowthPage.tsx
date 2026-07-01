@@ -14,14 +14,10 @@ import { Select } from '@/components/ui/Select'
 import { TabBar } from '@/components/ui/TabBar'
 import { Badge } from '@/components/ui/Badge'
 import { notifySuccess } from '@/lib/notify'
+import { labelForConfigId } from '@/lib/portalConfig'
 import { isHR, isLead, uid } from '@/utils/helpers'
 import {
-  AWARD_CATEGORY_LABELS,
-  GRIEVANCE_CATEGORIES,
-  GRIEVANCE_CATEGORY_LABELS,
-  type AwardCategory,
   type FeedbackRelationship,
-  type GrievanceCategory,
   type Okr,
   type OkrKeyResult,
 } from '@/types/hr'
@@ -45,7 +41,7 @@ function tabFromParams(params: URLSearchParams): GrowthTab {
 
 export function PeopleGrowthPage() {
   const { user } = useAuth()
-  const { users } = useData()
+  const { users, grievanceCategories, awardCategories } = useData()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = tabFromParams(searchParams)
   const setTab = (next: GrowthTab) => setSearchParams({ tab: next }, { replace: true })
@@ -60,14 +56,16 @@ export function PeopleGrowthPage() {
     saveIdp,
     feedbackCycles,
     feedbackEntries,
+    feedbackAssignments,
+    feedbackTemplates,
     submitFeedback,
+    openFeedbackCycleFromTemplate,
     onboardingMilestones,
     setMilestoneCompleted,
     seedOnboardingMilestones,
     quarterlyAwards,
     submitGrievance,
     grievances,
-    createFeedbackCycle,
     updateFeedbackCycle,
   } = useHr()
 
@@ -75,11 +73,12 @@ export function PeopleGrowthPage() {
   const [krDrafts, setKrDrafts] = useState<string[]>([''])
   const [idpContent, setIdpContent] = useState('')
   const [grievanceBody, setGrievanceBody] = useState('')
-  const [grievanceCategory, setGrievanceCategory] = useState<GrievanceCategory>('workplace')
+  const [grievanceCategory, setGrievanceCategory] = useState('')
   const [activeFeedbackKey, setActiveFeedbackKey] = useState<string | null>(null)
   const [feedbackAnswers, setFeedbackAnswers] = useState<Record<string, number>>({})
-  const [peerSubjectId, setPeerSubjectId] = useState('')
   const seededRef = useRef(false)
+
+  const resolvedGrievanceCategory = grievanceCategory || grievanceCategories[0]?.id || ''
 
   useEffect(() => {
     if (!user || seededRef.current) return
@@ -115,49 +114,23 @@ export function PeopleGrowthPage() {
           e.subjectUserId === subjectUserId &&
           e.relationship === relationship,
       )
-    const tasks: Array<{
-      key: string
-      subjectUserId: string
-      subjectName: string
-      relationship: FeedbackRelationship
-    }> = []
-    if (!hasEntry(user.id, 'self')) {
-      tasks.push({ key: 'self', subjectUserId: user.id, subjectName: user.name, relationship: 'self' })
-    }
-    reports.forEach((r) => {
-      if (!hasEntry(r.id, 'manager')) {
-        tasks.push({ key: `mgr-${r.id}`, subjectUserId: r.id, subjectName: r.name, relationship: 'manager' })
-      }
-    })
-    if (manager && !hasEntry(manager.id, 'report')) {
-      tasks.push({
-        key: `rep-${manager.id}`,
-        subjectUserId: manager.id,
-        subjectName: manager.name,
-        relationship: 'report',
-      })
-    }
-    return tasks
-  }, [user, openCycle, reports, manager, feedbackEntries])
+    return feedbackAssignments
+      .filter((a) => a.cycleId === openCycle.id && a.reviewerId === user.id)
+      .filter((a) => !hasEntry(a.subjectUserId, a.relationship))
+      .map((a) => ({
+        key: `${a.relationship}-${a.subjectUserId}`,
+        subjectUserId: a.subjectUserId,
+        subjectName: users.find((u) => u.id === a.subjectUserId)?.name ?? 'Colleague',
+        relationship: a.relationship,
+      }))
+  }, [user, openCycle, feedbackAssignments, feedbackEntries, users])
 
-  const peerCandidates = useMemo(() => {
-    if (!user) return []
-    return users.filter((u) => u.active && u.id !== user.id)
-  }, [users, user])
-
-  const completedPeerSubjectIds = useMemo(() => {
-    if (!user || !openCycle) return new Set<string>()
-    return new Set(
-      feedbackEntries
-        .filter(
-          (e) =>
-            e.cycleId === openCycle.id &&
-            e.reviewerId === user.id &&
-            e.relationship === 'peer',
-        )
-        .map((e) => e.subjectUserId),
+  const reportOkrs = useMemo(() => {
+    if (!user || !isLead(user)) return []
+    return reports.flatMap((r) =>
+      okrs.filter((o) => o.userId === r.id && o.year === year).map((o) => ({ okr: o, report: r })),
     )
-  }, [user, openCycle, feedbackEntries])
+  }, [user, reports, okrs, year])
 
   if (!user) return null
 
@@ -191,22 +164,12 @@ export function PeopleGrowthPage() {
 
   const submitGrievanceForm = () => {
     if (!grievanceBody.trim()) return
-    submitGrievance({ userId: user.id, category: grievanceCategory, body: grievanceBody.trim(), confidential: true })
+    submitGrievance({ userId: user.id, category: resolvedGrievanceCategory, body: grievanceBody.trim(), confidential: true })
     setGrievanceBody('')
     notifySuccess('Your message was sent to HR confidentially.')
   }
 
-  const activeTask =
-    activeFeedbackKey === 'peer'
-      ? peerSubjectId
-        ? {
-            key: `peer-${peerSubjectId}`,
-            subjectUserId: peerSubjectId,
-            subjectName: users.find((u) => u.id === peerSubjectId)?.name ?? 'Colleague',
-            relationship: 'peer' as FeedbackRelationship,
-          }
-        : null
-      : feedbackTasks.find((t) => t.key === activeFeedbackKey) ?? null
+  const activeTask = feedbackTasks.find((t) => t.key === activeFeedbackKey) ?? null
 
   const submitActiveFeedback = () => {
     if (!openCycle || !activeTask) return
@@ -219,7 +182,6 @@ export function PeopleGrowthPage() {
     })
     setFeedbackAnswers({})
     setActiveFeedbackKey(null)
-    setPeerSubjectId('')
     notifySuccess(`${RELATIONSHIP_LABELS[activeTask.relationship]} submitted.`)
   }
 
@@ -307,6 +269,25 @@ export function PeopleGrowthPage() {
               </div>
             </Card>
           ))}
+          {reportOkrs.length > 0 ? (
+            <Card padding="md">
+              <h3 className="text-sm font-semibold text-fg">Team OKRs (read-only)</h3>
+              <ul className="mt-3 space-y-4">
+                {reportOkrs.map(({ okr, report }) => (
+                  <li key={okr.id} className="rounded-md border border-border p-3">
+                    <p className="text-xs font-medium text-muted">{report.name}</p>
+                    <Badge tone="info" className="mt-1">{okr.quarter}</Badge>
+                    <p className="mt-2 font-medium text-fg">{okr.objective}</p>
+                    <ul className="mt-2 space-y-1 text-sm text-muted">
+                      {okr.keyResults.map((kr) => (
+                        <li key={kr.id}>{kr.text} — {kr.progress}%</li>
+                      ))}
+                    </ul>
+                  </li>
+                ))}
+              </ul>
+            </Card>
+          ) : null}
         </div>
       ) : null}
 
@@ -402,7 +383,7 @@ export function PeopleGrowthPage() {
                     </Button>
                   ) : null}
                 </div>
-                {feedbackTasks.length === 0 && !peerSubjectId ? (
+                {feedbackTasks.length === 0 ? (
                   <p className="text-sm text-success">You’ve completed all assigned feedback for this cycle.</p>
                 ) : (
                   <ul className="space-y-2">
@@ -423,23 +404,6 @@ export function PeopleGrowthPage() {
                     ))}
                   </ul>
                 )}
-                <div className="mt-4 border-t border-border pt-4">
-                  <p className="text-xs font-medium text-muted">Optional peer feedback</p>
-                  <Select
-                    value={peerSubjectId}
-                    onChange={(e) => {
-                      setPeerSubjectId(e.target.value)
-                      setActiveFeedbackKey(e.target.value ? 'peer' : null)
-                      setFeedbackAnswers({})
-                    }}
-                    options={[
-                      { value: '', label: 'Select a colleague…' },
-                      ...peerCandidates
-                        .filter((u) => !completedPeerSubjectIds.has(u.id))
-                        .map((u) => ({ value: u.id, label: u.name })),
-                    ]}
-                  />
-                </div>
               </Card>
               {activeTask && openCycle ? (
                 <Card padding="md">
@@ -483,25 +447,21 @@ export function PeopleGrowthPage() {
             <Card padding="md">
               <p className="text-sm text-muted">No 360° cycle is open. HR runs these bi-annually.</p>
               {isHR(user) ? (
-                <Button
-                  size="sm"
-                  variant="secondary"
-                  className="mt-3"
-                  onClick={() =>
-                    createFeedbackCycle({
-                      title: `${year} H${new Date().getMonth() < 6 ? 1 : 2} — 360° feedback`,
-                      year,
-                      half: new Date().getMonth() < 6 ? 'H1' : 'H2',
-                      status: 'open',
-                      questions: [
-                        { id: 'values', text: 'Embodies the Afrivate Way', type: 'scale', min: 1, max: 10 },
-                        { id: 'collab', text: 'Collaborates effectively', type: 'scale', min: 1, max: 10 },
-                      ],
-                    })
-                  }
-                >
-                  Open cycle (HR)
-                </Button>
+                <div className="mt-3 flex flex-wrap gap-2">
+                  {feedbackTemplates.map((tpl) => (
+                    <Button
+                      key={tpl.id}
+                      size="sm"
+                      variant="secondary"
+                      onClick={async () => {
+                        const id = await openFeedbackCycleFromTemplate(tpl.id)
+                        if (id) notifySuccess(`Opened cycle: ${tpl.label}`)
+                      }}
+                    >
+                      Open {tpl.label}
+                    </Button>
+                  ))}
+                </div>
               ) : null}
             </Card>
           )}
@@ -545,7 +505,7 @@ export function PeopleGrowthPage() {
                 const winner = users.find((u) => u.id === a.winnerId)
                 return (
                   <li key={a.id} className="rounded-md border border-border px-3 py-2 text-sm">
-                    <Badge tone="brand">{AWARD_CATEGORY_LABELS[a.category as AwardCategory] ?? a.category}</Badge>
+                    <Badge tone="brand">{labelForConfigId(a.category, awardCategories)}</Badge>
                     <span className="ml-2 font-medium text-fg">{winner?.name ?? 'Team member'}</span>
                     <span className="text-muted"> · {a.quarter} {a.year}</span>
                   </li>
@@ -567,11 +527,11 @@ export function PeopleGrowthPage() {
             <div className="mt-4 space-y-3">
               <Select
                 label="Category"
-                value={grievanceCategory}
-                onChange={(e) => setGrievanceCategory(e.target.value as GrievanceCategory)}
-                options={GRIEVANCE_CATEGORIES.map((c) => ({
-                  value: c,
-                  label: GRIEVANCE_CATEGORY_LABELS[c],
+                value={resolvedGrievanceCategory}
+                onChange={(e) => setGrievanceCategory(e.target.value)}
+                options={grievanceCategories.map((c) => ({
+                  value: c.id,
+                  label: c.label,
                 }))}
               />
               <Textarea label="Describe your concern" rows={4} value={grievanceBody} onChange={(e) => setGrievanceBody(e.target.value)} />
@@ -585,7 +545,7 @@ export function PeopleGrowthPage() {
                 {myGrievances.map((g) => (
                   <li key={g.id} className="rounded-md border border-border p-3">
                     <div className="flex items-center justify-between gap-2">
-                      <Badge tone="muted">{GRIEVANCE_CATEGORY_LABELS[g.category as GrievanceCategory] ?? g.category}</Badge>
+                      <Badge tone="muted">{labelForConfigId(g.category, grievanceCategories)}</Badge>
                       <Badge tone={g.status === 'resolved' ? 'success' : g.status === 'reviewing' ? 'info' : 'warning'}>
                         {g.status}
                       </Badge>

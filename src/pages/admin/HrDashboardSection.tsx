@@ -9,6 +9,7 @@ import {
   ArrowRight,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
+import { useAuth } from '@/context/AuthContext'
 import { useHr, type HrMetrics } from '@/context/HrContext'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -18,20 +19,41 @@ import { LearningReviewPanel } from '@/components/admin/LearningReviewPanel'
 import { PulseSurveyResultsPanel } from '@/components/admin/PulseSurveyResultsPanel'
 import { FeedbackCycleSummaryPanel } from '@/components/admin/FeedbackCycleSummaryPanel'
 import { IdpReviewPanel } from '@/components/admin/IdpReviewPanel'
+import { FeedbackTemplateManager } from '@/components/admin/FeedbackTemplateManager'
+import { FeedbackAssignmentPanel } from '@/components/admin/FeedbackAssignmentPanel'
+import { PolicyAcknowledgmentPanel } from '@/components/admin/PolicyAcknowledgmentPanel'
+import { HrKpiExport } from '@/components/admin/HrKpiExport'
+import { PulseSurveyTemplateManager } from '@/components/admin/PulseSurveyTemplateManager'
+import { PortalLabelsSection } from '@/pages/admin/PortalLabelsSection'
 import { Badge } from '@/components/ui/Badge'
 import { useState } from 'react'
 import { Textarea } from '@/components/ui/Textarea'
-import { AWARD_CATEGORY_LABELS, EXIT_REASON_OPTIONS, type AwardCategory, type CandidateStage, type ExitReason, type QuarterlyAward } from '@/types/hr'
+import { labelForConfigId } from '@/lib/portalConfig'
+import { notifySuccess } from '@/lib/notify'
+import type { CandidateStage, QuarterlyAward } from '@/types/hr'
 
 export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
-  const { users, departments } = useData()
+  const { user } = useAuth()
+  const {
+    users,
+    departments,
+    awardCategories,
+    exitReasons,
+    grievanceCategories,
+    pulseSurveyTemplates,
+    createAnnouncement,
+    memoCategories,
+  } = useData()
   const {
     addLearningAssignment,
     updateLearningAssignment,
     learningAssignments,
     createPulseSurvey,
     updatePulseSurvey,
+    sendPulseSurveyReminders,
     pulseSurveys,
+    feedbackTemplates,
+    openFeedbackCycleFromTemplate,
     jobRequisitions,
     jobCandidates,
     addJobRequisition,
@@ -48,22 +70,27 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
   const [courseTitle, setCourseTitle] = useState('')
   const [alisonUrl, setAlisonUrl] = useState('https://alison.com/course/')
   const [awardWinner, setAwardWinner] = useState('')
-  const [awardCategory, setAwardCategory] = useState<AwardCategory>('team_spirit')
+  const [awardCategory, setAwardCategory] = useState('')
   const [jobTitle, setJobTitle] = useState('')
   const [jobDept, setJobDept] = useState('')
   const [selectedJobId, setSelectedJobId] = useState('')
   const [candidateName, setCandidateName] = useState('')
   const [exitName, setExitName] = useState('')
   const [exitNotes, setExitNotes] = useState('')
-  const [exitReasons, setExitReasons] = useState<ExitReason[]>([])
+  const [selectedExitReasonIds, setSelectedExitReasonIds] = useState<string[]>([])
   const [exitLastDay, setExitLastDay] = useState('')
   const [grievanceNotes, setGrievanceNotes] = useState<Record<string, string>>({})
 
+  const resolvedAwardCategory = awardCategory || awardCategories[0]?.id || ''
+
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-lg font-semibold text-fg">HR dashboard</h2>
-        <p className="text-sm text-muted">People metrics and quick actions — aligned to your HR Base of Operations plan.</p>
+      <div className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h2 className="text-lg font-semibold text-fg">HR dashboard</h2>
+          <p className="text-sm text-muted">People metrics and quick actions — aligned to your HR Base of Operations plan.</p>
+        </div>
+        <HrKpiExport metrics={metrics} />
       </div>
 
       <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
@@ -76,6 +103,10 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <StatCard label="Open grievances" value={String(metrics.openGrievances)} />
         <StatCard label="Learning reviews" value={String(metrics.pendingLearningReviews)} />
         <StatCard label="Active surveys" value={String(metrics.activeSurveys)} />
+        <StatCard label="Attrition (12 mo)" value={metrics.attritionRate != null ? `${metrics.attritionRate}%` : '—'} />
+        <StatCard label="Time-to-hire" value={metrics.avgTimeToHireDays != null ? `${metrics.avgTimeToHireDays}d` : '—'} />
+        <StatCard label="Policy ack rate" value={metrics.policyAckRate != null ? `${metrics.policyAckRate}%` : '—'} />
+        <StatCard label="Survey completion" value={metrics.surveyCompletionRate != null ? `${metrics.surveyCompletionRate}%` : '—'} />
       </div>
 
       <div className="grid gap-4 lg:grid-cols-2">
@@ -121,59 +152,53 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
             <BarChart3 className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-fg">Pulse survey</h3>
           </div>
-          <Button
-            size="sm"
-            variant="secondary"
-            onClick={() =>
-              createPulseSurvey({
-                title: 'Monthly pulse check',
-                surveyType: 'pulse',
-                active: true,
-                questions: [
-                  { id: 'eng', text: 'Engagement this month (1–10)', type: 'scale', min: 1, max: 10 },
-                  { id: 'need', text: 'Do you have what you need? (1–10)', type: 'scale', min: 1, max: 10 },
-                  { id: 'note', text: 'Optional comment', type: 'text' },
-                ],
-              })
-            }
-          >
-            Launch pulse survey
-          </Button>
-          <Button
-            size="sm"
-            variant="secondary"
-            className="ml-2"
-            onClick={() =>
-              createPulseSurvey({
-                title: 'Quarterly eNPS',
-                surveyType: 'enps',
-                active: true,
-                description: 'How likely are you to recommend AfriVate as a place to work?',
-                questions: [
-                  { id: 'nps', text: 'Recommendation score (0–10)', type: 'scale', min: 0, max: 10 },
-                  { id: 'why', text: 'What is the main reason for your score? (optional)', type: 'text' },
-                ],
-              })
-            }
-          >
-            Launch eNPS survey
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            {pulseSurveyTemplates.map((tpl) => (
+              <Button
+                key={tpl.id}
+                size="sm"
+                variant="secondary"
+                onClick={() =>
+                  createPulseSurvey({
+                    title: tpl.label,
+                    surveyType: tpl.surveyType,
+                    active: true,
+                    description: tpl.description,
+                    questions: tpl.questions,
+                  })
+                }
+              >
+                Launch {tpl.label}
+              </Button>
+            ))}
+          </div>
           {pulseSurveys.filter((s) => s.active).map((s) => (
-            <Button
-              key={s.id}
-              size="sm"
-              variant="ghost"
-              className="ml-2"
-              onClick={() => updatePulseSurvey(s.id, { active: false })}
-            >
-              Archive {s.title.slice(0, 20)}…
-            </Button>
+            <div key={s.id} className="ml-2 mt-2 flex flex-wrap gap-2">
+              <Button
+                size="sm"
+                variant="ghost"
+                onClick={() => updatePulseSurvey(s.id, { active: false })}
+              >
+                Archive {s.title.slice(0, 20)}…
+              </Button>
+              <Button
+                size="sm"
+                variant="secondary"
+                onClick={async () => {
+                  const sent = await sendPulseSurveyReminders(s.id)
+                  notifySuccess(`Reminders queued for ${sent} staff member${sent === 1 ? '' : 's'}.`)
+                }}
+              >
+                Remind non-responders
+              </Button>
+            </div>
           ))}
           <Link to="/people/surveys" className="ml-3 text-xs font-medium text-accent hover:underline">
             Open surveys →
           </Link>
           <p className="mt-2 text-xs text-muted">
             Pulse and eNPS can run at the same time — each launch replaces the previous survey of the same type only.
+            Manage templates below.
           </p>
         </Card>
 
@@ -284,11 +309,11 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
           <div className="flex flex-wrap gap-2">
             <select
               className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
-              value={awardCategory}
-              onChange={(e) => setAwardCategory(e.target.value as AwardCategory)}
+              value={resolvedAwardCategory}
+              onChange={(e) => setAwardCategory(e.target.value)}
             >
-              {(Object.keys(AWARD_CATEGORY_LABELS) as AwardCategory[]).map((k) => (
-                <option key={k} value={k}>{AWARD_CATEGORY_LABELS[k]}</option>
+              {awardCategories.map((c) => (
+                <option key={c.id} value={c.id}>{c.label}</option>
               ))}
             </select>
             <select
@@ -303,13 +328,13 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
             </select>
             <Button
               size="sm"
-              disabled={!awardWinner}
+              disabled={!awardWinner || !resolvedAwardCategory}
               onClick={() => {
                 const q = Math.ceil((new Date().getMonth() + 1) / 3)
                 addQuarterlyAward({
                   year: new Date().getFullYear(),
                   quarter: `Q${q}` as QuarterlyAward['quarter'],
-                  category: awardCategory,
+                  category: resolvedAwardCategory,
                   winnerId: awardWinner,
                 })
                 setAwardWinner('')
@@ -323,8 +348,38 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
 
       <PulseSurveyResultsPanel />
       <FeedbackCycleSummaryPanel />
+      <FeedbackAssignmentPanel />
       <LearningReviewPanel />
       <IdpReviewPanel />
+      <PolicyAcknowledgmentPanel />
+
+      <Card padding="md">
+        <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold text-fg">HR digest memo</h3>
+          <Button
+            size="sm"
+            variant="secondary"
+            onClick={() => {
+              if (!user) return
+              const digestId = memoCategories.find((c) => c.id === 'digest')?.id ?? 'digest'
+              createAnnouncement({
+                title: `HR digest — ${new Date().toLocaleDateString('en-GB', { day: 'numeric', month: 'long', year: 'numeric' })}`,
+                body: 'Add your bi-weekly digest content here — celebrations, course reminder, policy notes, and shout-out links.',
+                audience: 'all',
+                priority: 'info',
+                memoCategory: digestId,
+                postedById: user.id,
+              })
+              notifySuccess('Digest memo draft created — edit in Memos.')
+            }}
+          >
+            Create digest memo
+          </Button>
+        </div>
+        <p className="text-xs text-muted">
+          Mirror your Gmail digest in Memos so it appears on the People overview.
+        </p>
+      </Card>
 
       <Card padding="md">
         <div className="mb-3 flex items-center gap-2">
@@ -349,15 +404,15 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
           <div>
             <p className="mb-2 text-xs font-medium text-muted">Primary reasons (select all that apply)</p>
             <div className="flex flex-wrap gap-2">
-              {EXIT_REASON_OPTIONS.map((reason) => {
-                const selected = exitReasons.includes(reason)
+              {exitReasons.map((reason) => {
+                const selected = selectedExitReasonIds.includes(reason.id)
                 return (
                   <button
-                    key={reason}
+                    key={reason.id}
                     type="button"
                     onClick={() =>
-                      setExitReasons((prev) =>
-                        selected ? prev.filter((r) => r !== reason) : [...prev, reason],
+                      setSelectedExitReasonIds((prev) =>
+                        selected ? prev.filter((r) => r !== reason.id) : [...prev, reason.id],
                       )
                     }
                     className={`rounded-full px-3 py-1 text-xs font-medium ring-focus ${
@@ -366,7 +421,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                         : 'border border-border bg-surface text-muted hover:text-fg'
                     }`}
                   >
-                    {reason}
+                    {reason.label}
                   </button>
                 )
               })}
@@ -384,13 +439,13 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
             onClick={() => {
               addExitInterview({
                 departingName: exitName.trim(),
-                reasons: exitReasons,
+                reasons: selectedExitReasonIds,
                 lastDay: exitLastDay || undefined,
                 notes: exitNotes.trim() || undefined,
               })
               setExitName('')
               setExitNotes('')
-              setExitReasons([])
+              setSelectedExitReasonIds([])
               setExitLastDay('')
             }}
           >
@@ -404,7 +459,9 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                 <p className="font-medium text-fg">{ex.departingName}</p>
                 {ex.lastDay ? <p className="text-xs text-muted">Last day: {ex.lastDay}</p> : null}
                 {ex.reasons.length > 0 ? (
-                  <p className="mt-1 text-xs text-muted">{ex.reasons.join(' · ')}</p>
+                  <p className="mt-1 text-xs text-muted">
+                    {ex.reasons.map((r) => labelForConfigId(r, exitReasons)).join(' · ')}
+                  </p>
                 ) : null}
                 {ex.notes ? <p className="mt-2 text-muted">{ex.notes}</p> : null}
               </li>
@@ -426,9 +483,13 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                 <li key={g.id} className="rounded-md border border-border p-3">
                   <div className="flex flex-wrap items-start justify-between gap-2">
                     <div>
-                      <Badge tone="warning">{g.category}</Badge>
+                      <Badge tone="warning">{labelForConfigId(g.category, grievanceCategories)}</Badge>
                       <p className="mt-2 text-fg">{g.body}</p>
-                      <p className="mt-1 text-xs text-muted">{submitter?.name ?? 'Confidential submitter'}</p>
+                      <p className="mt-1 text-xs text-muted">
+                        {g.confidential
+                          ? 'Confidential submitter'
+                          : (submitter?.name ?? 'Unknown submitter')}
+                      </p>
                     </div>
                   </div>
                   <Textarea
@@ -469,6 +530,28 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
           </ul>
         </Card>
       ) : null}
+
+      <PulseSurveyTemplateManager />
+      <FeedbackTemplateManager />
+      <Card padding="md">
+        <h3 className="mb-3 text-sm font-semibold text-fg">Open 360° cycle from template</h3>
+        <div className="flex flex-wrap gap-2">
+          {feedbackTemplates.map((tpl) => (
+            <Button
+              key={tpl.id}
+              size="sm"
+              variant="secondary"
+              onClick={async () => {
+                const id = await openFeedbackCycleFromTemplate(tpl.id)
+                if (id) notifySuccess(`Opened cycle: ${tpl.label}`)
+              }}
+            >
+              Open {tpl.label}
+            </Button>
+          ))}
+        </div>
+      </Card>
+      <PortalLabelsSection />
 
       <p className="flex flex-wrap items-center gap-2 text-xs text-muted">
         <UserMinus className="h-3.5 w-3.5" />

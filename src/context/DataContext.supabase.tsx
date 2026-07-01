@@ -3,7 +3,7 @@
  * Requires logged-in user (JWT) for RLS. Enable with `VITE_USE_SUPABASE_DATA=true`.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { usePortalRealtime } from '@/hooks/usePortalRealtime'
+import { usePortalRealtime, PORTAL_CONFIG_LIVE_TABLES } from '@/hooks/usePortalRealtime'
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
@@ -64,6 +64,22 @@ import {
   fetchDocumentCategories,
   fetchRecognitionTags,
 } from '@/lib/portalLabelCategories'
+import { checkConfigLabelInUse } from '@/lib/feedbackConfig'
+import {
+  DEFAULT_AWARD_CATEGORIES,
+  DEFAULT_EXIT_REASONS,
+  DEFAULT_GRIEVANCE_CATEGORIES,
+  DEFAULT_MEMO_CATEGORIES,
+  DEFAULT_PULSE_SURVEY_TEMPLATES,
+  fetchAwardCategories,
+  fetchExitReasons,
+  fetchGrievanceCategories,
+  fetchMemoCategories,
+  fetchPulseSurveyTemplates,
+  insertPulseSurveyTemplate,
+} from '@/lib/portalConfig'
+import { createConfigCategoryHandlers } from '@/lib/createConfigCategoryHandlers'
+import type { PulseSurveyTemplate } from '@/types/hr'
 
 function reportDataError(action: string, error: { message: string }): void {
   console.warn(`[data] ${action}`, error.message)
@@ -1192,17 +1208,47 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   )
 
   const [taskCategories, setTaskCategories] = useState<TaskCategoryItem[]>(DEFAULT_TASK_CATEGORIES)
+  const [documentCategories, setDocumentCategories] = useState<TaskCategoryItem[]>(
+    DEFAULT_DOCUMENT_CATEGORIES,
+  )
+  const [recognitionTags, setRecognitionTags] = useState<TaskCategoryItem[]>(
+    DEFAULT_RECOGNITION_TAGS,
+  )
+  const [awardCategories, setAwardCategories] = useState<TaskCategoryItem[]>(DEFAULT_AWARD_CATEGORIES)
+  const [grievanceCategories, setGrievanceCategories] = useState<TaskCategoryItem[]>(DEFAULT_GRIEVANCE_CATEGORIES)
+  const [exitReasons, setExitReasons] = useState<TaskCategoryItem[]>(DEFAULT_EXIT_REASONS)
+  const [memoCategories, setMemoCategories] = useState<TaskCategoryItem[]>(DEFAULT_MEMO_CATEGORIES)
+  const [pulseSurveyTemplates, setPulseSurveyTemplates] = useState<PulseSurveyTemplate[]>(
+    DEFAULT_PULSE_SURVEY_TEMPLATES,
+  )
+
+  const loadPortalConfig = useCallback(async () => {
+    const load = async <T,>(fn: () => Promise<T[]>, fallback: T[], setter: (rows: T[]) => void, label: string) => {
+      try {
+        const rows = await fn()
+        if (rows.length) setter(rows)
+      } catch (e) {
+        console.warn(`[data] ${label}`, e instanceof Error ? e.message : e)
+        setter(fallback)
+      }
+    }
+    await Promise.all([
+      load(() => fetchTaskCategories(client), DEFAULT_TASK_CATEGORIES, setTaskCategories, 'task categories'),
+      load(() => fetchDocumentCategories(client), DEFAULT_DOCUMENT_CATEGORIES, setDocumentCategories, 'document categories'),
+      load(() => fetchRecognitionTags(client), DEFAULT_RECOGNITION_TAGS, setRecognitionTags, 'recognition tags'),
+      load(() => fetchAwardCategories(client), DEFAULT_AWARD_CATEGORIES, setAwardCategories, 'award categories'),
+      load(() => fetchGrievanceCategories(client), DEFAULT_GRIEVANCE_CATEGORIES, setGrievanceCategories, 'grievance categories'),
+      load(() => fetchExitReasons(client), DEFAULT_EXIT_REASONS, setExitReasons, 'exit reasons'),
+      load(() => fetchMemoCategories(client), DEFAULT_MEMO_CATEGORIES, setMemoCategories, 'memo categories'),
+      load(() => fetchPulseSurveyTemplates(client), DEFAULT_PULSE_SURVEY_TEMPLATES, setPulseSurveyTemplates, 'pulse templates'),
+    ])
+  }, [client])
 
   useEffect(() => {
-    void fetchTaskCategories(client)
-      .then((rows) => {
-        if (rows.length) setTaskCategories(rows)
-      })
-      .catch((e) => {
-        // Keep built-in defaults — grants migration may not be applied yet
-        console.warn('[data] task categories', e instanceof Error ? e.message : e)
-      })
-  }, [client])
+    void loadPortalConfig()
+  }, [loadPortalConfig])
+
+  usePortalRealtime(user?.id, loadPortalConfig, client, PORTAL_CONFIG_LIVE_TABLES, 'config')
 
   const pendingUsersList = useMemo(
     () => usersAwaitingApproval(users),
@@ -1237,40 +1283,23 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const deleteTaskCategory = useCallback(
     (id: string) => {
-      setTaskCategories((prev) => prev.filter((c) => c.id !== id))
-      void client.from('portal_task_categories').delete().eq('id', id).then(({ error }) => {
-        if (error) reportDataError('delete task category', error)
-      })
+      void (async () => {
+        try {
+          const inUse = await checkConfigLabelInUse(client, 'task_category', id)
+          if (inUse > 0) {
+            notifyError(`Cannot delete — ${inUse} task${inUse === 1 ? '' : 's'} still use this category.`)
+            return
+          }
+          setTaskCategories((prev) => prev.filter((c) => c.id !== id))
+          const { error } = await client.from('portal_task_categories').delete().eq('id', id)
+          if (error) reportDataError('delete task category', error)
+        } catch (e) {
+          reportDataError('delete task category', e instanceof Error ? e : { message: String(e) })
+        }
+      })()
     },
     [client],
   )
-
-  const [documentCategories, setDocumentCategories] = useState<TaskCategoryItem[]>(
-    DEFAULT_DOCUMENT_CATEGORIES,
-  )
-  const [recognitionTags, setRecognitionTags] = useState<TaskCategoryItem[]>(
-    DEFAULT_RECOGNITION_TAGS,
-  )
-
-  useEffect(() => {
-    void fetchDocumentCategories(client)
-      .then((rows) => {
-        if (rows.length) setDocumentCategories(rows)
-      })
-      .catch((e) => {
-        console.warn('[data] document categories', e instanceof Error ? e.message : e)
-      })
-  }, [client])
-
-  useEffect(() => {
-    void fetchRecognitionTags(client)
-      .then((rows) => {
-        if (rows.length) setRecognitionTags(rows)
-      })
-      .catch((e) => {
-        console.warn('[data] recognition tags', e instanceof Error ? e.message : e)
-      })
-  }, [client])
 
   const addDocumentCategory = useCallback(
     (label: string) => {
@@ -1300,10 +1329,20 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const deleteDocumentCategory = useCallback(
     (id: string) => {
-      setDocumentCategories((prev) => prev.filter((c) => c.id !== id))
-      void client.from('portal_document_categories').delete().eq('id', id).then(({ error }) => {
-        if (error) reportDataError('delete document category', error)
-      })
+      void (async () => {
+        try {
+          const inUse = await checkConfigLabelInUse(client, 'document_category', id)
+          if (inUse > 0) {
+            notifyError(`Cannot delete — ${inUse} document${inUse === 1 ? '' : 's'} still use this category.`)
+            return
+          }
+          setDocumentCategories((prev) => prev.filter((c) => c.id !== id))
+          const { error } = await client.from('portal_document_categories').delete().eq('id', id)
+          if (error) reportDataError('delete document category', error)
+        } catch (e) {
+          reportDataError('delete document category', e instanceof Error ? e : { message: String(e) })
+        }
+      })()
     },
     [client],
   )
@@ -1336,9 +1375,82 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const deleteRecognitionTag = useCallback(
     (id: string) => {
-      setRecognitionTags((prev) => prev.filter((c) => c.id !== id))
-      void client.from('portal_recognition_tags').delete().eq('id', id).then(({ error }) => {
-        if (error) reportDataError('delete recognition tag', error)
+      void (async () => {
+        try {
+          const inUse = await checkConfigLabelInUse(client, 'recognition_tag', id)
+          if (inUse > 0) {
+            notifyError(`Cannot delete — ${inUse} shout-out${inUse === 1 ? '' : 's'} still use this tag.`)
+            return
+          }
+          setRecognitionTags((prev) => prev.filter((c) => c.id !== id))
+          const { error } = await client.from('portal_recognition_tags').delete().eq('id', id)
+          if (error) reportDataError('delete recognition tag', error)
+        } catch (e) {
+          reportDataError('delete recognition tag', e instanceof Error ? e : { message: String(e) })
+        }
+      })()
+    },
+    [client],
+  )
+
+  const awardHandlers = useMemo(
+    () => createConfigCategoryHandlers(client, 'portal_award_categories', 'award', 'award_category', setAwardCategories, reportDataError),
+    [client],
+  )
+  const grievanceHandlers = useMemo(
+    () => createConfigCategoryHandlers(client, 'portal_grievance_categories', 'griev', 'grievance_category', setGrievanceCategories, reportDataError),
+    [client],
+  )
+  const exitHandlers = useMemo(
+    () => createConfigCategoryHandlers(client, 'portal_exit_reasons', 'exit', 'exit_reason', setExitReasons, reportDataError),
+    [client],
+  )
+  const memoHandlers = useMemo(
+    () => createConfigCategoryHandlers(client, 'portal_memo_categories', 'memo', 'memo_category', setMemoCategories, reportDataError),
+    [client],
+  )
+
+  const addPulseSurveyTemplate = useCallback(
+    (template: Omit<PulseSurveyTemplate, 'id'>) => {
+      void (async () => {
+        try {
+          const row = await insertPulseSurveyTemplate(client, template, pulseSurveyTemplates.length + 1)
+          setPulseSurveyTemplates((prev) => [...prev, row])
+        } catch (e) {
+          reportDataError('add pulse template', e instanceof Error ? e : { message: String(e) })
+        }
+      })()
+    },
+    [client, pulseSurveyTemplates.length],
+  )
+
+  const updatePulseSurveyTemplate = useCallback(
+    (id: string, patch: Partial<PulseSurveyTemplate>) => {
+      setPulseSurveyTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+      void (async () => {
+        const cur = pulseSurveyTemplates.find((t) => t.id === id)
+        if (!cur) return
+        const next = { ...cur, ...patch }
+        const { error } = await client
+          .from('portal_pulse_survey_templates')
+          .update({
+            label: next.label,
+            survey_type: next.surveyType,
+            description: next.description ?? null,
+            questions: next.questions,
+          })
+          .eq('id', id)
+        if (error) reportDataError('update pulse template', error)
+      })()
+    },
+    [client, pulseSurveyTemplates],
+  )
+
+  const deletePulseSurveyTemplate = useCallback(
+    (id: string) => {
+      setPulseSurveyTemplates((prev) => prev.filter((t) => t.id !== id))
+      void client.from('portal_pulse_survey_templates').delete().eq('id', id).then(({ error }) => {
+        if (error) reportDataError('delete pulse template', error)
       })
     },
     [client],
@@ -1481,6 +1593,26 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addRecognitionTag,
       updateRecognitionTag,
       deleteRecognitionTag,
+      awardCategories,
+      addAwardCategory: awardHandlers.add,
+      updateAwardCategory: awardHandlers.update,
+      deleteAwardCategory: awardHandlers.delete,
+      grievanceCategories,
+      addGrievanceCategory: grievanceHandlers.add,
+      updateGrievanceCategory: grievanceHandlers.update,
+      deleteGrievanceCategory: grievanceHandlers.delete,
+      exitReasons,
+      addExitReason: exitHandlers.add,
+      updateExitReason: exitHandlers.update,
+      deleteExitReason: exitHandlers.delete,
+      memoCategories,
+      addMemoCategory: memoHandlers.add,
+      updateMemoCategory: memoHandlers.update,
+      deleteMemoCategory: memoHandlers.delete,
+      pulseSurveyTemplates,
+      addPulseSurveyTemplate,
+      updatePulseSurveyTemplate,
+      deletePulseSurveyTemplate,
       dataStatus,
       dataError,
       reloadData,
@@ -1549,6 +1681,18 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       addRecognitionTag,
       updateRecognitionTag,
       deleteRecognitionTag,
+      awardCategories,
+      awardHandlers,
+      grievanceCategories,
+      grievanceHandlers,
+      exitReasons,
+      exitHandlers,
+      memoCategories,
+      memoHandlers,
+      pulseSurveyTemplates,
+      addPulseSurveyTemplate,
+      updatePulseSurveyTemplate,
+      deletePulseSurveyTemplate,
       dataStatus,
       dataError,
       reloadData,

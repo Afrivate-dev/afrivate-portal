@@ -32,7 +32,7 @@ import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
-import { cn, relativeTime, isTeamLead } from '@/utils/helpers'
+import { cn, relativeTime, isHR } from '@/utils/helpers'
 import type { AnnouncementMedia, RecognitionComment, RecognitionPost, User } from '@/types'
 
 type Tag = string
@@ -192,7 +192,7 @@ export function RecognitionPage() {
     media: [],
   })
 
-  const canManageTags = isTeamLead(user)
+  const canManageTags = isHR(user)
   const defaultTagId = recognitionTags[0]?.id ?? 'great_work'
 
   const otherUsers = useMemo(

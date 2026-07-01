@@ -160,6 +160,17 @@ export function rowToJobRequisition(r: Record<string, unknown>): JobRequisition 
   }
 }
 
+export function rowToFeedbackAssignment(r: Record<string, unknown>): import('@/types/hr').FeedbackAssignment {
+  return {
+    id: String(r.id),
+    cycleId: String(r.cycle_id),
+    subjectUserId: String(r.subject_user_id),
+    reviewerId: String(r.reviewer_id),
+    relationship: String(r.relationship) as import('@/types/hr').FeedbackAssignment['relationship'],
+    createdAt: String(r.created_at),
+  }
+}
+
 export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
   return {
     id: String(r.id),
@@ -169,6 +180,7 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
     stage: String(r.stage ?? 'applied') as JobCandidate['stage'],
     notes: r.notes ? String(r.notes) : undefined,
     score: r.score != null ? Number(r.score) : undefined,
+    appliedAt: r.applied_at ? String(r.applied_at) : undefined,
     updatedAt: String(r.updated_at),
   }
 }
@@ -235,6 +247,7 @@ export interface HrDataset {
   idps: IndividualDevelopmentPlan[]
   feedbackCycles: FeedbackCycle[]
   feedbackEntries: FeedbackEntry[]
+  feedbackAssignments: import('@/types/hr').FeedbackAssignment[]
   jobRequisitions: JobRequisition[]
   jobCandidates: JobCandidate[]
   exitInterviews: ExitInterview[]
@@ -255,6 +268,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     idpsRes,
     cyclesRes,
     entriesRes,
+    assignRes,
     jobsRes,
     candidatesRes,
     exitRes,
@@ -272,6 +286,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     client.from('portal_idps').select('*').order('updated_at', { ascending: false }),
     client.from('portal_feedback_cycles').select('*').order('year', { ascending: false }),
     client.from('portal_feedback_entries').select('*').order('submitted_at', { ascending: false }),
+    client.from('portal_feedback_assignments').select('*').order('created_at', { ascending: false }),
     client.from('portal_job_requisitions').select('*').order('created_at', { ascending: false }),
     client.from('portal_job_candidates').select('*').order('updated_at', { ascending: false }),
     client.from('portal_exit_interviews').select('*').order('created_at', { ascending: false }),
@@ -291,6 +306,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     idpsRes.error ||
     cyclesRes.error ||
     entriesRes.error ||
+    assignRes.error ||
     jobsRes.error ||
     candidatesRes.error ||
     exitRes.error ||
@@ -314,6 +330,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     idps: map(idpsRes.data, rowToIdp),
     feedbackCycles: map(cyclesRes.data, rowToFeedbackCycle),
     feedbackEntries: map(entriesRes.data, rowToFeedbackEntry),
+    feedbackAssignments: map(assignRes.data, rowToFeedbackAssignment),
     jobRequisitions: map(jobsRes.data, rowToJobRequisition),
     jobCandidates: map(candidatesRes.data, rowToJobCandidate),
     exitInterviews: map(exitRes.data, rowToExitInterview),

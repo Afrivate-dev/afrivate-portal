@@ -17,6 +17,14 @@ import {
   seedTasks,
   seedTeams,
 } from '@/data/mockData'
+import {
+  DEFAULT_AWARD_CATEGORIES,
+  DEFAULT_EXIT_REASONS,
+  DEFAULT_GRIEVANCE_CATEGORIES,
+  DEFAULT_MEMO_CATEGORIES,
+  DEFAULT_PULSE_SURVEY_TEMPLATES,
+  labelToConfigId,
+} from '@/lib/portalConfig'
 import type {
   AccessRequest,
   Announcement,
@@ -38,6 +46,7 @@ import type {
   WeeklyCheckIn,
   WorkspaceTeam,
 } from '@/types'
+import type { PulseSurveyTemplate } from '@/types/hr'
 
 const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'react',       label: 'React / Frontend' },
@@ -761,6 +770,79 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     setRecognitionTags((prev) => prev.filter((c) => c.id !== id))
   }, [setRecognitionTags])
 
+  const [awardCategories, setAwardCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-award-categories',
+    DEFAULT_AWARD_CATEGORIES,
+  )
+  const addAwardCategory = useCallback((label: string) => {
+    setAwardCategories((prev) => [...prev, { id: labelToConfigId(label, 'award'), label }])
+  }, [setAwardCategories])
+  const updateAwardCategory = useCallback((id: string, label: string) => {
+    setAwardCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setAwardCategories])
+  const deleteAwardCategory = useCallback((id: string) => {
+    setAwardCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setAwardCategories])
+
+  const [grievanceCategories, setGrievanceCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-grievance-categories',
+    DEFAULT_GRIEVANCE_CATEGORIES,
+  )
+  const addGrievanceCategory = useCallback((label: string) => {
+    setGrievanceCategories((prev) => [...prev, { id: labelToConfigId(label, 'griev'), label }])
+  }, [setGrievanceCategories])
+  const updateGrievanceCategory = useCallback((id: string, label: string) => {
+    setGrievanceCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setGrievanceCategories])
+  const deleteGrievanceCategory = useCallback((id: string) => {
+    setGrievanceCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setGrievanceCategories])
+
+  const [exitReasons, setExitReasons] = useLocalStorage<TaskCategoryItem[]>(
+    'av-exit-reasons',
+    DEFAULT_EXIT_REASONS,
+  )
+  const addExitReason = useCallback((label: string) => {
+    setExitReasons((prev) => [...prev, { id: labelToConfigId(label, 'exit'), label }])
+  }, [setExitReasons])
+  const updateExitReason = useCallback((id: string, label: string) => {
+    setExitReasons((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setExitReasons])
+  const deleteExitReason = useCallback((id: string) => {
+    setExitReasons((prev) => prev.filter((c) => c.id !== id))
+  }, [setExitReasons])
+
+  const [memoCategories, setMemoCategories] = useLocalStorage<TaskCategoryItem[]>(
+    'av-memo-categories',
+    DEFAULT_MEMO_CATEGORIES,
+  )
+  const addMemoCategory = useCallback((label: string) => {
+    setMemoCategories((prev) => [...prev, { id: labelToConfigId(label, 'memo'), label }])
+  }, [setMemoCategories])
+  const updateMemoCategory = useCallback((id: string, label: string) => {
+    setMemoCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
+  }, [setMemoCategories])
+  const deleteMemoCategory = useCallback((id: string) => {
+    setMemoCategories((prev) => prev.filter((c) => c.id !== id))
+  }, [setMemoCategories])
+
+  const [pulseSurveyTemplates, setPulseSurveyTemplates] = useLocalStorage<PulseSurveyTemplate[]>(
+    'av-pulse-survey-templates',
+    DEFAULT_PULSE_SURVEY_TEMPLATES,
+  )
+  const addPulseSurveyTemplate = useCallback((template: Omit<PulseSurveyTemplate, 'id'>) => {
+    setPulseSurveyTemplates((prev) => [
+      ...prev,
+      { ...template, id: labelToConfigId(template.label, 'tpl') },
+    ])
+  }, [setPulseSurveyTemplates])
+  const updatePulseSurveyTemplate = useCallback((id: string, patch: Partial<PulseSurveyTemplate>) => {
+    setPulseSurveyTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+  }, [setPulseSurveyTemplates])
+  const deletePulseSurveyTemplate = useCallback((id: string) => {
+    setPulseSurveyTemplates((prev) => prev.filter((t) => t.id !== id))
+  }, [setPulseSurveyTemplates])
+
   const value = useMemo<DataContextValue>(
     () => ({
       users,
@@ -836,6 +918,26 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       addRecognitionTag,
       updateRecognitionTag,
       deleteRecognitionTag,
+      awardCategories,
+      addAwardCategory,
+      updateAwardCategory,
+      deleteAwardCategory,
+      grievanceCategories,
+      addGrievanceCategory,
+      updateGrievanceCategory,
+      deleteGrievanceCategory,
+      exitReasons,
+      addExitReason,
+      updateExitReason,
+      deleteExitReason,
+      memoCategories,
+      addMemoCategory,
+      updateMemoCategory,
+      deleteMemoCategory,
+      pulseSurveyTemplates,
+      addPulseSurveyTemplate,
+      updatePulseSurveyTemplate,
+      deletePulseSurveyTemplate,
       dataStatus: 'ready',
       dataError: null,
       reloadData,
@@ -861,6 +963,11 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory,
       recognitionTags, addRecognitionTag, updateRecognitionTag, deleteRecognitionTag,
+      awardCategories, addAwardCategory, updateAwardCategory, deleteAwardCategory,
+      grievanceCategories, addGrievanceCategory, updateGrievanceCategory, deleteGrievanceCategory,
+      exitReasons, addExitReason, updateExitReason, deleteExitReason,
+      memoCategories, addMemoCategory, updateMemoCategory, deleteMemoCategory,
+      pulseSurveyTemplates, addPulseSurveyTemplate, updatePulseSurveyTemplate, deletePulseSurveyTemplate,
       sendInboxNotifications,
       reloadData,
     ],

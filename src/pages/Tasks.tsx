@@ -42,7 +42,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { StatCard } from '@/components/shared/StatCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, fmtDate, isAdmin, isLead, isOverdue, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, isAdmin, isHR, isOverdue, relativeTime } from '@/utils/helpers'
 import { pages, actions } from '@/content/copy'
 import type { Task, TaskCategory, TaskPriority, TaskStatus, User } from '@/types'
 
@@ -415,7 +415,7 @@ export function TasksPage() {
                 {T.week}
               </button>
             </div>
-            {isLead(user) && (
+            {isHR(user) && (
               <Button variant="secondary" onClick={() => { setManageCatsOpen(true); setCatDraft(''); setEditCatId(null) }}>
                 <Settings2 className="h-4 w-4" />
                 Categories

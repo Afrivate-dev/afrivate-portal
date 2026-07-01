@@ -30,7 +30,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TabBar } from '@/components/ui/TabBar'
-import { cn, fmtDate, isTeamLead } from '@/utils/helpers'
+import { cn, fmtDate, isHR } from '@/utils/helpers'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
 import { useHr } from '@/context/HrContext'
@@ -137,7 +137,7 @@ export function DocumentLibraryPage() {
     }
   }, [searchParams, documents])
 
-  const canManage = isTeamLead(user)
+  const canManage = isHR(user)
 
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [search, setSearch] = useState('')

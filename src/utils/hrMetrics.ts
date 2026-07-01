@@ -1,39 +1,42 @@
 import type { HrMetrics } from '@/context/hrContextShared'
 import type {
+  ExitInterview,
   Grievance,
+  JobCandidate,
   LearningAssignment,
   LearningSubmission,
   OneOnOneLog,
   PulseResponse,
   PulseSurvey,
 } from '@/types/hr'
-import type { LeaveRequest, User } from '@/types'
+import type { DocumentItem, LeaveRequest, User } from '@/types'
 import { computeEnps, computePulseEngagement, extractEnpsScores, isSurveyOpen } from '@/utils/hrSurvey'
 
 export type HrMetricsOptions = {
-  /** Limit people metrics to these user IDs (e.g. direct reports). */
   memberIds?: Set<string>
-  /** When pulse rows are RLS-restricted, inject server-side aggregates. */
   pulseOverrides?: Pick<HrMetrics, 'engagementScore' | 'enpsScore'>
+}
+
+export type HrMetricsInput = {
+  pulseSurveys: PulseSurvey[]
+  pulseResponses: PulseResponse[]
+  learningAssignments: LearningAssignment[]
+  learningSubmissions: LearningSubmission[]
+  oneOnOneLogs: OneOnOneLog[]
+  grievances: Grievance[]
+  users: User[]
+  leaveRequests: LeaveRequest[]
+  exitInterviews: ExitInterview[]
+  jobCandidates: JobCandidate[]
+  documents: DocumentItem[]
+  documentAcknowledgments: { userId: string; documentId: string }[]
 }
 
 export function directReportIds(users: User[], managerId: string): Set<string> {
   return new Set(users.filter((u) => u.active && u.reportsToId === managerId).map((u) => u.id))
 }
 
-export function computeHrMetrics(
-  input: {
-    pulseSurveys: PulseSurvey[]
-    pulseResponses: PulseResponse[]
-    learningAssignments: LearningAssignment[]
-    learningSubmissions: LearningSubmission[]
-    oneOnOneLogs: OneOnOneLog[]
-    grievances: Grievance[]
-    users: User[]
-    leaveRequests: LeaveRequest[]
-  },
-  options?: HrMetricsOptions,
-): HrMetrics {
+export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptions): HrMetrics {
   const {
     pulseSurveys,
     pulseResponses,
@@ -43,6 +46,10 @@ export function computeHrMetrics(
     grievances,
     users,
     leaveRequests,
+    exitInterviews,
+    jobCandidates,
+    documents,
+    documentAcknowledgments,
   } = input
 
   const memberIds = options?.memberIds
@@ -114,6 +121,45 @@ export function computeHrMetrics(
     ? learningSubmissions.filter((s) => scopedUserIds.has(s.userId))
     : learningSubmissions
 
+  const openActiveSurveys = pulseSurveys.filter((s) => isSurveyOpen(s))
+  let surveyCompletionRate: number | null = null
+  if (openActiveSurveys.length > 0 && headcount > 0) {
+    const responded = scopedUsers.filter((u) =>
+      openActiveSurveys.some((s) =>
+        pulseResponses.some((r) => r.surveyId === s.id && r.userId === u.id),
+      ),
+    ).length
+    surveyCompletionRate = Math.round((responded / headcount) * 100)
+  }
+
+  const requiredDocs = documents.filter((d) => d.requiresAcknowledgment)
+  let policyAckRate: number | null = null
+  if (requiredDocs.length > 0 && headcount > 0) {
+    const fullyAcked = scopedUsers.filter((u) =>
+      requiredDocs.every((doc) =>
+        documentAcknowledgments.some((a) => a.userId === u.id && a.documentId === doc.id),
+      ),
+    ).length
+    policyAckRate = Math.round((fullyAcked / headcount) * 100)
+  }
+
+  const yearAgo = Date.now() - 365 * 86400000
+  const recentExits = exitInterviews.filter(
+    (ex) => new Date(ex.createdAt).getTime() >= yearAgo,
+  ).length
+  const attritionRate = headcount > 0 ? Math.round((recentExits / headcount) * 100) : null
+
+  const hired = jobCandidates.filter((c) => c.stage === 'hired' && c.appliedAt)
+  let avgTimeToHireDays: number | null = null
+  if (hired.length > 0) {
+    const totalDays = hired.reduce((sum, c) => {
+      const start = new Date(c.appliedAt!).getTime()
+      const end = new Date(c.updatedAt).getTime()
+      return sum + Math.max(0, Math.round((end - start) / 86400000))
+    }, 0)
+    avgTimeToHireDays = Math.round(totalDays / hired.length)
+  }
+
   return {
     engagementScore,
     enpsScore,
@@ -121,8 +167,12 @@ export function computeHrMetrics(
     oneOnOneRate,
     openGrievances: scopedGrievances.filter((g) => g.status !== 'resolved').length,
     pendingLearningReviews: scopedLearningSubmissions.filter((s) => s.status === 'pending').length,
-    activeSurveys: pulseSurveys.filter((s) => isSurveyOpen(s)).length,
+    activeSurveys: openActiveSurveys.length,
     headcount,
     pendingLeave: scopedLeave.filter((l) => l.status === 'pending').length,
+    attritionRate,
+    avgTimeToHireDays,
+    policyAckRate,
+    surveyCompletionRate,
   }
 }

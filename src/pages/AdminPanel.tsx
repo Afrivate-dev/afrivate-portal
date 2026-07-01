@@ -128,6 +128,7 @@ export function AdminPanelPage() {
     addTeam,
     updateTeam,
     deleteTeam,
+    memoCategories,
   } = useData()
 
   const [section, setSection] = useState<Section>('approvals')
@@ -285,7 +286,7 @@ export function AdminPanelPage() {
     body: string
     audience: string
     priority: AnnouncementPriority
-    memoCategory: 'general' | 'digest' | 'policy'
+    memoCategory: string
     media: AnnouncementMedia[]
   } | null>(null)
   const [reviewing, setReviewing] = useState<{ req: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
@@ -1478,14 +1479,10 @@ export function AdminPanelPage() {
               onChange={(e) =>
                 setAnnDraft({
                   ...annDraft,
-                  memoCategory: e.target.value as 'general' | 'digest' | 'policy',
+                  memoCategory: e.target.value,
                 })
               }
-              options={[
-                { value: 'general', label: 'General memo' },
-                { value: 'digest', label: 'HR digest (mirrors email content)' },
-                { value: 'policy', label: 'Policy notice' },
-              ]}
+              options={memoCategories.map((c) => ({ value: c.id, label: c.label }))}
             />
             <Select
               label="Priority"

@@ -194,6 +194,14 @@ test.describe('Navigation — staff', () => {
 
     { path: '/notes', name: /note/i },
 
+    { path: '/people', name: /people/i },
+
+    { path: '/people/leave', name: /time off|leave/i },
+
+    { path: '/people/growth', name: /growth/i },
+
+    { path: '/people/surveys', name: /surveys/i },
+
     { path: '/privacy', name: /privacy|ndpr/i },
 
   ]
@@ -257,6 +265,23 @@ test.describe('Navigation — admin', () => {
     }
 
     await expect(page.getByText(/hr dashboard|assign alison|pulse survey|eNPS/i).first()).toBeVisible({
+      timeout: 10_000,
+    })
+  })
+
+  test('admin can see portal labels section on HR dashboard', async ({ page }) => {
+    test.skip(!hasAdminCreds, 'Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD in .env.test.local')
+
+    await login(page, ADMIN.email, ADMIN.password)
+
+    await page.goto('/admin')
+
+    const hrTab = page.getByRole('button', { name: /hr dashboard|hr ops|people ops/i }).first()
+    if (await hrTab.isVisible()) {
+      await hrTab.click()
+    }
+
+    await expect(page.getByText(/portal labels|task categories|exit reasons/i).first()).toBeVisible({
       timeout: 10_000,
     })
   })

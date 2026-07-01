@@ -4,10 +4,13 @@ import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useData } from '@/context/DataContext'
 import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrContextShared'
 import { computeHrMetrics, directReportIds } from '@/utils/hrMetrics'
+import { DEFAULT_FEEDBACK_TEMPLATES } from '@/lib/feedbackConfig'
 import { uid } from '@/utils/helpers'
 import type {
+  FeedbackAssignment,
   FeedbackCycle,
   FeedbackEntry,
+  FeedbackTemplate,
   Grievance,
   IndividualDevelopmentPlan,
   JobCandidate,
@@ -45,7 +48,7 @@ const SEED_SURVEY: PulseSurvey = {
 
 export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, leaveRequests } = useData()
+  const { users, leaveRequests, documents } = useData()
 
   const [pulseSurveys, setPulseSurveys] = useLocalStorage<PulseSurvey[]>('av-hr-pulse-surveys', [SEED_SURVEY])
   const [pulseResponses, setPulseResponses] = useLocalStorage<HrContextValue['pulseResponses']>('av-hr-pulse-responses', [])
@@ -57,6 +60,14 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const [idps, setIdps] = useLocalStorage<IndividualDevelopmentPlan[]>('av-hr-idps', [])
   const [feedbackCycles, setFeedbackCycles] = useLocalStorage<FeedbackCycle[]>('av-hr-feedback-cycles', [])
   const [feedbackEntries, setFeedbackEntries] = useLocalStorage<FeedbackEntry[]>('av-hr-feedback-entries', [])
+  const [feedbackTemplates, setFeedbackTemplates] = useLocalStorage<FeedbackTemplate[]>(
+    'av-hr-feedback-templates',
+    DEFAULT_FEEDBACK_TEMPLATES,
+  )
+  const [feedbackAssignments, setFeedbackAssignments] = useLocalStorage<FeedbackAssignment[]>(
+    'av-hr-feedback-assignments',
+    [],
+  )
   const [jobRequisitions, setJobRequisitions] = useLocalStorage<JobRequisition[]>('av-hr-jobs', [])
   const [jobCandidates, setJobCandidates] = useLocalStorage<JobCandidate[]>('av-hr-candidates', [])
   const [exitInterviews, setExitInterviews] = useLocalStorage<HrContextValue['exitInterviews']>('av-hr-exit', [])
@@ -86,6 +97,14 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const updatePulseSurvey = useCallback((id: string, patch: Partial<PulseSurvey>) => {
     setPulseSurveys((prev) => prev.map((s) => (s.id === id ? { ...s, ...patch } : s)))
   }, [setPulseSurveys])
+
+  const sendPulseSurveyReminders = useCallback(async (surveyId: string): Promise<number> => {
+    const headcount = users.filter((u) => u.active).length
+    const responded = new Set(
+      pulseResponses.filter((r) => r.surveyId === surveyId).map((r) => r.userId),
+    ).size
+    return Math.max(0, headcount - responded)
+  }, [users, pulseResponses])
 
   const addLearningAssignment = useCallback((a: Omit<LearningAssignment, 'id' | 'createdAt'>) => {
     setLearningAssignments((prev) => [
@@ -210,6 +229,83 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     })
   }, [setFeedbackEntries])
 
+  const addFeedbackTemplate = useCallback((t: Omit<FeedbackTemplate, 'id'>) => {
+    setFeedbackTemplates((prev) => [...prev, { ...t, id: 'ftpl_' + uid() }])
+  }, [setFeedbackTemplates])
+
+  const updateFeedbackTemplate = useCallback((id: string, patch: Partial<FeedbackTemplate>) => {
+    setFeedbackTemplates((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+  }, [setFeedbackTemplates])
+
+  const deleteFeedbackTemplate = useCallback((id: string) => {
+    setFeedbackTemplates((prev) => prev.filter((t) => t.id !== id))
+  }, [setFeedbackTemplates])
+
+  const addFeedbackAssignment = useCallback((a: Omit<FeedbackAssignment, 'id' | 'createdAt'>) => {
+    setFeedbackAssignments((prev) => [
+      ...prev,
+      { ...a, id: 'fa_' + uid(), createdAt: new Date().toISOString() },
+    ])
+  }, [setFeedbackAssignments])
+
+  const removeFeedbackAssignment = useCallback((id: string) => {
+    setFeedbackAssignments((prev) => prev.filter((a) => a.id !== id))
+  }, [setFeedbackAssignments])
+
+  const openFeedbackCycleFromTemplate = useCallback(
+    async (templateId: string, title?: string): Promise<string | null> => {
+      const tpl = feedbackTemplates.find((t) => t.id === templateId)
+      if (!tpl) return null
+      const year = new Date().getFullYear()
+      const half = new Date().getMonth() < 6 ? 'H1' : 'H2'
+      const cycleId = 'fc_' + uid()
+      setFeedbackCycles((prev) => [
+        ...prev.map((x) => (x.status === 'open' ? { ...x, status: 'closed' as const } : x)),
+        {
+          id: cycleId,
+          title: title ?? `${tpl.label} — ${year} ${half}`,
+          year,
+          half,
+          status: 'open',
+          questions: tpl.questions,
+        },
+      ])
+      const activeUsers = users.filter((u) => u.active)
+      const assignments: FeedbackAssignment[] = []
+      for (const u of activeUsers) {
+        assignments.push({
+          id: 'fa_' + uid(),
+          cycleId,
+          subjectUserId: u.id,
+          reviewerId: u.id,
+          relationship: 'self',
+          createdAt: new Date().toISOString(),
+        })
+        if (u.reportsToId) {
+          assignments.push({
+            id: 'fa_' + uid(),
+            cycleId,
+            subjectUserId: u.id,
+            reviewerId: u.reportsToId,
+            relationship: 'manager',
+            createdAt: new Date().toISOString(),
+          })
+          assignments.push({
+            id: 'fa_' + uid(),
+            cycleId,
+            subjectUserId: u.reportsToId,
+            reviewerId: u.id,
+            relationship: 'report',
+            createdAt: new Date().toISOString(),
+          })
+        }
+      }
+      setFeedbackAssignments((prev) => [...prev, ...assignments])
+      return cycleId
+    },
+    [feedbackTemplates, users, setFeedbackCycles, setFeedbackAssignments],
+  )
+
   const addJobRequisition = useCallback((r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
     setJobRequisitions((prev) => [...prev, { ...r, id: 'job_' + uid(), createdAt: new Date().toISOString() }])
   }, [setJobRequisitions])
@@ -271,6 +367,10 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
           grievances,
           users,
           leaveRequests,
+          exitInterviews,
+          jobCandidates,
+          documents,
+          documentAcknowledgments,
         },
         { memberIds },
       )
@@ -285,6 +385,10 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       grievances,
       users,
       leaveRequests,
+      exitInterviews,
+      jobCandidates,
+      documents,
+      documentAcknowledgments,
     ],
   )
 
@@ -295,6 +399,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       submitPulseResponse,
       createPulseSurvey,
       updatePulseSurvey,
+      sendPulseSurveyReminders,
       learningAssignments,
       learningSubmissions,
       addLearningAssignment,
@@ -313,6 +418,14 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       reviewIdp,
       feedbackCycles,
       feedbackEntries,
+      feedbackTemplates,
+      addFeedbackTemplate,
+      updateFeedbackTemplate,
+      deleteFeedbackTemplate,
+      feedbackAssignments,
+      addFeedbackAssignment,
+      removeFeedbackAssignment,
+      openFeedbackCycleFromTemplate,
       createFeedbackCycle,
       updateFeedbackCycle,
       submitFeedback,
@@ -337,11 +450,13 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       reloadHr: async () => {},
     }),
     [
-      pulseSurveys, pulseResponses, submitPulseResponse, createPulseSurvey, updatePulseSurvey,
+      pulseSurveys, pulseResponses, submitPulseResponse, createPulseSurvey, updatePulseSurvey, sendPulseSurveyReminders,
       learningAssignments, learningSubmissions, addLearningAssignment, updateLearningAssignment, submitLearning, reviewLearningSubmission,
       documentAcknowledgments, acknowledgeDocument,
       okrs, saveOkr, deleteOkr, oneOnOneLogs, setOneOnOneCompleted, idps, saveIdp, reviewIdp,
-      feedbackCycles, feedbackEntries, createFeedbackCycle, updateFeedbackCycle, submitFeedback,
+      feedbackCycles, feedbackEntries, feedbackTemplates, addFeedbackTemplate, updateFeedbackTemplate, deleteFeedbackTemplate,
+      feedbackAssignments, addFeedbackAssignment, removeFeedbackAssignment, openFeedbackCycleFromTemplate,
+      createFeedbackCycle, updateFeedbackCycle, submitFeedback,
       jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, updateJobCandidate,
       exitInterviews, addExitInterview, grievances, submitGrievance, updateGrievance,
       onboardingMilestones, setMilestoneCompleted, seedOnboardingMilestones, quarterlyAwards, addQuarterlyAward,

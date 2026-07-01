@@ -121,7 +121,7 @@ export interface Announcement {
   readBy: string[] // user ids who have marked it read
   media?: AnnouncementMedia[]
   /** general | digest (HR digest mirror) | policy */
-  memoCategory?: 'general' | 'digest' | 'policy'
+  memoCategory?: string
 }
 
 export type LeaveType = 'annual' | 'sick' | 'emergency'
