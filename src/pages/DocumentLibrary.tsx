@@ -30,7 +30,8 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TabBar } from '@/components/ui/TabBar'
-import { cn, fmtDate, isHR } from '@/utils/helpers'
+import { cn, fmtDate, isHR, isLead } from '@/utils/helpers'
+import { managesPeople } from '@/lib/orgStructure'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
 import { useHr } from '@/context/HrContext'
@@ -120,7 +121,8 @@ const toneStyles = {
 export function DocumentLibraryPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { documents, users, addDocument, updateDocument, deleteDocument, documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory } = useData()
+  const { documents, users, teams, departments, addDocument, updateDocument, deleteDocument, documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory } = useData()
+  const canSeeManagementDocs = isLead(user) || managesPeople(user, teams, departments)
   const { documentAcknowledgments, acknowledgeDocument } = useHr()
   const { viewersForDocument, setActivity, multiplayerLive } = useCollab()
   const [searchParams] = useSearchParams()
@@ -165,15 +167,8 @@ export function DocumentLibraryPage() {
     return documents
       .filter((d) => {
         // Access control
-        if (d.hrOnly && user.role !== 'hr' && user.role !== 'admin') return false
-        if (
-          d.managementOnly &&
-          user.role !== 'team_lead' &&
-          user.role !== 'hr' &&
-          user.role !== 'admin'
-        ) {
-          return false
-        }
+        if (d.hrOnly && !isHR(user)) return false
+        if (d.managementOnly && !canSeeManagementDocs) return false
         if (category !== 'all' && d.category !== category) return false
         if (search.trim()) {
           const q = search.toLowerCase()
@@ -187,7 +182,7 @@ export function DocumentLibraryPage() {
         return true
       })
       .sort((a, b) => (a.uploadedAt > b.uploadedAt ? -1 : 1))
-  }, [documents, user, category, search])
+  }, [documents, user, category, search, canSeeManagementDocs])
 
   const counts = useMemo(() => {
     const c: Record<string, number> = { all: 0 }
@@ -196,19 +191,13 @@ export function DocumentLibraryPage() {
     })
     documents.forEach((d) => {
       if (!user) return
-      if (d.hrOnly && user.role !== 'hr' && user.role !== 'admin') return
-      if (
-        d.managementOnly &&
-        user.role !== 'team_lead' &&
-        user.role !== 'hr' &&
-        user.role !== 'admin'
-      )
-        return
+      if (d.hrOnly && !isHR(user)) return
+      if (d.managementOnly && !canSeeManagementDocs) return
       c.all += 1
       c[d.category] = (c[d.category] ?? 0) + 1
     })
     return c
-  }, [documents, user, documentCategories])
+  }, [documents, user, documentCategories, canSeeManagementDocs])
 
   const categoryTabs = useMemo(
     () => [

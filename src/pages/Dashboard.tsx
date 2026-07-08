@@ -26,6 +26,7 @@ import {
   relativeTime,
   roleLabel,
 } from '@/utils/helpers'
+import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { brand } from '@/content/copy'
 import { format, isSameDay, parseISO } from 'date-fns'
 import { AnnouncementMediaGallery } from '@/components/shared/AnnouncementAttachments'
@@ -39,6 +40,9 @@ export function DashboardPage() {
     leaveRequests,
     events,
     announcements,
+    users,
+    teams,
+    departments,
     onboardingVideos,
     onboardingProgress,
     markAnnouncementRead,
@@ -49,10 +53,17 @@ export function DashboardPage() {
   const stats = useMemo(() => {
     if (!user) return { dueToday: 0, pendingLeave: 0, upcomingEvents: 0, unread: 0 }
     const myTasks = tasks.filter((t) => t.ownerId === user.id)
+    // Own requests plus, for managers, the people they manage (HR/admin see all).
+    const relevantLeaveIds = new Set(
+      leaveRequestsForManager(leaveRequests, user, users, teams, departments).map((l) => l.id),
+    )
+    for (const l of leaveRequests) {
+      if (l.userId === user.id) relevantLeaveIds.add(l.id)
+    }
     return {
       dueToday: myTasks.filter((t) => isDueToday(t.dueDate) && t.status !== 'done').length,
       pendingLeave: leaveRequests.filter(
-        (l) => l.status === 'pending' && (user.role === 'staff' ? l.userId === user.id : true),
+        (l) => l.status === 'pending' && relevantLeaveIds.has(l.id),
       ).length,
       upcomingEvents: events.filter((e) => {
         const d = new Date(e.date)
@@ -63,7 +74,7 @@ export function DashboardPage() {
       }).length,
       unread: announcements.filter((a) => !a.readBy.includes(user.id)).length,
     }
-  }, [user, tasks, leaveRequests, events, announcements])
+  }, [user, tasks, leaveRequests, events, announcements, users, teams, departments])
 
   const todaysEvents = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd')

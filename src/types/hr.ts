@@ -1,6 +1,6 @@
 /** HR operations types — pulse, L&D, performance, recruitment, confidential ops. */
 
-export type PulseSurveyType = 'pulse' | 'enps'
+export type PulseSurveyType = 'pulse' | 'enps' | 'onboarding'
 
 export interface PulseQuestion {
   id: string

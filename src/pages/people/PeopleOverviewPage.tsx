@@ -17,7 +17,8 @@ import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { isHR, isLead } from '@/utils/helpers'
-import { directReportIds } from '@/utils/hrMetrics'
+import { managedReportIds } from '@/utils/hrMetrics'
+import { managesPeople } from '@/lib/orgStructure'
 
 const quickLinks = [
   { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request and track leave' },
@@ -29,16 +30,16 @@ const quickLinks = [
 
 export function PeopleOverviewPage() {
   const { user } = useAuth()
-  const { announcements, leaveRequests, users } = useData()
+  const { announcements, leaveRequests, users, teams, departments } = useData()
   const {
     getMetrics,
   } = useHr()
 
   if (!user) return null
 
-  const teamScope = isLead(user) && !isHR(user)
+  const teamScope = (isLead(user) || managesPeople(user, teams, departments)) && !isHR(user)
   const metrics = teamScope ? getMetrics({ teamScope: true }) : getMetrics()
-  const directReports = teamScope ? directReportIds(users, user.id).size : 0
+  const directReports = teamScope ? managedReportIds(user, users, teams, departments).size : 0
   const digestMemos = announcements.filter((a) => a.memoCategory === 'digest').slice(0, 3)
   const myLeavePending = leaveRequests.filter((l) => l.userId === user.id && l.status === 'pending').length
 
@@ -85,16 +86,16 @@ export function PeopleOverviewPage() {
         </Card>
       ) : null}
 
-      {(isHR(user) || isLead(user)) && (
+      {(isHR(user) || teamScope) && (
         <Card padding="md">
           <h2 className="text-sm font-semibold text-fg">
             {isHR(user) ? 'Team snapshot' : 'My team snapshot'}
           </h2>
           {!isHR(user) ? (
             <p className="mt-1 text-xs text-muted">
-              Aggregated pulse and eNPS for your direct reports only. Individual responses stay with HR.
+              Aggregated pulse and eNPS for the people you manage only. Individual responses stay with HR.
               {directReports === 0
-                ? ' Assign reports-to in the directory so team metrics can populate.'
+                ? ' Assign a team lead / department head or reports-to in the directory so team metrics can populate.'
                 : null}
             </p>
           ) : null}

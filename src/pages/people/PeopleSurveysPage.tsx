@@ -10,7 +10,13 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Badge } from '@/components/ui/Badge'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { isSurveyOpen } from '@/utils/hrSurvey'
-import type { PulseQuestion, PulseSurvey } from '@/types/hr'
+import type { PulseQuestion, PulseSurvey, PulseSurveyType } from '@/types/hr'
+
+const SURVEY_TYPE_LABEL: Record<PulseSurveyType, string> = {
+  pulse: 'Pulse',
+  enps: 'eNPS',
+  onboarding: 'Onboarding',
+}
 
 function ScaleInput({
   q,
@@ -62,7 +68,7 @@ function SurveyCard({
     return (
       <Card padding="md">
         <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          {survey.surveyType === 'enps' ? 'eNPS' : 'Pulse'}
+          {SURVEY_TYPE_LABEL[survey.surveyType]}
         </div>
         <h2 className="text-lg font-semibold text-fg">{survey.title}</h2>
         <p className="mt-2 text-sm text-muted">Thanks — you already submitted a response for this survey.</p>
@@ -82,8 +88,8 @@ function SurveyCard({
   return (
     <Card padding="md">
       <div className="mb-1 flex items-center gap-2">
-        <Badge tone={survey.surveyType === 'enps' ? 'brand' : 'muted'}>
-          {survey.surveyType === 'enps' ? 'eNPS' : 'Pulse'}
+        <Badge tone={survey.surveyType === 'enps' ? 'brand' : survey.surveyType === 'onboarding' ? 'info' : 'muted'}>
+          {SURVEY_TYPE_LABEL[survey.surveyType]}
         </Badge>
       </div>
       <h2 className="text-lg font-semibold text-fg">{survey.title}</h2>

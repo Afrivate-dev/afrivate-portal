@@ -42,6 +42,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { cn, fmtDate, firstName, isHR, isLead, relativeTime } from '@/utils/helpers'
+import { managesPeople } from '@/lib/orgStructure'
+import { managedReportIds } from '@/utils/hrMetrics'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { supabase } from '@/lib/supabase'
@@ -118,9 +120,9 @@ function dayCount(startISO: string, endISO: string) {
 export function LeaveRequestsPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { users, leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment } = useData()
+  const { users, teams, departments, leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment } = useData()
 
-  const canManage = isLead(user)
+  const canManage = isLead(user) || managesPeople(user, teams, departments)
   const [tab, setTab] = useState<Tab>('my')
   const [formOpen, setFormOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -174,8 +176,13 @@ export function LeaveRequestsPage() {
   }, [leaveRequests, user])
 
   const manageRequests = useMemo(
-    () => (user && canManage ? leaveRequestsForManager(leaveRequests, user, users) : []),
-    [leaveRequests, user, users, canManage],
+    () => (user && canManage ? leaveRequestsForManager(leaveRequests, user, users, teams, departments) : []),
+    [leaveRequests, user, users, teams, departments, canManage],
+  )
+
+  const managedIds = useMemo(
+    () => (user && !isHR(user) ? managedReportIds(user, users, teams, departments) : undefined),
+    [user, users, teams, departments],
   )
 
   const pendingCount = useMemo(
@@ -412,6 +419,7 @@ export function LeaveRequestsPage() {
             users={users}
             showWho
             viewer={user}
+            managedIds={managedIds}
             leaveComments={leaveComments}
             currentUserId={user.id}
             onViewConversation={setDetailRequest}
@@ -594,7 +602,7 @@ export function LeaveRequestsPage() {
                 {dayCount(reviewing.request.startDate, reviewing.request.endDate)} days
               </p>
               <p className="mt-2 text-fg/90">{reviewing.request.reason}</p>
-              <LeaveSupportingDoc request={reviewing.request} viewer={user} />
+              <LeaveSupportingDoc request={reviewing.request} viewer={user} managedIds={managedIds} />
             </div>
             {reviewing.status === 'approved' ? (
               <Input
@@ -669,7 +677,7 @@ export function LeaveRequestsPage() {
                 {STATUS_META[detailRequest.status].label}
               </p>
               <p className="mt-2 text-fg/90">{detailRequest.reason}</p>
-              <LeaveSupportingDoc request={detailRequest} viewer={user} />
+              <LeaveSupportingDoc request={detailRequest} viewer={user} managedIds={managedIds} />
               {detailRequest.reviewerNote ? (
                 <p className="mt-2 rounded-md bg-surface px-2.5 py-1.5 text-xs text-fg/80">
                   <span className="font-semibold">Note from reviewer:</span>{' '}
@@ -781,6 +789,7 @@ function RequestsList({
   users,
   showWho,
   viewer,
+  managedIds,
   leaveComments,
   currentUserId,
   onViewConversation,
@@ -791,6 +800,7 @@ function RequestsList({
   users: User[]
   showWho: boolean
   viewer: User
+  managedIds?: Set<string>
   leaveComments?: LeaveComment[]
   currentUserId?: string
   onViewConversation?: (r: LeaveRequest) => void
@@ -840,7 +850,7 @@ function RequestsList({
                       {relativeTime(r.submittedAt)}
                     </p>
                     <p className="mt-2 text-sm text-fg/90">{r.reason}</p>
-                    <LeaveSupportingDoc request={r} viewer={viewer} />
+                    <LeaveSupportingDoc request={r} viewer={viewer} managedIds={managedIds} />
                     {r.reviewerNote ? (
                       <p className="mt-2 rounded-md bg-surface-2 px-2.5 py-1.5 text-xs text-fg/80">
                         <span className="font-semibold">Note from reviewer:</span>{' '}

@@ -15,7 +15,7 @@ import { fetchHrDataset } from '@/lib/supabase/hrDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { supabase } from '@/lib/supabase'
-import { computeHrMetrics, directReportIds } from '@/utils/hrMetrics'
+import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { isHR, isLead } from '@/utils/helpers'
 import { uid } from '@/utils/helpers'
 import type {
@@ -51,7 +51,7 @@ const DEFAULT_MILESTONES = (userId: string): OnboardingMilestone[] => [
 
 export function SupabaseHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, leaveRequests, documents } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition } = useData()
   const client = supabase!
 
   const [hrStatus, setHrStatus] = useState<'ready' | 'loading'>('loading')
@@ -924,7 +924,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   const getMetrics = useCallback(
     (options?: { teamScope?: boolean }): HrMetrics => {
       const memberIds =
-        options?.teamScope && user ? directReportIds(users, user.id) : undefined
+        options?.teamScope && user ? managedReportIds(user, users, teams, departments) : undefined
       const pulseOverrides =
         memberIds && teamPulseAggregates
           ? {
@@ -946,6 +946,9 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           jobCandidates,
           documents,
           documentAcknowledgments,
+          okrs,
+          feedbackEntries,
+          recognition,
         },
         { memberIds, pulseOverrides },
       )
@@ -960,11 +963,16 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       oneOnOneLogs,
       grievances,
       users,
+      teams,
+      departments,
       leaveRequests,
       exitInterviews,
       jobCandidates,
       documents,
       documentAcknowledgments,
+      okrs,
+      feedbackEntries,
+      recognition,
     ],
   )
 

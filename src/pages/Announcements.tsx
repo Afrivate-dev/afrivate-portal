@@ -547,7 +547,7 @@ export function AnnouncementsPage() {
               ]}
             />
           </div>
-          {(isHR(user) || isAdmin(user)) ? (
+          {canPost ? (
             <Select
               label="Memo type"
               value={draft.memoCategory}

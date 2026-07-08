@@ -8,28 +8,31 @@ import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { isLead, isHR } from '@/utils/helpers'
-import { directReportIds } from '@/utils/hrMetrics'
+import { managedReportIds } from '@/utils/hrMetrics'
+import { managesPeople } from '@/lib/orgStructure'
 import { notifyError, notifySuccess } from '@/lib/notify'
 
-/** Managers and HR can review submitted IDPs for direct reports. */
+/** Managers and HR can review submitted IDPs for the people they manage. */
 export function IdpReviewPanel() {
   const { user } = useAuth()
-  const { users } = useData()
+  const { users, teams, departments } = useData()
   const { idps, reviewIdp } = useHr()
   const [notes, setNotes] = useState<Record<string, string>>({})
+
+  const canManage = !!user && (isLead(user) || managesPeople(user, teams, departments))
 
   const pending = useMemo(() => {
     if (!user) return []
     const submitted = idps.filter((i) => i.status === 'submitted')
     if (isHR(user)) return submitted
-    if (isLead(user)) {
-      const reportIds = directReportIds(users, user.id)
+    if (canManage) {
+      const reportIds = managedReportIds(user, users, teams, departments)
       return submitted.filter((i) => reportIds.has(i.userId))
     }
     return []
-  }, [idps, user, users])
+  }, [idps, user, users, teams, departments, canManage])
 
-  if (!user || (!isHR(user) && !isLead(user))) return null
+  if (!user || (!isHR(user) && !canManage)) return null
   if (pending.length === 0) return null
 
   return (

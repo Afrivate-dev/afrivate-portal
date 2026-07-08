@@ -38,6 +38,14 @@ export interface HrMetrics {
   policyAckRate: number | null
   /** % of staff who responded to open pulse/eNPS surveys. */
   surveyCompletionRate: number | null
+  /** Average key-result progress across the current quarter's OKRs (%). */
+  okrAchievement: number | null
+  /** Number of shout-outs posted this calendar month. */
+  recognitionVolume: number
+  /** Average 360° feedback score (0–10) — proxy for values alignment. */
+  valuesAlignment: number | null
+  /** Average onboarding satisfaction survey score (1–10). */
+  onboardingSatisfaction: number | null
 }
 
 export interface HrContextValue {
