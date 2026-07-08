@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { normalizeInboxTypeFromDb } from '@/lib/inboxNotifications'
 import type {
   Announcement,
   DocumentItem,
@@ -312,15 +313,17 @@ export function rowToInbox(r: Record<string, unknown>): InboxNotification {
   return {
     id: String(r.id),
     userId: String(r.user_id),
-    type: String(r.type) as InboxNotification['type'],
-    title: String(r.title ?? ''),
+    type: normalizeInboxTypeFromDb(r.type),
+    title: String(r.title ?? 'Notification'),
     body: r.body ? String(r.body) : undefined,
     link: String(r.link ?? '/'),
     read: Boolean(r.read),
-    createdAt: String(r.created_at),
+    createdAt: String(r.created_at ?? new Date().toISOString()),
     fromUserId: r.from_user_id ? String(r.from_user_id) : undefined,
     taskId: r.task_id ? String(r.task_id) : undefined,
     recognitionId: r.recognition_id ? String(r.recognition_id) : undefined,
+    noteId: r.note_id ? String(r.note_id) : undefined,
+    leaveId: r.leave_id ? String(r.leave_id) : undefined,
   }
 }
 

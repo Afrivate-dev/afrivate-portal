@@ -1,10 +1,11 @@
 import { useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Inbox as InboxIcon, AtSign, ListChecks, Heart, UserPlus, CalendarDays, StickyNote } from 'lucide-react'
+import { Inbox as InboxIcon } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { confirms } from '@/content/copy'
+import { getInboxTypeMeta, resolveInboxLink } from '@/lib/inboxNotifications'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -12,60 +13,9 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn, relativeTime } from '@/utils/helpers'
 import { pages } from '@/content/copy'
-import type { InboxNotification, InboxNotificationType } from '@/types'
+import type { InboxNotification } from '@/types'
 
 const I = pages.inbox
-
-const TYPE_META: Record<
-  InboxNotificationType,
-  { icon: typeof Heart; label: string; iconClass: string }
-> = {
-  recognition: {
-    icon: Heart,
-    label: 'Shout-out',
-    iconClass: 'text-pink-600 dark:text-pink-300',
-  },
-  task_assigned: {
-    icon: ListChecks,
-    label: 'Assignment',
-    iconClass: 'text-accent',
-  },
-  task_mention: {
-    icon: AtSign,
-    label: 'Mention',
-    iconClass: 'text-amber-600 dark:text-amber-300',
-  },
-  note_mention: {
-    icon: StickyNote,
-    label: 'Note mention',
-    iconClass: 'text-amber-600 dark:text-amber-300',
-  },
-  leave_update: {
-    icon: CalendarDays,
-    label: 'Leave update',
-    iconClass: 'text-accent',
-  },
-  leave_comment: {
-    icon: CalendarDays,
-    label: 'Leave message',
-    iconClass: 'text-accent',
-  },
-  recognition_comment: {
-    icon: Heart,
-    label: 'Shout-out comment',
-    iconClass: 'text-pink-600 dark:text-pink-300',
-  },
-  access_request: {
-    icon: UserPlus,
-    label: 'Access request',
-    iconClass: 'text-accent',
-  },
-  access_granted: {
-    icon: UserPlus,
-    label: 'Access approved',
-    iconClass: 'text-success',
-  },
-}
 
 export function InboxPage() {
   const { user } = useAuth()
@@ -86,17 +36,7 @@ export function InboxPage() {
 
   const openNotification = (n: InboxNotification) => {
     markInboxRead(n.id)
-    const link =
-      n.taskId && (n.type === 'task_assigned' || n.type === 'task_mention')
-        ? `/tasks?open=${n.taskId}`
-        : n.noteId && n.type === 'note_mention'
-          ? n.link
-          : n.leaveId && (n.type === 'leave_update' || n.type === 'leave_comment')
-            ? '/people/leave'
-            : n.recognitionId && n.type === 'recognition_comment'
-              ? `/people/shout-outs?open=${encodeURIComponent(n.recognitionId)}`
-              : n.link
-    navigate(link)
+    navigate(resolveInboxLink(n))
   }
 
   return (
@@ -125,9 +65,10 @@ export function InboxPage() {
       ) : (
         <ul className="space-y-2">
           {mine.map((n) => {
-            const meta = TYPE_META[n.type]
+            const meta = getInboxTypeMeta(n.type)
             const Icon = meta.icon
             const from = n.fromUserId ? users.find((u) => u.id === n.fromUserId) : undefined
+            const title = n.title?.trim() || meta.label
             return (
               <li key={n.id}>
                 <Card padding="md" className={cn(!n.read && 'border-accent/30 bg-accent/[0.03]')}>
@@ -156,7 +97,7 @@ export function InboxPage() {
                         ) : null}
                         <span className="ml-auto text-xs text-muted">{relativeTime(n.createdAt)}</span>
                       </div>
-                      <p className="mt-1 font-semibold text-fg">{n.title}</p>
+                      <p className="mt-1 font-semibold text-fg">{title}</p>
                       {n.body ? <p className="mt-0.5 line-clamp-2 text-sm text-muted">{n.body}</p> : null}
                       {from ? (
                         <div className="mt-2 flex items-center gap-2 text-xs text-muted">
