@@ -21,6 +21,18 @@ const DEFAULT_QUESTIONS: Record<PulseSurveyType, PulseQuestion[]> = {
     { id: 'nps', text: 'Recommendation score (0–10)', type: 'scale', min: 0, max: 10 },
     { id: 'why', text: 'What is the main reason for your score? (optional)', type: 'text' },
   ],
+  onboarding: [
+    { id: 'welcome', text: 'How welcomed did you feel? (1–10)', type: 'scale', min: 1, max: 10 },
+    { id: 'clarity', text: 'How clear were your role and first tasks? (1–10)', type: 'scale', min: 1, max: 10 },
+    { id: 'support', text: 'How well-supported were you by your manager and team? (1–10)', type: 'scale', min: 1, max: 10 },
+    { id: 'note', text: 'Anything we could improve about onboarding? (optional)', type: 'text' },
+  ],
+}
+
+const SURVEY_TYPE_LABEL: Record<PulseSurveyType, string> = {
+  pulse: 'Pulse',
+  enps: 'eNPS',
+  onboarding: 'Onboarding',
 }
 
 export function PulseSurveyTemplateManager() {
@@ -123,8 +135,8 @@ export function PulseSurveyTemplateManager() {
                 <p className="font-medium text-fg">{t.label}</p>
                 {t.description ? <p className="mt-1 text-xs text-muted">{t.description}</p> : null}
                 <div className="mt-2 flex flex-wrap gap-2">
-                  <Badge tone={t.surveyType === 'enps' ? 'info' : 'brand'}>
-                    {t.surveyType === 'enps' ? 'eNPS' : 'Pulse'}
+                  <Badge tone={t.surveyType === 'enps' ? 'info' : t.surveyType === 'onboarding' ? 'success' : 'brand'}>
+                    {SURVEY_TYPE_LABEL[t.surveyType]}
                   </Badge>
                   <Badge tone="muted">{t.questions.length} question{t.questions.length === 1 ? '' : 's'}</Badge>
                 </div>
@@ -181,6 +193,7 @@ export function PulseSurveyTemplateManager() {
             options={[
               { value: 'pulse', label: 'Pulse check' },
               { value: 'enps', label: 'eNPS' },
+              { value: 'onboarding', label: 'Onboarding satisfaction' },
             ]}
           />
           <Input

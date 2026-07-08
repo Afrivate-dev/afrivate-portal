@@ -3,7 +3,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import { useData } from '@/context/DataContext'
 import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrContextShared'
-import { computeHrMetrics, directReportIds } from '@/utils/hrMetrics'
+import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { DEFAULT_FEEDBACK_TEMPLATES } from '@/lib/feedbackConfig'
 import { uid } from '@/utils/helpers'
 import type {
@@ -48,7 +48,7 @@ const SEED_SURVEY: PulseSurvey = {
 
 export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, leaveRequests, documents } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition } = useData()
 
   const [pulseSurveys, setPulseSurveys] = useLocalStorage<PulseSurvey[]>('av-hr-pulse-surveys', [SEED_SURVEY])
   const [pulseResponses, setPulseResponses] = useLocalStorage<HrContextValue['pulseResponses']>('av-hr-pulse-responses', [])
@@ -356,7 +356,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const getMetrics = useCallback(
     (options?: { teamScope?: boolean }): HrMetrics => {
       const memberIds =
-        options?.teamScope && user ? directReportIds(users, user.id) : undefined
+        options?.teamScope && user ? managedReportIds(user, users, teams, departments) : undefined
       return computeHrMetrics(
         {
           pulseSurveys,
@@ -371,6 +371,9 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
           jobCandidates,
           documents,
           documentAcknowledgments,
+          okrs,
+          feedbackEntries,
+          recognition,
         },
         { memberIds },
       )
@@ -384,11 +387,16 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       oneOnOneLogs,
       grievances,
       users,
+      teams,
+      departments,
       leaveRequests,
       exitInterviews,
       jobCandidates,
       documents,
       documentAcknowledgments,
+      okrs,
+      feedbackEntries,
+      recognition,
     ],
   )
 

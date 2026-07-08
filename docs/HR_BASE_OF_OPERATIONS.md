@@ -78,7 +78,9 @@ Manage task categories, document categories, recognition tags, award categories,
 Route: **Admin → HR dashboard** tab  
 Used by: HR, admin
 
-Quick actions: assign Alison course, launch pulse survey, send survey reminders, recruitment lite, quarterly awards, exit interviews, grievance resolution, open 360° cycles from templates, peer assignment panel, policy ack tracking, KPI export, HR digest memo, portal labels admin.
+Quick actions: assign Alison course, launch pulse/eNPS/onboarding survey, send survey reminders, recruitment lite, quarterly awards, exit interviews, grievance resolution, open 360° cycles from templates, peer assignment panel, policy ack tracking, KPI export, HR digest memo, portal labels admin.
+
+KPI grid (with plan targets shown on each card): headcount, engagement (7.5+), eNPS (30+), L&D completion (70–85%), 1:1 rate (90%), attrition (<15%), time-to-hire (<30d), policy ack (100% in 30d), survey completion (>70%), OKR achievement (65–70%), recognition volume (3+/mo), values alignment (7+), onboarding CSAT (8+), plus pending leave, open grievances, learning reviews, active surveys. A collapsible **HR operating rhythm** card summarises the monthly cycle, cadence, and routing rule. Internal promotion rate is tracked manually in recruitment notes (by design).
 
 ---
 
@@ -106,7 +108,7 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 2. Post role on LinkedIn; link to `hr@afrivate.org` or careers email.
 3. Add candidates in HR dashboard; move stage: Applied → Screen → Interview → Offer → Hired/Rejected.
 4. On **Hired**: activate portal account (Admin → Invites), assign department and reports-to, trigger onboarding (Section 3.2).
-5. **KPI:** Time-to-hire — track manually from requisition `created_at` to candidate stage `hired` (export from Supabase or HR spreadsheet until dashboard KPI added).
+5. **KPI:** Time-to-hire is computed on the HR dashboard (average days from candidate `appliedAt` to stage `hired`) and included in the KPI CSV export.
 
 **Not in portal (by design):** Full ATS, salary negotiation workflows, background checks — use Drive + Gmail until hiring volume justifies paid ATS.
 
@@ -123,7 +125,7 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 | 30-60-90 milestones | `/people/growth` → Milestones tab | — | Manager + HR | Day 1–90 |
 | Buddy assignment | Admin → Users (reports-to / notes) | WhatsApp intro | Manager | Day 1 |
 | Manager check-ins Day 7/30/90 | `/people/growth` → 1:1 tab | Google Meet | Manager | Scheduled |
-| Day 90 survey | `/people/surveys` | — | HR | Day 90 |
+| Onboarding satisfaction survey | `/people/surveys` (survey type: onboarding) | — | HR | Day 90 |
 
 **Implementation SOP — new hire first 90 days**
 
@@ -131,7 +133,7 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 2. **Day 1:** New hire completes **Getting started** (`/onboarding`) — watch videos, tick checklist.
 3. **Day 1:** Portal auto-seeds **30-60-90 milestones** when they open Growth tab (or HR seeds via admin flow).
 4. **Day 7 / 30 / 90:** Manager marks 1:1 completed in **Growth → 1:1** (monthly log).
-5. **Day 90:** HR launches pulse survey tagged for onboarding feedback OR dedicated eNPS question set.
+5. **Day 90:** HR launches the **Onboarding satisfaction** survey (survey type: onboarding) — feeds the Onboarding CSAT KPI on the dashboard.
 6. **Welcome pack PDF:** Store master in Drive; upload summary to **Resources** with category Onboarding.
 
 **Buddy system:** Document buddy name in profile notes or team assignment; informal coordination via WhatsApp — portal holds the checklist and milestones.
@@ -156,7 +158,7 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 2. Each employee sets OKRs in **Growth → OKRs** (objective + key results with progress %).
 3. Managers review direct reports' OKRs in same tab (lead+ visibility).
 4. **Mid-quarter:** 1:1s reference OKR progress.
-5. **End of quarter:** HR pulls OKR achievement rate from Growth data for leadership report.
+5. **End of quarter:** HR reads the **OKR achievement** KPI on the dashboard (average key-result progress for the current quarter) for the leadership report.
 
 **Implementation SOP — monthly 1:1**
 
@@ -432,6 +434,8 @@ Recurring activities every month: **pulse survey**, **digest** (×2), **manager 
 | **HR** | Admin panel, HR dashboard, all leave/docs, memo types including digest, learning review |
 | **Admin** | Full workspace admin, role changes, user approval, HR dashboard |
 
+**Leadership is assignment-based, not role-locked.** A person "manages" someone if they are that person's reports-to, the lead/assistant-lead of a team they belong to, or the head of their department. So an **admin can also lead a team or head a department** and will get the matching manager scope (1:1s, leave approvals, team OKR/IDP visibility, team metrics and check-ins) for that team — without giving up the admin role. This is enforced consistently on the client (`managedReportIds` / `managesPeople`) and in Supabase RLS (`public.manages_user`, added in `20260711_assignment_based_management.sql`). HR and admin continue to see the whole organisation.
+
 **Google-style principle:** Managers own 1:1s and OKR coaching; HR owns systems, surveys, policies, and dashboard; CEO owns town hall and comp decisions.
 
 ---
@@ -495,7 +499,7 @@ Recurring activities every month: **pulse survey**, **digest** (×2), **manager 
 
 For HR systems to work in production:
 
-- [ ] All SQL migrations applied (through `20260709_hr_audit_round4.sql`)
+- [ ] All SQL migrations applied (through `20260711_assignment_based_management.sql`)
 - [ ] `.env`: `VITE_USE_SUPABASE_AUTH=true`, `VITE_USE_SUPABASE_DATA=true`
 - [ ] Edge Functions deployed (invite, request-access, admin-patch-profile)
 - [ ] Supabase Auth URLs set for production domain

@@ -16,6 +16,8 @@ import { Badge } from '@/components/ui/Badge'
 import { notifySuccess } from '@/lib/notify'
 import { labelForConfigId } from '@/lib/portalConfig'
 import { isHR, isLead, uid } from '@/utils/helpers'
+import { managedReportIds } from '@/utils/hrMetrics'
+import { managesPeople, resolveReportsTo } from '@/lib/orgStructure'
 import {
   type FeedbackRelationship,
   type Okr,
@@ -41,7 +43,7 @@ function tabFromParams(params: URLSearchParams): GrowthTab {
 
 export function PeopleGrowthPage() {
   const { user } = useAuth()
-  const { users, grievanceCategories, awardCategories } = useData()
+  const { users, teams, departments, grievanceCategories, awardCategories } = useData()
   const [searchParams, setSearchParams] = useSearchParams()
   const tab = tabFromParams(searchParams)
   const setTab = (next: GrowthTab) => setSearchParams({ tab: next }, { replace: true })
@@ -101,8 +103,16 @@ export function PeopleGrowthPage() {
     [grievances, user],
   )
   const openCycle = feedbackCycles.find((c) => c.status === 'open')
-  const reports = useMemo(() => users.filter((u) => u.active && u.reportsToId === user?.id), [users, user])
-  const manager = useMemo(() => users.find((u) => u.id === user?.reportsToId), [users, user?.reportsToId])
+  const reports = useMemo(() => {
+    if (!user) return []
+    const ids = managedReportIds(user, users, teams, departments)
+    return users.filter((u) => ids.has(u.id))
+  }, [users, teams, departments, user])
+  const canManagePeople = !!user && (isLead(user) || managesPeople(user, teams, departments))
+  const manager = useMemo(
+    () => (user ? resolveReportsTo(user, users, departments) : undefined),
+    [user, users, departments],
+  )
 
   const feedbackTasks = useMemo(() => {
     if (!user || !openCycle) return []
@@ -126,11 +136,11 @@ export function PeopleGrowthPage() {
   }, [user, openCycle, feedbackAssignments, feedbackEntries, users])
 
   const reportOkrs = useMemo(() => {
-    if (!user || !isLead(user)) return []
+    if (!user || !canManagePeople) return []
     return reports.flatMap((r) =>
       okrs.filter((o) => o.userId === r.id && o.year === year).map((o) => ({ okr: o, report: r })),
     )
-  }, [user, reports, okrs, year])
+  }, [user, canManagePeople, reports, okrs, year])
 
   if (!user) return null
 
@@ -315,7 +325,7 @@ export function PeopleGrowthPage() {
               <h3 className="text-sm font-semibold text-fg">Team 1:1 tracker</h3>
             </div>
             <p className="text-sm text-muted">Hold your 1:1 in Google Meet with a shared Doc — then mark complete here.</p>
-            {isLead(user) && reports.length > 0 ? (
+            {canManagePeople && reports.length > 0 ? (
               <ul className="mt-4 space-y-2">
                 {reports.map((r) => {
                   const done = oneOnOneLogs.some(
@@ -333,7 +343,7 @@ export function PeopleGrowthPage() {
               </ul>
             ) : (
               <p className="mt-4 text-sm text-muted">
-                {isLead(user) ? 'No direct reports assigned yet.' : 'Your manager will mark 1:1s for their team.'}
+                {canManagePeople ? 'No direct reports assigned yet.' : 'Your manager will mark 1:1s for their team.'}
               </p>
             )}
           </Card>

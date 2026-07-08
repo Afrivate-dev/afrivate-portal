@@ -24,6 +24,10 @@ export function HrKpiExport({ metrics }: { metrics: HrMetrics }) {
       ['Avg time-to-hire (days)', formatMetric(metrics.avgTimeToHireDays)],
       ['Policy ack rate', formatMetric(metrics.policyAckRate, '%')],
       ['Survey completion rate', formatMetric(metrics.surveyCompletionRate, '%')],
+      ['OKR achievement', formatMetric(metrics.okrAchievement, '%')],
+      ['Recognition volume (this month)', String(metrics.recognitionVolume)],
+      ['Values alignment (360°, 0–10)', formatMetric(metrics.valuesAlignment)],
+      ['Onboarding satisfaction (0–10)', formatMetric(metrics.onboardingSatisfaction)],
     ]
     const csv = rows.map((r) => r.map((c) => `"${c.replace(/"/g, '""')}"`).join(',')).join('\n')
     const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' })

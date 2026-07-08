@@ -13,6 +13,19 @@ export function teamsLedBy(user: User, teams: WorkspaceTeam[]): WorkspaceTeam[] 
   return teams.filter((t) => t.leadUserId === user.id || t.asstLeadUserId === user.id)
 }
 
+/**
+ * Whether a user leads people by assignment — leads/co-leads a team or heads a
+ * department. Independent of portal role, so an admin can also be a team lead.
+ */
+export function managesPeople(
+  user: User | null | undefined,
+  teams: WorkspaceTeam[],
+  departments: Department[],
+): boolean {
+  if (!user) return false
+  return teamsLedBy(user, teams).length > 0 || departmentsHeadedBy(user, departments).length > 0
+}
+
 export function userTeamMemberships(userId: string, teams: WorkspaceTeam[]): WorkspaceTeam[] {
   return teams.filter((t) => t.memberIds.includes(userId))
 }

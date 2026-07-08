@@ -24,6 +24,8 @@ import { Avatar } from '@/components/ui/Avatar'
 import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns, isHR } from '@/utils/helpers'
+import { managedReportIds } from '@/utils/hrMetrics'
+import { managesPeople } from '@/lib/orgStructure'
 import { departmentSelectOptions } from '@/lib/departments'
 import type { User, WeeklyCheckIn } from '@/types'
 
@@ -56,13 +58,18 @@ const formFromCheckIn = (c: WeeklyCheckIn): FormState => ({
 export function WeeklyCheckInPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { checkIns, users, submitCheckIn, updateCheckIn, departments: orgDepartments } = useData()
+  const { checkIns, users, teams, submitCheckIn, updateCheckIn, departments: orgDepartments } = useData()
   const [tab, setTab] = useState<Tab>('this-week')
   const [form, setForm] = useState<FormState>(emptyForm)
   const [editing, setEditing] = useState(false)
   const [departmentFilter, setDepartmentFilter] = useState<string>('all')
 
-  const canSeeTeam = isLead(user)
+  const canSeeTeam = isLead(user) || managesPeople(user, teams, orgDepartments)
+
+  const managedIds = useMemo(
+    () => (user ? managedReportIds(user, users, teams, orgDepartments) : new Set<string>()),
+    [user, users, teams, orgDepartments],
+  )
 
   const currentWeekStart = useMemo(
     () => startOfWeek(new Date(), { weekStartsOn: 1 }).toISOString(),
@@ -94,6 +101,7 @@ export function WeeklyCheckInPage() {
       if (canViewAllCheckIns(user)) return true
       if (c.visibility === 'all' && isHR(user)) return true
       if (c.visibility === 'all' && !canViewAllCheckIns(user)) return false
+      if (managedIds.has(c.userId)) return true
       const author = users.find((x) => x.id === c.userId)
       return author?.department === user.department
     })
@@ -102,7 +110,7 @@ export function WeeklyCheckInPage() {
       const u = users.find((x) => x.id === c.userId)
       return u?.department === departmentFilter
     })
-  }, [checkIns, currentWeekStart, canSeeTeam, departmentFilter, users, user])
+  }, [checkIns, currentWeekStart, canSeeTeam, departmentFilter, users, user, managedIds])
 
   const departmentFilterOptions = useMemo(
     () => departmentSelectOptions(orgDepartments, users, true),

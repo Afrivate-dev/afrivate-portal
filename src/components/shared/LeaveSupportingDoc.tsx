@@ -11,16 +11,18 @@ import type { LeaveRequest, User } from '@/types'
 export function LeaveSupportingDoc({
   request,
   viewer,
+  managedIds,
 }: {
   request: LeaveRequest
   viewer: User
+  managedIds?: Set<string>
 }) {
   const [previewUrl, setPreviewUrl] = useState<string | null>(null)
   const [open, setOpen] = useState(false)
   const [loading, setLoading] = useState(false)
 
   if (!request.supportingDocName && !request.supportingDocPath) return null
-  if (!canViewLeaveSupportingDoc(viewer, request)) return null
+  if (!canViewLeaveSupportingDoc(viewer, request, managedIds)) return null
 
   const openPreview = async () => {
     if (!request.supportingDocPath) {

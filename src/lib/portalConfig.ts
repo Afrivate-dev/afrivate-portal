@@ -168,4 +168,16 @@ export const DEFAULT_PULSE_SURVEY_TEMPLATES: PulseSurveyTemplate[] = [
       { id: 'why', text: 'What is the main reason for your score? (optional)', type: 'text' },
     ],
   },
+  {
+    id: 'tpl_onboarding_satisfaction',
+    label: 'Onboarding satisfaction',
+    surveyType: 'onboarding',
+    description: 'For new joiners — how was your first-weeks experience at AfriVate?',
+    questions: [
+      { id: 'welcome', text: 'How welcomed did you feel? (1–10)', type: 'scale', min: 1, max: 10 },
+      { id: 'clarity', text: 'How clear were your role and first tasks? (1–10)', type: 'scale', min: 1, max: 10 },
+      { id: 'support', text: 'How well-supported were you by your manager and team? (1–10)', type: 'scale', min: 1, max: 10 },
+      { id: 'note', text: 'Anything we could improve about onboarding? (optional)', type: 'text' },
+    ],
+  },
 ]

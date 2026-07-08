@@ -30,7 +30,8 @@ import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { userSeesAnnouncement, userCanSeeTask, isHR, isLead } from '@/utils/helpers'
-import { directReportIds } from '@/utils/hrMetrics'
+import { managesPeople } from '@/lib/orgStructure'
+import { managedReportIds } from '@/utils/hrMetrics'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { labelForConfigId } from '@/lib/portalConfig'
 import { canUserViewNote } from '@/utils/noteModel'
@@ -40,7 +41,7 @@ const S = pages.search
 
 export function SearchPage() {
   const { user } = useAuth()
-  const { users, teams, announcements, tasks, documents, events, leaveRequests, recognition, awardCategories, grievanceCategories, exitReasons } = useData()
+  const { users, teams, departments, announcements, tasks, documents, events, leaveRequests, recognition, awardCategories, grievanceCategories, exitReasons } = useData()
   const { notes } = useCollab()
   const { pulseSurveys, okrs, learningAssignments, idps, jobRequisitions, grievances, quarterlyAwards, feedbackCycles, jobCandidates, exitInterviews } = useHr()
   const [params, setParams] = useSearchParams()
@@ -81,13 +82,14 @@ export function SearchPage() {
 
   const documentHits = useMemo(() => {
     if (!user || !q) return []
+    const canSeeManagementDocs = isLead(user) || managesPeople(user, teams, departments)
     return documents.filter((d) => {
-      if (d.hrOnly && user.role !== 'hr' && user.role !== 'admin') return false
-      if (d.managementOnly && user.role === 'staff') return false
+      if (d.hrOnly && !isHR(user)) return false
+      if (d.managementOnly && !canSeeManagementDocs) return false
       const hay = `${d.title} ${d.description ?? ''} ${d.fileName}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [documents, user, q])
+  }, [documents, user, teams, departments, q])
 
   const noteHits = useMemo(() => {
     if (!user || !q) return []
@@ -110,7 +112,7 @@ export function SearchPage() {
 
   const leaveHits = useMemo(() => {
     if (!user || !q) return []
-    const managed = leaveRequestsForManager(leaveRequests, user, users)
+    const managed = leaveRequestsForManager(leaveRequests, user, users, teams, departments)
     const own = leaveRequests.filter((l) => l.userId === user.id)
     const visible = new Map<string, typeof leaveRequests[0]>()
     for (const l of managed) visible.set(l.id, l)
@@ -120,7 +122,7 @@ export function SearchPage() {
       const hay = `${l.reason ?? ''} ${l.type} ${requester?.name ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [leaveRequests, users, user, q])
+  }, [leaveRequests, users, teams, departments, user, q])
 
   const recognitionHits = useMemo(() => {
     if (!user || !q) return []
@@ -142,15 +144,15 @@ export function SearchPage() {
 
   const okrHits = useMemo(() => {
     if (!user || !q) return []
-    const reportIds = isLead(user) && !isHR(user) ? directReportIds(users, user.id) : null
+    const reportIds = !isHR(user) ? managedReportIds(user, users, teams, departments) : null
     return okrs.filter((o) => {
-      if (user.role === 'staff' && o.userId !== user.id) return false
+      // HR/admin see all; everyone else sees their own plus anyone they manage.
       if (reportIds && o.userId !== user.id && !reportIds.has(o.userId)) return false
       const krs = o.keyResults.map((kr) => kr.text).join(' ')
       const hay = `${o.objective} ${krs}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [okrs, user, users, q])
+  }, [okrs, user, users, teams, departments, q])
 
   const learningHits = useMemo(() => {
     if (!user || !q) return []
@@ -162,13 +164,13 @@ export function SearchPage() {
 
   const idpHits = useMemo(() => {
     if (!user || !q) return []
-    const reportIds = isLead(user) && !isHR(user) ? directReportIds(users, user.id) : null
+    const reportIds = !isHR(user) ? managedReportIds(user, users, teams, departments) : null
     return idps.filter((i) => {
-      if (user.role === 'staff' && i.userId !== user.id) return false
+      // HR/admin see all; everyone else sees their own plus anyone they manage.
       if (reportIds && i.userId !== user.id && !reportIds.has(i.userId)) return false
       return i.content.toLowerCase().includes(q)
     })
-  }, [idps, user, users, q])
+  }, [idps, user, users, teams, departments, q])
 
   const jobHits = useMemo(() => {
     if (!user || !q) return []

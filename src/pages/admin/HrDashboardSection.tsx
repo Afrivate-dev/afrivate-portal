@@ -24,6 +24,7 @@ import { FeedbackAssignmentPanel } from '@/components/admin/FeedbackAssignmentPa
 import { PolicyAcknowledgmentPanel } from '@/components/admin/PolicyAcknowledgmentPanel'
 import { HrKpiExport } from '@/components/admin/HrKpiExport'
 import { PulseSurveyTemplateManager } from '@/components/admin/PulseSurveyTemplateManager'
+import { HrOperatingRhythmCard } from '@/components/admin/HrOperatingRhythmCard'
 import { PortalLabelsSection } from '@/pages/admin/PortalLabelsSection'
 import { Badge } from '@/components/ui/Badge'
 import { useState } from 'react'
@@ -95,19 +96,25 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
 
       <div className="av-stat-grid">
         <StatCard label="Headcount" value={String(metrics.headcount)} />
-        <StatCard label="Engagement" value={metrics.engagementScore?.toFixed(1) ?? '—'} />
-        <StatCard label="eNPS" value={metrics.enpsScore != null ? String(metrics.enpsScore) : '—'} />
-        <StatCard label="L&D completion" value={metrics.ldCompletionRate != null ? `${metrics.ldCompletionRate}%` : '—'} />
-        <StatCard label="1:1 rate" value={metrics.oneOnOneRate != null ? `${metrics.oneOnOneRate}%` : '—'} />
+        <StatCard label="Engagement" value={metrics.engagementScore?.toFixed(1) ?? '—'} hint="Target 7.5+" />
+        <StatCard label="eNPS" value={metrics.enpsScore != null ? String(metrics.enpsScore) : '—'} hint="Target 30+" />
+        <StatCard label="L&D completion" value={metrics.ldCompletionRate != null ? `${metrics.ldCompletionRate}%` : '—'} hint="Target 70–85%" />
+        <StatCard label="1:1 rate" value={metrics.oneOnOneRate != null ? `${metrics.oneOnOneRate}%` : '—'} hint="Target 90%" />
         <StatCard label="Pending leave" value={String(metrics.pendingLeave)} />
         <StatCard label="Open grievances" value={String(metrics.openGrievances)} />
         <StatCard label="Learning reviews" value={String(metrics.pendingLearningReviews)} />
         <StatCard label="Active surveys" value={String(metrics.activeSurveys)} />
-        <StatCard label="Attrition (12 mo)" value={metrics.attritionRate != null ? `${metrics.attritionRate}%` : '—'} />
-        <StatCard label="Time-to-hire" value={metrics.avgTimeToHireDays != null ? `${metrics.avgTimeToHireDays}d` : '—'} />
-        <StatCard label="Policy ack rate" value={metrics.policyAckRate != null ? `${metrics.policyAckRate}%` : '—'} />
-        <StatCard label="Survey completion" value={metrics.surveyCompletionRate != null ? `${metrics.surveyCompletionRate}%` : '—'} />
+        <StatCard label="Attrition (12 mo)" value={metrics.attritionRate != null ? `${metrics.attritionRate}%` : '—'} hint="Target <15%" />
+        <StatCard label="Time-to-hire" value={metrics.avgTimeToHireDays != null ? `${metrics.avgTimeToHireDays}d` : '—'} hint="Target <30d" />
+        <StatCard label="Policy ack rate" value={metrics.policyAckRate != null ? `${metrics.policyAckRate}%` : '—'} hint="Target 100% in 30d" />
+        <StatCard label="Survey completion" value={metrics.surveyCompletionRate != null ? `${metrics.surveyCompletionRate}%` : '—'} hint="Target >70%" />
+        <StatCard label="OKR achievement" value={metrics.okrAchievement != null ? `${metrics.okrAchievement}%` : '—'} hint="Target 65–70%" />
+        <StatCard label="Recognition (mo)" value={String(metrics.recognitionVolume)} hint="Target 3+/mo" />
+        <StatCard label="Values alignment" value={metrics.valuesAlignment != null ? metrics.valuesAlignment.toFixed(1) : '—'} hint="Target 7+" />
+        <StatCard label="Onboarding CSAT" value={metrics.onboardingSatisfaction != null ? metrics.onboardingSatisfaction.toFixed(1) : '—'} hint="Target 8+" />
       </div>
+
+      <HrOperatingRhythmCard />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card padding="md">

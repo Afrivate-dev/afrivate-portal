@@ -1,15 +1,17 @@
 import type { HrMetrics } from '@/context/hrContextShared'
 import type {
   ExitInterview,
+  FeedbackEntry,
   Grievance,
   JobCandidate,
   LearningAssignment,
   LearningSubmission,
+  Okr,
   OneOnOneLog,
   PulseResponse,
   PulseSurvey,
 } from '@/types/hr'
-import type { DocumentItem, LeaveRequest, User } from '@/types'
+import type { Department, DocumentItem, LeaveRequest, RecognitionPost, User, WorkspaceTeam } from '@/types'
 import { computeEnps, computePulseEngagement, extractEnpsScores, isSurveyOpen } from '@/utils/hrSurvey'
 
 export type HrMetricsOptions = {
@@ -30,10 +32,55 @@ export type HrMetricsInput = {
   jobCandidates: JobCandidate[]
   documents: DocumentItem[]
   documentAcknowledgments: { userId: string; documentId: string }[]
+  okrs: Okr[]
+  feedbackEntries: FeedbackEntry[]
+  recognition: RecognitionPost[]
 }
 
 export function directReportIds(users: User[], managerId: string): Set<string> {
   return new Set(users.filter((u) => u.active && u.reportsToId === managerId).map((u) => u.id))
+}
+
+/**
+ * Everyone a user manages — regardless of their portal role. Combines:
+ *   1. Direct reports (reports_to)
+ *   2. Members of teams they lead (team lead or assistant lead)
+ *   3. Members of departments they head
+ *
+ * This makes leadership assignment-based, so an admin (or any role) assigned as
+ * a team lead / department head gets the matching management scope.
+ */
+export function managedReportIds(
+  user: User,
+  users: User[],
+  teams: WorkspaceTeam[],
+  departments: Department[],
+): Set<string> {
+  const ids = new Set<string>()
+  const activeIds = new Set(users.filter((u) => u.active).map((u) => u.id))
+
+  for (const u of users) {
+    if (u.active && u.id !== user.id && u.reportsToId === user.id) ids.add(u.id)
+  }
+
+  for (const t of teams) {
+    if (t.leadUserId === user.id || t.asstLeadUserId === user.id) {
+      for (const memberId of t.memberIds) {
+        if (memberId !== user.id && activeIds.has(memberId)) ids.add(memberId)
+      }
+    }
+  }
+
+  const headedDeptNames = new Set(
+    departments.filter((d) => d.headUserId === user.id).map((d) => d.name),
+  )
+  if (headedDeptNames.size > 0) {
+    for (const u of users) {
+      if (u.active && u.id !== user.id && headedDeptNames.has(u.department)) ids.add(u.id)
+    }
+  }
+
+  return ids
 }
 
 export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptions): HrMetrics {
@@ -50,6 +97,9 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     jobCandidates,
     documents,
     documentAcknowledgments,
+    okrs,
+    feedbackEntries,
+    recognition,
   } = input
 
   const memberIds = options?.memberIds
@@ -66,6 +116,9 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
   const enpsSurveyIds = new Set(
     pulseSurveys.filter((s) => s.surveyType === 'enps').map((s) => s.id),
   )
+  const onboardingSurveyIds = new Set(
+    pulseSurveys.filter((s) => s.surveyType === 'onboarding').map((s) => s.id),
+  )
 
   const scopedPulseResponses = memberIds
     ? pulseResponses.filter((r) => scopedUserIds.has(r.userId))
@@ -73,6 +126,10 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
 
   const pulseOnlyResponses = scopedPulseResponses.filter((r) => pulseSurveyIds.has(r.surveyId))
   const enpsResponses = scopedPulseResponses.filter((r) => enpsSurveyIds.has(r.surveyId))
+  const onboardingResponses = scopedPulseResponses.filter((r) =>
+    onboardingSurveyIds.has(r.surveyId),
+  )
+  const onboardingSatisfaction = computePulseEngagement(onboardingResponses)
 
   const engagementScore =
     options?.pulseOverrides?.engagementScore ?? computePulseEngagement(pulseOnlyResponses)
@@ -160,6 +217,34 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     avgTimeToHireDays = Math.round(totalDays / hired.length)
   }
 
+  const now = new Date()
+  const currentYear = now.getFullYear()
+  const currentQuarter = `Q${Math.floor(now.getMonth() / 3) + 1}` as Okr['quarter']
+  const currentMonthPrefix = now.toISOString().slice(0, 7)
+
+  const currentOkrKrs = okrs
+    .filter(
+      (o) =>
+        scopedUserIds.has(o.userId) && o.year === currentYear && o.quarter === currentQuarter,
+    )
+    .flatMap((o) => o.keyResults)
+  const okrAchievement =
+    currentOkrKrs.length > 0
+      ? Math.round(
+          currentOkrKrs.reduce((sum, kr) => sum + (kr.progress ?? 0), 0) / currentOkrKrs.length,
+        )
+      : null
+
+  const recognitionVolume = recognition.filter(
+    (r) =>
+      r.createdAt.slice(0, 7) === currentMonthPrefix &&
+      (scopedUserIds.has(r.receiverId) || scopedUserIds.has(r.giverId)),
+  ).length
+
+  const valuesAlignment = computePulseEngagement(
+    feedbackEntries.filter((e) => scopedUserIds.has(e.subjectUserId)),
+  )
+
   return {
     engagementScore,
     enpsScore,
@@ -174,5 +259,9 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     avgTimeToHireDays,
     policyAckRate,
     surveyCompletionRate,
+    okrAchievement,
+    recognitionVolume,
+    valuesAlignment,
+    onboardingSatisfaction,
   }
 }

@@ -1,14 +1,20 @@
-import type { LeaveRequest, User } from '@/types'
+import type { Department, LeaveRequest, User, WorkspaceTeam } from '@/types'
 import { isHR } from '@/utils/helpers'
-import { directReportIds } from '@/utils/hrMetrics'
+import { managedReportIds } from '@/utils/hrMetrics'
 
-/** Leave requests a manager may review — HR/admin see all; leads see direct reports only. */
+/**
+ * Leave requests a manager may review — HR/admin see all; anyone who manages
+ * people (direct reports, a team they lead, or a department they head) sees
+ * their managed people's requests.
+ */
 export function leaveRequestsForManager(
   leaveRequests: LeaveRequest[],
   viewer: User,
   users: User[],
+  teams: WorkspaceTeam[],
+  departments: Department[],
 ): LeaveRequest[] {
   if (isHR(viewer)) return leaveRequests
-  const reportIds = directReportIds(users, viewer.id)
+  const reportIds = managedReportIds(viewer, users, teams, departments)
   return leaveRequests.filter((l) => reportIds.has(l.userId))
 }
