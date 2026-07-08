@@ -34,11 +34,11 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
           id={inputId}
           className={cn(
             'w-full rounded-md border bg-surface text-fg placeholder:text-muted',
-            'h-11 min-h-[44px] px-3 text-sm sm:px-3.5',
+            'h-11 min-h-[44px] text-sm',
             'transition-colors ring-focus',
             'disabled:cursor-not-allowed disabled:opacity-60',
-            leadingIcon && 'pl-10',
-            trailingNode && 'pr-10',
+            leadingIcon ? 'pl-10' : 'pl-3 sm:pl-3.5',
+            trailingNode ? 'pr-10' : 'pr-3 sm:pr-3.5',
             error
               ? 'border-danger focus:border-danger'
               : 'border-border focus:border-accent',
