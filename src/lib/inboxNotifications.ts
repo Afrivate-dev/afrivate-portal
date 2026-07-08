@@ -96,9 +96,12 @@ export function isInboxNotificationType(value: string): value is InboxNotificati
   return KNOWN_TYPES.has(value)
 }
 
-/** Label/icon for any stored type string — never throws. */
-export function getInboxTypeMeta(type: string): InboxTypeMeta {
-  if (isInboxNotificationType(type)) return INBOX_TYPE_META[type]
+/** Label/icon for any stored type string — never throws, never returns undefined. */
+export function getInboxTypeMeta(type: string | null | undefined): InboxTypeMeta {
+  const key = String(type ?? '').trim()
+  if (key && isInboxNotificationType(key)) {
+    return INBOX_TYPE_META[key]
+  }
   return FALLBACK_TYPE_META
 }
 

@@ -17,6 +17,13 @@ import type { InboxNotification } from '@/types'
 
 const I = pages.inbox
 
+/** Last-resort meta if anything in the notification pipeline is malformed. */
+const INBOX_FALLBACK_META = {
+  icon: InboxIcon,
+  label: 'Notification',
+  iconClass: 'text-muted',
+} as const
+
 export function InboxPage() {
   const { user } = useAuth()
   const { inbox, markInboxRead, markAllInboxRead, users } = useData()
@@ -26,7 +33,7 @@ export function InboxPage() {
   const mine = useMemo(() => {
     if (!user) return []
     return [...inbox]
-      .filter((n) => n.userId === user.id)
+      .filter((n) => n?.id && n.userId === user.id)
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
   }, [inbox, user])
 
@@ -65,10 +72,10 @@ export function InboxPage() {
       ) : (
         <ul className="space-y-2">
           {mine.map((n) => {
-            const meta = getInboxTypeMeta(n.type)
-            const Icon = meta.icon
+            const meta = getInboxTypeMeta(n?.type) ?? INBOX_FALLBACK_META
+            const Icon = meta.icon ?? InboxIcon
             const from = n.fromUserId ? users.find((u) => u.id === n.fromUserId) : undefined
-            const title = n.title?.trim() || meta.label
+            const title = n.title?.trim() || meta.label || 'Notification'
             return (
               <li key={n.id}>
                 <Card padding="md" className={cn(!n.read && 'border-accent/30 bg-accent/[0.03]')}>
