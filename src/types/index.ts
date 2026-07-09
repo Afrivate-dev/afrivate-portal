@@ -216,6 +216,7 @@ export interface RecognitionComment {
   createdAt: string
 }
 
+/** In-app notification categories — keep in sync with `INBOX_NOTIFICATION_TYPES` in `@/lib/inboxNotifications`. */
 export type InboxNotificationType =
   | 'recognition'
   | 'task_mention'
@@ -226,12 +227,14 @@ export type InboxNotificationType =
   | 'leave_update'
   | 'leave_comment'
   | 'recognition_comment'
+  | 'survey_reminder'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {
   id: string
   userId: string
-  type: InboxNotificationType
+  /** Known types are listed in `InboxNotificationType`; DB may contain legacy values. */
+  type: InboxNotificationType | string
   title: string
   body?: string
   link: string

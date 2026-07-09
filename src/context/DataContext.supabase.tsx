@@ -11,6 +11,7 @@ import { rpcAssignUserToDepartment, rpcSetTeamMember } from '@/lib/orgAssignment
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { patchPortalProfile } from '@/lib/patchPortalProfile'
+import { isInboxNotificationType } from '@/lib/inboxNotifications'
 import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
@@ -312,6 +313,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const sendInboxNotifications = useCallback<DataContextValue['sendInboxNotifications']>(
     (rows) => {
       if (!rows.length) return
+      for (const row of rows) {
+        if (!isInboxNotificationType(row.type)) {
+          console.warn(`[inbox] Unknown notification type "${row.type}" — UI will use generic styling`)
+        }
+      }
       const full: InboxNotification[] = rows.map((r) => ({ ...r, read: false }))
       setInbox((prev) => [...full, ...prev])
       void queueInboxInsert(full)

@@ -1,134 +1,28 @@
-import { useMemo, useState } from 'react'
-import { BarChart3 } from 'lucide-react'
+import { useMemo } from 'react'
+import { Link } from 'react-router-dom'
+import { BarChart3, ChevronRight } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Textarea } from '@/components/ui/Textarea'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Badge } from '@/components/ui/Badge'
-import { notifyError, notifySuccess } from '@/lib/notify'
 import { isSurveyOpen } from '@/utils/hrSurvey'
-import type { PulseQuestion, PulseSurvey, PulseSurveyType } from '@/types/hr'
-
-const SURVEY_TYPE_LABEL: Record<PulseSurveyType, string> = {
-  pulse: 'Pulse',
-  enps: 'eNPS',
-  onboarding: 'Onboarding',
-}
-
-function ScaleInput({
-  q,
-  value,
-  onChange,
-}: {
-  q: PulseQuestion
-  value: number | undefined
-  onChange: (v: number) => void
-}) {
-  const min = q.min ?? 1
-  const max = q.max ?? 10
-  return (
-    <div className="flex flex-wrap gap-2">
-      {Array.from({ length: max - min + 1 }, (_, i) => min + i).map((n) => (
-        <button
-          key={n}
-          type="button"
-          onClick={() => onChange(n)}
-          className={`h-10 w-10 rounded-md text-sm font-semibold ring-focus ${
-            value === n ? 'bg-accent text-white' : 'border border-border bg-surface hover:bg-surface-2'
-          }`}
-        >
-          {n}
-        </button>
-      ))}
-    </div>
-  )
-}
-
-function validateAnswers(questions: PulseQuestion[], answers: Record<string, string | number>): boolean {
-  return questions
-    .filter((q) => q.type === 'scale')
-    .every((q) => typeof answers[q.id] === 'number')
-}
-
-function SurveyCard({
-  survey,
-  alreadyDone,
-  onSubmit,
-}: {
-  survey: PulseSurvey
-  alreadyDone: boolean
-  onSubmit: (answers: Record<string, string | number>) => void
-}) {
-  const [answers, setAnswers] = useState<Record<string, string | number>>({})
-
-  if (alreadyDone) {
-    return (
-      <Card padding="md">
-        <div className="mb-1 text-xs font-semibold uppercase tracking-wide text-muted">
-          {SURVEY_TYPE_LABEL[survey.surveyType]}
-        </div>
-        <h2 className="text-lg font-semibold text-fg">{survey.title}</h2>
-        <p className="mt-2 text-sm text-muted">Thanks — you already submitted a response for this survey.</p>
-      </Card>
-    )
-  }
-
-  const submit = () => {
-    if (!validateAnswers(survey.questions, answers)) {
-      notifyError('Please answer all required questions before submitting.')
-      return
-    }
-    onSubmit(answers)
-    setAnswers({})
-  }
-
-  return (
-    <Card padding="md">
-      <div className="mb-1 flex items-center gap-2">
-        <Badge tone={survey.surveyType === 'enps' ? 'brand' : survey.surveyType === 'onboarding' ? 'info' : 'muted'}>
-          {SURVEY_TYPE_LABEL[survey.surveyType]}
-        </Badge>
-      </div>
-      <h2 className="text-lg font-semibold text-fg">{survey.title}</h2>
-      {survey.description ? <p className="mt-1 text-sm text-muted">{survey.description}</p> : null}
-      <div className="mt-6 space-y-6">
-        {survey.questions.map((q) => (
-          <div key={q.id}>
-            <p className="text-sm font-medium text-fg">{q.text}</p>
-            {q.type === 'scale' ? (
-              <div className="mt-2">
-                <ScaleInput
-                  q={q}
-                  value={typeof answers[q.id] === 'number' ? (answers[q.id] as number) : undefined}
-                  onChange={(v) => setAnswers((prev) => ({ ...prev, [q.id]: v }))}
-                />
-              </div>
-            ) : (
-              <Textarea
-                className="mt-2"
-                rows={3}
-                value={typeof answers[q.id] === 'string' ? answers[q.id] : ''}
-                onChange={(e) => setAnswers((prev) => ({ ...prev, [q.id]: e.target.value }))}
-                placeholder="Optional"
-              />
-            )}
-          </div>
-        ))}
-        <Button onClick={submit}>Submit response</Button>
-      </div>
-    </Card>
-  )
-}
+import {
+  SURVEY_TYPE_LABEL,
+  surveyTypeBadgeTone,
+  surveyWindowLabel,
+} from '@/pages/people/surveyShared'
 
 export function PeopleSurveysPage() {
   const { user } = useAuth()
-  const { pulseSurveys, pulseResponses, submitPulseResponse } = useHr()
+  const { pulseSurveys, pulseResponses } = useHr()
 
   const openSurveys = useMemo(
-    () => pulseSurveys.filter((s) => isSurveyOpen(s)),
+    () =>
+      pulseSurveys
+        .filter((s) => isSurveyOpen(s))
+        .sort((a, b) => (a.createdAt > b.createdAt ? -1 : 1)),
     [pulseSurveys],
   )
 
@@ -141,34 +35,63 @@ export function PeopleSurveysPage() {
 
   if (!user) return null
 
-  const handleSubmit = (surveyId: string, answers: Record<string, string | number>) => {
-    submitPulseResponse(surveyId, user.id, answers)
-    notifySuccess('Thank you — your response was recorded.')
-  }
-
   return (
     <div className="space-y-6">
       <PageHeader
         title="Surveys"
-        description="Monthly pulse checks and quarterly eNPS. Individual responses are visible to HR only. Managers see team-level aggregates on People overview; HR sees full results in the workspace admin dashboard."
+        description="Monthly pulse checks, quarterly eNPS, and onboarding feedback. Open a survey to respond on its own page — each submission is stored individually and feeds HR dashboard metrics."
       />
 
       {openSurveys.length > 0 ? (
-        <div className="space-y-4">
-          {openSurveys.map((survey) => (
-            <SurveyCard
-              key={survey.id}
-              survey={survey}
-              alreadyDone={completedSurveyIds.has(survey.id)}
-              onSubmit={(answers) => handleSubmit(survey.id, answers)}
-            />
-          ))}
-        </div>
+        <ul className="space-y-3">
+          {openSurveys.map((survey) => {
+            const done = completedSurveyIds.has(survey.id)
+            const windowLabel = surveyWindowLabel(survey)
+            return (
+              <li key={survey.id}>
+                <Card padding="md">
+                  <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+                    <div className="min-w-0 flex-1">
+                      <div className="mb-2 flex flex-wrap items-center gap-2">
+                        <Badge tone={surveyTypeBadgeTone(survey.surveyType)}>
+                          {SURVEY_TYPE_LABEL[survey.surveyType]}
+                        </Badge>
+                        {done ? (
+                          <Badge tone="success">Completed</Badge>
+                        ) : (
+                          <Badge tone="warning">Awaiting your response</Badge>
+                        )}
+                      </div>
+                      <h2 className="text-lg font-semibold text-fg">{survey.title}</h2>
+                      {survey.description ? (
+                        <p className="mt-1 line-clamp-2 text-sm text-muted">{survey.description}</p>
+                      ) : null}
+                      {windowLabel ? (
+                        <p className="mt-2 text-xs text-muted">{windowLabel}</p>
+                      ) : null}
+                    </div>
+                    <Link
+                      to={`/people/surveys/${survey.id}`}
+                      className={`inline-flex h-11 w-full shrink-0 items-center justify-center gap-2 rounded-md px-5 text-sm font-medium ring-focus transition-all sm:w-auto ${
+                        done
+                          ? 'border border-border bg-surface-2 text-fg hover:bg-surface-3'
+                          : 'bg-accent text-white shadow-sm hover:bg-accent-hover'
+                      }`}
+                    >
+                      {done ? 'View submission' : 'Take survey'}
+                      <ChevronRight className="h-4 w-4" />
+                    </Link>
+                  </div>
+                </Card>
+              </li>
+            )
+          })}
+        </ul>
       ) : (
         <EmptyState
           icon={BarChart3}
           title="No survey open right now"
-          description="When HR launches a pulse or eNPS survey, it will appear here."
+          description="When HR launches a pulse, eNPS, or onboarding survey, it will appear here."
         />
       )}
     </div>

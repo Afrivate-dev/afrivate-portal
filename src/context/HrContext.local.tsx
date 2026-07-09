@@ -75,17 +75,21 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const [onboardingMilestones, setOnboardingMilestones] = useLocalStorage<OnboardingMilestone[]>('av-hr-milestones', [])
   const [quarterlyAwards, setQuarterlyAwards] = useLocalStorage<QuarterlyAward[]>('av-hr-awards', [])
 
-  const submitPulseResponse = useCallback((surveyId: string, userId: string, answers: Record<string, string | number>) => {
-    setPulseResponses((prev) => {
-      const existing = prev.find((r) => r.surveyId === surveyId && r.userId === userId)
-      if (existing) {
-        return prev.map((r) =>
-          r.id === existing.id ? { ...r, answers, submittedAt: new Date().toISOString() } : r,
-        )
-      }
-      return [...prev, { id: 'pr_' + uid(), surveyId, userId, answers, submittedAt: new Date().toISOString() }]
-    })
-  }, [setPulseResponses])
+  const submitPulseResponse = useCallback(
+    async (surveyId: string, userId: string, answers: Record<string, string | number>) => {
+      setPulseResponses((prev) => {
+        const existing = prev.find((r) => r.surveyId === surveyId && r.userId === userId)
+        if (existing) {
+          return prev.map((r) =>
+            r.id === existing.id ? { ...r, answers, submittedAt: new Date().toISOString() } : r,
+          )
+        }
+        return [...prev, { id: 'pr_' + uid(), surveyId, userId, answers, submittedAt: new Date().toISOString() }]
+      })
+      return true
+    },
+    [setPulseResponses],
+  )
 
   const createPulseSurvey = useCallback((s: Omit<PulseSurvey, 'id' | 'createdAt'>) => {
     setPulseSurveys((prev) => [

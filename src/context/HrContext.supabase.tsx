@@ -160,7 +160,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   useHrPortalRealtime(user?.id, reloadHr, client)
 
   const submitPulseResponse = useCallback(
-    (surveyId: string, userId: string, answers: Record<string, string | number>) => {
+    async (surveyId: string, userId: string, answers: Record<string, string | number>) => {
       const existing = pulseResponses.find((r) => r.surveyId === surveyId && r.userId === userId)
       const id = existing?.id ?? 'pr_' + uid()
       const submittedAt = new Date().toISOString()
@@ -170,17 +170,23 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         }
         return [...prev, { id, surveyId, userId, answers, submittedAt }]
       })
-      void (async () => {
-        const { error } = await client.from('portal_pulse_responses').upsert({
+      const { error } = await client.from('portal_pulse_responses').upsert(
+        {
           id,
           survey_id: surveyId,
           user_id: userId,
           answers,
           submitted_at: submittedAt,
-        })
-        if (error) reportHrError('submit survey response', error)
+        },
+        { onConflict: 'survey_id,user_id' },
+      )
+      if (error) {
+        reportHrError('submit survey response', error)
         await reloadHr()
-      })()
+        return false
+      }
+      await reloadHr()
+      return true
     },
     [client, pulseResponses, reloadHr],
   )

@@ -51,7 +51,11 @@ export interface HrMetrics {
 export interface HrContextValue {
   pulseSurveys: PulseSurvey[]
   pulseResponses: PulseResponse[]
-  submitPulseResponse: (surveyId: string, userId: string, answers: Record<string, string | number>) => void
+  submitPulseResponse: (
+    surveyId: string,
+    userId: string,
+    answers: Record<string, string | number>,
+  ) => Promise<boolean>
   createPulseSurvey: (s: Omit<PulseSurvey, 'id' | 'createdAt'>) => void
   updatePulseSurvey: (id: string, patch: Partial<PulseSurvey>) => void
   sendPulseSurveyReminders: (surveyId: string) => Promise<number>

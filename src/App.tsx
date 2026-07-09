@@ -67,6 +67,9 @@ const PeopleLearningPage = lazy(() =>
 const PeopleSurveysPage = lazy(() =>
   import('@/pages/people/PeopleSurveysPage').then((m) => ({ default: m.PeopleSurveysPage })),
 )
+const PeopleSurveyDetailPage = lazy(() =>
+  import('@/pages/people/PeopleSurveyDetailPage').then((m) => ({ default: m.PeopleSurveyDetailPage })),
+)
 const PeopleGrowthPage = lazy(() =>
   import('@/pages/people/PeopleGrowthPage').then((m) => ({ default: m.PeopleGrowthPage })),
 )
@@ -198,6 +201,7 @@ export default function App() {
                         <Route path="shout-outs" element={<RecognitionPage />} />
                         <Route path="learning" element={<PeopleLearningPage />} />
                         <Route path="surveys" element={<PeopleSurveysPage />} />
+                        <Route path="surveys/:surveyId" element={<PeopleSurveyDetailPage />} />
                         <Route path="growth" element={<PeopleGrowthPage />} />
                         <Route path="directory" element={<StaffDirectoryPage />} />
                       </Route>
