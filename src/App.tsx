@@ -19,6 +19,7 @@ import { ResetPasswordPage } from '@/pages/ResetPassword'
 import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { DashboardPage } from '@/pages/Dashboard'
 import { isHR } from '@/utils/helpers'
+import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
 
 // Lazily-loaded page bundles — reduces initial JS payload
 const TasksPage = lazy(() => import('@/pages/Tasks').then((m) => ({ default: m.TasksPage })))
@@ -79,10 +80,21 @@ const PrivacyNoticePage = lazy(() =>
 const AccountSecurityPage = lazy(() =>
   import('@/pages/AccountSecurity').then((m) => ({ default: m.AccountSecurityPage })),
 )
+const RevivalLaunchChecklistPage = lazy(() =>
+  import('@/pages/RevivalLaunchChecklistPage').then((m) => ({
+    default: m.RevivalLaunchChecklistPage,
+  })),
+)
 
 function AdminRoute({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
   if (!isHR(user)) return <Navigate to="/" replace />
+  return <>{children}</>
+}
+
+function RevivalLaunchRoute({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
+  if (!canAccessRevivalLaunchChecklist(user)) return <Navigate to="/" replace />
   return <>{children}</>
 }
 
@@ -216,6 +228,14 @@ export default function App() {
                       <Route path="/notes" element={<NotesPage />} />
                       <Route path="/privacy" element={<PrivacyNoticePage />} />
                       <Route path="/account" element={<AccountSecurityPage />} />
+                      <Route
+                        path="/launch-checklist"
+                        element={
+                          <RevivalLaunchRoute>
+                            <RevivalLaunchChecklistPage />
+                          </RevivalLaunchRoute>
+                        }
+                      />
                       <Route
                         path="/admin"
                         element={
