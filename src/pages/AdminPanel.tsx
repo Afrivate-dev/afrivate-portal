@@ -223,6 +223,13 @@ export function AdminPanelPage() {
       setAlertMessage('Please select a department.')
       return
     }
+    const req = accessRequests.find((r) => r.userId === approvingUser.id)
+    const jobTitleToApply =
+      approvalTitle.trim() || resolveAccessJobTitle(approvingUser, req)
+    if (!jobTitleToApply.trim()) {
+      setAlertMessage('Please enter their job title before approving.')
+      return
+    }
     const ok = await confirm({
       title: confirms.approveAccountTitle,
       message: confirms.approveAccount,
@@ -231,14 +238,6 @@ export function AdminPanelPage() {
     if (!ok) return
     setApproving(true)
     const roleToApply = adminUser ? approvalRole : 'staff'
-    const req = accessRequests.find((r) => r.userId === approvingUser.id)
-    const jobTitleToApply =
-      approvalTitle.trim() || resolveAccessJobTitle(approvingUser, req)
-    if (!jobTitleToApply.trim()) {
-      setApproving(false)
-      setAlertMessage('Please enter their job title before approving.')
-      return
-    }
     const result = await approveUser(
       approvingUser.id,
       roleToApply,
@@ -1761,7 +1760,14 @@ export function AdminPanelPage() {
             <Button variant="ghost" onClick={() => setAnnDraft(null)}>
               Cancel
             </Button>
-            <Button onClick={() => void saveAnn()}>Save</Button>
+            <Button
+              onClick={() => void saveAnn()}
+              disabled={
+                !annDraft || !canPublishMemo(annDraft.title, annDraft.body, annDraft.media)
+              }
+            >
+              Save
+            </Button>
           </>
         }
       >

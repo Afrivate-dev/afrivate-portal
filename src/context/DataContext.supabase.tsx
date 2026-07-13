@@ -7,7 +7,7 @@ import { usePortalRealtime, PORTAL_CONFIG_LIVE_TABLES } from '@/hooks/usePortalR
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
-import { resolveAccessJobTitle } from '@/lib/jobTitle'
+import { resolveAccessJobTitle, isPlaceholderJobTitle } from '@/lib/jobTitle'
 import { rpcAssignUserToDepartment, rpcSetTeamMember } from '@/lib/orgAssignments'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
@@ -222,12 +222,13 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       }
       setAccessRequests(loadedAccess)
 
-      // Overlay requested job titles when profile still has the old "Staff" placeholder
+      // Overlay requested job titles only when profile still has the old "Staff" placeholder
       if (loadedAccess.length) {
         const byUser = new Map(loadedAccess.map((r) => [r.userId, r]))
         setUsers((prev) =>
           prev.map((u) => {
             const req = byUser.get(u.id)
+            if (!req || !isPlaceholderJobTitle(u.jobTitle)) return u
             const resolved = resolveAccessJobTitle(u, req)
             return resolved && resolved !== u.jobTitle ? { ...u, jobTitle: resolved } : u
           }),

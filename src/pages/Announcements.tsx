@@ -288,6 +288,11 @@ export function AnnouncementsPage() {
 
   const filtersActive = !!search.trim() || priorityFilter !== 'all' || memoFilter !== 'all' || unreadOnly
   const reading = readingId ? announcements.find((a) => a.id === readingId) ?? null : null
+  const readingBodyDoc =
+    reading && usesDocumentAsMemoBody(reading.body, reading.media)
+      ? pickMemoBodyDocument(reading.media)
+      : null
+  const readingGallery = reading ? memoGalleryMedia(reading.body, reading.media) : undefined
   const readingReaders =
     reading && multiplayerLive ? readersForUpdate(reading.id) : []
   const readingAuthor = reading ? users.find((u) => u.id === reading.postedById) : undefined
@@ -672,18 +677,11 @@ export function AnnouncementsPage() {
             {reading.body.trim() ? (
               <p className="whitespace-pre-line text-sm text-fg/90">{reading.body}</p>
             ) : null}
-            {usesDocumentAsMemoBody(reading.body, reading.media) &&
-            pickMemoBodyDocument(reading.media) ? (
-              <MemoDocumentBody
-                item={pickMemoBodyDocument(reading.media)!}
-                siblings={reading.media}
-              />
+            {readingBodyDoc ? (
+              <MemoDocumentBody item={readingBodyDoc} siblings={reading.media} />
             ) : null}
-            {memoGalleryMedia(reading.body, reading.media)?.length ? (
-              <AnnouncementMediaGallery
-                media={memoGalleryMedia(reading.body, reading.media)}
-                variant="feed"
-              />
+            {readingGallery?.length ? (
+              <AnnouncementMediaGallery media={readingGallery} variant="feed" />
             ) : null}
             {canSeeMemoReaders(reading) ? (
               <MemoReadersPanel readerIds={reading.readBy} userById={userById} />
