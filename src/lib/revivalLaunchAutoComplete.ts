@@ -2,6 +2,7 @@ import type { Announcement, DocumentItem, EventItem, RecognitionPost, User } fro
 import type { LearningAssignment, PulseSurvey } from '@/types/hr'
 import { findRevivalPersonUser } from '@/lib/revivalLaunchAccess'
 import type { RevivalAutoRule } from '@/content/revivalLaunchChecklist'
+import { REVIVAL_ALISON_COURSE } from '@/content/revivalLaunchChecklist'
 
 export interface RevivalAutoContext {
   users: User[]
@@ -13,9 +14,25 @@ export interface RevivalAutoContext {
   recognition: RecognitionPost[]
 }
 
-function docByTitleFragment(docs: DocumentItem[], fragment: string): DocumentItem | undefined {
-  const q = fragment.toLowerCase()
-  return docs.find((d) => d.title.toLowerCase().includes(q))
+const STUB_DIGEST_SNIPPET = 'Add your bi-weekly digest content here'
+
+function titleMatches(doc: DocumentItem, ...needles: string[]): boolean {
+  const t = doc.title.toLowerCase()
+  return needles.every((n) => t.includes(n.toLowerCase()))
+}
+
+function realDigestMemo(a: Announcement): boolean {
+  if (a.memoCategory !== 'digest') return false
+  const body = a.body.trim()
+  if (body.length < 80) return false
+  if (body.includes(STUB_DIGEST_SNIPPET)) return false
+  return true
+}
+
+function welcomeDigestMemo(a: Announcement): boolean {
+  if (!realDigestMemo(a)) return false
+  const hay = `${a.title}\n${a.body}`.toLowerCase()
+  return /welcome|revival|new era|day 1|launch/.test(hay)
 }
 
 function activeApprovedUsers(users: User[]): User[] {
@@ -52,31 +69,48 @@ export function evaluateRevivalAutoRule(
       return complete.length >= active.length * 0.9
     }
     case 'doc_afrivate_way': {
-      const doc = docByTitleFragment(ctx.documents, 'afrivate way')
-      return Boolean(doc?.requiresAcknowledgment)
+      const doc = ctx.documents.find(
+        (d) =>
+          (titleMatches(d, 'afrivate way') || titleMatches(d, 'afri', 'way')) &&
+          d.requiresAcknowledgment,
+      )
+      return Boolean(doc)
     }
     case 'doc_leave_policy': {
-      const doc = docByTitleFragment(ctx.documents, 'leave')
-      return Boolean(doc?.requiresAcknowledgment)
+      const doc = ctx.documents.find(
+        (d) =>
+          (titleMatches(d, 'leave policy') ||
+            (titleMatches(d, 'leave') && titleMatches(d, 'policy'))) &&
+          d.requiresAcknowledgment,
+      )
+      return Boolean(doc)
     }
+    case 'welcome_hr_digest_memo':
+      return ctx.announcements.some(welcomeDigestMemo)
     case 'hr_digest_memo':
-      return ctx.announcements.some((a) => a.memoCategory === 'digest')
+      return ctx.announcements.some(realDigestMemo)
     case 'active_pulse_survey':
-      return ctx.pulseSurveys.some((s) => s.active)
-    case 'alison_course_assigned':
-      return ctx.learningAssignments.some(
-        (a) =>
-          a.active &&
-          (a.alisonUrl.includes('alison.com') ||
-            a.title.toLowerCase().includes('business writing') ||
-            a.title.toLowerCase().includes('writing')),
-      )
+      return ctx.pulseSurveys.some((s) => s.active && s.surveyType === 'pulse')
+    case 'alison_course_assigned': {
+      const courseNeedle = REVIVAL_ALISON_COURSE.title.toLowerCase()
+      return ctx.learningAssignments.some((a) => {
+        if (!a.active) return false
+        const url = a.alisonUrl.toLowerCase()
+        const title = a.title.toLowerCase()
+        const isAlison = url.includes('alison.com')
+        const isBusinessWriting =
+          title.includes(courseNeedle) ||
+          title.includes('business writing') ||
+          url.includes('fundamentals-of-business-writing')
+        return isAlison && isBusinessWriting
+      })
+    }
     case 'town_hall_posted': {
-      const inEvents = ctx.events.some((e) => e.title.toLowerCase().includes('town hall'))
-      const inMemos = ctx.announcements.some((a) =>
-        a.title.toLowerCase().includes('town hall'),
+      const match = (s: string) => /\btown\s*hall\b/i.test(s)
+      return (
+        ctx.events.some((e) => match(e.title)) ||
+        ctx.announcements.some((a) => match(a.title))
       )
-      return inEvents || inMemos
     }
     case 'recognition_by_daniel': {
       const daniel = findRevivalPersonUser(ctx.users, 'd')

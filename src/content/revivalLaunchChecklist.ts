@@ -16,6 +16,7 @@ export type RevivalAutoRule =
   | 'staff_directory_complete'
   | 'doc_afrivate_way'
   | 'doc_leave_policy'
+  | 'welcome_hr_digest_memo'
   | 'hr_digest_memo'
   | 'active_pulse_survey'
   | 'alison_course_assigned'
@@ -172,7 +173,7 @@ export const REVIVAL_LAUNCH_UNITS: RevivalLaunchUnit[] = [
         tags: ['portal', 'time'],
         timeLabel: '~10 min',
         link: '/announcements',
-        autoRule: 'hr_digest_memo',
+        autoRule: 'welcome_hr_digest_memo',
       },
       {
         id: 'u2-t4',

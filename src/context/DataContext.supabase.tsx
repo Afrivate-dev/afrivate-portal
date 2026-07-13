@@ -12,6 +12,7 @@ import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { patchPortalProfile } from '@/lib/patchPortalProfile'
 import { isInboxNotificationType } from '@/lib/inboxNotifications'
+import { memoPublishedInboxRows } from '@/lib/memoInbox'
 import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
@@ -569,11 +570,16 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           media: a.media ?? [],
         })
         if (error) reportDataError('create announcement', error)
+        else {
+          sendInboxNotifications(
+            memoPublishedInboxRows(a, users).map(({ read: _r, ...rest }) => rest),
+          )
+        }
         await reloadData()
       })()
       return a
     },
-    [client, reloadData],
+    [client, reloadData, sendInboxNotifications, users],
   )
 
   const updateAnnouncement: DataContextValue['updateAnnouncement'] = useCallback(

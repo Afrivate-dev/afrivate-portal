@@ -3,6 +3,7 @@
  */
 import { useCallback, useMemo } from 'react'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
+import { useAuth } from '@/context/AuthContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
   seedAnnouncements,
@@ -62,8 +63,10 @@ import {
   DEFAULT_DOCUMENT_CATEGORIES,
   DEFAULT_RECOGNITION_TAGS,
 } from '@/lib/portalLabelCategories'
+import { memoPublishedInboxRows } from '@/lib/memoInbox'
 
 export function LocalDataProvider({ children }: { children: React.ReactNode }) {
+  const { user: authUser } = useAuth()
   const [users, setUsers] = useLocalStorage<User[]>('av-users', [])
   const [tasks, setTasks] = useLocalStorage<Task[]>('av-tasks', seedTasks)
   const [checkIns, setCheckIns] = useLocalStorage<WeeklyCheckIn[]>('av-checkins-v2', seedCheckIns)
@@ -330,9 +333,11 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
         readBy: [],
       }
       setAnnouncements((prev) => [a, ...prev])
+      const notify = memoPublishedInboxRows(a, users)
+      if (notify.length) setInbox((prev) => [...notify, ...prev])
       return a
     },
-    [setAnnouncements],
+    [setAnnouncements, setInbox, users],
   )
 
   const updateAnnouncement: DataContextValue['updateAnnouncement'] = useCallback(
@@ -382,32 +387,80 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   )
 
   const reviewLeave: DataContextValue['reviewLeave'] = useCallback(
-    (id, status, reviewerId, note, approvedDays) =>
+    (id, status, reviewerId, note, approvedDays) => {
+      const target = leaveRequests.find((l) => l.id === id)
       setLeaveRequests((prev) =>
         prev.map((l) =>
           l.id === id
             ? { ...l, status, reviewedById: reviewerId, reviewerNote: note, approvedDays }
             : l,
         ),
-      ),
-    [setLeaveRequests],
+      )
+      if (target) {
+        const reviewer = users.find((u) => u.id === reviewerId)
+        setInbox((prev) => [
+          {
+            id: 'inbox_leave_' + id + '_' + status,
+            userId: target.userId,
+            type: 'leave_update',
+            title:
+              status === 'approved'
+                ? `${reviewer?.name ?? 'HR'} approved your leave request`
+                : `${reviewer?.name ?? 'HR'} declined your leave request`,
+            body: note ?? undefined,
+            link: '/people/leave',
+            read: false,
+            createdAt: new Date().toISOString(),
+            fromUserId: reviewerId,
+            leaveId: id,
+          },
+          ...prev,
+        ])
+      }
+    },
+    [leaveRequests, setLeaveRequests, setInbox, users],
   )
 
   const addLeaveComment: DataContextValue['addLeaveComment'] = useCallback(
     (leaveId, body) => {
-      if (!body.trim()) return
-      setLeaveComments((prev) => [
-        ...prev,
-        {
-          id: 'lc_' + uid(),
+      if (!body.trim() || !authUser) return
+      const trimmed = body.trim()
+      const row = {
+        id: 'lc_' + uid(),
+        leaveId,
+        userId: authUser.id,
+        body: trimmed,
+        createdAt: new Date().toISOString(),
+      }
+      setLeaveComments((prev) => [...prev, row])
+      const leave = leaveRequests.find((l) => l.id === leaveId)
+      if (!leave) return
+      const notifyId = leave.userId === authUser.id ? leave.reviewedById : leave.userId
+      const hrIds = users.filter((u) => u.role === 'hr' || u.role === 'admin').map((u) => u.id)
+      const targets = new Set<string>()
+      if (notifyId && notifyId !== authUser.id) targets.add(notifyId)
+      if (leave.userId !== authUser.id) targets.add(leave.userId)
+      hrIds.forEach((id) => {
+        if (id !== authUser.id) targets.add(id)
+      })
+      if (targets.size === 0) return
+      setInbox((prev) => [
+        ...[...targets].map((uidTarget) => ({
+          id: 'inbox_lc_' + row.id + '_' + uidTarget,
+          userId: uidTarget,
+          type: 'leave_comment' as const,
+          title: `${authUser.name} commented on a leave request`,
+          body: trimmed.slice(0, 120),
+          link: '/people/leave',
+          read: false,
+          createdAt: row.createdAt,
+          fromUserId: authUser.id,
           leaveId,
-          userId: 'local',
-          body: body.trim(),
-          createdAt: new Date().toISOString(),
-        },
+        })),
+        ...prev,
       ])
     },
-    [setLeaveComments],
+    [authUser, leaveRequests, setLeaveComments, setInbox, users],
   )
 
   /* ----------------------------- Onboarding ----------------------------- */
@@ -573,17 +626,39 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
   const addRecognitionComment: DataContextValue['addRecognitionComment'] = useCallback(
     (recognitionId, body) => {
-      if (!body.trim()) return
+      if (!body.trim() || !authUser) return
+      const trimmed = body.trim()
       const row: RecognitionComment = {
         id: 'rc_' + uid(),
         recognitionId,
-        userId: users.find((u) => u.active)?.id ?? '',
-        body: body.trim(),
+        userId: authUser.id,
+        body: trimmed,
         createdAt: new Date().toISOString(),
       }
       setRecognitionComments((prev) => [...prev, row])
+      const post = recognition.find((r) => r.id === recognitionId)
+      if (!post) return
+      const targets = new Set<string>()
+      if (post.giverId !== authUser.id) targets.add(post.giverId)
+      if (post.receiverId !== authUser.id) targets.add(post.receiverId)
+      if (targets.size === 0) return
+      setInbox((prev) => [
+        ...[...targets].map((uidTarget) => ({
+          id: 'inbox_rc_' + row.id + '_' + uidTarget,
+          userId: uidTarget,
+          type: 'recognition_comment' as const,
+          title: `${authUser.name} commented on a shout-out`,
+          body: trimmed.slice(0, 120),
+          link: `/people/shout-outs?open=${encodeURIComponent(recognitionId)}`,
+          read: false,
+          createdAt: row.createdAt,
+          fromUserId: authUser.id,
+          recognitionId,
+        })),
+        ...prev,
+      ])
     },
-    [setRecognitionComments, users],
+    [authUser, recognition, setRecognitionComments, setInbox],
   )
 
   /* ------------------------------ Events -------------------------------- */

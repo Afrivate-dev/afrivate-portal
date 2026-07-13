@@ -142,6 +142,35 @@ export async function submitAccessRequest(
       requestedAt: new Date().toISOString(),
     })
     writeMockRequests(next)
+
+    // Notify HR/admin inboxes in local mode (parity with Supabase RPC)
+    try {
+      const usersRaw = localStorage.getItem('av-users')
+      const portalUsers = usersRaw ? (JSON.parse(usersRaw) as { id: string; role: string; active?: boolean }[]) : []
+      const hrIds = portalUsers
+        .filter((u) => u.active !== false && (u.role === 'hr' || u.role === 'admin'))
+        .map((u) => u.id)
+      if (hrIds.length) {
+        const inboxRaw = localStorage.getItem('av-inbox')
+        const inbox = inboxRaw ? (JSON.parse(inboxRaw) as Record<string, unknown>[]) : []
+        const now = new Date().toISOString()
+        const rows = hrIds.map((hrId) => ({
+          id: `inbox_access_${user.id}_${hrId}_${Date.now()}`,
+          userId: hrId,
+          type: 'access_request',
+          title: `${user.name} requested portal access`,
+          body: trimmedMessage ?? trimmedTitle ?? undefined,
+          link: '/admin',
+          read: false,
+          createdAt: now,
+          fromUserId: user.id,
+        }))
+        localStorage.setItem('av-inbox', JSON.stringify([...rows, ...inbox]))
+      }
+    } catch {
+      /* ignore */
+    }
+
     return { ok: true, alreadyRequested: Boolean(existing) }
   }
 

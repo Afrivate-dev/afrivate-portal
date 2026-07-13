@@ -6,6 +6,7 @@ import {
   Heart,
   Inbox,
   ListChecks,
+  Megaphone,
   StickyNote,
   UserPlus,
 } from 'lucide-react'
@@ -23,6 +24,7 @@ export const INBOX_NOTIFICATION_TYPES = [
   'leave_comment',
   'recognition_comment',
   'survey_reminder',
+  'memo_published',
 ] as const satisfies readonly InboxNotificationType[]
 
 export type InboxTypeMeta = {
@@ -80,6 +82,11 @@ export const INBOX_TYPE_META: Record<InboxNotificationType, InboxTypeMeta> = {
   survey_reminder: {
     icon: BarChart3,
     label: 'Survey',
+    iconClass: 'text-accent',
+  },
+  memo_published: {
+    icon: Megaphone,
+    label: 'Memo',
     iconClass: 'text-accent',
   },
 }

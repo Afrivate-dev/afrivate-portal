@@ -26,8 +26,10 @@ import {
 } from '@/content/revivalLaunchChecklist'
 import { useRevivalLaunchChecklist } from '@/hooks/useRevivalLaunchChecklist'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
-import { isMessagePayload, isMemoPayload } from '@/lib/composerDrafts'
+import { isMessagePayload, isMemoPayload, type MessageDraftPayload } from '@/lib/composerDrafts'
 import { notifySuccess } from '@/lib/notify'
+import { Textarea } from '@/components/ui/Textarea'
+import { Input } from '@/components/ui/Input'
 
 type PersonFilter = RevivalPerson | 'all'
 
@@ -132,10 +134,13 @@ function TaskRow({
 export function RevivalLaunchChecklistPage() {
   const { user } = useAuth()
   const { progress, completedIds, loading, toggleTask } = useRevivalLaunchChecklist()
-  const { byKind, deleteDraft } = useComposerDrafts()
+  const { byKind, deleteDraft, saveDraft } = useComposerDrafts()
   const [personFilter, setPersonFilter] = useState<PersonFilter>('all')
   const [collapsedUnits, setCollapsedUnits] = useState<Set<string>>(new Set())
   const [memoOpen, setMemoOpen] = useState<string | null>(null)
+  const [messageEdits, setMessageEdits] = useState<
+    Record<string, { subject: string; body: string }>
+  >({})
 
   const launchDrafts = useMemo(() => {
     const revival = [...byKind.memo, ...byKind.message].filter((d) =>
@@ -205,8 +210,8 @@ export function RevivalLaunchChecklistPage() {
       <Card padding="md">
         <h2 className="mb-3 text-sm font-semibold text-fg">Launch drafts (saved on this device)</h2>
         <p className="mb-4 text-xs text-muted">
-          Revival memo templates are stored as drafts in memory. Open the portal memo in Memos to
-          edit/publish, or copy email/WhatsApp drafts to send externally. Daniel needs portal access
+          Templates are saved as drafts on this device. Portal memos open in Memos; email and
+          WhatsApp drafts can be edited here, saved, then copied to send. Daniel needs portal access
           before Unit 1 tasks can auto-complete for him.
         </p>
         {launchDrafts.length === 0 ? (
@@ -217,17 +222,31 @@ export function RevivalLaunchChecklistPage() {
               const open = memoOpen === draft.id
               const memoPayload = isMemoPayload(draft.payload) ? draft.payload : null
               const messagePayload = isMessagePayload(draft.payload) ? draft.payload : null
-              const previewBody = memoPayload?.body ?? messagePayload?.body ?? ''
-              const previewSubject = memoPayload?.title ?? messagePayload?.subject ?? draft.label
+              const edit = messageEdits[draft.id]
+              const previewBody =
+                edit?.body ?? memoPayload?.body ?? messagePayload?.body ?? ''
+              const previewSubject =
+                edit?.subject ?? memoPayload?.title ?? messagePayload?.subject ?? draft.label
               const copyBody =
                 messagePayload?.channel === 'whatsapp'
-                  ? messagePayload.body
+                  ? previewBody
                   : `Subject: ${previewSubject}\n\n${previewBody}`
               return (
                 <div key={draft.id} className="rounded-lg border border-border">
                   <button
                     type="button"
-                    onClick={() => setMemoOpen(open ? null : draft.id)}
+                    onClick={() => {
+                      setMemoOpen(open ? null : draft.id)
+                      if (!open && messagePayload && !messageEdits[draft.id]) {
+                        setMessageEdits((prev) => ({
+                          ...prev,
+                          [draft.id]: {
+                            subject: messagePayload.subject,
+                            body: messagePayload.body,
+                          },
+                        }))
+                      }
+                    }}
                     className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-fg hover:bg-surface-2/50"
                   >
                     <span className="min-w-0">
@@ -243,10 +262,50 @@ export function RevivalLaunchChecklistPage() {
                   </button>
                   {open ? (
                     <div className="border-t border-border px-3 py-3">
-                      <p className="mb-2 text-xs font-medium text-muted">Subject: {previewSubject}</p>
-                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-                        {previewBody}
-                      </pre>
+                      {messagePayload ? (
+                        <div className="space-y-3">
+                          {messagePayload.channel === 'email' ? (
+                            <Input
+                              label="Subject"
+                              value={previewSubject}
+                              onChange={(e) =>
+                                setMessageEdits((prev) => ({
+                                  ...prev,
+                                  [draft.id]: {
+                                    subject: e.target.value,
+                                    body: prev[draft.id]?.body ?? messagePayload.body,
+                                  },
+                                }))
+                              }
+                            />
+                          ) : (
+                            <p className="text-xs font-medium text-muted">WhatsApp message</p>
+                          )}
+                          <Textarea
+                            label={messagePayload.channel === 'email' ? 'Body' : 'Message'}
+                            rows={10}
+                            value={previewBody}
+                            onChange={(e) =>
+                              setMessageEdits((prev) => ({
+                                ...prev,
+                                [draft.id]: {
+                                  subject: prev[draft.id]?.subject ?? messagePayload.subject,
+                                  body: e.target.value,
+                                },
+                              }))
+                            }
+                          />
+                        </div>
+                      ) : (
+                        <>
+                          <p className="mb-2 text-xs font-medium text-muted">
+                            Subject: {previewSubject}
+                          </p>
+                          <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+                            {previewBody}
+                          </pre>
+                        </>
+                      )}
                       <div className="mt-3 flex flex-wrap gap-2">
                         {draft.kind === 'memo' ? (
                           <Link
@@ -255,6 +314,29 @@ export function RevivalLaunchChecklistPage() {
                           >
                             <FilePenLine className="h-3.5 w-3.5" /> Open in Memos
                           </Link>
+                        ) : null}
+                        {messagePayload ? (
+                          <Button
+                            size="sm"
+                            variant="secondary"
+                            onClick={() => {
+                              const payload: MessageDraftPayload = {
+                                subject: previewSubject,
+                                body: previewBody,
+                                channel: messagePayload.channel,
+                              }
+                              saveDraft({
+                                id: draft.id,
+                                kind: 'message',
+                                label: draft.label,
+                                payload,
+                                sourceId: draft.sourceId,
+                              })
+                              notifySuccess('Message draft saved')
+                            }}
+                          >
+                            Save draft
+                          </Button>
                         ) : null}
                         <Button
                           size="sm"

@@ -228,6 +228,7 @@ export type InboxNotificationType =
   | 'leave_comment'
   | 'recognition_comment'
   | 'survey_reminder'
+  | 'memo_published'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {
