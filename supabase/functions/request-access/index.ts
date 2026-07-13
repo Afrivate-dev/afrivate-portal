@@ -120,6 +120,14 @@ Deno.serve(async (req) => {
       })
     }
 
+    // Mirror typed job title / department onto the profile (never leave placeholder "Staff")
+    if (jobTitle || deptName) {
+      const profilePatch: Record<string, string> = {}
+      if (jobTitle) profilePatch.job_title = jobTitle
+      if (deptName) profilePatch.department = deptName
+      await adminClient.from('profiles').update(profilePatch).eq('id', caller.id)
+    }
+
     const { data: admins } = await adminClient
       .from('profiles')
       .select('id')
@@ -134,7 +142,7 @@ Deno.serve(async (req) => {
       title: 'Portal access requested',
       body: `${profile.name} (${profile.email}) is waiting for approval.${
         deptName ? ` Department: ${deptName}` : ''
-      }${jobTitle ? ` · Role: ${jobTitle}` : ''}${message ? ` Message: ${message}` : ''}`,
+      }${jobTitle ? ` · Job title: ${jobTitle}` : ''}${message ? ` Message: ${message}` : ''}`,
       link: '/admin',
       read: false,
       created_at: now,

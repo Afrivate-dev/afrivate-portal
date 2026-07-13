@@ -30,6 +30,7 @@ import {
 } from '@/components/shared/AnnouncementAttachments'
 import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
+import { MemoDocumentBody } from '@/components/shared/MemoDocumentBody'
 import { labelForConfigId } from '@/lib/portalConfig'
 import { notifySuccess } from '@/lib/notify'
 import { isMemoPayload, type ComposerDraft, type MemoDraftPayload } from '@/lib/composerDrafts'
@@ -37,6 +38,14 @@ import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
 import { userSeesAnnouncement } from '@/lib/announcementVisibility'
+import {
+  canPublishMemo,
+  memoGalleryMedia,
+  pickMemoBodyDocument,
+  resolveMemoTitle,
+  titleFromAttachmentName,
+  usesDocumentAsMemoBody,
+} from '@/utils/documentPreview'
 import { pages, actions, confirms } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority, User } from '@/types'
 
@@ -328,7 +337,7 @@ export function AnnouncementsPage() {
   }
 
   const saveAsDraft = () => {
-    if (!draft.title.trim() && !draft.body.trim()) return
+    if (!draft.title.trim() && !draft.body.trim() && !draft.media.length) return
     const payload: MemoDraftPayload = {
       title: draft.title,
       body: draft.body,
@@ -338,7 +347,7 @@ export function AnnouncementsPage() {
       media: draft.media,
       editId: draft.id,
     }
-    const label = draft.title.trim() || 'Untitled memo draft'
+    const label = resolveMemoTitle(draft.title, draft.media) || 'Untitled memo draft'
     const saved = saveDraft({
       id: composerDraftId,
       kind: 'memo',
@@ -351,12 +360,25 @@ export function AnnouncementsPage() {
     setFormOpen(false)
   }
 
+  const applyMediaChange = (media: AnnouncementMedia[]) => {
+    setDraft((prev) => {
+      const next = { ...prev, media }
+      if (!prev.title.trim()) {
+        const primary = pickMemoBodyDocument(media)
+        if (primary?.fileName) next.title = titleFromAttachmentName(primary.fileName)
+      }
+      return next
+    })
+  }
+
   const submitForm = (e: React.FormEvent) => {
     e.preventDefault()
-    if (!draft.title.trim() || !draft.body.trim()) return
+    if (!canPublishMemo(draft.title, draft.body, draft.media)) return
+    const title = resolveMemoTitle(draft.title, draft.media)
+    const body = draft.body.trim()
     const payload = {
-      title: draft.title.trim(),
-      body: draft.body.trim(),
+      title,
+      body,
       audience: draft.audience,
       priority: draft.priority,
       memoCategory: draft.memoCategory,
@@ -498,6 +520,9 @@ export function AnnouncementsPage() {
             const canEdit =
               a.postedById === user.id || isHR(user) || isAdmin(user)
             const canDelete = isHR(user) || isAdmin(user)
+            const docAsBody = usesDocumentAsMemoBody(a.body, a.media)
+            const bodyDoc = docAsBody ? pickMemoBodyDocument(a.media) : null
+            const gallery = memoGalleryMedia(a.body, a.media)
             return (
               <li key={a.id}>
                 <InstagramFeedCard
@@ -560,16 +585,23 @@ export function AnnouncementsPage() {
                     </>
                   }
                   media={
-                    a.media?.length ? (
+                    gallery?.length ? (
                       <div onClick={(e) => e.stopPropagation()}>
-                        <PortalMediaGallery media={a.media} variant="feed" />
+                        <PortalMediaGallery media={gallery} variant="feed" />
                       </div>
                     ) : undefined
                   }
                   caption={
                     <>
                       <p className="text-sm font-semibold text-fg">{a.title}</p>
-                      <p className="whitespace-pre-line text-sm text-fg/90">{a.body}</p>
+                      {a.body.trim() ? (
+                        <p className="whitespace-pre-line text-sm text-fg/90">{a.body}</p>
+                      ) : null}
+                      {bodyDoc ? (
+                        <div className="mt-2">
+                          <MemoDocumentBody item={bodyDoc} siblings={a.media} compact />
+                        </div>
+                      ) : null}
                       <div className="mt-2 flex flex-wrap items-center gap-2 text-xs text-muted">
                         {a.audience !== 'all' ? (
                           <Badge tone="muted">
@@ -637,8 +669,22 @@ export function AnnouncementsPage() {
                 </p>
               </div>
             </div>
-            <p className="whitespace-pre-line text-sm text-fg/90">{reading.body}</p>
-            <AnnouncementMediaGallery media={reading.media} variant="feed" />
+            {reading.body.trim() ? (
+              <p className="whitespace-pre-line text-sm text-fg/90">{reading.body}</p>
+            ) : null}
+            {usesDocumentAsMemoBody(reading.body, reading.media) &&
+            pickMemoBodyDocument(reading.media) ? (
+              <MemoDocumentBody
+                item={pickMemoBodyDocument(reading.media)!}
+                siblings={reading.media}
+              />
+            ) : null}
+            {memoGalleryMedia(reading.body, reading.media)?.length ? (
+              <AnnouncementMediaGallery
+                media={memoGalleryMedia(reading.body, reading.media)}
+                variant="feed"
+              />
+            ) : null}
             {canSeeMemoReaders(reading) ? (
               <MemoReadersPanel readerIds={reading.readBy} userById={userById} />
             ) : null}
@@ -661,11 +707,15 @@ export function AnnouncementsPage() {
               variant="secondary"
               type="button"
               onClick={saveAsDraft}
-              disabled={!draft.title.trim() && !draft.body.trim()}
+              disabled={!draft.title.trim() && !draft.body.trim() && !draft.media.length}
             >
               Save draft
             </Button>
-            <Button type="button" onClick={submitForm}>
+            <Button
+              type="button"
+              onClick={submitForm}
+              disabled={!canPublishMemo(draft.title, draft.body, draft.media)}
+            >
               {draft.id ? actions.save : U.newPost}
             </Button>
           </>
@@ -674,21 +724,20 @@ export function AnnouncementsPage() {
         <form className="space-y-4" onSubmit={submitForm}>
           <Input
             label={U.formTitleLabel}
-            required
             value={draft.title}
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             placeholder={U.formTitlePlaceholder}
           />
           {canPost ? (
-            <MediaAttachmentEditor
-              items={draft.media}
-              onChange={(media) => setDraft({ ...draft, media })}
-            />
+            <MediaAttachmentEditor items={draft.media} onChange={applyMediaChange} />
           ) : null}
           <Textarea
-            label={U.formBodyLabel}
-            required
-            rows={6}
+            label={
+              usesDocumentAsMemoBody(draft.body, draft.media)
+                ? `${U.formBodyLabel} (optional — document is the memo)`
+                : `${U.formBodyLabel} (or upload a document above instead)`
+            }
+            rows={5}
             value={draft.body}
             onChange={(e) => setDraft({ ...draft, body: e.target.value })}
             placeholder={U.formBodyPlaceholder}

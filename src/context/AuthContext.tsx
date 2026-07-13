@@ -57,7 +57,7 @@ function sessionToPortalUser(session: Session | null): User | null {
     name,
     role,
     department: typeof md.department === 'string' ? md.department : 'General',
-    jobTitle: typeof md.job_title === 'string' ? md.job_title : 'Staff',
+    jobTitle: typeof md.job_title === 'string' ? md.job_title.trim() : '',
     joinedAt:
       typeof md.joined_at === 'string'
         ? md.joined_at
@@ -379,7 +379,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: trimmedName,
             role: 'staff',
             department: 'General',
-            jobTitle: 'Staff',
+            jobTitle: '',
             joinedAt: new Date().toISOString().slice(0, 10),
             active: false,
           }

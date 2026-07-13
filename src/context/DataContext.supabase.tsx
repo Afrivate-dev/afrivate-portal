@@ -7,6 +7,7 @@ import { usePortalRealtime, PORTAL_CONFIG_LIVE_TABLES } from '@/hooks/usePortalR
 import { useAuth } from '@/context/AuthContext'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
 import { approvePortalUser } from '@/lib/approvePortalUser'
+import { resolveAccessJobTitle } from '@/lib/jobTitle'
 import { rpcAssignUserToDepartment, rpcSetTeamMember } from '@/lib/orgAssignments'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
@@ -200,27 +201,39 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           requestedAt: String(r.requested_at),
         }))
 
+      let loadedAccess: AccessRequest[] = []
       if (accessErr?.message?.includes('preferred_department_id')) {
         const { data: basicRows } = await client
           .from('portal_access_requests')
           .select('user_id, message, status, requested_at')
           .in('status', ['pending', 'acknowledged', 'dismissed'])
-        setAccessRequests(mapAccessRows((basicRows ?? []) as Record<string, unknown>[]))
+        loadedAccess = mapAccessRows((basicRows ?? []) as Record<string, unknown>[])
       } else if (accessRows) {
-        setAccessRequests(mapAccessRows(accessRows as Record<string, unknown>[]))
+        loadedAccess = mapAccessRows(accessRows as Record<string, unknown>[])
       } else if (accessErr) {
         const { data: rpcRows, error: rpcErr } = await client.rpc(
           'list_portal_access_requests_for_admin',
         )
         if (!rpcErr && rpcRows) {
-          setAccessRequests(mapAccessRows(rpcRows as Record<string, unknown>[]))
+          loadedAccess = mapAccessRows(rpcRows as Record<string, unknown>[])
         } else {
           console.warn('[data] access requests load failed:', accessErr.message)
-          setAccessRequests([])
         }
-      } else {
-        setAccessRequests([])
       }
+      setAccessRequests(loadedAccess)
+
+      // Overlay requested job titles when profile still has the old "Staff" placeholder
+      if (loadedAccess.length) {
+        const byUser = new Map(loadedAccess.map((r) => [r.userId, r]))
+        setUsers((prev) =>
+          prev.map((u) => {
+            const req = byUser.get(u.id)
+            const resolved = resolveAccessJobTitle(u, req)
+            return resolved && resolved !== u.jobTitle ? { ...u, jobTitle: resolved } : u
+          }),
+        )
+      }
+
       setDataStatus('ready')
       hasLoadedOnceRef.current = true
     } catch (e) {
