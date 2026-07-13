@@ -33,6 +33,12 @@ import { userSeesAnnouncement, unreadAnnouncementsFor } from '@/lib/announcement
 import { brand } from '@/content/copy'
 import { format, isSameDay, parseISO } from 'date-fns'
 import { AnnouncementMediaGallery } from '@/components/shared/AnnouncementAttachments'
+import { MemoDocumentBody } from '@/components/shared/MemoDocumentBody'
+import {
+  memoGalleryMedia,
+  pickMemoBodyDocument,
+  usesDocumentAsMemoBody,
+} from '@/utils/documentPreview'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import { externalToEventItem } from '@/utils/calendarAdapters'
 
@@ -351,8 +357,20 @@ export function DashboardPage() {
                 {currentAnnouncement.priority}
               </Badge>
             </div>
-            <p className="whitespace-pre-line text-sm text-fg/90">{currentAnnouncement.body}</p>
-            <AnnouncementMediaGallery media={currentAnnouncement.media} />
+            {currentAnnouncement.body.trim() ? (
+              <p className="whitespace-pre-line text-sm text-fg/90">{currentAnnouncement.body}</p>
+            ) : null}
+            {usesDocumentAsMemoBody(currentAnnouncement.body, currentAnnouncement.media) &&
+            pickMemoBodyDocument(currentAnnouncement.media) ? (
+              <MemoDocumentBody
+                item={pickMemoBodyDocument(currentAnnouncement.media)!}
+                siblings={currentAnnouncement.media}
+                compact
+              />
+            ) : null}
+            <AnnouncementMediaGallery
+              media={memoGalleryMedia(currentAnnouncement.body, currentAnnouncement.media)}
+            />
             <div className="mt-5 flex justify-end">
               <Button variant="secondary" onClick={() => setReadingId(null)}>
                 Close

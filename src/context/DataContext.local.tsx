@@ -115,7 +115,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
         name: name.trim() || email.split('@')[0],
         role: 'staff',
         department: 'General',
-        jobTitle: 'Staff',
+        jobTitle: '',
         joinedAt: new Date().toISOString(),
         active: true,
         password,

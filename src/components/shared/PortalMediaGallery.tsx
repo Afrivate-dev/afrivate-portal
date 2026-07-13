@@ -147,7 +147,7 @@ export function PortalMediaGallery({
 
       {lightboxIndex != null && items[lightboxIndex] ? (
         <div
-          className="fixed inset-0 z-50 flex flex-col bg-black/90"
+          className="fixed inset-0 z-[110] flex flex-col bg-black/90"
           role="dialog"
           aria-modal="true"
           aria-label="Media viewer"

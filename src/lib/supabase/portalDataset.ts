@@ -43,7 +43,7 @@ export function profileRowToUser(row: Record<string, unknown>): User {
     name: String(row.name ?? 'User'),
     role: parseRole(row.role),
     department: String(row.department ?? 'General'),
-    jobTitle: String(row.job_title ?? 'Staff'),
+    jobTitle: String(row.job_title ?? '').trim(),
     joinedAt: joined,
     avatarUrl: row.avatar_url ? String(row.avatar_url) : undefined,
     avatarColor: row.avatar_color ? String(row.avatar_color) : undefined,

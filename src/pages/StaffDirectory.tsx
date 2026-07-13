@@ -230,7 +230,7 @@ export function StaffDirectoryPage() {
         return (
           u.name.toLowerCase().includes(q) ||
           u.email.toLowerCase().includes(q) ||
-          u.jobTitle.toLowerCase().includes(q) ||
+          (u.jobTitle ?? '').toLowerCase().includes(q) ||
           u.department.toLowerCase().includes(q) ||
           (u.workLocation ?? '').toLowerCase().includes(q) ||
           (u.skills ?? []).some((s) => s.toLowerCase().includes(q))

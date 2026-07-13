@@ -143,6 +143,7 @@ export function PendingApprovalScreen({
       setError(result.error ?? 'Could not send request')
       return
     }
+    await refreshUser()
     reRequestingRef.current = false
     setStatus('pending')
     setSuccess(

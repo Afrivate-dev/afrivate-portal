@@ -16,12 +16,12 @@ import type { AnnouncementMedia } from '@/types'
 export const AnnouncementMediaGallery = PortalMediaGallery
 
 const labels = {
-  heading: 'Photos & files',
+  heading: 'Memo file (HTML / PDF / Word)',
   urlPlaceholder: 'https://… (image, YouTube, Vimeo, or document link)',
   addLink: 'Add link',
-  upload: 'Upload file',
+  upload: 'Upload HTML, PDF, Word, or photo',
   uploading: 'Uploading…',
-  help: 'Attach photos or any file (PDF, Word .docx, HTML, and more). HTML/PDF/DOCX open in-app with formatting and images. For HTML that references images, upload those image files on the same memo too. Legacy .doc and other Office files can be uploaded and downloaded. Video file upload is not supported — paste a YouTube/Vimeo link instead.',
+  help: 'Upload an HTML, PDF, or Word (.docx) file to use as the memo itself — leave the message blank and the file becomes the body. Title fills from the file name if you leave it empty. Extra photos can be uploaded too. Video files are not supported — paste a YouTube/Vimeo link instead.',
   remove: 'Remove',
 }
 

@@ -110,3 +110,60 @@ export function sanitizeHtmlDocument(html: string): string {
   out = out.replace(/<meta\b[^>]*http-equiv\s*=\s*(['"])?refresh\1[^>]*>/gi, '')
   return out
 }
+
+/** Files that can stand in for a written memo body (HTML / PDF / Word). */
+export function isMemoBodyDocument(item: AnnouncementMedia): boolean {
+  if (item.kind !== 'document') return false
+  const kind = detectDocumentPreviewKind(item.fileName ?? '', item.url)
+  return kind === 'html' || kind === 'pdf' || kind === 'docx' || kind === 'download'
+}
+
+/** Prefer HTML, then PDF, then DOCX, then other downloadable docs. */
+export function pickMemoBodyDocument(media?: AnnouncementMedia[]): AnnouncementMedia | null {
+  if (!media?.length) return null
+  const docs = media.filter(isMemoBodyDocument)
+  if (!docs.length) return null
+  const order: DocumentPreviewKind[] = ['html', 'pdf', 'docx', 'download']
+  for (const kind of order) {
+    const hit = docs.find((d) => detectDocumentPreviewKind(d.fileName ?? '', d.url) === kind)
+    if (hit) return hit
+  }
+  return docs[0] ?? null
+}
+
+/** When the message is empty, the primary uploaded document is the memo body. */
+export function usesDocumentAsMemoBody(body: string, media?: AnnouncementMedia[]): boolean {
+  return !body.trim() && !!pickMemoBodyDocument(media)
+}
+
+export function titleFromAttachmentName(fileName: string): string {
+  const base = (fileName.split(/[/\\]/).pop() ?? fileName).trim()
+  const withoutExt = base.replace(/\.[^.]+$/, '').replace(/[-_]+/g, ' ').replace(/\s+/g, ' ').trim()
+  return withoutExt || base || 'Memo'
+}
+
+export function resolveMemoTitle(title: string, media?: AnnouncementMedia[]): string {
+  const trimmed = title.trim()
+  if (trimmed) return trimmed
+  const doc = pickMemoBodyDocument(media)
+  if (doc?.fileName) return titleFromAttachmentName(doc.fileName)
+  return ''
+}
+
+export function canPublishMemo(title: string, body: string, media?: AnnouncementMedia[]): boolean {
+  if (!resolveMemoTitle(title, media)) return false
+  if (body.trim()) return true
+  return !!pickMemoBodyDocument(media)
+}
+
+/** Gallery items excluding the document used as the memo body. */
+export function memoGalleryMedia(
+  body: string,
+  media?: AnnouncementMedia[],
+): AnnouncementMedia[] | undefined {
+  if (!media?.length) return undefined
+  if (!usesDocumentAsMemoBody(body, media)) return media
+  const primary = pickMemoBodyDocument(media)
+  const rest = primary ? media.filter((m) => m.url !== primary.url) : media
+  return rest.length ? rest : undefined
+}

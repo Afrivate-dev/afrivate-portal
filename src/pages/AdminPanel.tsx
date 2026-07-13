@@ -49,7 +49,15 @@ import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
 import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, isAdmin, roleLabel } from '@/utils/helpers'
+import {
+  canPublishMemo,
+  pickMemoBodyDocument,
+  resolveMemoTitle,
+  titleFromAttachmentName,
+  usesDocumentAsMemoBody,
+} from '@/utils/documentPreview'
 import { invitePortalUser } from '@/lib/invitePortalUser'
+import { resolveAccessJobTitle, isPlaceholderJobTitle } from '@/lib/jobTitle'
 import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
@@ -166,7 +174,7 @@ export function AdminPanelPage() {
     setApprovingUser(u)
     setApprovalRole('staff')
     setApprovalDeptId(req?.preferredDepartmentId ?? departments[0]?.id ?? '')
-    setApprovalTitle(req?.jobTitle ?? u.jobTitle ?? '')
+    setApprovalTitle(resolveAccessJobTitle(u, req))
   }
 
   const resolveDepartmentName = (deptId: string) =>
@@ -223,11 +231,19 @@ export function AdminPanelPage() {
     if (!ok) return
     setApproving(true)
     const roleToApply = adminUser ? approvalRole : 'staff'
+    const req = accessRequests.find((r) => r.userId === approvingUser.id)
+    const jobTitleToApply =
+      approvalTitle.trim() || resolveAccessJobTitle(approvingUser, req)
+    if (!jobTitleToApply.trim()) {
+      setApproving(false)
+      setAlertMessage('Please enter their job title before approving.')
+      return
+    }
     const result = await approveUser(
       approvingUser.id,
       roleToApply,
       deptName,
-      approvalTitle.trim() || 'Staff',
+      jobTitleToApply,
     )
     setApproving(false)
     if (!result.ok) {
@@ -536,7 +552,8 @@ export function AdminPanelPage() {
   }
 
   const saveAnn = async () => {
-    if (!annDraft?.title.trim() || !annDraft.body.trim() || !user) return
+    if (!annDraft || !user) return
+    if (!canPublishMemo(annDraft.title, annDraft.body, annDraft.media)) return
     const ok = await confirm({
       title: confirms.postUpdateTitle,
       message: confirms.postUpdate,
@@ -544,7 +561,7 @@ export function AdminPanelPage() {
     })
     if (!ok) return
     const payload = {
-      title: annDraft.title.trim(),
+      title: resolveMemoTitle(annDraft.title, annDraft.media),
       body: annDraft.body.trim(),
       audience: annDraft.audience,
       priority: annDraft.priority,
@@ -660,11 +677,13 @@ export function AdminPanelPage() {
                 <div>
                   <div className="font-medium text-fg">{u.name}</div>
                   <div className="text-sm text-muted">{u.email}</div>
-                  {reqDept || req?.jobTitle ? (
+                  {reqDept || req?.jobTitle || (!isPlaceholderJobTitle(u.jobTitle) && u.jobTitle) ? (
                     <div className="mt-1 text-xs text-muted">
                       {reqDept ? `Department: ${reqDept}` : null}
-                      {reqDept && req?.jobTitle ? ' · ' : null}
-                      {req?.jobTitle ? `Role: ${req.jobTitle}` : null}
+                      {reqDept && (req?.jobTitle || u.jobTitle) ? ' · ' : null}
+                      {req?.jobTitle || (!isPlaceholderJobTitle(u.jobTitle) ? u.jobTitle : '')
+                        ? `Job title: ${resolveAccessJobTitle(u, req)}`
+                        : null}
                     </div>
                   ) : null}
                   {req?.message ? (
@@ -1620,7 +1639,8 @@ export function AdminPanelPage() {
               label="Job title"
               value={approvalTitle}
               onChange={(e) => setApprovalTitle(e.target.value)}
-              placeholder="e.g. Software Engineer"
+              placeholder="As they entered when requesting access"
+              required
             />
           </div>
         ) : null}
@@ -1751,16 +1771,31 @@ export function AdminPanelPage() {
               label="Title"
               value={annDraft.title}
               onChange={(e) => setAnnDraft({ ...annDraft, title: e.target.value })}
-            />
-            <Textarea
-              label="Body"
-              rows={5}
-              value={annDraft.body}
-              onChange={(e) => setAnnDraft({ ...annDraft, body: e.target.value })}
+              placeholder="Headline, or leave blank to use the file name"
             />
             <MediaAttachmentEditor
               items={annDraft.media}
-              onChange={(media) => setAnnDraft({ ...annDraft, media })}
+              onChange={(media) => {
+                setAnnDraft((prev) => {
+                  if (!prev) return prev
+                  const next = { ...prev, media }
+                  if (!prev.title.trim()) {
+                    const primary = pickMemoBodyDocument(media)
+                    if (primary?.fileName) next.title = titleFromAttachmentName(primary.fileName)
+                  }
+                  return next
+                })
+              }}
+            />
+            <Textarea
+              label={
+                usesDocumentAsMemoBody(annDraft.body, annDraft.media)
+                  ? 'Message (optional — document is the memo)'
+                  : 'Message (optional if you upload HTML / PDF / Word above)'
+              }
+              rows={5}
+              value={annDraft.body}
+              onChange={(e) => setAnnDraft({ ...annDraft, body: e.target.value })}
             />
             <Select
               label="Audience"

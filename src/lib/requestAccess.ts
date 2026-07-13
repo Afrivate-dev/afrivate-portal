@@ -143,6 +143,37 @@ export async function submitAccessRequest(
     })
     writeMockRequests(next)
 
+    // Keep typed job title on the local user profile (do not leave placeholder "Staff")
+    try {
+      const usersRaw = localStorage.getItem('av-users')
+      if (usersRaw && (trimmedTitle || deptId)) {
+        const portalUsers = JSON.parse(usersRaw) as {
+          id: string
+          jobTitle?: string
+          department?: string
+          role?: string
+          active?: boolean
+        }[]
+        const deptsRaw = localStorage.getItem('av-departments')
+        const depts = deptsRaw
+          ? (JSON.parse(deptsRaw) as { id: string; name: string }[])
+          : []
+        const deptName = deptId ? depts.find((d) => d.id === deptId)?.name : undefined
+        const patched = portalUsers.map((u) =>
+          u.id === user.id
+            ? {
+                ...u,
+                ...(trimmedTitle ? { jobTitle: trimmedTitle } : {}),
+                ...(deptName ? { department: deptName } : {}),
+              }
+            : u,
+        )
+        localStorage.setItem('av-users', JSON.stringify(patched))
+      }
+    } catch {
+      /* ignore */
+    }
+
     // Notify HR/admin inboxes in local mode (parity with Supabase RPC)
     try {
       const usersRaw = localStorage.getItem('av-users')

@@ -409,7 +409,7 @@ export const pages = {
   updates: {
     title: 'Memos',
     subtitle:
-      'For emergencies, important announcements, and time-sensitive news from leadership and People & Culture. Attach files when you need to share documents with the whole team.',
+      'For emergencies, important announcements, and time-sensitive news. Write a message, or upload an HTML, PDF, or Word file and that file becomes the memo.',
     newPost: 'New memo',
     searchPlaceholder: 'Search memos…',
     markAllRead: 'Mark all as read',
@@ -433,9 +433,10 @@ export const pages = {
     formNewTitle: 'New memo',
     formEditTitle: 'Edit memo',
     formTitleLabel: 'Title',
-    formTitlePlaceholder: 'Short, clear headline',
+    formTitlePlaceholder: 'Short headline — or leave blank to use the file name',
     formBodyLabel: 'Message',
-    formBodyPlaceholder: "What's changing, what people should know, and any ask.",
+    formBodyPlaceholder:
+      "Optional if you upload HTML, PDF, or Word above. Otherwise write what's changing and any ask.",
     formAudienceLabel: 'Who should see this',
     formPriorityLabel: 'How urgent is this',
     deleteConfirm: 'Delete this update?',
