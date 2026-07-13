@@ -14,7 +14,15 @@ export async function denyPortalAccess(
   })
 
   if (error) {
-    return { ok: false, error: error.message }
+    const msg = error.message || 'Could not deny this access request.'
+    if (/Could not find the function|PGRST202|404/i.test(msg)) {
+      return {
+        ok: false,
+        error:
+          'Deny access is not set up on the database yet. Run migration 20260717_deny_access_request.sql in Supabase.',
+      }
+    }
+    return { ok: false, error: msg }
   }
 
   const payload = (data ?? {}) as { success?: boolean; error?: string }

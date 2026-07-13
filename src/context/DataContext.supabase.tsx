@@ -1267,8 +1267,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     const byUser = new Map(accessRequests.map((r) => [r.userId, r]))
     return awaiting.filter((u) => {
       const req = byUser.get(u.id)
-      if (!req) return true
-      return req.status === 'pending' || req.status === 'acknowledged'
+      if (req?.status === 'dismissed') return false
+      if (req?.status === 'pending' || req?.status === 'acknowledged') return true
+      // No request row yet (invited / signed up but not submitted)
+      return !req
     })
   }, [users, accessRequests])
 
@@ -1616,9 +1618,22 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           notifyError(result.error ?? 'Could not deny this request.')
           return result
         }
-        setAccessRequests((prev) =>
-          prev.map((r) => (r.userId === id ? { ...r, status: 'dismissed' as const } : r)),
-        )
+        setAccessRequests((prev) => {
+          const exists = prev.some((r) => r.userId === id)
+          if (exists) {
+            return prev.map((r) =>
+              r.userId === id ? { ...r, status: 'dismissed' as const } : r,
+            )
+          }
+          return [
+            ...prev,
+            {
+              userId: id,
+              status: 'dismissed' as const,
+              requestedAt: new Date().toISOString(),
+            },
+          ]
+        })
         void reloadData()
         return { ok: true as const }
       },

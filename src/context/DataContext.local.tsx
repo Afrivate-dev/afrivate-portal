@@ -810,8 +810,9 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     const byUser = new Map(accessRequestRows.map((r) => [r.userId, r]))
     return awaiting.filter((u) => {
       const req = byUser.get(u.id)
-      if (!req) return true
-      return req.status === 'pending' || req.status === 'acknowledged'
+      if (req?.status === 'dismissed') return false
+      if (req?.status === 'pending' || req?.status === 'acknowledged') return true
+      return !req
     })
   }, [users, accessRequestRows])
 

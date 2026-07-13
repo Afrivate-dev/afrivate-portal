@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { Clock, Send, LogOut, CheckCircle, Briefcase, XCircle } from 'lucide-react'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Button } from '@/components/ui/Button'
@@ -11,6 +11,8 @@ import { fetchSignupDepartments } from '@/lib/departments'
 import { fetchOwnAccessRequestStatus, submitAccessRequest, readPendingAccessDraft, clearPendingAccessDraft } from '@/lib/requestAccess'
 import { firstName } from '@/utils/helpers'
 import type { User } from '@/types'
+
+type AccessStatus = 'none' | 'pending' | 'acknowledged' | 'approved' | 'dismissed' | 'loading'
 
 export function PendingApprovalScreen({
   user,
@@ -25,9 +27,11 @@ export function PendingApprovalScreen({
   const [jobTitle, setJobTitle] = useState('')
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
   const [deptsLoading, setDeptsLoading] = useState(true)
-  const [status, setStatus] = useState<
-    'none' | 'pending' | 'acknowledged' | 'approved' | 'dismissed' | 'loading'
-  >(() => (isSupabaseAuthEnabled() ? 'loading' : 'none'))
+  const [status, setStatus] = useState<AccessStatus>(() =>
+    isSupabaseAuthEnabled() ? 'loading' : 'none',
+  )
+  /** When true, user chose "request again" after a denial — don't snap back to dismissed on poll. */
+  const reRequestingRef = useRef(false)
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -54,31 +58,50 @@ export function PendingApprovalScreen({
       await refreshUser()
       const s = await fetchOwnAccessRequestStatus()
       if (cancelled) return
-      setStatus(s)
+
       if (s === 'approved') {
+        reRequestingRef.current = false
+        setStatus('approved')
         setSuccess('Your access was approved — loading the portal…')
         return
       }
 
-      if (s === 'none') {
-        const draft = readPendingAccessDraft()
-        if (draft && !cancelled) {
-          setDepartmentId(draft.preferredDepartmentId)
-          setJobTitle(draft.jobTitle)
-          if (draft.message) setMessage(draft.message)
-          setSubmitting(true)
-          const result = await submitAccessRequest({
-            message: draft.message,
-            preferredDepartmentId: draft.preferredDepartmentId,
-            jobTitle: draft.jobTitle,
-          })
-          if (cancelled) return
-          setSubmitting(false)
-          if (result.ok) {
-            clearPendingAccessDraft()
-            setStatus('pending')
-            setSuccess('Access request sent. People & Culture will review your account shortly.')
-          }
+      if (s === 'pending' || s === 'acknowledged') {
+        reRequestingRef.current = false
+        setStatus(s)
+        return
+      }
+
+      if (s === 'dismissed') {
+        if (reRequestingRef.current) return
+        setStatus('dismissed')
+        return
+      }
+
+      // none
+      if (reRequestingRef.current) {
+        setStatus('none')
+        return
+      }
+
+      setStatus('none')
+      const draft = readPendingAccessDraft()
+      if (draft && !cancelled) {
+        setDepartmentId(draft.preferredDepartmentId)
+        setJobTitle(draft.jobTitle)
+        if (draft.message) setMessage(draft.message)
+        setSubmitting(true)
+        const result = await submitAccessRequest({
+          message: draft.message,
+          preferredDepartmentId: draft.preferredDepartmentId,
+          jobTitle: draft.jobTitle,
+        })
+        if (cancelled) return
+        setSubmitting(false)
+        if (result.ok) {
+          clearPendingAccessDraft()
+          setStatus('pending')
+          setSuccess('Access request sent. People & Culture will review your account shortly.')
         }
       }
     }
@@ -120,6 +143,7 @@ export function PendingApprovalScreen({
       setError(result.error ?? 'Could not send request')
       return
     }
+    reRequestingRef.current = false
     setStatus('pending')
     setSuccess(
       result.alreadyRequested
@@ -137,18 +161,37 @@ export function PendingApprovalScreen({
   }
 
   const deptOptions = departments.map((d) => ({ value: d.id, label: d.name }))
+  const headline =
+    status === 'dismissed'
+      ? 'Access not approved'
+      : status === 'pending' || status === 'acknowledged'
+        ? 'Request received'
+        : 'Account pending approval'
+  const subcopy =
+    status === 'dismissed'
+      ? `Hi ${firstName(user.name)}, your request to join the portal was declined.`
+      : status === 'pending' || status === 'acknowledged'
+        ? `Hi ${firstName(user.name)}, your request is with the team for review.`
+        : `Hi ${firstName(user.name)}, your account is waiting for an administrator to activate it. Request access below and we'll notify the team.`
 
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-6 bg-bg px-4 py-10 text-center">
-      <div className="flex h-16 w-16 items-center justify-center rounded-full bg-accent/10">
-        <Clock className="h-8 w-8 text-accent" />
+      <div
+        className={
+          status === 'dismissed'
+            ? 'flex h-16 w-16 items-center justify-center rounded-full bg-danger/10'
+            : 'flex h-16 w-16 items-center justify-center rounded-full bg-accent/10'
+        }
+      >
+        {status === 'dismissed' ? (
+          <XCircle className="h-8 w-8 text-danger" />
+        ) : (
+          <Clock className="h-8 w-8 text-accent" />
+        )}
       </div>
       <div className="max-w-md space-y-2">
-        <h1 className="font-heading text-2xl font-bold text-fg">Account pending approval</h1>
-        <p className="text-sm text-muted">
-          Hi {firstName(user.name)}, your account is waiting for an administrator to activate it.
-          Request access below and we&apos;ll notify the team.
-        </p>
+        <h1 className="font-heading text-2xl font-bold text-fg">{headline}</h1>
+        <p className="text-sm text-muted">{subcopy}</p>
       </div>
 
       {status === 'loading' ? (
@@ -163,8 +206,7 @@ export function PendingApprovalScreen({
           <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-left text-sm text-danger">
             <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Your access request was not approved. Contact People & Culture if you believe this is a
-              mistake, or submit a new request below.
+              Contact People & Culture if you believe this is a mistake, or submit a new request.
             </span>
           </div>
           <Button
@@ -172,6 +214,7 @@ export function PendingApprovalScreen({
             variant="secondary"
             className="w-full"
             onClick={() => {
+              reRequestingRef.current = true
               setStatus('none')
               setSuccess(null)
               setError(null)

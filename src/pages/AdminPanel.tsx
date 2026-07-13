@@ -158,6 +158,8 @@ export function AdminPanelPage() {
   const [approvalDeptId, setApprovalDeptId] = useState('')
   const [approvalTitle, setApprovalTitle] = useState('')
   const [approving, setApproving] = useState(false)
+  const [denyingId, setDenyingId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   const openApprovalForUser = (u: User) => {
     const req = accessRequests.find((r) => r.userId === u.id)
@@ -240,6 +242,7 @@ export function AdminPanelPage() {
   }
 
   const handleDenyAccess = async (u: User) => {
+    if (denyingId) return
     const ok = await confirm({
       title: confirms.denyAccountTitle,
       message: confirms.denyAccount,
@@ -247,13 +250,18 @@ export function AdminPanelPage() {
       destructive: true,
     })
     if (!ok) return
-    const result = await denyUser(u.id)
-    if (!result.ok) {
-      setAlertMessage(result.error ?? 'Could not deny this request.')
-      return
+    setDenyingId(u.id)
+    try {
+      const result = await denyUser(u.id)
+      if (!result.ok) {
+        setAlertMessage(result.error ?? 'Could not deny this request.')
+        return
+      }
+      if (approvingUser?.id === u.id) setApprovingUser(null)
+      setAlertMessage(`${u.name}'s access request was declined.`)
+    } finally {
+      setDenyingId(null)
     }
-    if (approvingUser?.id === u.id) setApprovingUser(null)
-    setAlertMessage(`${u.name}'s access request was declined.`)
   }
 
   // Invite state
@@ -493,7 +501,7 @@ export function AdminPanelPage() {
   }
 
   const handleRemoveUser = async (u: User) => {
-    if (!adminUser) return
+    if (!adminUser || removingId) return
     if (u.id === user?.id) {
       setAlertMessage('You cannot remove your own account while signed in.')
       return
@@ -505,8 +513,14 @@ export function AdminPanelPage() {
       destructive: true,
     })
     if (!ok) return
-    const result = await removeOrganizationUser(u.id)
-    if (!result.ok) setAlertMessage(result.error ?? 'Could not remove this user.')
+    setRemovingId(u.id)
+    try {
+      const result = await removeOrganizationUser(u.id)
+      if (!result.ok) setAlertMessage(result.error ?? 'Could not remove this user.')
+      else setAlertMessage(`${u.name} was removed from the organization.`)
+    } finally {
+      setRemovingId(null)
+    }
   }
 
   const openAnn = (a: Announcement) => {
@@ -615,16 +629,29 @@ export function AdminPanelPage() {
       {/* APPROVALS */}
       {section === 'approvals' ? (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setInviteOpen(true)}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p className="max-w-xl text-sm text-muted">
+              Review new signups here. Use <span className="font-medium text-fg">Approve</span> to
+              activate someone, or <span className="font-medium text-fg">Deny access</span> to decline
+              their request.
+            </p>
+            <Button size="sm" onClick={() => setInviteOpen(true)} className="shrink-0 self-start">
               <Plus className="h-4 w-4" /> Invite member
             </Button>
           </div>
           {pendingUsers.length === 0 ? (
-            <EmptyState icon={UserCheck} title="No pending approvals" description="When someone requests access, they'll appear here for you to review." />
+            <EmptyState
+              icon={UserCheck}
+              title="No pending approvals"
+              description="When someone requests access, they appear here with Approve and Deny access buttons."
+            />
           ) : (
             pendingUsers.map((u) => {
-              const req = accessRequests.find((r) => r.userId === u.id)
+              const req = accessRequests.find(
+                (r) =>
+                  r.userId === u.id &&
+                  (r.status === 'pending' || r.status === 'acknowledged'),
+              )
               const reqDept = req?.preferredDepartmentId
                 ? departments.find((d) => d.id === req.preferredDepartmentId)?.name
                 : undefined
@@ -644,12 +671,19 @@ export function AdminPanelPage() {
                     <p className="mt-1 text-xs text-muted italic">“{req.message}”</p>
                   ) : null}
                 </div>
-                <div className="flex flex-wrap gap-2">
-                  <Button size="sm" onClick={() => openApprovalForUser(u)}>
-                    Review & approve
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                  <Button size="sm" onClick={() => openApprovalForUser(u)} disabled={denyingId === u.id}>
+                    Approve
                   </Button>
-                  <Button size="sm" variant="outline" className="text-danger" onClick={() => void handleDenyAccess(u)}>
-                    Deny
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-danger/40 text-danger hover:bg-danger/10"
+                    loading={denyingId === u.id}
+                    disabled={!!denyingId}
+                    onClick={() => void handleDenyAccess(u)}
+                  >
+                    <X className="h-3.5 w-3.5" /> Deny access
                   </Button>
                 </div>
               </Card>
@@ -859,8 +893,14 @@ export function AdminPanelPage() {
 
       {/* USERS */}
       {section === 'users' ? (
+        <div className="space-y-3">
+          <p className="text-sm text-muted">
+            {adminUser
+              ? 'Change roles, departments, and status here. Use Remove from organization to permanently delete an account.'
+              : 'Change departments and account status here. Only administrators can permanently remove people from the organization.'}
+          </p>
         <Card padding="none" className="av-scroll-x">
-          <div className="hidden min-w-[720px] lg:block">
+          <div className="hidden min-w-[900px] lg:block">
             <table className="w-full text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -869,7 +909,9 @@ export function AdminPanelPage() {
                   <th className="p-3 font-medium">Department</th>
                   <th className="p-3 font-medium">Joined</th>
                   <th className="p-3 font-medium">Status</th>
-                  <th className="p-3 font-medium">Actions</th>
+                  <th className="sticky right-0 bg-surface-2/95 p-3 font-medium shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.15)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -931,16 +973,28 @@ export function AdminPanelPage() {
                       <td className="p-3 text-muted">{fmtDate(u.joinedAt)}</td>
                       <td className="p-3">
                         {isFirstTimePendingUser(u) ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSection('approvals')
-                              openApprovalForUser(u)
-                            }}
-                          >
-                            Approve in Approvals
-                          </Button>
+                          <div className="flex flex-col gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setSection('approvals')
+                                openApprovalForUser(u)
+                              }}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-danger/40 text-danger"
+                              loading={denyingId === u.id}
+                              disabled={!!denyingId}
+                              onClick={() => void handleDenyAccess(u)}
+                            >
+                              Deny access
+                            </Button>
+                          </div>
                         ) : (
                           <label className="flex cursor-pointer items-center gap-2 text-xs">
                             <input
@@ -956,18 +1010,22 @@ export function AdminPanelPage() {
                           </label>
                         )}
                       </td>
-                      <td className="p-3">
+                      <td className="sticky right-0 bg-surface p-3 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                         {adminUser && u.id !== user?.id ? (
                           <Button
                             size="sm"
                             variant="outline"
-                            className="text-danger"
+                            className="border-danger/40 whitespace-nowrap text-danger hover:bg-danger/10"
+                            loading={removingId === u.id}
+                            disabled={!!removingId}
                             onClick={() => void handleRemoveUser(u)}
                           >
-                            <Trash2 className="h-3.5 w-3.5" /> Remove
+                            <Trash2 className="h-3.5 w-3.5" /> Remove from organization
                           </Button>
                         ) : (
-                          <span className="text-xs text-muted">—</span>
+                          <span className="text-xs text-muted">
+                            {u.id === user?.id ? 'You' : adminUser ? '—' : 'Admin only'}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -1022,17 +1080,29 @@ export function AdminPanelPage() {
                   ) : null}
                   <label className="flex items-center gap-2 text-sm">
                     {isFirstTimePendingUser(u) ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => {
-                          setSection('approvals')
-                          openApprovalForUser(u)
-                        }}
-                      >
-                        Approve in Approvals
-                      </Button>
+                      <div className="flex w-full flex-col gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full"
+                          onClick={() => {
+                            setSection('approvals')
+                            openApprovalForUser(u)
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full border-danger/40 text-danger"
+                          loading={denyingId === u.id}
+                          disabled={!!denyingId}
+                          onClick={() => void handleDenyAccess(u)}
+                        >
+                          <X className="h-3.5 w-3.5" /> Deny access
+                        </Button>
+                      </div>
                     ) : (
                       <>
                         <input
@@ -1049,7 +1119,9 @@ export function AdminPanelPage() {
                     <Button
                       size="sm"
                       variant="outline"
-                      className="w-full text-danger"
+                      className="w-full border-danger/40 text-danger"
+                      loading={removingId === u.id}
+                      disabled={!!removingId}
                       onClick={() => void handleRemoveUser(u)}
                     >
                       <Trash2 className="h-3.5 w-3.5" /> Remove from organization
@@ -1059,6 +1131,7 @@ export function AdminPanelPage() {
               ))}
           </ul>
         </Card>
+        </div>
       ) : null}
 
       {/* ANNOUNCEMENTS */}
@@ -1501,15 +1574,16 @@ export function AdminPanelPage() {
             <Button
               variant="outline"
               className="text-danger"
-              disabled={approving || !approvingUser}
+              disabled={approving || !!denyingId || !approvingUser}
+              loading={!!approvingUser && denyingId === approvingUser.id}
               onClick={() => {
                 if (!approvingUser) return
                 void handleDenyAccess(approvingUser)
               }}
             >
-              Deny
+              Deny access
             </Button>
-            <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving} loading={approving}>
+            <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving || !!denyingId} loading={approving}>
               Approve & activate
             </Button>
           </>
