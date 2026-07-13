@@ -1,4 +1,5 @@
-﻿import { useMemo, useRef, useState, type ComponentRef } from 'react'
+﻿import { useEffect, useMemo, useRef, useState, type ComponentRef } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Calendar as CalendarIcon,
   Plus,
@@ -34,9 +35,13 @@ import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ComposerDraftsPanel } from '@/components/shared/ComposerDraftsPanel'
 import { cn, fmtDate, fmtTime, isTeamLead } from '@/utils/helpers'
 import { departmentSelectOptions } from '@/lib/departments'
 import { pages } from '@/content/copy'
+import { notifySuccess } from '@/lib/notify'
+import { isEventPayload, type ComposerDraft, type EventDraftPayload } from '@/lib/composerDrafts'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import {
   externalEventToFc,
@@ -75,6 +80,9 @@ export function EventsCalendarPage() {
   const { user } = useAuth()
   const { events, users, addEvent, departments: orgDepartments } = useData()
   const canManage = isTeamLead(user)
+  const [searchParams, setSearchParams] = useSearchParams()
+  const { byKind, saveDraft, deleteDraft, getById } = useComposerDrafts()
+  const openedDraftParam = useRef<string | null>(null)
 
   const googleEmbed = import.meta.env.VITE_GOOGLE_CALENDAR_EMBED_URL?.trim()
   const icalJsonUrl = import.meta.env.VITE_TEAM_CALENDAR_JSON_URL?.trim()
@@ -83,6 +91,7 @@ export function EventsCalendarPage() {
   const [view, setView] = useState<ViewMode>('list')
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<EventDraft>(emptyDraft)
+  const [composerDraftId, setComposerDraftId] = useState<string | undefined>()
   const [picker, setPicker] = useState<
     | { kind: 'workspace'; id: string }
     | { kind: 'external'; ev: ExternalCalendarEvent }
@@ -91,6 +100,50 @@ export function EventsCalendarPage() {
 
   const calendarRef = useRef<ComponentRef<typeof FullCalendar> | null>(null)
   const isMobile = useIsMobileViewport()
+
+  useEffect(() => {
+    if (!canManage) return
+    const draftId = searchParams.get('draft')
+    if (!draftId) {
+      openedDraftParam.current = null
+      return
+    }
+    if (openedDraftParam.current === draftId) return
+    const saved = getById(draftId)
+    if (!saved || saved.kind !== 'event' || !isEventPayload(saved.payload)) {
+      openedDraftParam.current = draftId
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('draft')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    openedDraftParam.current = draftId
+    const p = saved.payload
+    setDraft({
+      title: p.title,
+      description: p.description,
+      date: p.date,
+      startTime: p.startTime,
+      endTime: p.endTime,
+      location: p.location,
+      audience: p.audience,
+    })
+    setComposerDraftId(saved.id)
+    setFormOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('draft')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams, canManage, getById])
 
   const audienceOptions = useMemo(
     () => [
@@ -150,9 +203,49 @@ export function EventsCalendarPage() {
 
   if (!user) return null
 
+  const resumeComposerDraft = (saved: ComposerDraft) => {
+    if (!isEventPayload(saved.payload)) return
+    const p = saved.payload
+    setDraft({
+      title: p.title,
+      description: p.description,
+      date: p.date,
+      startTime: p.startTime,
+      endTime: p.endTime,
+      location: p.location,
+      audience: p.audience,
+    })
+    setComposerDraftId(saved.id)
+    setFormOpen(true)
+  }
+
   const openForm = () => {
     setDraft(emptyDraft)
+    setComposerDraftId(undefined)
     setFormOpen(true)
+  }
+
+  const saveAsDraft = () => {
+    if (!draft.title.trim() && !draft.date) return
+    const payload: EventDraftPayload = {
+      title: draft.title,
+      description: draft.description,
+      date: draft.date,
+      startTime: draft.startTime,
+      endTime: draft.endTime,
+      location: draft.location,
+      audience: draft.audience,
+    }
+    const label = draft.title.trim() || 'Untitled event draft'
+    const saved = saveDraft({
+      id: composerDraftId,
+      kind: 'event',
+      label,
+      payload,
+    })
+    setComposerDraftId(saved.id)
+    notifySuccess('Draft saved on this device')
+    setFormOpen(false)
   }
 
   const submitForm = (e: React.FormEvent) => {
@@ -168,6 +261,8 @@ export function EventsCalendarPage() {
       audience: draft.audience,
       source: 'workspace',
     })
+    if (composerDraftId) deleteDraft(composerDraftId)
+    setComposerDraftId(undefined)
     setFormOpen(false)
   }
 
@@ -194,6 +289,16 @@ export function EventsCalendarPage() {
           ) : undefined
         }
       />
+
+      {canManage ? (
+        <ComposerDraftsPanel
+          title="Event drafts"
+          description="Saved on this device — resume to edit or publish when ready."
+          drafts={byKind.event}
+          onResume={resumeComposerDraft}
+          onDelete={deleteDraft}
+        />
+      ) : null}
 
       {icalJsonUrl && externalStatus === 'error' ? (
         <p className="rounded-md border border-warning/30 bg-warning/10 px-3 py-2 text-sm text-fg">
@@ -322,7 +427,13 @@ export function EventsCalendarPage() {
                 canManage
                   ? (info) => {
                       const d = info.dateStr.slice(0, 10)
-                      setDraft((prev) => ({ ...prev, date: d, startTime: '', endTime: '' }))
+                      setDraft({
+                        ...emptyDraft,
+                        date: d,
+                        startTime: '',
+                        endTime: '',
+                      })
+                      setComposerDraftId(undefined)
                       setFormOpen(true)
                     }
                   : undefined
@@ -330,12 +441,13 @@ export function EventsCalendarPage() {
               select={
                 canManage
                   ? (info: DateSelectArg) => {
-                      setDraft((prev) => ({
-                        ...prev,
+                      setDraft({
+                        ...emptyDraft,
                         date: format(info.start, 'yyyy-MM-dd'),
                         startTime: info.allDay ? '' : format(info.start, 'HH:mm'),
                         endTime: info.allDay ? '' : format(info.end, 'HH:mm'),
-                      }))
+                      })
+                      setComposerDraftId(undefined)
                       setFormOpen(true)
                       calendarRef.current?.getApi().unselect()
                     }
@@ -472,6 +584,14 @@ export function EventsCalendarPage() {
           <>
             <Button variant="ghost" type="button" onClick={() => setFormOpen(false)}>
               Cancel
+            </Button>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={saveAsDraft}
+              disabled={!draft.title.trim() && !draft.date}
+            >
+              Save draft
             </Button>
             <Button type="button" onClick={submitForm}>
               Create event

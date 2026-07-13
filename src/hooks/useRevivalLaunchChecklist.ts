@@ -37,7 +37,14 @@ function writeLocalProgress(map: RevivalProgressMap) {
   }
 }
 
-function rowToProgress(rows: { task_id: string; completed_at: string; completed_by: string | null; auto_completed: boolean }[]): RevivalProgressMap {
+function rowToProgress(
+  rows: {
+    task_id: string
+    completed_at: string
+    completed_by: string | null
+    auto_completed: boolean
+  }[],
+): RevivalProgressMap {
   return Object.fromEntries(
     rows.map((r) => [
       r.task_id,
@@ -84,8 +91,12 @@ export function useRevivalLaunchChecklist() {
       if (cancelled) return
       if (!error && data) {
         const remote = rowToProgress(data as Parameters<typeof rowToProgress>[0])
-        setProgress(remote)
-        writeLocalProgress(remote)
+        setProgress((local) => {
+          // Prefer remote for shared truth; keep local-only keys until synced
+          const merged = { ...local, ...remote }
+          writeLocalProgress(merged)
+          return merged
+        })
       }
       setLoading(false)
     })()
@@ -96,13 +107,14 @@ export function useRevivalLaunchChecklist() {
 
   const persistTask = useCallback(
     async (taskId: string, entry: RevivalTaskProgress) => {
+      const previous = readLocalProgress()
       setProgress((prev) => {
         const next = { ...prev, [taskId]: entry }
         writeLocalProgress(next)
         return next
       })
       if (!supabase) return
-      await supabase.from('portal_launch_checklist_progress').upsert(
+      const { error } = await supabase.from('portal_launch_checklist_progress').upsert(
         {
           task_id: taskId,
           completed_at: entry.completedAt,
@@ -111,19 +123,30 @@ export function useRevivalLaunchChecklist() {
         },
         { onConflict: 'task_id' },
       )
+      if (error) {
+        setProgress(previous)
+        writeLocalProgress(previous)
+      }
     },
     [],
   )
 
   const clearTask = useCallback(async (taskId: string) => {
+    const previous = readLocalProgress()
     setProgress((prev) => {
       const next = { ...prev }
       delete next[taskId]
       writeLocalProgress(next)
       return next
     })
-    if (supabase) {
-      await supabase.from('portal_launch_checklist_progress').delete().eq('task_id', taskId)
+    if (!supabase) return
+    const { error } = await supabase
+      .from('portal_launch_checklist_progress')
+      .delete()
+      .eq('task_id', taskId)
+    if (error) {
+      setProgress(previous)
+      writeLocalProgress(previous)
     }
   }, [])
 

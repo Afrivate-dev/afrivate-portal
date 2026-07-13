@@ -1,4 +1,4 @@
-﻿import { useMemo, useState, useEffect } from 'react'
+﻿import { useMemo, useState, useEffect, useRef } from 'react'
 import {
   Megaphone,
   Search,
@@ -23,6 +23,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ComposerDraftsPanel } from '@/components/shared/ComposerDraftsPanel'
 import {
   AnnouncementMediaGallery,
   MediaAttachmentEditor,
@@ -30,8 +31,12 @@ import {
 import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { labelForConfigId } from '@/lib/portalConfig'
-import { cn, fmtDate, fmtTime, isAdmin, isHR, isLead, relativeTime } from '@/utils/helpers'
+import { notifySuccess } from '@/lib/notify'
+import { isMemoPayload, type ComposerDraft, type MemoDraftPayload } from '@/lib/composerDrafts'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
 import { mergedDepartmentNames } from '@/lib/departments'
+import { userSeesAnnouncement } from '@/lib/announcementVisibility'
 import { pages, actions, confirms } from '@/content/copy'
 import type { Announcement, AnnouncementMedia, AnnouncementPriority, User } from '@/types'
 
@@ -102,11 +107,10 @@ export function AnnouncementsPage() {
     updateAnnouncement,
     deleteAnnouncement,
     markAnnouncementRead,
-    markAllAnnouncementsRead,
   } = useData()
   const { setActivity, readersForUpdate, multiplayerLive } = useCollab()
 
-  const canPost = isLead(user)
+  const canPost = isTeamLead(user)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [memoFilter, setMemoFilter] = useState<MemoFilter>('all')
@@ -114,24 +118,121 @@ export function AnnouncementsPage() {
   const [readingId, setReadingId] = useState<string | null>(null)
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<FormDraft>(emptyDraft)
+  const [composerDraftId, setComposerDraftId] = useState<string | undefined>()
+  const [composerSourceId, setComposerSourceId] = useState<string | undefined>()
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
+  const { byKind, saveDraft, deleteDraft, getById, store } = useComposerDrafts()
+  const openedDraftParam = useRef<string | null>(null)
 
   useEffect(() => {
     const openId = searchParams.get('open')
     if (!openId || !user) return
     const target = announcements.find((a) => a.id === openId)
-    if (!target) return
+    if (!target || !userSeesAnnouncement(target, user)) {
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('open')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
     setReadingId(openId)
     if (!target.readBy.includes(user.id)) markAnnouncementRead(openId, user.id)
-    setSearchParams({}, { replace: true })
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('open')
+        return next
+      },
+      { replace: true },
+    )
   }, [searchParams, setSearchParams, announcements, user, markAnnouncementRead])
 
   useEffect(() => {
-    if (searchParams.get('unread') === '1') {
-      setUnreadOnly(true)
-      setSearchParams({}, { replace: true })
-    }
+    if (searchParams.get('unread') !== '1') return
+    setUnreadOnly(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('unread')
+        return next
+      },
+      { replace: true },
+    )
   }, [searchParams, setSearchParams])
+
+  useEffect(() => {
+    const draftId = searchParams.get('draft')
+    if (!draftId) {
+      openedDraftParam.current = null
+      return
+    }
+    if (openedDraftParam.current === draftId) return
+    if (!canPost) {
+      openedDraftParam.current = draftId
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('draft')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    const saved = getById(draftId)
+    if (!saved) {
+      // Wait until store has seeded / loaded
+      if (!store.seededRevivalMemos && store.drafts.length === 0) return
+      openedDraftParam.current = draftId
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('draft')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    if (saved.kind !== 'memo' || !isMemoPayload(saved.payload)) {
+      openedDraftParam.current = draftId
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('draft')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    openedDraftParam.current = draftId
+    const p = saved.payload
+    setDraft({
+      id: p.editId,
+      title: p.title,
+      body: p.body,
+      audience: p.audience,
+      priority: p.priority,
+      memoCategory: p.memoCategory,
+      media: p.media ? [...p.media] : [],
+    })
+    setComposerDraftId(saved.id)
+    setComposerSourceId(saved.sourceId)
+    setFormOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('draft')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams, canPost, getById, store.seededRevivalMemos, store.drafts.length])
 
   useEffect(() => {
     if (readingId) {
@@ -151,14 +252,11 @@ export function AnnouncementsPage() {
   const visibleAnnouncements = useMemo(() => {
     if (!user) return []
     return announcements.filter((a) => {
-      // Audience scoping
-      if (a.audience !== 'all' && a.audience !== user.department) return false
-      // Priority filter
+      if (!userSeesAnnouncement(a, user)) return false
       if (priorityFilter !== 'all' && a.priority !== priorityFilter) return false
       const cat = a.memoCategory ?? 'general'
       if (memoFilter !== 'all' && cat !== memoFilter) return false
       if (unreadOnly && a.readBy.includes(user.id)) return false
-      // Search
       if (search.trim()) {
         const q = search.toLowerCase()
         if (
@@ -175,9 +273,7 @@ export function AnnouncementsPage() {
   const hasUnread = useMemo(() => {
     if (!user) return false
     return announcements.some(
-      (a) =>
-        (a.audience === 'all' || a.audience === user.department) &&
-        !a.readBy.includes(user.id),
+      (a) => userSeesAnnouncement(a, user) && !a.readBy.includes(user.id),
     )
   }, [announcements, user])
 
@@ -193,19 +289,66 @@ export function AnnouncementsPage() {
   const canSeeMemoReaders = (a: Announcement) =>
     a.postedById === user.id || isHR(user) || isAdmin(user)
 
+  const resumeComposerDraft = (saved: ComposerDraft) => {
+    if (!isMemoPayload(saved.payload)) return
+    const p = saved.payload
+    setDraft({
+      id: p.editId,
+      title: p.title,
+      body: p.body,
+      audience: p.audience,
+      priority: p.priority,
+      memoCategory: p.memoCategory,
+      media: p.media ? [...p.media] : [],
+    })
+    setComposerDraftId(saved.id)
+    setComposerSourceId(saved.sourceId)
+    setFormOpen(true)
+  }
+
   const openCreate = () => {
     setDraft(emptyDraft)
+    setComposerDraftId(undefined)
+    setComposerSourceId(undefined)
     setFormOpen(true)
   }
 
   const openEdit = (a: Announcement) => {
     setDraft(draftFromAnnouncement(a))
+    setComposerDraftId(undefined)
+    setComposerSourceId(undefined)
     setFormOpen(true)
   }
 
   const closeForm = () => {
     setFormOpen(false)
     setDraft(emptyDraft)
+    setComposerDraftId(undefined)
+    setComposerSourceId(undefined)
+  }
+
+  const saveAsDraft = () => {
+    if (!draft.title.trim() && !draft.body.trim()) return
+    const payload: MemoDraftPayload = {
+      title: draft.title,
+      body: draft.body,
+      audience: draft.audience,
+      priority: draft.priority,
+      memoCategory: draft.memoCategory,
+      media: draft.media,
+      editId: draft.id,
+    }
+    const label = draft.title.trim() || 'Untitled memo draft'
+    const saved = saveDraft({
+      id: composerDraftId,
+      kind: 'memo',
+      label,
+      payload,
+      sourceId: composerSourceId,
+    })
+    setComposerDraftId(saved.id)
+    notifySuccess('Draft saved on this device')
+    setFormOpen(false)
   }
 
   const submitForm = (e: React.FormEvent) => {
@@ -232,6 +375,7 @@ export function AnnouncementsPage() {
     } else {
       createAnnouncement({ ...payload, postedById: user.id })
     }
+    if (composerDraftId) deleteDraft(composerDraftId)
     closeForm()
   }
 
@@ -253,6 +397,16 @@ export function AnnouncementsPage() {
           ) : undefined
         }
       />
+
+      {canPost ? (
+        <ComposerDraftsPanel
+          title="Memo drafts"
+          description="Saved on this device — resume to edit or publish when ready."
+          drafts={byKind.memo}
+          onResume={resumeComposerDraft}
+          onDelete={deleteDraft}
+        />
+      ) : null}
 
       {/* Search + filter */}
       <Card padding="md">
@@ -306,7 +460,13 @@ export function AnnouncementsPage() {
                 className="lg:ml-auto"
                 onClick={async () => {
                   const ok = await confirm({ message: confirms.markAllUpdatesRead })
-                  if (ok) markAllAnnouncementsRead(user.id)
+                  if (ok) {
+                    for (const a of announcements) {
+                      if (userSeesAnnouncement(a, user) && !a.readBy.includes(user.id)) {
+                        markAnnouncementRead(a.id, user.id)
+                      }
+                    }
+                  }
                 }}
               >
                 {U.markAllRead}
@@ -335,8 +495,9 @@ export function AnnouncementsPage() {
             const meta = PRIORITY_UI[a.priority]
             const author = userById(a.postedById)
             const unread = !a.readBy.includes(user.id)
-            const canEdit = canPost
-            const canDelete = canPost && (a.postedById === user.id || user.role === 'admin' || user.role === 'hr')
+            const canEdit =
+              a.postedById === user.id || isHR(user) || isAdmin(user)
+            const canDelete = isHR(user) || isAdmin(user)
             return (
               <li key={a.id}>
                 <InstagramFeedCard
@@ -495,6 +656,14 @@ export function AnnouncementsPage() {
           <>
             <Button variant="ghost" type="button" onClick={closeForm}>
               {actions.cancel}
+            </Button>
+            <Button
+              variant="secondary"
+              type="button"
+              onClick={saveAsDraft}
+              disabled={!draft.title.trim() && !draft.body.trim()}
+            >
+              Save draft
             </Button>
             <Button type="button" onClick={submitForm}>
               {draft.id ? actions.save : U.newPost}

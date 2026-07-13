@@ -4,28 +4,48 @@ export type RevivalPerson = 'e' | 'd' | 'o'
 
 export const REVIVAL_LAUNCH_PEOPLE: Record<
   RevivalPerson,
-  { label: string; shortLabel: string; keys: string[] }
+  { label: string; shortLabel: string; /** Email local-parts and name tokens (exact / whole-word) */ keys: string[] }
 > = {
   e: { label: 'Emmanuel', shortLabel: 'Emmanuel', keys: ['emmanuel', 'okpiaifo'] },
   d: { label: 'Daniel', shortLabel: 'Daniel', keys: ['daniel'] },
   o: { label: 'Opemipo', shortLabel: 'Opemipo', keys: ['opemipo', 'adesoye', 'dorcas'] },
 }
 
-function haystackFor(user: Pick<User, 'name' | 'email'>): string {
-  return `${user.name} ${user.email}`.toLowerCase()
+/** Optional exact emails via VITE_REVIVAL_LAUNCH_EMAILS=a@x.com,b@y.com */
+function envAllowlistEmails(): string[] {
+  const raw = import.meta.env.VITE_REVIVAL_LAUNCH_EMAILS
+  if (!raw || typeof raw !== 'string') return []
+  return raw
+    .split(',')
+    .map((e) => e.trim().toLowerCase())
+    .filter(Boolean)
+}
+
+function emailLocalPart(email: string): string {
+  return email.split('@')[0]?.toLowerCase() ?? ''
+}
+
+function nameHasToken(name: string, token: string): boolean {
+  const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, 'i')
+  return re.test(name)
 }
 
 export function matchesRevivalPerson(
   user: Pick<User, 'name' | 'email'>,
   person: RevivalPerson,
 ): boolean {
-  const hay = haystackFor(user)
-  return REVIVAL_LAUNCH_PEOPLE[person].keys.some((k) => hay.includes(k))
+  const email = user.email.toLowerCase()
+  const local = emailLocalPart(email)
+  const keys = REVIVAL_LAUNCH_PEOPLE[person].keys
+  if (keys.includes(local)) return true
+  return keys.some((k) => nameHasToken(user.name, k))
 }
 
-/** Only Emmanuel, Daniel, and Opemipo (Adesoye Dorcas) may open the revival launch checklist. */
+/** Only Emmanuel, Daniel, and Opemipo may open the revival launch checklist. */
 export function canAccessRevivalLaunchChecklist(user: Pick<User, 'name' | 'email'> | null): boolean {
   if (!user) return false
+  const email = user.email.toLowerCase()
+  if (envAllowlistEmails().includes(email)) return true
   return (Object.keys(REVIVAL_LAUNCH_PEOPLE) as RevivalPerson[]).some((p) =>
     matchesRevivalPerson(user, p),
   )

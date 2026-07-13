@@ -5,14 +5,16 @@ import {
   ChevronDown,
   Copy,
   ExternalLink,
+  FilePenLine,
   Sparkles,
+  Trash2,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
-import { cn } from '@/utils/helpers'
+import { cn, relativeTime } from '@/utils/helpers'
 import { canAccessRevivalLaunchChecklist, REVIVAL_LAUNCH_PEOPLE } from '@/lib/revivalLaunchAccess'
 import {
   REVIVAL_ALISON_COURSE,
@@ -22,8 +24,9 @@ import {
   type RevivalLaunchTask,
   type RevivalPerson,
 } from '@/content/revivalLaunchChecklist'
-import { REVIVAL_LAUNCH_MEMOS } from '@/content/revivalLaunchMemos'
 import { useRevivalLaunchChecklist } from '@/hooks/useRevivalLaunchChecklist'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { isMessagePayload, isMemoPayload } from '@/lib/composerDrafts'
 import { notifySuccess } from '@/lib/notify'
 
 type PersonFilter = RevivalPerson | 'all'
@@ -129,9 +132,17 @@ function TaskRow({
 export function RevivalLaunchChecklistPage() {
   const { user } = useAuth()
   const { progress, completedIds, loading, toggleTask } = useRevivalLaunchChecklist()
+  const { byKind, deleteDraft } = useComposerDrafts()
   const [personFilter, setPersonFilter] = useState<PersonFilter>('all')
   const [collapsedUnits, setCollapsedUnits] = useState<Set<string>>(new Set())
-  const [memoOpen, setMemoOpen] = useState<string | null>('daniel-onboarding')
+  const [memoOpen, setMemoOpen] = useState<string | null>(null)
+
+  const launchDrafts = useMemo(() => {
+    const revival = [...byKind.memo, ...byKind.message].filter((d) =>
+      d.sourceId?.startsWith('revival:'),
+    )
+    return revival.sort((a, b) => (a.updatedAt > b.updatedAt ? -1 : 1))
+  }, [byKind.memo, byKind.message])
 
   const visibleTasks = useMemo(() => {
     return REVIVAL_LAUNCH_UNITS.flatMap((u) =>
@@ -192,50 +203,89 @@ export function RevivalLaunchChecklistPage() {
       </Card>
 
       <Card padding="md">
-        <h2 className="mb-3 text-sm font-semibold text-fg">Memo drafts</h2>
+        <h2 className="mb-3 text-sm font-semibold text-fg">Launch drafts (saved on this device)</h2>
         <p className="mb-4 text-xs text-muted">
-          Copy and send from Gmail or WhatsApp. Daniel needs portal access before Unit 1 tasks can
-          auto-complete for him.
+          Revival memo templates are stored as drafts in memory. Open the portal memo in Memos to
+          edit/publish, or copy email/WhatsApp drafts to send externally. Daniel needs portal access
+          before Unit 1 tasks can auto-complete for him.
         </p>
-        <div className="space-y-2">
-          {REVIVAL_LAUNCH_MEMOS.map((memo) => {
-            const open = memoOpen === memo.id
-            const copyBody =
-              memo.id === 'whatsapp'
-                ? memo.body
-                : `Subject: ${memo.subject}\n\n${memo.body}`
-            return (
-              <div key={memo.id} className="rounded-lg border border-border">
-                <button
-                  type="button"
-                  onClick={() => setMemoOpen(open ? null : memo.id)}
-                  className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-fg hover:bg-surface-2/50"
-                >
-                  {memo.label}
-                  <ChevronDown className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')} />
-                </button>
-                {open ? (
-                  <div className="border-t border-border px-3 py-3">
-                    {'subject' in memo && memo.id !== 'whatsapp' ? (
-                      <p className="mb-2 text-xs font-medium text-muted">Subject: {memo.subject}</p>
-                    ) : null}
-                    <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-                      {memo.body}
-                    </pre>
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="mt-3"
-                      onClick={() => copyText(copyBody, memo.label)}
-                    >
-                      <Copy className="h-3.5 w-3.5" /> Copy
-                    </Button>
-                  </div>
-                ) : null}
-              </div>
-            )
-          })}
-        </div>
+        {launchDrafts.length === 0 ? (
+          <p className="text-sm text-muted">Seeding drafts… refresh if this stays empty.</p>
+        ) : (
+          <div className="space-y-2">
+            {launchDrafts.map((draft) => {
+              const open = memoOpen === draft.id
+              const memoPayload = isMemoPayload(draft.payload) ? draft.payload : null
+              const messagePayload = isMessagePayload(draft.payload) ? draft.payload : null
+              const previewBody = memoPayload?.body ?? messagePayload?.body ?? ''
+              const previewSubject = memoPayload?.title ?? messagePayload?.subject ?? draft.label
+              const copyBody =
+                messagePayload?.channel === 'whatsapp'
+                  ? messagePayload.body
+                  : `Subject: ${previewSubject}\n\n${previewBody}`
+              return (
+                <div key={draft.id} className="rounded-lg border border-border">
+                  <button
+                    type="button"
+                    onClick={() => setMemoOpen(open ? null : draft.id)}
+                    className="flex w-full items-center justify-between gap-2 px-3 py-2.5 text-left text-sm font-medium text-fg hover:bg-surface-2/50"
+                  >
+                    <span className="min-w-0">
+                      <span className="block truncate">{draft.label}</span>
+                      <span className="block text-[11px] font-normal text-muted">
+                        {draft.kind === 'memo' ? 'Portal memo draft' : 'Message draft'} · Updated{' '}
+                        {relativeTime(draft.updatedAt)}
+                      </span>
+                    </span>
+                    <ChevronDown
+                      className={cn('h-4 w-4 shrink-0 transition-transform', open && 'rotate-180')}
+                    />
+                  </button>
+                  {open ? (
+                    <div className="border-t border-border px-3 py-3">
+                      <p className="mb-2 text-xs font-medium text-muted">Subject: {previewSubject}</p>
+                      <pre className="max-h-64 overflow-auto whitespace-pre-wrap rounded-md bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+                        {previewBody}
+                      </pre>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        {draft.kind === 'memo' ? (
+                          <Link
+                            to={`/announcements?draft=${encodeURIComponent(draft.id)}`}
+                            className="inline-flex h-9 min-h-[36px] items-center justify-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-white shadow-sm hover:bg-accent-hover sm:text-sm"
+                          >
+                            <FilePenLine className="h-3.5 w-3.5" /> Open in Memos
+                          </Link>
+                        ) : null}
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          onClick={() => copyText(copyBody, draft.label)}
+                        >
+                          <Copy className="h-3.5 w-3.5" /> Copy
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          onClick={() => deleteDraft(draft.id)}
+                          aria-label={`Delete ${draft.label}`}
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              )
+            })}
+          </div>
+        )}
+        <p className="mt-3 text-xs text-muted">
+          All memo drafts also appear under{' '}
+          <Link to="/announcements" className="font-medium text-accent hover:underline">
+            Memos → Memo drafts
+          </Link>
+          .
+        </p>
       </Card>
 
       <div className="overflow-hidden rounded-xl bg-brand text-white">
