@@ -679,6 +679,12 @@ export function AnnouncementsPage() {
             onChange={(e) => setDraft({ ...draft, title: e.target.value })}
             placeholder={U.formTitlePlaceholder}
           />
+          {canPost ? (
+            <MediaAttachmentEditor
+              items={draft.media}
+              onChange={(media) => setDraft({ ...draft, media })}
+            />
+          ) : null}
           <Textarea
             label={U.formBodyLabel}
             required
@@ -687,12 +693,6 @@ export function AnnouncementsPage() {
             onChange={(e) => setDraft({ ...draft, body: e.target.value })}
             placeholder={U.formBodyPlaceholder}
           />
-          {canPost ? (
-            <MediaAttachmentEditor
-              items={draft.media}
-              onChange={(media) => setDraft({ ...draft, media })}
-            />
-          ) : null}
           <div className="grid gap-4 sm:grid-cols-2">
             <Select
               label={U.formAudienceLabel}
