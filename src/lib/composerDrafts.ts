@@ -89,7 +89,11 @@ export function writeComposerDraftsStore(store: ComposerDraftsStore): void {
   try {
     window.localStorage.setItem(COMPOSER_DRAFTS_KEY, JSON.stringify(store))
   } catch {
-    /* quota — ignore */
+    try {
+      window.dispatchEvent(new CustomEvent('av:storage-full', { detail: { key: COMPOSER_DRAFTS_KEY } }))
+    } catch {
+      /* ignore */
+    }
   }
 }
 

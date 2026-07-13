@@ -709,10 +709,62 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     async (userId, departmentId) => {
       const dept = departments.find((d) => d.id === departmentId)
       if (!dept) return { ok: false, error: 'Department not found' }
+      const prev = users.find((u) => u.id === userId)
+      const prevDept = prev?.department?.trim() ?? ''
       updateUser(userId, { department: dept.name, reportsToId: dept.headUserId })
+      if (prev && prevDept !== dept.name) {
+        sendInboxNotifications([
+          {
+            id: 'inbox_' + uid(),
+            userId,
+            type: 'department_changed',
+            title: 'Department updated',
+            body: prevDept
+              ? `You have been moved from ${prevDept} to ${dept.name}.`
+              : `You have been assigned to the ${dept.name} department.`,
+            link: '/people/directory',
+            createdAt: new Date().toISOString(),
+            fromUserId: authUser?.id,
+          },
+        ])
+      }
       return { ok: true }
     },
-    [departments, updateUser],
+    [departments, users, updateUser, sendInboxNotifications, authUser?.id],
+  )
+
+  const removeOrganizationUser: DataContextValue['removeOrganizationUser'] = useCallback(
+    async (userId) => {
+      if (authUser?.id === userId) {
+        return { ok: false, error: 'You cannot remove your own account' }
+      }
+      const target = users.find((u) => u.id === userId)
+      if (!target) return { ok: false, error: 'User not found' }
+      if (target.role === 'admin') {
+        const otherAdmins = users.filter((u) => u.role === 'admin' && u.active && u.id !== userId)
+        if (!otherAdmins.length) {
+          return { ok: false, error: 'Cannot remove the last active administrator' }
+        }
+      }
+      setUsers((prev) =>
+        prev
+          .filter((u) => u.id !== userId)
+          .map((u) => (u.reportsToId === userId ? { ...u, reportsToId: undefined } : u)),
+      )
+      setTeams((prev) =>
+        prev.map((t) => ({
+          ...t,
+          memberIds: t.memberIds.filter((id) => id !== userId),
+          leadUserId: t.leadUserId === userId ? undefined : t.leadUserId,
+          asstLeadUserId: t.asstLeadUserId === userId ? undefined : t.asstLeadUserId,
+        })),
+      )
+      setDepartments((prev) =>
+        prev.map((d) => (d.headUserId === userId ? { ...d, headUserId: undefined } : d)),
+      )
+      return { ok: true }
+    },
+    [authUser?.id, users, setUsers, setTeams, setDepartments],
   )
 
   const setUserTeamMembership: DataContextValue['setUserTeamMembership'] = useCallback(
@@ -743,37 +795,25 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   )
 
   /* -------------------------- Approvals --------------------------------- */
-  const accessRequests = useMemo((): AccessRequest[] => {
-    try {
-      const rows = JSON.parse(
-        localStorage.getItem('av-access-requests') ?? '[]',
-      ) as {
-        userId: string
-        message?: string | null
-        preferredDepartmentId?: string
-        jobTitle?: string
-        status: string
-        requestedAt: string
-      }[]
-      return rows
-        .filter((r) => r.status === 'pending' || r.status === 'acknowledged')
-        .map((r) => ({
-          userId: r.userId,
-          message: r.message ?? undefined,
-          preferredDepartmentId: r.preferredDepartmentId,
-          jobTitle: r.jobTitle,
-          status: r.status as AccessRequest['status'],
-          requestedAt: r.requestedAt,
-        }))
-    } catch {
-      return []
-    }
-  }, [])
-
-  const pendingUsers = useMemo(
-    () => usersAwaitingApproval(users),
-    [users],
+  const [accessRequestRows, setAccessRequestRows] = useLocalStorage<AccessRequest[]>(
+    'av-access-requests',
+    [],
   )
+
+  const accessRequests = useMemo(
+    () => accessRequestRows.filter((r) => r.status === 'pending' || r.status === 'acknowledged' || r.status === 'dismissed'),
+    [accessRequestRows],
+  )
+
+  const pendingUsers = useMemo(() => {
+    const awaiting = usersAwaitingApproval(users)
+    const byUser = new Map(accessRequestRows.map((r) => [r.userId, r]))
+    return awaiting.filter((u) => {
+      const req = byUser.get(u.id)
+      if (!req) return true
+      return req.status === 'pending' || req.status === 'acknowledged'
+    })
+  }, [users, accessRequestRows])
 
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {
@@ -793,9 +833,38 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
             : u,
         ),
       )
+      setAccessRequestRows((prev) =>
+        prev.map((r) => (r.userId === id ? { ...r, status: 'approved' as const } : r)),
+      )
       return { ok: true as const, emailSent: false }
     },
-    [setUsers, departments],
+    [setUsers, departments, setAccessRequestRows],
+  )
+
+  const denyUser = useCallback(
+    async (id: string, note?: string) => {
+      setAccessRequestRows((prev) => {
+        const exists = prev.some((r) => r.userId === id)
+        if (exists) {
+          return prev.map((r) =>
+            r.userId === id
+              ? { ...r, status: 'dismissed' as const, message: note?.trim() || r.message }
+              : r,
+          )
+        }
+        return [
+          ...prev,
+          {
+            userId: id,
+            status: 'dismissed' as const,
+            message: note?.trim() || undefined,
+            requestedAt: new Date().toISOString(),
+          },
+        ]
+      })
+      return { ok: true as const }
+    },
+    [setAccessRequestRows],
   )
 
   const reloadData = useCallback(async () => {
@@ -977,10 +1046,12 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       updateDepartment,
       deleteDepartment,
       assignUserToDepartment,
+      removeOrganizationUser,
       setUserTeamMembership,
       pendingUsers,
       accessRequests,
       approveUser,
+      denyUser,
       taskCategories,
       addTaskCategory,
       updateTaskCategory,
@@ -1033,8 +1104,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       events, addEvent,
       teams, addTeam, updateTeam, deleteTeam,
       departments, addDepartment, updateDepartment, deleteDepartment,
-      assignUserToDepartment, setUserTeamMembership,
-      pendingUsers, accessRequests, approveUser,
+      assignUserToDepartment, removeOrganizationUser, setUserTeamMembership,
+      pendingUsers, accessRequests, approveUser, denyUser,
       taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
       documentCategories, addDocumentCategory, updateDocumentCategory, deleteDocumentCategory,
       recognitionTags, addRecognitionTag, updateRecognitionTag, deleteRecognitionTag,

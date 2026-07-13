@@ -124,6 +124,7 @@ export function PortalMediaGallery({
           title={docPreview?.fileName ?? 'Document'}
           fileName={docPreview?.fileName ?? 'file'}
           url={docPreview?.url ?? null}
+          siblings={items}
         />
       </>
     )
@@ -210,6 +211,7 @@ export function PortalMediaGallery({
         title={docPreview?.fileName ?? 'Document'}
         fileName={docPreview?.fileName ?? 'file'}
         url={docPreview?.url ?? null}
+        siblings={items}
       />
     </>
   )

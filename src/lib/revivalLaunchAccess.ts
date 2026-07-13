@@ -25,20 +25,14 @@ function emailLocalPart(email: string): string {
   return email.split('@')[0]?.toLowerCase() ?? ''
 }
 
-function nameHasToken(name: string, token: string): boolean {
-  const re = new RegExp(`(^|[^a-z0-9])${token}([^a-z0-9]|$)`, 'i')
-  return re.test(name)
-}
-
 export function matchesRevivalPerson(
   user: Pick<User, 'name' | 'email'>,
   person: RevivalPerson,
 ): boolean {
-  const email = user.email.toLowerCase()
-  const local = emailLocalPart(email)
+  const local = emailLocalPart(user.email)
   const keys = REVIVAL_LAUNCH_PEOPLE[person].keys
-  if (keys.includes(local)) return true
-  return keys.some((k) => nameHasToken(user.name, k))
+  // Exact email local-part only (avoid matching unrelated staff by display name)
+  return keys.includes(local)
 }
 
 /** Only Emmanuel, Daniel, and Opemipo may open the revival launch checklist. */

@@ -2,6 +2,7 @@ import type { LucideIcon } from 'lucide-react'
 import {
   AtSign,
   BarChart3,
+  Building2,
   CalendarDays,
   Heart,
   Inbox,
@@ -20,11 +21,13 @@ export const INBOX_NOTIFICATION_TYPES = [
   'task_assigned',
   'access_request',
   'access_granted',
+  'access_denied',
   'leave_update',
   'leave_comment',
   'recognition_comment',
   'survey_reminder',
   'memo_published',
+  'department_changed',
 ] as const satisfies readonly InboxNotificationType[]
 
 export type InboxTypeMeta = {
@@ -79,6 +82,11 @@ export const INBOX_TYPE_META: Record<InboxNotificationType, InboxTypeMeta> = {
     label: 'Access approved',
     iconClass: 'text-success',
   },
+  access_denied: {
+    icon: UserPlus,
+    label: 'Access declined',
+    iconClass: 'text-danger',
+  },
   survey_reminder: {
     icon: BarChart3,
     label: 'Survey',
@@ -87,6 +95,11 @@ export const INBOX_TYPE_META: Record<InboxNotificationType, InboxTypeMeta> = {
   memo_published: {
     icon: Megaphone,
     label: 'Memo',
+    iconClass: 'text-accent',
+  },
+  department_changed: {
+    icon: Building2,
+    label: 'Department',
     iconClass: 'text-accent',
   },
 }
@@ -145,8 +158,14 @@ export function resolveInboxLink(notification: InboxNotification): string {
       return '/admin'
     case 'access_granted':
       return safeStored ?? '/'
+    case 'access_denied':
+      return safeStored ?? '/'
     case 'survey_reminder':
       return surveyDetailPath(notification) ?? safeStored ?? '/people/surveys'
+    case 'memo_published':
+      return safeStored ?? '/announcements'
+    case 'department_changed':
+      return safeStored ?? '/people/directory'
     default:
       return safeStored ?? '/'
   }

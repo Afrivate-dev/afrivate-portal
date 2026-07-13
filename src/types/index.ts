@@ -224,11 +224,13 @@ export type InboxNotificationType =
   | 'task_assigned'
   | 'access_request'
   | 'access_granted'
+  | 'access_denied'
   | 'leave_update'
   | 'leave_comment'
   | 'recognition_comment'
   | 'survey_reminder'
   | 'memo_published'
+  | 'department_changed'
 
 /** In-app inbox item (local mock; replace with server push later). */
 export interface InboxNotification {

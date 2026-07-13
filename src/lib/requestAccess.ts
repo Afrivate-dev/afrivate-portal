@@ -226,7 +226,7 @@ export async function submitAccessRequest(
 }
 
 export async function fetchOwnAccessRequestStatus(): Promise<
-  'none' | 'pending' | 'acknowledged' | 'approved'
+  'none' | 'pending' | 'acknowledged' | 'approved' | 'dismissed'
 > {
   if (!isSupabaseAuthEnabled()) {
     const user = currentMockUser()
@@ -235,6 +235,8 @@ export async function fetchOwnAccessRequestStatus(): Promise<
     if (!row) return 'none'
     if (row.status === 'pending') return 'pending'
     if (row.status === 'acknowledged') return 'acknowledged'
+    if (row.status === 'approved') return 'approved'
+    if (row.status === 'dismissed') return 'dismissed'
     return 'none'
   }
 
@@ -256,5 +258,6 @@ export async function fetchOwnAccessRequestStatus(): Promise<
   if (status === 'pending') return 'pending'
   if (status === 'acknowledged') return 'acknowledged'
   if (status === 'approved') return 'approved'
+  if (status === 'dismissed') return 'dismissed'
   return 'none'
 }

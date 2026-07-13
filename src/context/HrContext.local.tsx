@@ -5,6 +5,7 @@ import { useData } from '@/context/DataContext'
 import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrContextShared'
 import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { DEFAULT_FEEDBACK_TEMPLATES } from '@/lib/feedbackConfig'
+import { buildPeerAssignmentsForSubject } from '@/lib/feedbackPeers'
 import { uid } from '@/utils/helpers'
 import type {
   FeedbackAssignment,
@@ -285,29 +286,45 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
           relationship: 'self',
           createdAt: new Date().toISOString(),
         })
-        if (u.reportsToId) {
+        const mgrIds = new Set<string>()
+        if (u.reportsToId) mgrIds.add(u.reportsToId)
+        for (const t of teams) {
+          if (!t.memberIds.includes(u.id)) continue
+          if (t.leadUserId) mgrIds.add(t.leadUserId)
+          if (t.asstLeadUserId) mgrIds.add(t.asstLeadUserId)
+        }
+        for (const d of departments) {
+          if (d.name === u.department && d.headUserId) mgrIds.add(d.headUserId)
+        }
+        mgrIds.delete(u.id)
+        for (const mgrId of mgrIds) {
+          const mgr = activeUsers.find((x) => x.id === mgrId)
+          if (!mgr) continue
           assignments.push({
             id: 'fa_' + uid(),
             cycleId,
             subjectUserId: u.id,
-            reviewerId: u.reportsToId,
+            reviewerId: mgrId,
             relationship: 'manager',
             createdAt: new Date().toISOString(),
           })
           assignments.push({
             id: 'fa_' + uid(),
             cycleId,
-            subjectUserId: u.reportsToId,
+            subjectUserId: mgrId,
             reviewerId: u.id,
             relationship: 'report',
             createdAt: new Date().toISOString(),
           })
         }
+        assignments.push(
+          ...buildPeerAssignmentsForSubject(u, activeUsers, teams, cycleId, () => 'fa_' + uid(), departments),
+        )
       }
       setFeedbackAssignments((prev) => [...prev, ...assignments])
       return cycleId
     },
-    [feedbackTemplates, users, setFeedbackCycles, setFeedbackAssignments],
+    [feedbackTemplates, users, teams, departments, setFeedbackCycles, setFeedbackAssignments],
   )
 
   const addJobRequisition = useCallback((r: Omit<JobRequisition, 'id' | 'createdAt'>) => {

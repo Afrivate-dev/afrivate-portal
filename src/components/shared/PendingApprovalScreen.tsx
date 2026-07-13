@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Clock, Send, LogOut, CheckCircle, Briefcase } from 'lucide-react'
+import { Clock, Send, LogOut, CheckCircle, Briefcase, XCircle } from 'lucide-react'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
@@ -25,9 +25,9 @@ export function PendingApprovalScreen({
   const [jobTitle, setJobTitle] = useState('')
   const [departments, setDepartments] = useState<{ id: string; name: string }[]>([])
   const [deptsLoading, setDeptsLoading] = useState(true)
-  const [status, setStatus] = useState<'none' | 'pending' | 'acknowledged' | 'approved' | 'loading'>(() =>
-    isSupabaseAuthEnabled() ? 'loading' : 'none',
-  )
+  const [status, setStatus] = useState<
+    'none' | 'pending' | 'acknowledged' | 'approved' | 'dismissed' | 'loading'
+  >(() => (isSupabaseAuthEnabled() ? 'loading' : 'none'))
   const [submitting, setSubmitting] = useState(false)
   const [error, setError] = useState<string | null>(null)
   const [success, setSuccess] = useState<string | null>(null)
@@ -157,6 +157,28 @@ export function PendingApprovalScreen({
         <div className="flex max-w-md items-start gap-2 rounded-lg border border-success/30 bg-success/10 px-4 py-3 text-left text-sm text-success">
           <CheckCircle className="mt-0.5 h-4 w-4 shrink-0" />
           <span>{success ?? 'Your access was approved — loading the portal…'}</span>
+        </div>
+      ) : status === 'dismissed' ? (
+        <div className="flex max-w-md flex-col gap-3">
+          <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-left text-sm text-danger">
+            <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
+            <span>
+              Your access request was not approved. Contact People & Culture if you believe this is a
+              mistake, or submit a new request below.
+            </span>
+          </div>
+          <Button
+            type="button"
+            variant="secondary"
+            className="w-full"
+            onClick={() => {
+              setStatus('none')
+              setSuccess(null)
+              setError(null)
+            }}
+          >
+            Request access again
+          </Button>
         </div>
       ) : status === 'pending' || status === 'acknowledged' ? (
         <div className="flex max-w-md flex-col gap-3">

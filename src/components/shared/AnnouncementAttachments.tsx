@@ -9,6 +9,7 @@ import {
   parseMediaUrlInput,
   uploadAnnouncementMedia,
 } from '@/utils/mediaUpload'
+import { MAX_MEMO_ATTACHMENT_BYTES } from '@/utils/documentPreview'
 import type { AnnouncementMedia } from '@/types'
 
 /** @deprecated use PortalMediaGallery */
@@ -20,7 +21,7 @@ const labels = {
   addLink: 'Add link',
   upload: 'Upload file',
   uploading: 'Uploading…',
-  help: 'Add photos or documents (PDF, Word, etc.), or paste a link — including YouTube/Vimeo for videos. Video file upload is not supported; use a link instead.',
+  help: 'Attach photos or any file (PDF, Word .docx, HTML, and more). HTML/PDF/DOCX open in-app with formatting and images. For HTML that references images, upload those image files on the same memo too. Legacy .doc and other Office files can be uploaded and downloaded. Video file upload is not supported — paste a YouTube/Vimeo link instead.',
   remove: 'Remove',
 }
 
@@ -48,20 +49,48 @@ export function MediaAttachmentEditor({
   }
 
   const onFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0]
+    const files = Array.from(e.target.files ?? [])
     e.target.value = ''
-    if (!file) return
-    if (file.type.startsWith('video/')) {
-      setUrlError('Video files cannot be uploaded. Paste a YouTube, Vimeo, or direct video link instead.')
+    if (!files.length) return
+
+    const blockedVideo = files.filter((f) => f.type.startsWith('video/'))
+    const tooLarge = files.filter((f) => !f.type.startsWith('video/') && f.size > MAX_MEMO_ATTACHMENT_BYTES)
+    const allowed = files.filter(
+      (f) => !f.type.startsWith('video/') && f.size <= MAX_MEMO_ATTACHMENT_BYTES,
+    )
+
+    if (!allowed.length) {
+      if (blockedVideo.length && !tooLarge.length) {
+        setUrlError('Video files cannot be uploaded. Paste a YouTube, Vimeo, or direct video link instead.')
+      } else if (tooLarge.length) {
+        setUrlError('Each file must be 50 MB or smaller.')
+      }
       return
     }
+
     setBusy(true)
     setUrlError('')
+    const uploaded: AnnouncementMedia[] = []
+    const failures: string[] = []
     try {
-      const row = await uploadAnnouncementMedia(file, user?.id)
-      onChange([...items, { ...row, fileName: file.name }])
-    } catch (err) {
-      setUrlError(err instanceof MediaUploadError ? err.message : 'Upload failed.')
+      for (const file of allowed) {
+        try {
+          const row = await uploadAnnouncementMedia(file, user?.id)
+          uploaded.push({ ...row, fileName: file.name })
+        } catch (err) {
+          failures.push(
+            err instanceof MediaUploadError
+              ? `${file.name}: ${err.message}`
+              : `${file.name}: upload failed`,
+          )
+        }
+      }
+      if (uploaded.length) onChange([...items, ...uploaded])
+      const notes: string[] = []
+      if (blockedVideo.length) notes.push('Video files were skipped — paste a YouTube/Vimeo link instead.')
+      if (tooLarge.length) notes.push('Some files were over 50 MB and were skipped.')
+      if (failures.length) notes.push(failures[0]!)
+      if (notes.length) setUrlError(notes.join(' '))
     } finally {
       setBusy(false)
     }
@@ -100,7 +129,8 @@ export function MediaAttachmentEditor({
         <label className="inline-flex cursor-pointer">
           <input
             type="file"
-            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.txt,.md"
+            multiple
+            accept="image/*,.pdf,.doc,.docx,.xls,.xlsx,.ppt,.pptx,.html,.htm,.txt,.md,.csv,.rtf,.zip,*/*"
             className="sr-only"
             onChange={onFile}
             disabled={busy}
