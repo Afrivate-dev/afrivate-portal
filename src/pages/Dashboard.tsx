@@ -360,14 +360,21 @@ export function DashboardPage() {
             {currentAnnouncement.body.trim() ? (
               <p className="whitespace-pre-line text-sm text-fg/90">{currentAnnouncement.body}</p>
             ) : null}
-            {usesDocumentAsMemoBody(currentAnnouncement.body, currentAnnouncement.media) &&
-            pickMemoBodyDocument(currentAnnouncement.media) ? (
-              <MemoDocumentBody
-                item={pickMemoBodyDocument(currentAnnouncement.media)!}
-                siblings={currentAnnouncement.media}
-                compact
-              />
-            ) : null}
+            {(() => {
+              const bodyDoc = usesDocumentAsMemoBody(
+                currentAnnouncement.body,
+                currentAnnouncement.media,
+              )
+                ? pickMemoBodyDocument(currentAnnouncement.media)
+                : null
+              return bodyDoc ? (
+                <MemoDocumentBody
+                  item={bodyDoc}
+                  siblings={currentAnnouncement.media}
+                  compact
+                />
+              ) : null
+            })()}
             <AnnouncementMediaGallery
               media={memoGalleryMedia(currentAnnouncement.body, currentAnnouncement.media)}
             />

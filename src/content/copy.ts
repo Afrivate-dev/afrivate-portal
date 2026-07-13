@@ -478,7 +478,9 @@ export const pages = {
     noMatchesHint: 'Try another search or choose a different department.',
     editProfile: 'Edit my profile',
     profileEditIntro:
-      "Help teammates recognize you. Job title, department, and reporting line are kept accurate by People & culture — you can refresh your photo, how to reach you, and a short intro.",
+      'Help teammates recognize you. Update your job title, photo, how to reach you, and a short intro. Department and reporting line are still managed by People & Culture.',
+    jobTitle: 'Job title',
+    jobTitleHint: 'What shows under your name in the directory and on memos.',
     profilePhotoSection: 'Profile photo',
     profilePhotoHelp:
       'Upload a photo the same way announcement images go to company hosting, or paste a link to a square image.',

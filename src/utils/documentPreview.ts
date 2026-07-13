@@ -111,19 +111,19 @@ export function sanitizeHtmlDocument(html: string): string {
   return out
 }
 
-/** Files that can stand in for a written memo body (HTML / PDF / Word). */
+/** Files that can stand in for a written memo body (HTML / PDF / Word .docx). */
 export function isMemoBodyDocument(item: AnnouncementMedia): boolean {
   if (item.kind !== 'document') return false
   const kind = detectDocumentPreviewKind(item.fileName ?? '', item.url)
-  return kind === 'html' || kind === 'pdf' || kind === 'docx' || kind === 'download'
+  return kind === 'html' || kind === 'pdf' || kind === 'docx'
 }
 
-/** Prefer HTML, then PDF, then DOCX, then other downloadable docs. */
+/** Prefer HTML, then PDF, then DOCX. */
 export function pickMemoBodyDocument(media?: AnnouncementMedia[]): AnnouncementMedia | null {
   if (!media?.length) return null
   const docs = media.filter(isMemoBodyDocument)
   if (!docs.length) return null
-  const order: DocumentPreviewKind[] = ['html', 'pdf', 'docx', 'download']
+  const order: DocumentPreviewKind[] = ['html', 'pdf', 'docx']
   for (const kind of order) {
     const hit = docs.find((d) => detectDocumentPreviewKind(d.fileName ?? '', d.url) === kind)
     if (hit) return hit

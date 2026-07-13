@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import {
   ChevronLeft,
   ChevronRight,
@@ -104,12 +105,17 @@ export function PortalMediaGallery({
   useEffect(() => {
     if (lightboxIndex == null) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') closeLightbox()
+      if (e.key === 'Escape') {
+        e.preventDefault()
+        e.stopImmediatePropagation()
+        closeLightbox()
+        return
+      }
       if (e.key === 'ArrowLeft') goPrev()
       if (e.key === 'ArrowRight') goNext()
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+    window.addEventListener('keydown', onKey, true)
+    return () => window.removeEventListener('keydown', onKey, true)
   }, [lightboxIndex, closeLightbox, goPrev, goNext])
 
   if (!items.length) return null
@@ -145,65 +151,68 @@ export function PortalMediaGallery({
         ))}
       </div>
 
-      {lightboxIndex != null && items[lightboxIndex] ? (
-        <div
-          className="fixed inset-0 z-[110] flex flex-col bg-black/90"
-          role="dialog"
-          aria-modal="true"
-          aria-label="Media viewer"
-        >
-          <div className="flex items-center justify-between px-4 py-3 text-white">
-            <span className="text-sm font-medium">
-              {lightboxIndex + 1} / {items.length}
-            </span>
-            <button
-              type="button"
-              onClick={closeLightbox}
-              className="rounded-md p-2 hover:bg-white/10 ring-focus touch-manipulation"
-              aria-label="Close"
+      {lightboxIndex != null && items[lightboxIndex] && typeof document !== 'undefined'
+        ? createPortal(
+            <div
+              className="fixed inset-0 z-[110] flex flex-col bg-black/90"
+              role="dialog"
+              aria-modal="true"
+              aria-label="Media viewer"
             >
-              <X className="h-5 w-5" />
-            </button>
-          </div>
-          <div className="relative flex flex-1 items-center justify-center overflow-y-auto px-2 pb-6 sm:px-4">
-            {items.length > 1 ? (
-              <>
+              <div className="flex items-center justify-between px-4 py-3 text-white">
+                <span className="text-sm font-medium">
+                  {lightboxIndex + 1} / {items.length}
+                </span>
                 <button
                   type="button"
-                  onClick={goPrev}
-                  className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus touch-manipulation sm:left-4"
-                  aria-label="Previous"
+                  onClick={closeLightbox}
+                  className="rounded-md p-2 hover:bg-white/10 ring-focus touch-manipulation"
+                  aria-label="Close"
                 >
-                  <ChevronLeft className="h-6 w-6" />
+                  <X className="h-5 w-5" />
                 </button>
-                <button
-                  type="button"
-                  onClick={goNext}
-                  className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus touch-manipulation sm:right-4"
-                  aria-label="Next"
-                >
-                  <ChevronRight className="h-6 w-6" />
-                </button>
-              </>
-            ) : null}
-            <div className="w-full max-w-4xl">
-              <MediaSlideContent
-                item={items[lightboxIndex]}
-                eager
-                imageFullscreen
-                onDocumentOpen={
-                  items[lightboxIndex].kind === 'document'
-                    ? () => {
-                        setDocPreview(items[lightboxIndex])
-                        closeLightbox()
-                      }
-                    : undefined
-                }
-              />
-            </div>
-          </div>
-        </div>
-      ) : null}
+              </div>
+              <div className="relative flex flex-1 items-center justify-center overflow-y-auto px-2 pb-6 sm:px-4">
+                {items.length > 1 ? (
+                  <>
+                    <button
+                      type="button"
+                      onClick={goPrev}
+                      className="absolute left-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus touch-manipulation sm:left-4"
+                      aria-label="Previous"
+                    >
+                      <ChevronLeft className="h-6 w-6" />
+                    </button>
+                    <button
+                      type="button"
+                      onClick={goNext}
+                      className="absolute right-2 top-1/2 z-10 -translate-y-1/2 rounded-full bg-black/50 p-2 text-white hover:bg-black/70 ring-focus touch-manipulation sm:right-4"
+                      aria-label="Next"
+                    >
+                      <ChevronRight className="h-6 w-6" />
+                    </button>
+                  </>
+                ) : null}
+                <div className="w-full max-w-4xl">
+                  <MediaSlideContent
+                    item={items[lightboxIndex]}
+                    eager
+                    imageFullscreen
+                    onDocumentOpen={
+                      items[lightboxIndex].kind === 'document'
+                        ? () => {
+                            setDocPreview(items[lightboxIndex])
+                            closeLightbox()
+                          }
+                        : undefined
+                    }
+                  />
+                </div>
+              </div>
+            </div>,
+            document.body,
+          )
+        : null}
 
       <DocumentPreviewModal
         open={!!docPreview}

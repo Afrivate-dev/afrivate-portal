@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { createPortal } from 'react-dom'
 import { Download, FileText, X } from 'lucide-react'
 import {
   buildHtmlAssetMap,
@@ -322,20 +323,24 @@ export function DocumentPreviewModal({
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => {
-      if (e.key === 'Escape') onClose()
+      if (e.key !== 'Escape') return
+      e.preventDefault()
+      e.stopImmediatePropagation()
+      onClose()
     }
     const prev = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    window.addEventListener('keydown', onKey)
+    // Capture so nested parent Modals do not also close on Escape
+    window.addEventListener('keydown', onKey, true)
     return () => {
       document.body.style.overflow = prev
-      window.removeEventListener('keydown', onKey)
+      window.removeEventListener('keydown', onKey, true)
     }
   }, [open, onClose])
 
-  if (!open || !url) return null
+  if (!open || !url || typeof document === 'undefined') return null
 
-  return (
+  return createPortal(
     <div
       className="fixed inset-0 z-[110] flex items-end justify-center sm:items-center sm:p-4"
       role="dialog"
@@ -353,6 +358,7 @@ export function DocumentPreviewModal({
           siblings={siblings}
         />
       </div>
-    </div>
+    </div>,
+    document.body,
   )
 }

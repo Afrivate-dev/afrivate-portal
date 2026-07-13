@@ -8,6 +8,16 @@ export function memoPublishedInboxRows(
   users: User[],
 ): InboxNotification[] {
   const now = new Date().toISOString()
+  const textSnippet = announcement.body.trim().slice(0, 140)
+  const docName = announcement.media?.find((m) => m.kind === 'document')?.fileName
+  const body =
+    textSnippet ||
+    (docName
+      ? `Document: ${docName}`
+      : announcement.media?.length
+        ? 'Open the memo to view the attached file.'
+        : undefined)
+
   return users
     .filter(
       (u) =>
@@ -23,7 +33,7 @@ export function memoPublishedInboxRows(
         announcement.priority === 'urgent'
           ? `Urgent memo: ${announcement.title}`
           : `New memo: ${announcement.title}`,
-      body: announcement.body.trim().slice(0, 140) || undefined,
+      body,
       link: `/announcements?open=${encodeURIComponent(announcement.id)}`,
       read: false,
       createdAt: now,

@@ -55,6 +55,7 @@ const P = pages.people
 
 interface ProfileDraft {
   name: string
+  jobTitle: string
   bio: string
   phone: string
   skills: string
@@ -174,6 +175,7 @@ export function StaffDirectoryPage() {
   const [editing, setEditing] = useState(false)
   const [draft, setDraft] = useState<ProfileDraft>({
     name: '',
+    jobTitle: '',
     bio: '',
     phone: '',
     skills: '',
@@ -275,6 +277,7 @@ export function StaffDirectoryPage() {
     setAvatarUploadError('')
     setDraft({
       name: opened.name,
+      jobTitle: opened.jobTitle ?? '',
       bio: opened.bio ?? '',
       phone: opened.phone ?? '',
       skills: (opened.skills ?? []).join(', '),
@@ -291,6 +294,7 @@ export function StaffDirectoryPage() {
     setAvatarUploadError('')
     setDraft({
       name: '',
+      jobTitle: '',
       bio: '',
       phone: '',
       skills: '',
@@ -311,6 +315,7 @@ export function StaffDirectoryPage() {
     if (!ok) return
     const patch: Partial<User> = {
       name: draft.name.trim() || opened.name,
+      jobTitle: draft.jobTitle.trim(),
       bio: draft.bio.trim(),
       phone: draft.phone.trim(),
       skills: draft.skills
@@ -549,6 +554,15 @@ export function StaffDirectoryPage() {
                 onChange={(e) => setDraft({ ...draft, name: e.target.value })}
                 placeholder="Full name"
                 required
+              />
+
+              <Input
+                label={P.jobTitle}
+                hint={P.jobTitleHint}
+                value={draft.jobTitle}
+                onChange={(e) => setDraft({ ...draft, jobTitle: e.target.value })}
+                placeholder="e.g. Software Engineer"
+                maxLength={120}
               />
 
               <div className="rounded-md border border-border bg-surface-2/20 p-3">
