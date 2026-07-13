@@ -7,17 +7,20 @@ export function isPlaceholderJobTitle(title?: string | null): boolean {
   return t.toLowerCase() === 'staff'
 }
 
-/** Prefer the access-request title, then a real profile title — never invent "Staff". */
+/**
+ * Job title for approval / display.
+ * Always prefer exactly what the person typed on their access request.
+ * Only fall back to the profile when the request has no title (and skip the
+ * legacy signup placeholder "Staff").
+ */
 export function resolveAccessJobTitle(
   user: Pick<User, 'jobTitle'>,
   request?: Pick<AccessRequest, 'jobTitle'> | null,
 ): string {
   const fromRequest = request?.jobTitle?.trim()
-  if (fromRequest && !isPlaceholderJobTitle(fromRequest)) return fromRequest
+  if (fromRequest) return fromRequest
 
   const fromProfile = user.jobTitle?.trim()
   if (fromProfile && !isPlaceholderJobTitle(fromProfile)) return fromProfile
-
-  if (fromRequest) return fromRequest
-  return fromProfile || ''
+  return ''
 }

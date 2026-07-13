@@ -205,7 +205,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       if (accessErr?.message?.includes('preferred_department_id')) {
         const { data: basicRows } = await client
           .from('portal_access_requests')
-          .select('user_id, message, status, requested_at')
+          .select('user_id, message, job_title, status, requested_at')
           .in('status', ['pending', 'acknowledged', 'dismissed'])
         loadedAccess = mapAccessRows((basicRows ?? []) as Record<string, unknown>[])
       } else if (accessRows) {

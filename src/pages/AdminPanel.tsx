@@ -57,7 +57,7 @@ import {
   usesDocumentAsMemoBody,
 } from '@/utils/documentPreview'
 import { invitePortalUser } from '@/lib/invitePortalUser'
-import { resolveAccessJobTitle, isPlaceholderJobTitle } from '@/lib/jobTitle'
+import { resolveAccessJobTitle } from '@/lib/jobTitle'
 import { supabase } from '@/lib/supabase'
 import type {
   Announcement,
@@ -171,10 +171,12 @@ export function AdminPanelPage() {
 
   const openApprovalForUser = (u: User) => {
     const req = accessRequests.find((r) => r.userId === u.id)
+    // Always start from what they typed on the access request (admin may edit).
+    const requestedTitle = req?.jobTitle?.trim() || resolveAccessJobTitle(u, req)
     setApprovingUser(u)
     setApprovalRole('staff')
     setApprovalDeptId(req?.preferredDepartmentId ?? departments[0]?.id ?? '')
-    setApprovalTitle(resolveAccessJobTitle(u, req))
+    setApprovalTitle(requestedTitle)
   }
 
   const resolveDepartmentName = (deptId: string) =>
@@ -223,11 +225,12 @@ export function AdminPanelPage() {
       setAlertMessage('Please select a department.')
       return
     }
-    const req = accessRequests.find((r) => r.userId === approvingUser.id)
-    const jobTitleToApply =
-      approvalTitle.trim() || resolveAccessJobTitle(approvingUser, req)
-    if (!jobTitleToApply.trim()) {
-      setAlertMessage('Please enter their job title before approving.')
+    // Store exactly what is in the field (pre-filled from their request unless admin edited it).
+    const jobTitleToApply = approvalTitle.trim()
+    if (!jobTitleToApply) {
+      setAlertMessage(
+        'Job title is missing. It should match what they entered on their access request.',
+      )
       return
     }
     const ok = await confirm({
@@ -671,18 +674,21 @@ export function AdminPanelPage() {
               const reqDept = req?.preferredDepartmentId
                 ? departments.find((d) => d.id === req.preferredDepartmentId)?.name
                 : undefined
+              const requestedJobTitle = req?.jobTitle?.trim() || resolveAccessJobTitle(u, req)
               return (
               <Card key={u.id} padding="md" className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div>
                   <div className="font-medium text-fg">{u.name}</div>
                   <div className="text-sm text-muted">{u.email}</div>
-                  {reqDept || req?.jobTitle || (!isPlaceholderJobTitle(u.jobTitle) && u.jobTitle) ? (
+                  {reqDept || requestedJobTitle ? (
                     <div className="mt-1 text-xs text-muted">
                       {reqDept ? `Department: ${reqDept}` : null}
-                      {reqDept && (req?.jobTitle || u.jobTitle) ? ' · ' : null}
-                      {req?.jobTitle || (!isPlaceholderJobTitle(u.jobTitle) ? u.jobTitle : '')
-                        ? `Job title: ${resolveAccessJobTitle(u, req)}`
-                        : null}
+                      {reqDept && requestedJobTitle ? ' · ' : null}
+                      {requestedJobTitle ? (
+                        <span>
+                          Job title: <span className="font-medium text-fg">{requestedJobTitle}</span>
+                        </span>
+                      ) : null}
                     </div>
                   ) : null}
                   {req?.message ? (
@@ -1612,17 +1618,27 @@ export function AdminPanelPage() {
             <div className="rounded-md bg-surface-2 px-3 py-2">
               <div className="font-medium text-fg">{approvingUser.name}</div>
               <div className="text-sm text-muted">{approvingUser.email}</div>
+              {(() => {
+                const req = accessRequests.find((r) => r.userId === approvingUser.id)
+                const requested = req?.jobTitle?.trim()
+                return requested ? (
+                  <p className="mt-2 text-sm text-fg">
+                    Requested job title:{' '}
+                    <span className="font-semibold">{requested}</span>
+                  </p>
+                ) : null
+              })()}
             </div>
             {adminUser ? (
               <Select
-                label="Role"
+                label="Portal access level"
                 value={approvalRole}
                 onChange={(e) => setApprovalRole(e.target.value as Role)}
                 options={ROLE_OPTIONS}
               />
             ) : (
               <p className="text-sm text-muted">
-                Role: Staff (only administrators can assign other roles)
+                Portal access level: Staff (only administrators can assign other levels)
               </p>
             )}
             <Select
@@ -1636,9 +1652,10 @@ export function AdminPanelPage() {
             />
             <Input
               label="Job title"
+              hint="Pre-filled from their access request. Change only if you need to correct it — otherwise leave it as they entered."
               value={approvalTitle}
               onChange={(e) => setApprovalTitle(e.target.value)}
-              placeholder="As they entered when requesting access"
+              placeholder="What they entered when requesting access"
               required
             />
           </div>
