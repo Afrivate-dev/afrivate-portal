@@ -67,7 +67,8 @@ export function FeedbackAssignmentPanel() {
         <h3 className="min-w-0 flex-1 text-sm font-semibold text-fg">360° assignments — {openCycle.title}</h3>
       </div>
       <p className="mb-4 text-xs text-muted">
-        Self, manager, and upward reviews are auto-assigned when a cycle opens. Add peer reviewers here.
+        Self, manager, upward, and peer reviews are auto-assigned when a cycle opens (peers from the
+        same department or shared teams, up to 8). Add or adjust peer reviewers here if needed.
       </p>
 
       <div className="flex flex-wrap gap-2">

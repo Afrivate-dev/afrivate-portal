@@ -48,7 +48,7 @@ import { HrDashboardSection } from '@/pages/admin/HrDashboardSection'
 import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
-import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, roleLabel } from '@/utils/helpers'
+import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, isAdmin, roleLabel } from '@/utils/helpers'
 import { invitePortalUser } from '@/lib/invitePortalUser'
 import { supabase } from '@/lib/supabase'
 import type {
@@ -120,16 +120,22 @@ export function AdminPanelPage() {
     pendingUsers,
     accessRequests,
     approveUser,
+    denyUser,
     departments,
     addDepartment,
     updateDepartment,
     deleteDepartment,
+    assignUserToDepartment,
+    removeOrganizationUser,
     teams,
     addTeam,
     updateTeam,
     deleteTeam,
     memoCategories,
   } = useData()
+
+  const adminUser = canChangeRoles(user)
+  const canManageUsers = isAdmin(user) || user?.role === 'hr'
 
   const [section, setSection] = useState<Section>('approvals')
 
@@ -152,8 +158,8 @@ export function AdminPanelPage() {
   const [approvalDeptId, setApprovalDeptId] = useState('')
   const [approvalTitle, setApprovalTitle] = useState('')
   const [approving, setApproving] = useState(false)
-
-  const adminUser = canChangeRoles(user)
+  const [denyingId, setDenyingId] = useState<string | null>(null)
+  const [removingId, setRemovingId] = useState<string | null>(null)
 
   const openApprovalForUser = (u: User) => {
     const req = accessRequests.find((r) => r.userId === u.id)
@@ -233,6 +239,29 @@ export function AdminPanelPage() {
       ? ' They have been emailed.'
       : ' They were notified in the portal.'
     setAlertMessage(`${approvingUser.name} is now active.${emailNote}`)
+  }
+
+  const handleDenyAccess = async (u: User) => {
+    if (denyingId) return
+    const ok = await confirm({
+      title: confirms.denyAccountTitle,
+      message: confirms.denyAccount,
+      confirmLabel: 'Deny access',
+      destructive: true,
+    })
+    if (!ok) return
+    setDenyingId(u.id)
+    try {
+      const result = await denyUser(u.id)
+      if (!result.ok) {
+        setAlertMessage(result.error ?? 'Could not deny this request.')
+        return
+      }
+      if (approvingUser?.id === u.id) setApprovingUser(null)
+      setAlertMessage(`${u.name}'s access request was declined.`)
+    } finally {
+      setDenyingId(null)
+    }
   }
 
   // Invite state
@@ -457,6 +486,43 @@ export function AdminPanelPage() {
     patchUser(u.id, { active })
   }
 
+  const handleDepartmentChange = async (u: User, departmentId: string) => {
+    if (!canManageUsers) return
+    const dept = departments.find((d) => d.id === departmentId)
+    if (!dept || dept.name === u.department) return
+    const ok = await confirm({
+      title: confirms.changeDepartmentTitle,
+      message: confirms.changeDepartment(u.name, dept.name),
+      confirmLabel: 'Move',
+    })
+    if (!ok) return
+    const result = await assignUserToDepartment(u.id, departmentId)
+    if (!result.ok) setAlertMessage(result.error ?? 'Could not update department.')
+  }
+
+  const handleRemoveUser = async (u: User) => {
+    if (!adminUser || removingId) return
+    if (u.id === user?.id) {
+      setAlertMessage('You cannot remove your own account while signed in.')
+      return
+    }
+    const ok = await confirm({
+      title: confirms.removeOrganizationUserTitle,
+      message: confirms.removeOrganizationUser(u.name),
+      confirmLabel: 'Remove permanently',
+      destructive: true,
+    })
+    if (!ok) return
+    setRemovingId(u.id)
+    try {
+      const result = await removeOrganizationUser(u.id)
+      if (!result.ok) setAlertMessage(result.error ?? 'Could not remove this user.')
+      else setAlertMessage(`${u.name} was removed from the organization.`)
+    } finally {
+      setRemovingId(null)
+    }
+  }
+
   const openAnn = (a: Announcement) => {
     setAnnDraft({
       id: a.id,
@@ -563,16 +629,29 @@ export function AdminPanelPage() {
       {/* APPROVALS */}
       {section === 'approvals' ? (
         <div className="space-y-4">
-          <div className="flex justify-end">
-            <Button size="sm" onClick={() => setInviteOpen(true)}>
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+            <p className="max-w-xl text-sm text-muted">
+              Review new signups here. Use <span className="font-medium text-fg">Approve</span> to
+              activate someone, or <span className="font-medium text-fg">Deny access</span> to decline
+              their request.
+            </p>
+            <Button size="sm" onClick={() => setInviteOpen(true)} className="shrink-0 self-start">
               <Plus className="h-4 w-4" /> Invite member
             </Button>
           </div>
           {pendingUsers.length === 0 ? (
-            <EmptyState icon={UserCheck} title="No pending approvals" description="When someone requests access, they'll appear here for you to review." />
+            <EmptyState
+              icon={UserCheck}
+              title="No pending approvals"
+              description="When someone requests access, they appear here with Approve and Deny access buttons."
+            />
           ) : (
             pendingUsers.map((u) => {
-              const req = accessRequests.find((r) => r.userId === u.id)
+              const req = accessRequests.find(
+                (r) =>
+                  r.userId === u.id &&
+                  (r.status === 'pending' || r.status === 'acknowledged'),
+              )
               const reqDept = req?.preferredDepartmentId
                 ? departments.find((d) => d.id === req.preferredDepartmentId)?.name
                 : undefined
@@ -592,9 +671,21 @@ export function AdminPanelPage() {
                     <p className="mt-1 text-xs text-muted italic">“{req.message}”</p>
                   ) : null}
                 </div>
-                <Button size="sm" onClick={() => openApprovalForUser(u)}>
-                  Review & approve
-                </Button>
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap">
+                  <Button size="sm" onClick={() => openApprovalForUser(u)} disabled={denyingId === u.id}>
+                    Approve
+                  </Button>
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    className="border-danger/40 text-danger hover:bg-danger/10"
+                    loading={denyingId === u.id}
+                    disabled={!!denyingId}
+                    onClick={() => void handleDenyAccess(u)}
+                  >
+                    <X className="h-3.5 w-3.5" /> Deny access
+                  </Button>
+                </div>
               </Card>
             )})
           )}
@@ -802,8 +893,14 @@ export function AdminPanelPage() {
 
       {/* USERS */}
       {section === 'users' ? (
+        <div className="space-y-3">
+          <p className="text-sm text-muted">
+            {adminUser
+              ? 'Change roles, departments, and status here. Use Remove from organization to permanently delete an account.'
+              : 'Change departments and account status here. Only administrators can permanently remove people from the organization.'}
+          </p>
         <Card padding="none" className="av-scroll-x">
-          <div className="hidden min-w-[720px] lg:block">
+          <div className="hidden min-w-[900px] lg:block">
             <table className="w-full text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -812,6 +909,9 @@ export function AdminPanelPage() {
                   <th className="p-3 font-medium">Department</th>
                   <th className="p-3 font-medium">Joined</th>
                   <th className="p-3 font-medium">Status</th>
+                  <th className="sticky right-0 bg-surface-2/95 p-3 font-medium shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.15)]">
+                    Actions
+                  </th>
                 </tr>
               </thead>
               <tbody>
@@ -846,26 +946,61 @@ export function AdminPanelPage() {
                           <span className="text-xs text-muted">{roleLabel[u.role]}</span>
                         )}
                       </td>
-                      <td className="p-3 text-muted">{u.department}</td>
+                      <td className="p-3">
+                        {canManageUsers && u.id !== user?.id ? (
+                          <select
+                            aria-label={`Change department for ${u.name}`}
+                            value={departments.find((d) => d.name === u.department)?.id ?? ''}
+                            onChange={(e) => {
+                              const id = e.target.value
+                              if (id) void handleDepartmentChange(u, id)
+                            }}
+                            className="w-full max-w-[160px] rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-fg"
+                          >
+                            {!departments.some((d) => d.name === u.department) ? (
+                              <option value="">{u.department || 'Select…'}</option>
+                            ) : null}
+                            {departments.map((d) => (
+                              <option key={d.id} value={d.id}>
+                                {d.name}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span className="text-muted">{u.department}</span>
+                        )}
+                      </td>
                       <td className="p-3 text-muted">{fmtDate(u.joinedAt)}</td>
                       <td className="p-3">
                         {isFirstTimePendingUser(u) ? (
-                          <Button
-                            size="sm"
-                            variant="secondary"
-                            onClick={() => {
-                              setSection('approvals')
-                              openApprovalForUser(u)
-                            }}
-                          >
-                            Approve in Approvals
-                          </Button>
+                          <div className="flex flex-col gap-1.5">
+                            <Button
+                              size="sm"
+                              variant="secondary"
+                              onClick={() => {
+                                setSection('approvals')
+                                openApprovalForUser(u)
+                              }}
+                            >
+                              Approve
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="border-danger/40 text-danger"
+                              loading={denyingId === u.id}
+                              disabled={!!denyingId}
+                              onClick={() => void handleDenyAccess(u)}
+                            >
+                              Deny access
+                            </Button>
+                          </div>
                         ) : (
                           <label className="flex cursor-pointer items-center gap-2 text-xs">
                             <input
                               type="checkbox"
                               checked={u.active}
-                              disabled={u.id === user.id}
+                              disabled={u.id === user?.id}
                               onChange={(e) => void handleActiveChange(u, e.target.checked)}
                               className="h-4 w-4 rounded border-border"
                             />
@@ -873,6 +1008,24 @@ export function AdminPanelPage() {
                               {u.active ? 'Active' : 'Inactive'}
                             </span>
                           </label>
+                        )}
+                      </td>
+                      <td className="sticky right-0 bg-surface p-3 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
+                        {adminUser && u.id !== user?.id ? (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-danger/40 whitespace-nowrap text-danger hover:bg-danger/10"
+                            loading={removingId === u.id}
+                            disabled={!!removingId}
+                            onClick={() => void handleRemoveUser(u)}
+                          >
+                            <Trash2 className="h-3.5 w-3.5" /> Remove from organization
+                          </Button>
+                        ) : (
+                          <span className="text-xs text-muted">
+                            {u.id === user?.id ? 'You' : adminUser ? '—' : 'Admin only'}
+                          </span>
                         )}
                       </td>
                     </tr>
@@ -902,38 +1055,83 @@ export function AdminPanelPage() {
                   ) : (
                     <p className="text-xs text-muted">Role: {roleLabel[u.role]}</p>
                   )}
-                  <p className="text-xs text-muted">
-                    {u.department} · joined {fmtDate(u.joinedAt)}
-                  </p>
+                  {canManageUsers && u.id !== user?.id ? (
+                    <Select
+                      label="Department"
+                      value={departments.find((d) => d.name === u.department)?.id ?? ''}
+                      onChange={(e) => {
+                        const id = e.target.value
+                        if (id) void handleDepartmentChange(u, id)
+                      }}
+                      options={[
+                        ...(!departments.some((d) => d.name === u.department)
+                          ? [{ value: '', label: u.department || 'Select…' }]
+                          : []),
+                        ...departments.map((d) => ({ value: d.id, label: d.name })),
+                      ]}
+                    />
+                  ) : (
+                    <p className="text-xs text-muted">
+                      {u.department} · joined {fmtDate(u.joinedAt)}
+                    </p>
+                  )}
+                  {canManageUsers && u.id !== user?.id ? (
+                    <p className="text-xs text-muted">Joined {fmtDate(u.joinedAt)}</p>
+                  ) : null}
                   <label className="flex items-center gap-2 text-sm">
                     {isFirstTimePendingUser(u) ? (
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="w-full"
-                        onClick={() => {
-                          setSection('approvals')
-                          openApprovalForUser(u)
-                        }}
-                      >
-                        Approve in Approvals
-                      </Button>
+                      <div className="flex w-full flex-col gap-2">
+                        <Button
+                          size="sm"
+                          variant="secondary"
+                          className="w-full"
+                          onClick={() => {
+                            setSection('approvals')
+                            openApprovalForUser(u)
+                          }}
+                        >
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full border-danger/40 text-danger"
+                          loading={denyingId === u.id}
+                          disabled={!!denyingId}
+                          onClick={() => void handleDenyAccess(u)}
+                        >
+                          <X className="h-3.5 w-3.5" /> Deny access
+                        </Button>
+                      </div>
                     ) : (
                       <>
                         <input
                           type="checkbox"
                           checked={u.active}
-                          disabled={u.id === user.id}
+                          disabled={u.id === user?.id}
                           onChange={(e) => void handleActiveChange(u, e.target.checked)}
                         />
                         Active account
                       </>
                     )}
                   </label>
+                  {adminUser && u.id !== user?.id ? (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="w-full border-danger/40 text-danger"
+                      loading={removingId === u.id}
+                      disabled={!!removingId}
+                      onClick={() => void handleRemoveUser(u)}
+                    >
+                      <Trash2 className="h-3.5 w-3.5" /> Remove from organization
+                    </Button>
+                  ) : null}
                 </li>
               ))}
           </ul>
         </Card>
+        </div>
       ) : null}
 
       {/* ANNOUNCEMENTS */}
@@ -1373,7 +1571,19 @@ export function AdminPanelPage() {
             <Button variant="ghost" onClick={() => setApprovingUser(null)} disabled={approving}>
               Cancel
             </Button>
-            <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving} loading={approving}>
+            <Button
+              variant="outline"
+              className="text-danger"
+              disabled={approving || !!denyingId || !approvingUser}
+              loading={!!approvingUser && denyingId === approvingUser.id}
+              onClick={() => {
+                if (!approvingUser) return
+                void handleDenyAccess(approvingUser)
+              }}
+            >
+              Deny access
+            </Button>
+            <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving || !!denyingId} loading={approving}>
               Approve & activate
             </Button>
           </>

@@ -12,6 +12,7 @@ import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { patchPortalProfile } from '@/lib/patchPortalProfile'
 import { isInboxNotificationType } from '@/lib/inboxNotifications'
+import { memoPublishedInboxRows } from '@/lib/memoInbox'
 import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
@@ -185,7 +186,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const { data: accessRows, error: accessErr } = await client
         .from('portal_access_requests')
         .select('user_id, message, preferred_department_id, job_title, status, requested_at')
-        .in('status', ['pending', 'acknowledged'])
+        .in('status', ['pending', 'acknowledged', 'dismissed'])
 
       const mapAccessRows = (rows: Record<string, unknown>[]) =>
         rows.map((r) => ({
@@ -203,7 +204,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         const { data: basicRows } = await client
           .from('portal_access_requests')
           .select('user_id, message, status, requested_at')
-          .in('status', ['pending', 'acknowledged'])
+          .in('status', ['pending', 'acknowledged', 'dismissed'])
         setAccessRequests(mapAccessRows((basicRows ?? []) as Record<string, unknown>[]))
       } else if (accessRows) {
         setAccessRequests(mapAccessRows(accessRows as Record<string, unknown>[]))
@@ -569,11 +570,16 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           media: a.media ?? [],
         })
         if (error) reportDataError('create announcement', error)
+        else {
+          sendInboxNotifications(
+            memoPublishedInboxRows(a, users).map(({ read: _r, ...rest }) => rest),
+          )
+        }
         await reloadData()
       })()
       return a
     },
-    [client, reloadData],
+    [client, reloadData, sendInboxNotifications, users],
   )
 
   const updateAnnouncement: DataContextValue['updateAnnouncement'] = useCallback(
@@ -1256,10 +1262,17 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   usePortalRealtime(user?.id, loadPortalConfig, client, PORTAL_CONFIG_LIVE_TABLES, 'config')
 
-  const pendingUsersList = useMemo(
-    () => usersAwaitingApproval(users),
-    [users],
-  )
+  const pendingUsersList = useMemo(() => {
+    const awaiting = usersAwaitingApproval(users)
+    const byUser = new Map(accessRequests.map((r) => [r.userId, r]))
+    return awaiting.filter((u) => {
+      const req = byUser.get(u.id)
+      if (req?.status === 'dismissed') return false
+      if (req?.status === 'pending' || req?.status === 'acknowledged') return true
+      // No request row yet (invited / signed up but not submitted)
+      return !req
+    })
+  }, [users, accessRequests])
 
   const addTaskCategory = useCallback(
     (label: string) => {
@@ -1550,6 +1563,17 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         await reloadData()
         return { ok: true as const }
       },
+      removeOrganizationUser: async (userId) => {
+        const { removeOrganizationUser } = await import('@/lib/removeOrganizationUser')
+        const result = await removeOrganizationUser(client, userId)
+        if (!result.ok) {
+          reportDataError('remove user', new Error(result.error))
+          return result
+        }
+        setUsers((prev) => prev.filter((u) => u.id !== userId))
+        void reloadData()
+        return { ok: true as const }
+      },
       setUserTeamMembership: async (userId, teamId, member) => {
         const result = await rpcSetTeamMember(client, userId, teamId, member)
         if (!result.ok) {
@@ -1586,6 +1610,32 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         )
         void reloadData()
         return { ok: true as const, emailSent: result.emailSent }
+      },
+      denyUser: async (id, note) => {
+        const { denyPortalAccess } = await import('@/lib/denyPortalAccess')
+        const result = await denyPortalAccess(client, id, note)
+        if (!result.ok) {
+          notifyError(result.error ?? 'Could not deny this request.')
+          return result
+        }
+        setAccessRequests((prev) => {
+          const exists = prev.some((r) => r.userId === id)
+          if (exists) {
+            return prev.map((r) =>
+              r.userId === id ? { ...r, status: 'dismissed' as const } : r,
+            )
+          }
+          return [
+            ...prev,
+            {
+              userId: id,
+              status: 'dismissed' as const,
+              requestedAt: new Date().toISOString(),
+            },
+          ]
+        })
+        void reloadData()
+        return { ok: true as const }
       },
       taskCategories,
       addTaskCategory,

@@ -25,8 +25,11 @@ import {
   isDueToday,
   relativeTime,
   roleLabel,
+  isHR,
+  isAdmin,
 } from '@/utils/helpers'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
+import { userSeesAnnouncement, unreadAnnouncementsFor } from '@/lib/announcementVisibility'
 import { brand } from '@/content/copy'
 import { format, isSameDay, parseISO } from 'date-fns'
 import { AnnouncementMediaGallery } from '@/components/shared/AnnouncementAttachments'
@@ -70,22 +73,33 @@ export function DashboardPage() {
         const now = new Date()
         const in7 = new Date()
         in7.setDate(in7.getDate() + 7)
-        return d >= now && d <= in7
+        return (
+          d >= now &&
+          d <= in7 &&
+          (e.audience === 'all' || e.audience === user.department || isHR(user) || isAdmin(user))
+        )
       }).length,
-      unread: announcements.filter((a) => !a.readBy.includes(user.id)).length,
+      unread: unreadAnnouncementsFor(announcements, user).length,
     }
   }, [user, tasks, leaveRequests, events, announcements, users, teams, departments])
 
   const todaysEvents = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd')
-    const local = events.filter((e) => e.date === todayStr)
+    const local = events.filter(
+      (e) =>
+        e.date === todayStr &&
+        (e.audience === 'all' || e.audience === user?.department || isHR(user) || isAdmin(user)),
+    )
     const ext = externalEvents
       .filter((e) => isSameDay(parseISO(e.start), new Date()))
       .map(externalToEventItem)
     return [...local, ...ext]
   }, [events, externalEvents])
 
-  const recentAnnouncements = useMemo(() => announcements.slice(0, 3), [announcements])
+  const recentAnnouncements = useMemo(
+    () => announcements.filter((a) => userSeesAnnouncement(a, user)).slice(0, 3),
+    [announcements, user],
+  )
 
   const onboardingStats = useMemo(() => {
     if (!user) return null

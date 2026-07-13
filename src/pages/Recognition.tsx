@@ -28,10 +28,14 @@ import { Textarea } from '@/components/ui/Textarea'
 import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { ComposerDraftsPanel } from '@/components/shared/ComposerDraftsPanel'
 import { InstagramFeedCard } from '@/components/shared/InstagramFeedCard'
 import { PortalMediaGallery } from '@/components/shared/PortalMediaGallery'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
+import { notifySuccess } from '@/lib/notify'
+import { isShoutoutPayload, type ComposerDraft, type ShoutoutDraftPayload } from '@/lib/composerDrafts'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { cn, relativeTime, isHR } from '@/utils/helpers'
 import type { AnnouncementMedia, RecognitionComment, RecognitionPost, User } from '@/types'
 
@@ -191,6 +195,9 @@ export function RecognitionPage() {
     message: '',
     media: [],
   })
+  const [composerDraftId, setComposerDraftId] = useState<string | undefined>()
+  const { byKind, saveDraft, deleteDraft, getById } = useComposerDrafts()
+  const openedDraftParam = useRef<string | null>(null)
 
   const canManageTags = isHR(user)
   const defaultTagId = recognitionTags[0]?.id ?? 'great_work'
@@ -232,7 +239,60 @@ export function RecognitionPage() {
     }
   }, [searchParams, setSearchParams, recognition])
 
+  useEffect(() => {
+    const draftId = searchParams.get('draft')
+    if (!draftId) {
+      openedDraftParam.current = null
+      return
+    }
+    if (openedDraftParam.current === draftId) return
+    const saved = getById(draftId)
+    if (!saved || saved.kind !== 'shoutout' || !isShoutoutPayload(saved.payload)) {
+      openedDraftParam.current = draftId
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          next.delete('draft')
+          return next
+        },
+        { replace: true },
+      )
+      return
+    }
+    openedDraftParam.current = draftId
+    const p = saved.payload
+    setDraft({
+      receiverId: p.receiverId,
+      tag: p.tag,
+      message: p.message,
+      media: p.media ? [...p.media] : [],
+    })
+    setComposerDraftId(saved.id)
+    setFormOpen(true)
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('draft')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams, getById])
+
   if (!user) return null
+
+  const resumeComposerDraft = (saved: ComposerDraft) => {
+    if (!isShoutoutPayload(saved.payload)) return
+    const p = saved.payload
+    setDraft({
+      receiverId: p.receiverId || otherUsers[0]?.id || '',
+      tag: p.tag || defaultTagId,
+      message: p.message,
+      media: p.media ? [...p.media] : [],
+    })
+    setComposerDraftId(saved.id)
+    setFormOpen(true)
+  }
 
   const openForm = () => {
     setDraft({
@@ -241,7 +301,31 @@ export function RecognitionPage() {
       message: '',
       media: [],
     })
+    setComposerDraftId(undefined)
     setFormOpen(true)
+  }
+
+  const saveAsDraft = () => {
+    if (!draft.message.trim() && !draft.receiverId) return
+    const payload: ShoutoutDraftPayload = {
+      receiverId: draft.receiverId,
+      tag: draft.tag,
+      message: draft.message,
+      media: draft.media,
+    }
+    const recipient = users.find((u) => u.id === draft.receiverId)?.name
+    const label = recipient
+      ? `Shout-out to ${recipient}`
+      : draft.message.trim().slice(0, 40) || 'Untitled shout-out draft'
+    const saved = saveDraft({
+      id: composerDraftId,
+      kind: 'shoutout',
+      label,
+      payload,
+    })
+    setComposerDraftId(saved.id)
+    notifySuccess('Draft saved on this device')
+    setFormOpen(false)
   }
 
   const submitForm = async (e: React.FormEvent) => {
@@ -260,6 +344,8 @@ export function RecognitionPage() {
       message: draft.message.trim(),
       media: draft.media.length ? draft.media : undefined,
     })
+    if (composerDraftId) deleteDraft(composerDraftId)
+    setComposerDraftId(undefined)
     setFormOpen(false)
   }
 
@@ -310,6 +396,14 @@ export function RecognitionPage() {
             </Button>
           </div>
         }
+      />
+
+      <ComposerDraftsPanel
+        title="Shout-out drafts"
+        description="Saved on this device — resume to edit or post when ready."
+        drafts={byKind.shoutout}
+        onResume={resumeComposerDraft}
+        onDelete={deleteDraft}
       />
 
       <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 sm:gap-4">
@@ -493,6 +587,14 @@ export function RecognitionPage() {
               Cancel
             </Button>
             <Button
+              variant="secondary"
+              type="button"
+              onClick={saveAsDraft}
+              disabled={!draft.message.trim() && !draft.receiverId}
+            >
+              Save draft
+            </Button>
+            <Button
               type="button"
               onClick={submitForm}
               disabled={
@@ -558,7 +660,7 @@ export function RecognitionPage() {
         open={manageTagsOpen}
         onClose={() => setManageTagsOpen(false)}
         title="Manage shout-out tags"
-        description="Create and edit tags for recognition posts. Team leads and above can manage these."
+        description="HR and admins can manage these."
         items={recognitionTags}
         onAdd={addRecognitionTag}
         onUpdate={updateRecognitionTag}

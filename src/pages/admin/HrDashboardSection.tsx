@@ -7,6 +7,7 @@ import {
   ShieldAlert,
   Award,
   ArrowRight,
+  Rocket,
 } from 'lucide-react'
 import { useData } from '@/context/DataContext'
 import { useAuth } from '@/context/AuthContext'
@@ -31,6 +32,8 @@ import { useState } from 'react'
 import { Textarea } from '@/components/ui/Textarea'
 import { labelForConfigId } from '@/lib/portalConfig'
 import { notifySuccess } from '@/lib/notify'
+import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
+import { REVIVAL_ALISON_COURSE } from '@/content/revivalLaunchChecklist'
 import type { CandidateStage, QuarterlyAward } from '@/types/hr'
 
 export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
@@ -68,8 +71,8 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
     quarterlyAwards,
     addQuarterlyAward,
   } = useHr()
-  const [courseTitle, setCourseTitle] = useState('')
-  const [alisonUrl, setAlisonUrl] = useState('https://alison.com/course/')
+  const [courseTitle, setCourseTitle] = useState<string>(REVIVAL_ALISON_COURSE.title)
+  const [alisonUrl, setAlisonUrl] = useState<string>(REVIVAL_ALISON_COURSE.url)
   const [awardWinner, setAwardWinner] = useState('')
   const [awardCategory, setAwardCategory] = useState('')
   const [jobTitle, setJobTitle] = useState('')
@@ -93,6 +96,30 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         </div>
         <HrKpiExport metrics={metrics} />
       </div>
+
+      {user && canAccessRevivalLaunchChecklist(user) ? (
+        <Card padding="md" accentBorder="info" className="border-l-4 border-l-brand">
+          <div className="flex flex-wrap items-start justify-between gap-3">
+            <div className="min-w-0">
+              <div className="flex items-center gap-2">
+                <Rocket className="h-4 w-4 shrink-0 text-brand" />
+                <h3 className="text-sm font-semibold text-fg">Revival launch checklist</h3>
+                <Badge tone="warning">Core HR only</Badge>
+              </div>
+              <p className="mt-1 text-sm text-muted">
+                53 tasks across 12 units — shared progress, memo drafts, and auto-completion when portal
+                actions are detected.
+              </p>
+            </div>
+            <Link
+              to="/launch-checklist"
+              className="inline-flex h-9 min-h-[36px] items-center justify-center gap-2 rounded-md bg-accent px-3 text-xs font-medium text-white shadow-sm hover:bg-accent-hover sm:text-sm"
+            >
+              Open checklist <ArrowRight className="h-3.5 w-3.5" />
+            </Link>
+          </div>
+        </Card>
+      ) : null}
 
       <div className="av-stat-grid">
         <StatCard label="Headcount" value={String(metrics.headcount)} />

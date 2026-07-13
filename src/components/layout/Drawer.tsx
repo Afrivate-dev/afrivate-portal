@@ -1,12 +1,13 @@
 ﻿import { useEffect } from 'react'
 import { NavLink, Link } from 'react-router-dom'
-import { X, LogOut, ShieldCheck } from 'lucide-react'
+import { X, LogOut, ShieldCheck, Rocket } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
 import { confirms, actions } from '@/content/copy'
 import { Avatar } from '@/components/ui/Avatar'
+import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
 
 interface DrawerProps {
   open: boolean
@@ -16,6 +17,7 @@ interface DrawerProps {
 export function Drawer({ open, onClose }: DrawerProps) {
   const { user, role, logout } = useAuth()
   const confirm = useConfirm()
+  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user)
 
   useEffect(() => {
     if (!open) return
@@ -91,6 +93,25 @@ export function Drawer({ open, onClose }: DrawerProps) {
                   </NavLink>
                 </li>
               ))}
+            {showLaunchChecklist ? (
+              <li>
+                <NavLink
+                  to="/launch-checklist"
+                  onClick={onClose}
+                  className={({ isActive }) =>
+                    cn(
+                      'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
+                      isActive
+                        ? 'bg-accent/10 text-accent'
+                        : 'text-fg hover:bg-surface-2',
+                    )
+                  }
+                >
+                  <Rocket className="h-[18px] w-[18px]" />
+                  Launch checklist
+                </NavLink>
+              </li>
+            ) : null}
           </ul>
         </nav>
 

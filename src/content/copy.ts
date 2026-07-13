@@ -103,6 +103,8 @@ export const confirms = {
   deactivateUserTitle: 'Deactivate account',
   changeRole: (name: string, role: string) => `Change ${name}'s role to ${role}?`,
   changeRoleTitle: 'Change role',
+  denyAccount: 'Decline this access request? They will stay inactive and see that access was not approved. They can request again later.',
+  denyAccountTitle: 'Deny access',
   approveAccount: 'Activate this account and grant portal access?',
   approveAccountTitle: 'Approve account',
   inviteUser: (email: string) => `Send an invitation email to ${email}?`,
@@ -119,6 +121,12 @@ export const confirms = {
   uploadDocumentTitle: 'Upload file',
   activateUser: 'Reactivate this account? They will be able to sign in again.',
   activateUserTitle: 'Activate account',
+  removeOrganizationUser: (name: string) =>
+    `Permanently remove ${name} from the organization? Their account and portal access will be deleted. This cannot be undone.`,
+  removeOrganizationUserTitle: 'Remove from organization',
+  changeDepartment: (name: string, dept: string) =>
+    `Move ${name} to ${dept}? They will be notified in their inbox.`,
+  changeDepartmentTitle: 'Change department',
   saveDepartment: 'Save changes to this department?',
   saveDepartmentTitle: 'Save department',
   saveTeam: 'Save changes to this team?',

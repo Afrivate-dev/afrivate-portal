@@ -23,7 +23,7 @@ import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { TabBar } from '@/components/ui/TabBar'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns, isHR } from '@/utils/helpers'
+import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns } from '@/utils/helpers'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { managesPeople } from '@/lib/orgStructure'
 import { departmentSelectOptions } from '@/lib/departments'
@@ -99,9 +99,10 @@ export function WeeklyCheckInPage() {
     const submissions = checkIns.filter((c) => {
       if (!isSameWeekISO(c.weekStart, currentWeekStart)) return false
       if (canViewAllCheckIns(user)) return true
-      if (c.visibility === 'all' && isHR(user)) return true
-      if (c.visibility === 'all' && !canViewAllCheckIns(user)) return false
+      // Managers always see their reports — including when visibility is "all"
       if (managedIds.has(c.userId)) return true
+      // Org-wide flag is HR/admin only (already returned above)
+      if (c.visibility === 'all') return false
       const author = users.find((x) => x.id === c.userId)
       return author?.department === user.department
     })

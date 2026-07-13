@@ -1,10 +1,13 @@
 ﻿import { NavLink, Link } from 'react-router-dom'
+import { Rocket } from 'lucide-react'
 import { navItems } from '@/config/nav'
 import { cn } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
+import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
 
 export function Sidebar() {
-  const { role } = useAuth()
+  const { role, user } = useAuth()
+  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user)
 
   return (
     <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
@@ -42,6 +45,24 @@ export function Sidebar() {
                 </NavLink>
               </li>
             ))}
+          {showLaunchChecklist ? (
+            <li>
+              <NavLink
+                to="/launch-checklist"
+                className={({ isActive }) =>
+                  cn(
+                    'flex min-h-[40px] items-center gap-3 rounded-md px-3 py-2 text-sm font-medium transition-all duration-200',
+                    isActive
+                      ? 'bg-accent/10 text-accent'
+                      : 'text-muted hover:bg-surface-2 hover:text-fg',
+                  )
+                }
+              >
+                <Rocket className="h-[18px] w-[18px] shrink-0" />
+                <span className="truncate">Launch checklist</span>
+              </NavLink>
+            </li>
+          ) : null}
         </ul>
       </nav>
 

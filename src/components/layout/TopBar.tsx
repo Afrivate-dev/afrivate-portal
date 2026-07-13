@@ -10,6 +10,7 @@ import { useCollab } from '@/context/CollabContext'
 import { Avatar } from '@/components/ui/Avatar'
 import { Select } from '@/components/ui/Select'
 import { roleLabel, firstName } from '@/utils/helpers'
+import { unreadAnnouncementsFor } from '@/lib/announcementVisibility'
 import type { UserAvailability } from '@/types'
 
 const AVAILABILITY_OPTIONS: { value: UserAvailability; label: string }[] = [
@@ -34,7 +35,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
   const menuRef = useRef<HTMLDivElement>(null)
 
   const unreadAnnouncements = user
-    ? announcements.filter((a) => !a.readBy.includes(user.id)).length
+    ? unreadAnnouncementsFor(announcements, user).length
     : 0
   const unreadInbox = user ? inbox.filter((n) => n.userId === user.id && !n.read).length : 0
   const unread = unreadAnnouncements + unreadInbox

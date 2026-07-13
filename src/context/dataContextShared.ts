@@ -109,6 +109,8 @@ export interface DataContextValue {
 
   /** HR/admin or department head — sets department + reports-to (dept head). */
   assignUserToDepartment: (userId: string, departmentId: string) => Promise<{ ok: boolean; error?: string }>
+  /** Admin only — permanently remove a user from the organization. */
+  removeOrganizationUser: (userId: string) => Promise<{ ok: boolean; error?: string }>
   /** HR/admin or team lead — add/remove team membership. */
   setUserTeamMembership: (
     userId: string,
@@ -126,6 +128,8 @@ export interface DataContextValue {
     department: string,
     jobTitle: string,
   ) => Promise<{ ok: boolean; error?: string; emailSent?: boolean }>
+  /** HR/admin — decline a first-time access request. */
+  denyUser: (id: string, note?: string) => Promise<{ ok: boolean; error?: string }>
 
   /** Task categories — managed by HR and admin. */
   taskCategories: TaskCategoryItem[]
