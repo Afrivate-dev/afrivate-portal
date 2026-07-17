@@ -1,0 +1,1148 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Afrivate · Revival Launch Checklist</title>
+<style>
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --forest: #1C2B1E;
+  --canopy: #2E4D32;
+  --leaf:   #4E7A4B;
+  --sprout: #7EC87A;
+  --mist:   #C8E5C6;
+  --dew:    #EEF6ED;
+  --soil:   #F2EFE9;
+  --paper:  #FAFAF7;
+  --bone:   #F3F0EB;
+  --border: #E0DBD4;
+  --t2:     #445544;
+  --t3:     #8A9A8A;
+
+  --e-col:  #6B3D8C;
+  --e-bg:   #F4EEFA;
+  --e-mist: #D4B8E0;
+  --d-col:  #2E6DA4;
+  --d-bg:   #EBF3FB;
+  --d-mist: #B8D4EE;
+  --o-col:  #B8872A;
+  --o-bg:   #FBF5E8;
+  --o-mist: #E8D5A8;
+
+  --r: 9px;
+}
+
+html { scroll-behavior: smooth; }
+body {
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  background: var(--soil);
+  color: var(--forest);
+  min-height: 100vh;
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+/* ── NAV ─────────────────────── */
+.nav {
+  position: sticky; top: 0; z-index: 500;
+  background: var(--forest);
+  height: 50px;
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 0 1.25rem;
+  gap: 10px;
+}
+.nav-brand { font-size: 11px; font-weight: 800; letter-spacing: .14em; text-transform: uppercase; color: #fff; flex-shrink: 0; }
+.nav-brand em { color: var(--sprout); font-style: normal; }
+.nav-right { display: flex; align-items: center; gap: 8px; }
+.progress-label { font-size: 11px; color: #7a9a7b; white-space: nowrap; }
+.progress-bar-wrap { width: 100px; height: 5px; background: rgba(255,255,255,.1); border-radius: 3px; overflow: hidden; }
+.progress-bar-fill { height: 100%; background: var(--sprout); border-radius: 3px; transition: width .4s ease; }
+
+/* ── COVER ───────────────────── */
+.cover {
+  background: var(--forest);
+  padding: 3rem 1.5rem 3.5rem;
+  text-align: center;
+  position: relative; overflow: hidden;
+}
+.cover::before {
+  content: '';
+  position: absolute; inset: 0;
+  background-image: linear-gradient(rgba(126,200,122,.05) 1px, transparent 1px),
+                    linear-gradient(90deg, rgba(126,200,122,.05) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.cover-inner { position: relative; max-width: 640px; margin: 0 auto; }
+.cover-badge {
+  display: inline-flex; align-items: center; gap: 6px;
+  background: rgba(126,200,122,.12); border: 1px solid rgba(126,200,122,.3);
+  color: var(--sprout); font-size: 10px; font-weight: 700;
+  letter-spacing: .14em; text-transform: uppercase;
+  padding: 4px 12px; border-radius: 20px; margin-bottom: 16px;
+}
+.cover-title { font-size: clamp(22px,4vw,36px); font-weight: 800; color: #fff; line-height: 1.15; letter-spacing: -.02em; margin-bottom: 10px; }
+.cover-title em { color: var(--sprout); font-style: normal; }
+.cover-sub { font-size: 13px; color: #9aad9b; line-height: 1.65; max-width: 480px; margin: 0 auto 1.75rem; }
+
+/* Person selector */
+.person-tabs { display: flex; justify-content: center; gap: 8px; flex-wrap: wrap; }
+.ptab {
+  font-size: 12px; font-weight: 700;
+  padding: 8px 18px; border-radius: 24px;
+  border: 1.5px solid rgba(255,255,255,.12);
+  background: rgba(255,255,255,.05);
+  color: rgba(255,255,255,.5);
+  cursor: pointer; transition: all .15s;
+  font-family: inherit;
+}
+.ptab:hover { border-color: rgba(255,255,255,.3); color: #fff; }
+.ptab.e-active { background: var(--e-bg); border-color: var(--e-col); color: var(--e-col); }
+.ptab.d-active { background: var(--d-bg); border-color: var(--d-col); color: var(--d-col); }
+.ptab.o-active { background: var(--o-bg); border-color: var(--o-col); color: var(--o-col); }
+.ptab.all-active { background: var(--dew); border-color: var(--sprout); color: var(--leaf); }
+
+/* ── MAIN LAYOUT ─────────────── */
+.main { max-width: 860px; margin: 0 auto; padding: 2rem 1.25rem 4rem; }
+
+/* Global stats bar */
+.stats-row { display: flex; gap: 8px; margin-bottom: 1.5rem; flex-wrap: wrap; }
+.stat-chip {
+  flex: 1; min-width: 100px;
+  background: var(--paper); border-radius: var(--r); border: 0.5px solid var(--border);
+  padding: 10px 14px; text-align: center;
+}
+.stat-n { font-size: 20px; font-weight: 800; color: var(--forest); line-height: 1; margin-bottom: 2px; }
+.stat-l { font-size: 10px; color: var(--t3); text-transform: uppercase; letter-spacing: .08em; }
+
+/* ── UNIT SECTIONS ───────────── */
+.unit-section { margin-bottom: 1.5rem; }
+
+.unit-header {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 14px 10px 14px;
+  background: var(--paper);
+  border: 0.5px solid var(--border);
+  border-radius: var(--r) var(--r) 0 0;
+  cursor: pointer;
+  user-select: none;
+  transition: background .13s;
+}
+.unit-header:hover { background: var(--bone); }
+.unit-header.collapsed { border-radius: var(--r); }
+.unit-icon { font-size: 16px; flex-shrink: 0; }
+.unit-title-group { flex: 1; min-width: 0; }
+.unit-title { font-size: 13px; font-weight: 700; color: var(--forest); }
+.unit-meta { font-size: 11px; color: var(--t3); margin-top: 1px; }
+.unit-badges { display: flex; gap: 6px; align-items: center; flex-shrink: 0; }
+.unit-progress { font-size: 11px; font-weight: 700; color: var(--t3); }
+.unit-chevron { font-size: 12px; color: var(--t3); transition: transform .2s; }
+.unit-chevron.open { transform: rotate(180deg); }
+
+/* Mini progress track inside header */
+.unit-track { width: 60px; height: 4px; background: var(--bone); border-radius: 2px; overflow: hidden; }
+.unit-fill { height: 100%; border-radius: 2px; transition: width .3s; }
+
+/* Tasks list */
+.unit-tasks {
+  background: var(--paper);
+  border: 0.5px solid var(--border);
+  border-top: none;
+  border-radius: 0 0 var(--r) var(--r);
+  overflow: hidden;
+}
+
+.task-item {
+  display: flex; align-items: flex-start; gap: 12px;
+  padding: 11px 14px;
+  border-bottom: 1px solid var(--bone);
+  cursor: pointer;
+  transition: background .12s;
+  position: relative;
+}
+.task-item:last-child { border-bottom: none; }
+.task-item:hover { background: #F8F6F2; }
+.task-item.done { background: var(--dew); }
+.task-item.done .task-text { color: var(--t3); text-decoration: line-through; text-decoration-color: var(--mist); }
+.task-item.done .task-sub { color: var(--t3); }
+
+/* Checkbox */
+.task-check {
+  width: 18px; height: 18px; border-radius: 5px;
+  border: 1.5px solid var(--border);
+  flex-shrink: 0; margin-top: 1px;
+  display: flex; align-items: center; justify-content: center;
+  transition: all .15s;
+  background: #fff;
+}
+.task-item.done .task-check {
+  background: var(--sprout); border-color: var(--leaf);
+}
+.task-check::after {
+  content: '';
+  display: none;
+  width: 4px; height: 7px;
+  border: 2px solid #fff;
+  border-top: none; border-left: none;
+  transform: rotate(45deg) translate(-1px, -1px);
+}
+.task-item.done .task-check::after { display: block; }
+
+.task-body { flex: 1; min-width: 0; }
+.task-text { font-size: 13px; color: var(--forest); line-height: 1.5; }
+.task-sub { font-size: 11px; color: var(--t3); margin-top: 2px; line-height: 1.4; }
+.task-tag-row { display: flex; gap: 5px; margin-top: 5px; flex-wrap: wrap; }
+.task-tag {
+  font-size: 10px; font-weight: 700; padding: 1px 7px; border-radius: 3px;
+  text-transform: uppercase; letter-spacing: .05em;
+}
+
+/* Person badges */
+.badge-e { background: var(--e-bg); color: var(--e-col); }
+.badge-d { background: var(--d-bg); color: var(--d-col); }
+.badge-o { background: var(--o-bg); color: var(--o-col); }
+.badge-time { background: var(--bone); color: var(--t3); }
+.badge-critical { background: #FEE2E2; color: #9B1C1C; }
+.badge-portal { background: var(--dew); color: var(--leaf); }
+.badge-email { background: #FEF3C7; color: #92400E; }
+.badge-wa { background: #D1FAE5; color: #065F46; }
+
+/* Person filter: hidden tasks */
+.task-item[data-person] { }
+
+/* Phase divider */
+.phase-divider {
+  display: flex; align-items: center; gap: 10px;
+  margin: 2rem 0 1rem;
+}
+.phase-line { flex: 1; height: 1px; background: var(--border); }
+.phase-label {
+  font-size: 10px; font-weight: 800; text-transform: uppercase;
+  letter-spacing: .14em; color: var(--t3);
+  white-space: nowrap; padding: 2px 10px;
+  background: var(--bone); border-radius: 20px;
+  border: 0.5px solid var(--border);
+}
+
+/* Empty state */
+.empty-state { text-align: center; padding: 3rem 1rem; color: var(--t3); font-size: 13px; display: none; }
+.empty-state.visible { display: block; }
+
+/* Completion modal */
+.confetti-banner {
+  display: none;
+  position: fixed; inset: 0; z-index: 900;
+  background: rgba(28,43,30,.85);
+  align-items: center; justify-content: center;
+  text-align: center;
+}
+.confetti-banner.show { display: flex; }
+.confetti-box { background: var(--paper); border-radius: 16px; padding: 2.5rem 2rem; max-width: 360px; width: 90%; }
+.confetti-icon { font-size: 48px; margin-bottom: 14px; }
+.confetti-title { font-size: 22px; font-weight: 800; color: var(--forest); margin-bottom: 8px; }
+.confetti-sub { font-size: 13px; color: var(--t2); line-height: 1.65; margin-bottom: 18px; }
+.confetti-close { font-family: inherit; font-size: 13px; font-weight: 600; background: var(--forest); color: #fff; border: none; padding: 10px 24px; border-radius: 7px; cursor: pointer; }
+
+/* Responsive */
+@media (max-width: 580px) {
+  .cover { padding: 2.5rem 1rem 2.5rem; }
+  .stats-row { gap: 6px; }
+  .stat-chip { min-width: 80px; }
+}
+</style>
+</head>
+<body>
+
+<!-- NAV -->
+<nav class="nav">
+  <div class="nav-brand">AFRI<em>VATE</em> · Launch Checklist</div>
+  <div class="nav-right">
+    <span class="progress-label" id="nav-progress">0 / 0</span>
+    <div class="progress-bar-wrap"><div class="progress-bar-fill" id="nav-bar" style="width:0%"></div></div>
+  </div>
+</nav>
+
+<!-- COVER -->
+<div class="cover">
+  <div class="cover-inner">
+    <div class="cover-badge">🚀 Revival starts tomorrow</div>
+    <h1 class="cover-title">The Afrivate <em>Day 1</em><br>Launch Checklist</h1>
+    <p class="cover-sub">Every task broken into units. Filter by person. Check off as you go. The revival is a system — build it one unit at a time.</p>
+    <div class="person-tabs">
+      <button class="ptab all-active" onclick="filterPerson('all', this)">🌍 Everyone</button>
+      <button class="ptab" onclick="filterPerson('e', this)">🟣 Emmanuel</button>
+      <button class="ptab" onclick="filterPerson('d', this)">🔵 Daniel</button>
+      <button class="ptab" onclick="filterPerson('o', this)">🟡 Opemipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+
+  <!-- Stats -->
+  <div class="stats-row">
+    <div class="stat-chip"><div class="stat-n" id="s-total">0</div><div class="stat-l">Total tasks</div></div>
+    <div class="stat-chip"><div class="stat-n" id="s-done" style="color:var(--sprout)">0</div><div class="stat-l">Completed</div></div>
+    <div class="stat-chip"><div class="stat-n" id="s-remaining" style="color:var(--e-col)">0</div><div class="stat-l">Remaining</div></div>
+    <div class="stat-chip"><div class="stat-n" id="s-pct" style="color:var(--leaf)">0%</div><div class="stat-l">Done</div></div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 0 — BEFORE YOU SEND ANYTHING
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">⚡ Phase 0 · Before Anything Goes Out — Do These First</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 1: Portal readiness -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u1')">
+      <div class="unit-icon">🌐</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 1 · Portal Readiness Check</div>
+        <div class="unit-meta">Emmanuel · Must be done before the memo goes out</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u1-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u1-prog">0/6</span>
+        <span class="unit-chevron open" id="u1-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u1">
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Open portal.afrivate.org in a fresh browser (incognito) and test the full "Request Access" flow yourself</div>
+          <div class="task-sub">Fill in your own name/email and verify the submission works end-to-end before sending the memo</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Confirm all current active staff are listed in Admin → Directory with correct department and reports-to set</div>
+          <div class="task-sub">Anyone missing = a gap in your Day 1 data. Fix before the memo goes out.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-portal">Portal · /admin</span><span class="task-tag badge-time">~15 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Confirm Daniel has HR-level access and Opemipo has their login credentials and can access the portal</div>
+          <div class="task-sub">Go to Admin → Users → verify roles. Daniel = HR role. Opemipo = Staff role minimum.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-portal">Portal · /admin</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Block time in Emmanuel's calendar today to approve portal registrations — morning (9am) and afternoon (2pm) checks for the next 7 days</div>
+          <div class="task-sub">People will register today after the memo. Slow approvals kill momentum. Set recurring 10-min calendar blocks.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">⚡ Emmanuel: be available tonight until 11:59pm to approve portal registrations — the memo deadline is tonight</div>
+          <div class="task-sub">The memo requires all staff to register by 11:59pm on 13 July 2026. Block your evening. Check and approve registrations at 6pm, 8pm, 10pm, and 11:30pm. Every person who registers before midnight must be approved before midnight.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">Tonight — 11:59pm</span><span class="task-tag badge-time">All evening</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Verify portal.afrivate.org loads correctly on mobile (WhatsApp links will drive mobile traffic)</div>
+          <div class="task-sub">Open on your phone. Test Request Access. If broken on mobile, fix before sending the WhatsApp message.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-portal">Portal</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 2: Content to upload before send -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u2')">
+      <div class="unit-icon">📂</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 2 · Upload Content to Portal Before Sending</div>
+        <div class="unit-meta">Daniel + Emmanuel · Content must exist on portal when staff click through</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u2-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u2-prog">0/5</span>
+        <span class="unit-chevron open" id="u2-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u2">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Upload the Afrivate Way (5 core values document) to portal Resources with "Requires acknowledgment" enabled</div>
+          <div class="task-sub">Go to /documents → Add resource → enable Requires acknowledgment toggle. This is your first tracked policy win.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /documents</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Upload the Leave Policy to portal Resources with "Requires acknowledgment" enabled</div>
+          <div class="task-sub">The memo says leave now goes through the portal only — the policy must exist there when staff read that directive.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /documents</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Post a welcome Memo on the portal (Announcements) type: HR Digest, mirroring the welcome-back email content</div>
+          <div class="task-sub">Go to /announcements → New Memo → type: HR digest. This means the memo lives in the portal permanently, not just in email.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /announcements</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Create the first monthly Pulse Survey in portal Surveys and set it to open today</div>
+          <div class="task-sub">Admin → HR dashboard → Surveys → New. 5 questions max: overall mood, workload, clarity, belonging, one open question. Launch immediately.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-portal">Portal · Surveys</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~15 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e,d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Assign Course 1 (Becoming a Successful Social Entrepreneur — Alison) to all staff in Admin → HR dashboard → Learning</div>
+          <div class="task-sub">Set due date as last day of the month. The Course of the Month email will reference this assignment.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       GO / NO-GO GATE
+       ════════════════════════════════ -->
+  <div class="unit-section" style="margin-bottom:1.5rem;">
+    <div class="unit-header" style="background:#1C2B1E;border-radius:9px;cursor:default;">
+      <div class="unit-icon">🚦</div>
+      <div class="unit-title-group">
+        <div class="unit-title" style="color:#fff;">GO / NO-GO GATE — Emmanuel must sign off before anything is sent</div>
+        <div class="unit-meta" style="color:#7EC87A;">All Phase 0 tasks complete? Portal live? Content uploaded? If yes → GO. If no → STOP and fix.</div>
+      </div>
+      <div class="unit-badges">
+        <span class="task-tag badge-critical" style="font-size:12px;padding:4px 12px;">Emmanuel only</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 1 — SEND DAY
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">📧 Phase 1 · Send Day — The Memo Goes Out</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 3: Email memo send -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u3')">
+      <div class="unit-icon">📋</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 3 · Send the Official HR Memo Email</div>
+        <div class="unit-meta">Daniel · hr@afrivate.org → All Staff</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u3-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u3-prog">0/6</span>
+        <span class="unit-chevron open" id="u3-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u3">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Fill in all [bracketed placeholders] in the memo email (date, CEO name, HR name, town hall date, WhatsApp number, memo reference number)</div>
+          <div class="task-sub">Do not send with any unfilled placeholders. Read the whole email once before sending.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-critical">Critical</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Send a test version of the email to yourself and Emmanuel first — check formatting, links, and that portal.afrivate.org link works</div>
+          <div class="task-sub">Check on both desktop and mobile. Confirm the email renders correctly before the full send.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Emmanuel approves the final memo email before the send — reply "Approved" to Daniel's test email</div>
+          <div class="task-sub">Nothing goes to all staff without Emmanuel's final approval. This is the one gate on send day.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">Approval gate</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Send the memo from hr@afrivate.org to all staff. CC the CEO. BCC no one — this is a transparent communication.</div>
+          <div class="task-sub">Subject: 🌍 Afrivate is back. Read this — action required by 11:59pm tonight. Send as early in the morning as possible — deadline is tonight.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail · All Staff</span><span class="task-tag badge-critical">The send</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Note the exact time the email was sent and record it — you'll reference this when tracking who opened/replied</div>
+          <div class="task-sub">Create a simple note: "Memo sent: [time]. Replies received: [track here]." Update it throughout the day.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Monitor hr@afrivate.org actively for replies — respond to every reply personally within 2 hours on send day</div>
+          <div class="task-sub">The memo promises 24hr responses. Beating that on Day 1 sets the tone for everything. Keep the inbox open all day.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-critical">All day</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 4: WhatsApp -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u4')">
+      <div class="unit-icon">💬</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 4 · Send the WhatsApp Message</div>
+        <div class="unit-meta">Daniel or Emmanuel · Within 3 minutes of the email send</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u4-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u4-prog">0/4</span>
+        <span class="unit-chevron open" id="u4-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u4">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Copy the WhatsApp message from the Revival Memo file and fill in the [time] placeholder</div>
+          <div class="task-sub">The message is pre-written in the Memo Package document under the WhatsApp tab.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Send the WhatsApp message to the Afrivate team group — within 3 minutes of the email being sent</div>
+          <div class="task-sub">The email and WhatsApp must land close together. WhatsApp pulls eyes to the inbox while the email is still fresh.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-critical">Timing critical</span><span class="task-tag badge-time">~1 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Pin the WhatsApp message in the group so latecomers can find it</div>
+          <div class="task-sub">Long press the message → Pin → For 7 days. Anyone who opens the group later sees it immediately at the top.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~1 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: monitor the WhatsApp group all day and flag any questions to Daniel — don't answer HR-policy questions yourself</div>
+          <div class="task-sub">Your job is to catch anything Daniel might miss and relay it. Keep a note of any questions that come in.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">All day</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 2 — DAY 1 FOLLOW THROUGH
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">⚙️ Phase 2 · Same Day — Keep the Engine Running</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 5: Course email -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u5')">
+      <div class="unit-icon">📚</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 5 · Send the Course 1 Email</div>
+        <div class="unit-meta">Daniel · Send within 48 hours of the memo — ideally same day or next morning</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u5-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u5-prog">0/4</span>
+        <span class="unit-chevron open" id="u5-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u5">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Open the Course Memo document and copy the Month 1 Course of the Month email template</div>
+          <div class="task-sub">It's pre-written. Course: Becoming a Successful Social Entrepreneur on Alison.com. Link: alison.com/course/becoming-a-successful-social-entrepreneur</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Fill in the placeholders (HR name, deadline date as last day of month, month number) and send from hr@afrivate.org</div>
+          <div class="task-sub">Subject: 📚 [Month] L&D: Your course of the month is here</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail · All Staff</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: post a reminder about the course in the WhatsApp group the day after the email goes out</div>
+          <div class="task-sub">Short and warm: "Reminder — your first monthly course is live 📚. Check your email from hr@afrivate.org for the link. Easy and free!"</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Confirm Course 1 is visible in each staff member's Learning tab on the portal (/people/learning)</div>
+          <div class="task-sub">Log into the portal and check that the assignment shows up. If anyone is missing it, manually assign from Admin → HR dashboard.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /people/learning</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 6: Town hall setup -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u6')">
+      <div class="unit-icon">📅</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 6 · Book and Send the First Town Hall</div>
+        <div class="unit-meta">Emmanuel + Opemipo · Schedule within 2 weeks of the memo</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u6-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u6-prog">0/5</span>
+        <span class="unit-chevron open" id="u6-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u6">
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Emmanuel: choose the date and time for the first town hall — within 14 days of memo send date</div>
+          <div class="task-sub">Aim for a weekday, 10am–12pm or 3pm–5pm. Avoid Mondays. Confirm the CEO is available on that date/time first.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">Decide today</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: create the Google Meet link and set up the calendar invite for all staff</div>
+          <div class="task-sub">Google Meet → New meeting → copy link. Google Calendar → New event → add all staff emails → paste Meet link in location field.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: post the town hall as an Event/Memo on the portal with date, time, Meet link, and the agenda</div>
+          <div class="task-sub">Agenda: CEO opens (5 min) → HR presents revival plan (10 min) → Portal walkthrough (10 min) → Open Q&A (15 min)</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /announcements</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: send a WhatsApp reminder about the town hall in the group — date, time, Meet link, and "attendance expected"</div>
+          <div class="task-sub">Short message. Include the Meet link directly in the WhatsApp so people can tap to join without hunting for the email.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: send a calendar reminder email 24 hours before the town hall from hr@afrivate.org</div>
+          <div class="task-sub">Subject: "Reminder: Afrivate Town Hall tomorrow — [time] on Google Meet." Include the Meet link. Daniel confirms content before Opemipo sends.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 3 — DAY 3 CHECKPOINT
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">📊 Phase 3 · Day 3 Checkpoint — Measure & Chase</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 7: Portal registration chase -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u7')">
+      <div class="unit-icon">🔑</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 7 · Post-Deadline: Non-Registrant Escalation</div>
+        <div class="unit-meta">Daniel + Opemipo · Run on Day 2 (Tuesday) — deadline was last night</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u7-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u7-prog">0/4</span>
+        <span class="unit-chevron open" id="u7-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u7">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: check Admin → Directory on Tuesday morning — how many of the total staff registered before last night's 11:59pm deadline?</div>
+          <div class="task-sub">Record: X registered out of Y total. Anyone who did NOT register before midnight is a non-registrant requiring personal follow-up today — no group nudge. This is now an individual escalation.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: contact each non-registrant by personal WhatsApp DM — NOT the group. Ask if they had issues and resolve immediately.</div>
+          <div class="task-sub">"Hey [Name], I noticed you hadn't registered on the portal before last night's deadline — no worries, let's sort it now. portal.afrivate.org → Request Access. Takes 2 minutes. Happy to help if there was an issue." Keep it warm.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: compile the list of staff who have NOT yet registered — share it privately with Daniel (not in the group)</div>
+          <div class="task-sub">Go to Admin → Directory → filter for pending/not approved. Create a simple list: Name | Email | Status.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: send a personal WhatsApp DM to each non-registrant — not a group message — warm and helpful in tone</div>
+          <div class="task-sub">"Hey [Name], just checking in — any trouble getting onto the portal? Happy to help sort it. Here's the link: portal.afrivate.org 💚"</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">Personal DM</span><span class="task-tag badge-time">~15 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 8: Pulse survey chase -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u8')">
+      <div class="unit-icon">📊</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 8 · Pulse Survey — Monitor & Nudge</div>
+        <div class="unit-meta">Opemipo monitors · Daniel nudges · Run across first week</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u8-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u8-prog">0/3</span>
+        <span class="unit-chevron open" id="u8-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u8">
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: check the Pulse Survey response rate in portal Surveys every 2 days while the survey is open</div>
+          <div class="task-sub">Go to /people/surveys → check responses count. If below 70% of active users by midmonth, tell Daniel immediately.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-portal">Portal · Surveys</span><span class="task-tag badge-time">~3 min / check</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: if response rate drops below 70% midmonth, include a survey reminder in the next HR digest and a WhatsApp nudge</div>
+          <div class="task-sub">"The monthly pulse survey is still open on the portal — takes 2 minutes. Your voice shapes how we run Afrivate 💚"</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-wa">WhatsApp + Digest</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: DO NOT close the pulse survey yourself — Emmanuel closes it at month end and reviews the results</div>
+          <div class="task-sub">This is explicitly in your guide. Survey close = Emmanuel only. Your job is monitoring and nudging, not closing.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-critical">Do not close</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 4 — DAY 7 REPORT
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">📈 Phase 4 · Day 7 — The First HR Report</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 9: Day 7 report -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u9')">
+      <div class="unit-icon">📈</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 9 · Pull the Week 1 Revival Report</div>
+        <div class="unit-meta">Daniel compiles · Emmanuel presents to CEO</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u9-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u9-prog">0/5</span>
+        <span class="unit-chevron open" id="u9-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u9">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: record Metric 1 — Portal registrations: how many of [total staff] have registered and been approved?</div>
+          <div class="task-sub">Source: Admin → Directory → count active users. Target: 80%+. Log the number.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: record Metric 2 — Course assignment: is Course 1 showing in the Learning tab for all active staff?</div>
+          <div class="task-sub">Admin → HR dashboard → Learning. Note: [X] assigned, [Y] submitted certificates so far.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: record Metric 3 — Afrivate Way acknowledgments: how many staff have acknowledged the values document?</div>
+          <div class="task-sub">Portal → /documents (Resources) → Afrivate Way → view acknowledgment count. Target: should be climbing from Day 1.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · /documents</span><span class="task-tag badge-time">~3 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: record Metric 4 — Email replies: how many people replied to the memo? What were the themes?</div>
+          <div class="task-sub">Check hr@afrivate.org sent/received thread. Group replies by theme: questions, excitement, concerns. No names in the report.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d,e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel compiles all 4 metrics into a 1-page summary and sends to Emmanuel — Emmanuel shares with CEO the same day</div>
+          <div class="task-sub">Format: "Week 1 Revival Report · [Date] · Portal: X/Y · Course: assigned ✓ · Values acks: X · Replies: X (themes: ...)". This is the first HR leadership report.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-critical">First HR report</span><span class="task-tag badge-time">~15 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- ════════════════════════════════
+       PHASE 5 — ONGOING RHYTHM
+       ════════════════════════════════ -->
+  <div class="phase-divider">
+    <div class="phase-line"></div>
+    <div class="phase-label">🔄 Phase 5 · Week 2 Onward — The Operating Rhythm</div>
+    <div class="phase-line"></div>
+  </div>
+
+  <!-- UNIT 10: First HR digest -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u10')">
+      <div class="unit-icon">📰</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 10 · Write and Send the First HR Digest</div>
+        <div class="unit-meta">Daniel writes · Opemipo sends · Due: end of Week 2</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u10-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u10-prog">0/5</span>
+        <span class="unit-chevron open" id="u10-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u10">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: write the first HR Digest content using the HR Digest email template (already built)</div>
+          <div class="task-sub">Sections: Announcements, Celebrations this fortnight (any birthdays?), Course of the Month reminder, Afrivate Spotlight (choose one person), Upcoming dates (town hall). Keep it under 400 words total.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~30 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: share the draft digest with Emmanuel for review before it goes to all staff</div>
+          <div class="task-sub">Send the draft to Emmanuel's personal email with subject "DRAFT: HR Digest [date] — please review." Give Emmanuel 24hrs to respond.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-e">Emmanuel review</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: once approved, send the digest from hr@afrivate.org to all staff using the Digest email template</div>
+          <div class="task-sub">Daniel gives Opemipo the final text. Opemipo copies it into Gmail, sends to all staff, then confirms back to Daniel it's sent.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-email">Gmail</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: post the same digest content as a Memo on the portal — type: HR Digest</div>
+          <div class="task-sub">Portal → /announcements → New Memo → set type to "HR digest" → paste content → Publish. Confirm to Daniel once done.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-portal">Portal · /announcements</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: set a recurring calendar reminder — "Write HR Digest" every 2 weeks, 3 days before the send date</div>
+          <div class="task-sub">The digest must never be late. Build the writing time into your calendar now, not the week it's due.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-time">~3 min · Set it once</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 11: Manager 1:1 setup -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u11')">
+      <div class="unit-icon">🤝</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 11 · Set Up Monthly Manager 1:1s</div>
+        <div class="unit-meta">Emmanuel directs · Opemipo schedules · Within Week 2</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u11-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u11-prog">0/4</span>
+        <span class="unit-chevron open" id="u11-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u11">
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Emmanuel: confirm the list of all managers and who reports to each of them</div>
+          <div class="task-sub">Pull this from Admin → Directory. Every manager should have at least one direct report assigned. Fix any gaps.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="e" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Emmanuel: brief every manager by WhatsApp or email — "Monthly 1:1s are now required. Please schedule your first one this week. Log it in portal Growth → 1:1 after."</div>
+          <div class="task-sub">Send personally to each manager, not a group blast. Managers respond differently when addressed directly.</div>
+          <div class="task-tag-row"><span class="task-tag badge-e">Emmanuel</span><span class="task-tag badge-wa">Personal DM</span><span class="task-tag badge-time">~10 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: set up recurring monthly calendar invites (Google Meet) between each manager and their reports</div>
+          <div class="task-sub">Opemipo gets the list from Emmanuel, creates one recurring 30-min Meet event per manager-report pair. Monthly, same slot each month.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-time">~20 min total</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: check Admin → HR dashboard at month end — which managers have logged their 1:1s in Growth?</div>
+          <div class="task-sub">Target: 90% completion. Anyone who hasn't logged gets a personal nudge from Daniel — not a group reminder.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Admin</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- UNIT 12: Shout-outs launch -->
+  <div class="unit-section">
+    <div class="unit-header" onclick="toggleUnit('u12')">
+      <div class="unit-icon">🌟</div>
+      <div class="unit-title-group">
+        <div class="unit-title">Unit 12 · Launch Peer Recognition (Shout-outs)</div>
+        <div class="unit-meta">Daniel seeds it · Opemipo helps · Do this Week 1</div>
+      </div>
+      <div class="unit-badges">
+        <div class="unit-track"><div class="unit-fill" id="u12-fill" style="width:0%;background:var(--sprout)"></div></div>
+        <span class="unit-progress" id="u12-prog">0/3</span>
+        <span class="unit-chevron open" id="u12-chev">▾</span>
+      </div>
+    </div>
+    <div class="unit-tasks" id="u12">
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: post the first shout-out on the portal yourself — recognise someone genuinely, link it to an Afrivate Way value</div>
+          <div class="task-sub">Portal → /people/shout-outs → New shout-out. Be specific. "Shout-out to [Name] for [specific thing they did] — that's what Rise Together looks like." This seeds the culture.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Portal · Shout-outs</span><span class="task-tag badge-time">~5 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="o" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Opemipo: post a message in the team WhatsApp pointing to the Shout-outs section — "Go nominate a colleague who deserves recognition this week 🌟"</div>
+          <div class="task-sub">Keep it light and fun. Include the portal link. This is how the recognition culture starts — someone has to go first.</div>
+          <div class="task-tag-row"><span class="task-tag badge-o">Opemipo</span><span class="task-tag badge-wa">WhatsApp</span><span class="task-tag badge-time">~2 min</span></div>
+        </div>
+      </div>
+      <div class="task-item" data-person="d" onclick="toggleTask(this)">
+        <div class="task-check"></div>
+        <div class="task-body">
+          <div class="task-text">Daniel: track shout-out volume in the first month — target is 3+ per month. Feature shout-out highlights in the bi-weekly digest.</div>
+          <div class="task-sub">If nobody posts after a week, reach out personally to 2–3 team leads and ask them to post one. Culture needs seeding, not waiting.</div>
+          <div class="task-tag-row"><span class="task-tag badge-d">Daniel</span><span class="task-tag badge-portal">Track in Admin</span><span class="task-tag badge-time">Ongoing</span></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="empty-state" id="empty">No tasks visible for the current filter.</div>
+</div><!-- /main -->
+
+<!-- Completion modal -->
+<div class="confetti-banner" id="done-modal">
+  <div class="confetti-box">
+    <div class="confetti-icon">🎉</div>
+    <div class="confetti-title">All tasks checked off 💚</div>
+    <div class="confetti-sub">The Afrivate revival is live and running on systems. This isn't the end — it's the beginning of the operating rhythm. Keep going.</div>
+    <button class="confetti-close" onclick="document.getElementById('done-modal').classList.remove('show')">Continue →</button>
+  </div>
+</div>
+
+<script>
+// ── STATE ───────────────────────────────────
+const state = {};
+let currentFilter = 'all';
+
+// Define units and their task counts
+const units = ['u1','u2','u3','u4','u5','u6','u7','u8','u9','u10','u11','u12'];
+
+function getUnitTasks(unitId) {
+  return document.querySelectorAll(`#${unitId} .task-item`);
+}
+
+// ── TOGGLE TASK ─────────────────────────────
+function toggleTask(el) {
+  el.classList.toggle('done');
+  state[el.dataset.idx] = el.classList.contains('done');
+  updateAll();
+  saveState();
+}
+
+// ── TOGGLE UNIT COLLAPSE ────────────────────
+function toggleUnit(id) {
+  const body = document.getElementById(id);
+  const header = body.previousElementSibling;
+  const chev = header.querySelector('.unit-chevron');
+  const isOpen = !header.classList.contains('collapsed');
+  if (isOpen) {
+    body.style.display = 'none';
+    header.classList.add('collapsed');
+    chev.classList.remove('open');
+  } else {
+    body.style.display = '';
+    header.classList.remove('collapsed');
+    chev.classList.add('open');
+  }
+}
+
+// ── FILTER BY PERSON ────────────────────────
+function filterPerson(person, btn) {
+  currentFilter = person;
+  document.querySelectorAll('.ptab').forEach(t => {
+    t.classList.remove('e-active','d-active','o-active','all-active');
+  });
+  if (person === 'e') btn.classList.add('e-active');
+  else if (person === 'd') btn.classList.add('d-active');
+  else if (person === 'o') btn.classList.add('o-active');
+  else btn.classList.add('all-active');
+
+  document.querySelectorAll('.task-item').forEach(item => {
+    if (person === 'all') {
+      item.style.display = '';
+    } else {
+      const p = item.dataset.person || '';
+      item.style.display = p.includes(person) ? '' : 'none';
+    }
+  });
+
+  updateAll();
+}
+
+// ── UPDATE ALL COUNTS ───────────────────────
+function updateAll() {
+  let totalAll = 0, doneAll = 0;
+
+  units.forEach(uid => {
+    const tasks = getUnitTasks(uid);
+    let uTotal = 0, uDone = 0;
+    tasks.forEach(t => {
+      if (currentFilter === 'all' || (t.dataset.person || '').includes(currentFilter)) {
+        uTotal++;
+        if (t.classList.contains('done')) uDone++;
+      }
+    });
+    // Update unit progress
+    const fill = document.getElementById(`${uid}-fill`);
+    const prog = document.getElementById(`${uid}-prog`);
+    if (fill) fill.style.width = uTotal ? `${(uDone/uTotal)*100}%` : '0%';
+    if (prog) prog.textContent = `${uDone}/${uTotal}`;
+    totalAll += uTotal;
+    doneAll += uDone;
+  });
+
+  const pct = totalAll ? Math.round((doneAll/totalAll)*100) : 0;
+  document.getElementById('s-total').textContent = totalAll;
+  document.getElementById('s-done').textContent = doneAll;
+  document.getElementById('s-remaining').textContent = totalAll - doneAll;
+  document.getElementById('s-pct').textContent = pct + '%';
+  document.getElementById('nav-progress').textContent = `${doneAll} / ${totalAll}`;
+  document.getElementById('nav-bar').style.width = pct + '%';
+
+  if (totalAll > 0 && doneAll === totalAll) {
+    document.getElementById('done-modal').classList.add('show');
+  }
+}
+
+// ── PERSIST STATE ───────────────────────────
+function saveState() {
+  const data = {};
+  document.querySelectorAll('.task-item').forEach((t,i) => {
+    data[i] = t.classList.contains('done');
+  });
+  try { localStorage.setItem('afrivate_checklist', JSON.stringify(data)); } catch(e) {}
+}
+
+function loadState() {
+  try {
+    const raw = localStorage.getItem('afrivate_checklist');
+    if (!raw) return;
+    const data = JSON.parse(raw);
+    document.querySelectorAll('.task-item').forEach((t,i) => {
+      if (data[i]) t.classList.add('done');
+    });
+  } catch(e) {}
+}
+
+// ── INIT ─────────────────────────────────────
+document.addEventListener('DOMContentLoaded', () => {
+  // Index all tasks
+  document.querySelectorAll('.task-item').forEach((t,i) => {
+    t.dataset.idx = i;
+  });
+  loadState();
+  updateAll();
+});
+</script>
+</body>
+</html>

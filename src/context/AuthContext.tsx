@@ -230,6 +230,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     name: string,
+    options?: { jobTitle?: string },
   ) => Promise<{ ok: boolean; error?: string; needsEmailConfirmation?: boolean }>
   logout: () => void
   updateProfile: (patch: Partial<User>) => void
@@ -361,11 +362,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const register = useCallback(
-    async (email: string, password: string, name: string) => {
+    async (
+      email: string,
+      password: string,
+      name: string,
+      options?: { jobTitle?: string },
+    ) => {
       if (!supabaseMode || !supabase) {
         try {
           const trimmedEmail = email.trim().toLowerCase()
           const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+          const trimmedTitle = options?.jobTitle?.trim().slice(0, 120) || ''
           const pwError = validatePortalPassword(password)
           if (pwError) return { ok: false as const, error: pwError }
           const rows = JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[]
@@ -379,7 +386,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: trimmedName,
             role: 'staff',
             department: 'General',
-            jobTitle: '',
+            jobTitle: trimmedTitle,
             joinedAt: new Date().toISOString().slice(0, 10),
             active: false,
           }
@@ -392,11 +399,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const trimmedEmail = email.trim().toLowerCase()
       const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+      const trimmedTitle = options?.jobTitle?.trim().slice(0, 120) || ''
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
-          data: { name: trimmedName },
+          data: {
+            name: trimmedName,
+            ...(trimmedTitle ? { job_title: trimmedTitle } : {}),
+          },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       })

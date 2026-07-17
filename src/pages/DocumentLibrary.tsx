@@ -298,6 +298,8 @@ export function DocumentLibraryPage() {
         setPreviewDoc({ doc, url })
         return
       }
+      notifyError('Could not open this file. Check your connection and try again, or contact an admin.')
+      return
     }
     setDownloadInfoDoc(doc)
   }

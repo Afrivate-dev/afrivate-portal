@@ -77,7 +77,7 @@ export function RequestAccessPage() {
 
     setLoading(true)
 
-    const created = await register(email, password, name)
+    const created = await register(email, password, name, { jobTitle: jobTitle.trim() })
     if (!created.ok) {
       setLoading(false)
       setError(created.error ?? 'Could not create your account.')
