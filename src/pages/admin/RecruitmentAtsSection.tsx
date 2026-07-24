@@ -291,7 +291,7 @@ export function RecruitmentAtsSection() {
         stage:
           result.recommendation === 'reject'
             ? 'rejected'
-            : c.stage === 'rejected' && result.recommendation !== 'reject'
+            : c.stage === 'rejected'
               ? 'screen'
               : c.stage,
       })
