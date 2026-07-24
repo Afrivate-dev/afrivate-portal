@@ -11,7 +11,7 @@ import {
   fetchFeedbackTemplates,
   insertFeedbackTemplate,
 } from '@/lib/feedbackConfig'
-import { fetchHrDataset } from '@/lib/supabase/hrDataset'
+import { fetchHrDataset, jobCandidateToRow } from '@/lib/supabase/hrDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { supabase } from '@/lib/supabase'
@@ -748,19 +748,16 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
 
   const addJobCandidate = useCallback(
     (c: Omit<JobCandidate, 'id' | 'updatedAt'>) => {
-      const row: JobCandidate = { ...c, id: 'cand_' + uid(), updatedAt: new Date().toISOString() }
+      const now = new Date().toISOString()
+      const row: JobCandidate = {
+        ...c,
+        id: 'cand_' + uid(),
+        appliedAt: c.appliedAt ?? now,
+        updatedAt: now,
+      }
       setJobCandidates((prev) => [row, ...prev])
       void (async () => {
-        const { error } = await client.from('portal_job_candidates').insert({
-          id: row.id,
-          requisition_id: row.requisitionId,
-          name: row.name,
-          email: row.email ?? null,
-          stage: row.stage,
-          notes: row.notes ?? null,
-          score: row.score ?? null,
-          updated_at: row.updatedAt,
-        })
+        const { error } = await client.from('portal_job_candidates').insert(jobCandidateToRow(row))
         if (error) reportHrError('add candidate', error)
         await reloadHr()
       })()
@@ -780,15 +777,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         const next = { ...cur, ...patch, updatedAt }
         const { error } = await client
           .from('portal_job_candidates')
-          .update({
-            requisition_id: next.requisitionId,
-            name: next.name,
-            email: next.email ?? null,
-            stage: next.stage,
-            notes: next.notes ?? null,
-            score: next.score ?? null,
-            updated_at: updatedAt,
-          })
+          .update(jobCandidateToRow(next))
           .eq('id', id)
         if (error) reportHrError('update candidate', error)
         await reloadHr()

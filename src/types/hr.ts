@@ -175,6 +175,17 @@ export interface JobRequisition {
   createdAt: string
 }
 
+export type CandidateSource =
+  | 'gmail'
+  | 'indeed'
+  | 'bebee'
+  | 'jobberman'
+  | 'linkedin'
+  | 'manual'
+  | 'other'
+
+export type CandidateRecommendation = 'strong' | 'viable' | 'weak' | 'reject'
+
 export interface JobCandidate {
   id: string
   requisitionId: string
@@ -183,6 +194,15 @@ export interface JobCandidate {
   stage: CandidateStage
   notes?: string
   score?: number
+  source?: CandidateSource
+  githubUrl?: string
+  portfolioUrl?: string
+  coverLetter?: boolean
+  resumeSummary?: string
+  scoreBreakdown?: Record<string, number>
+  recommendation?: CandidateRecommendation
+  /** Gmail message id or Indeed application id for sync dedupe. */
+  externalId?: string
   appliedAt?: string
   updatedAt: string
 }

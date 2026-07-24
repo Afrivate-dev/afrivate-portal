@@ -336,7 +336,11 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   }, [setJobRequisitions])
 
   const addJobCandidate = useCallback((c: Omit<JobCandidate, 'id' | 'updatedAt'>) => {
-    setJobCandidates((prev) => [...prev, { ...c, id: 'cand_' + uid(), updatedAt: new Date().toISOString() }])
+    const now = new Date().toISOString()
+    setJobCandidates((prev) => [
+      ...prev,
+      { ...c, id: 'cand_' + uid(), appliedAt: c.appliedAt ?? now, updatedAt: now },
+    ])
   }, [setJobCandidates])
 
   const updateJobCandidate = useCallback((id: string, patch: Partial<JobCandidate>) => {

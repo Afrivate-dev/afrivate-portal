@@ -194,12 +194,14 @@ export function LeaveRequestsPage() {
 
   const openForm = () => {
     setDraft(emptyDraft)
+    setSupportingFile(null)
     setFormOpen(true)
   }
 
   const closeForm = () => {
     setFormOpen(false)
     setDraft(emptyDraft)
+    setSupportingFile(null)
     setSubmitting(false)
   }
 
@@ -248,7 +250,6 @@ export function LeaveRequestsPage() {
       supportingDocPath,
     })
     closeForm()
-    setSupportingFile(null)
   }
 
   const startReview = (r: LeaveRequest, status: 'approved' | 'declined') => {

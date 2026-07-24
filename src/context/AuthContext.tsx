@@ -1,4 +1,4 @@
-﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useSessionStorage } from '@/hooks/useSessionStorage'
 import { useAutoLogout } from '@/hooks/useAutoLogout'
@@ -253,7 +253,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null)
 
   const applyPortalUser = useCallback((result: ProfileLoadResult) => {
-    setSupabaseUser(result.user)
+    setSupabaseUser((prev) => {
+      if (!result.user) return null
+      // On profile read failure, session metadata defaults active:false. Keep the last
+      // confirmed active/role so a blip does not bounce approved users to pending.
+      if (result.profileLoadFailed && prev && prev.id === result.user.id) {
+        return {
+          ...result.user,
+          active: prev.active,
+          role: prev.role,
+        }
+      }
+      return result.user
+    })
     setProfileLoadFailed(result.profileLoadFailed)
     setProfileError(result.profileError)
   }, [])

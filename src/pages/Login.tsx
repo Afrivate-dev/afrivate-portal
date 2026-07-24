@@ -13,7 +13,7 @@ import { isSupabaseAuthEnabled } from '@/lib/authMode'
 type SignInMode = 'password' | 'magic_link'
 
 export function LoginPage() {
-  const { user, login, authReady, logout, sendMagicLink } = useAuth()
+  const { user, login, authReady, logout, sendMagicLink, profileLoadFailed } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const supabaseMode = isSupabaseAuthEnabled()
@@ -67,7 +67,7 @@ export function LoginPage() {
 
   if (user?.active === true) return <Navigate to="/" replace />
 
-  const pendingSession = Boolean(user && user.active === false)
+  const pendingSession = Boolean(user && user.active === false && !profileLoadFailed)
 
   const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault()

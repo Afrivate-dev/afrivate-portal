@@ -172,6 +172,10 @@ export function rowToFeedbackAssignment(r: Record<string, unknown>): import('@/t
 }
 
 export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
+  const breakdown =
+    r.score_breakdown && typeof r.score_breakdown === 'object' && !Array.isArray(r.score_breakdown)
+      ? (r.score_breakdown as Record<string, number>)
+      : undefined
   return {
     id: String(r.id),
     requisitionId: String(r.requisition_id),
@@ -180,8 +184,40 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
     stage: String(r.stage ?? 'applied') as JobCandidate['stage'],
     notes: r.notes ? String(r.notes) : undefined,
     score: r.score != null ? Number(r.score) : undefined,
+    source: r.source ? (String(r.source) as JobCandidate['source']) : undefined,
+    githubUrl: r.github_url ? String(r.github_url) : undefined,
+    portfolioUrl: r.portfolio_url ? String(r.portfolio_url) : undefined,
+    coverLetter: r.cover_letter != null ? Boolean(r.cover_letter) : undefined,
+    resumeSummary: r.resume_summary ? String(r.resume_summary) : undefined,
+    scoreBreakdown: breakdown,
+    recommendation: r.recommendation
+      ? (String(r.recommendation) as JobCandidate['recommendation'])
+      : undefined,
+    externalId: r.external_id ? String(r.external_id) : undefined,
     appliedAt: r.applied_at ? String(r.applied_at) : undefined,
     updatedAt: String(r.updated_at),
+  }
+}
+
+export function jobCandidateToRow(c: JobCandidate) {
+  return {
+    id: c.id,
+    requisition_id: c.requisitionId,
+    name: c.name,
+    email: c.email ?? null,
+    stage: c.stage,
+    notes: c.notes ?? null,
+    score: c.score ?? null,
+    source: c.source ?? null,
+    github_url: c.githubUrl ?? null,
+    portfolio_url: c.portfolioUrl ?? null,
+    cover_letter: c.coverLetter ?? false,
+    resume_summary: c.resumeSummary ?? null,
+    score_breakdown: c.scoreBreakdown ?? {},
+    recommendation: c.recommendation ?? null,
+    external_id: c.externalId ?? null,
+    applied_at: c.appliedAt ?? null,
+    updated_at: c.updatedAt,
   }
 }
 

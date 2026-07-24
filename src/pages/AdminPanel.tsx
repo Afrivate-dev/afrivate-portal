@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Users as UsersIcon,
   Megaphone,
@@ -15,6 +15,7 @@ import {
   UsersRound,
   BarChart3,
   UserCheck,
+  Briefcase,
 } from 'lucide-react'
 import {
   addMonths,
@@ -45,6 +46,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { HrDashboardSection } from '@/pages/admin/HrDashboardSection'
+import { RecruitmentAtsSection } from '@/pages/admin/RecruitmentAtsSection'
 import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
@@ -73,7 +75,7 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
-type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr'
+type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Staff' },
@@ -441,6 +443,14 @@ export function AdminPanelPage() {
         label: (
           <span className="inline-flex items-center gap-2">
             <BarChart3 className="h-4 w-4" /> HR dashboard
+          </span>
+        ),
+      },
+      {
+        id: 'recruitment',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <Briefcase className="h-4 w-4" /> Recruitment ATS
           </span>
         ),
       },
@@ -1496,6 +1506,7 @@ export function AdminPanelPage() {
       ) : null}
 
       {section === 'hr' ? <HrDashboardSection metrics={getMetrics()} /> : null}
+      {section === 'recruitment' ? <RecruitmentAtsSection /> : null}
 
       {/* Modals */}
 
