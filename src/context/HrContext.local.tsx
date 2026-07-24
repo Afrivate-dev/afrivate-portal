@@ -328,7 +328,9 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   )
 
   const addJobRequisition = useCallback((r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
-    setJobRequisitions((prev) => [...prev, { ...r, id: 'job_' + uid(), createdAt: new Date().toISOString() }])
+    const id = 'job_' + uid()
+    setJobRequisitions((prev) => [...prev, { ...r, id, createdAt: new Date().toISOString() }])
+    return id
   }, [setJobRequisitions])
 
   const updateJobRequisition = useCallback((id: string, patch: Partial<JobRequisition>) => {
