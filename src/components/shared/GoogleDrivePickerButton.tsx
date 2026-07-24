@@ -3,35 +3,6 @@ import { HardDrive, Loader2 } from 'lucide-react'
 import { Button } from '@/components/ui/Button'
 import { notifyError } from '@/lib/notify'
 
-declare global {
-  interface Window {
-    google?: {
-      picker: {
-        Action: { PICKED: string }
-        Response: { ACTION: string; DOCUMENTS: string }
-        Document: { ID: string; NAME: string; MIME_TYPE: string }
-        PickerBuilder: new () => {
-          addView: (view: unknown) => unknown
-          setOAuthToken: (token: string) => unknown
-          setDeveloperKey: (key: string) => unknown
-          setCallback: (cb: (data: Record<string, unknown>) => void) => unknown
-          build: () => { setVisible: (v: boolean) => void }
-        }
-        DocsView: new () => { setIncludeFolders: (v: boolean) => unknown; setSelectFolderEnabled: (v: boolean) => unknown }
-        ViewId: { DOCS: string }
-      }
-    }
-    gapi?: {
-      load: (name: string, cb: () => void) => void
-      client: {
-        init: (cfg: { apiKey?: string; discoveryDocs?: string[] }) => Promise<void>
-        getToken: () => { access_token: string } | null
-        setToken: (t: { access_token: string }) => void
-      }
-    }
-  }
-}
-
 const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
 const API_KEY = import.meta.env.VITE_GOOGLE_API_KEY?.trim()
 const SCOPES = 'https://www.googleapis.com/auth/drive.readonly'
@@ -112,11 +83,17 @@ export function GoogleDrivePickerButton({
             setLoading(false)
             return
           }
+          const gPicker = window.google?.picker
+          if (!gPicker) {
+            notifyError('Google Drive picker is still loading. Try again in a moment.')
+            setLoading(false)
+            return
+          }
           window.gapi!.client.setToken({ access_token: response.access_token })
-          const view = new window.google!.picker.DocsView()
+          const view = new gPicker.DocsView()
           view.setIncludeFolders(false)
           // PickerBuilder typings are incomplete in @types/google.picker
-          const Builder = window.google!.picker.PickerBuilder as new () => {
+          const Builder = gPicker.PickerBuilder as new () => {
             addView: (v: unknown) => BuilderInstance
             setOAuthToken: (t: string) => BuilderInstance
             setDeveloperKey: (k: string) => BuilderInstance
@@ -130,8 +107,8 @@ export function GoogleDrivePickerButton({
             .setDeveloperKey(API_KEY)
             .setCallback(async (data: Record<string, unknown>) => {
               setLoading(false)
-              if (data[window.google!.picker.Response.ACTION] !== window.google!.picker.Action.PICKED) return
-              const docs = data[window.google!.picker.Response.DOCUMENTS] as Array<{ id: string; name: string; mimeType: string }>
+              if (data[gPicker.Response.ACTION] !== gPicker.Action.PICKED) return
+              const docs = data[gPicker.Response.DOCUMENTS] as Array<{ id: string; name: string; mimeType: string }>
               const doc = docs?.[0]
               if (!doc) return
               try {

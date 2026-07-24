@@ -8,23 +8,6 @@ const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
 const HR_MAILBOX = 'afrivatehr@gmail.com'
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
 
-declare global {
-  interface Window {
-    google?: {
-      accounts: {
-        oauth2: {
-          initTokenClient: (cfg: {
-            client_id: string
-            scope: string
-            hint?: string
-            callback: (resp: { access_token?: string; error?: string }) => void
-          }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
-        }
-      }
-    }
-  }
-}
-
 export interface GmailApplicationMessage {
   id: string
   threadId: string
@@ -65,7 +48,12 @@ export async function requestGmailAccessToken(): Promise<string> {
   }
   await loadGsi()
   return new Promise((resolve, reject) => {
-    const client = window.google!.accounts.oauth2.initTokenClient({
+    const oauth2 = window.google?.accounts?.oauth2
+    if (!oauth2) {
+      reject(new Error('Google Identity Services did not load. Refresh and try again.'))
+      return
+    }
+    const client = oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: GMAIL_SCOPE,
       hint: HR_MAILBOX,
