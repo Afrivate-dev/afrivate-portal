@@ -149,8 +149,8 @@ function extractName(raw: string, email?: string): string {
     if (EMAIL_RE.test(line) && line.length < 80) continue
     if (/^https?:\/\//i.test(line)) continue
     const cleaned = line
-      .replace(/^name\s*[:\-]\s*/i, '')
-      .replace(/^applicant\s*[:\-]\s*/i, '')
+      .replace(/^name\s*[:-]\s*/i, '')
+      .replace(/^applicant\s*[:-]\s*/i, '')
       .replace(/^dear\s+.*/i, '')
       .trim()
     if (

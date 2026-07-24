@@ -15,7 +15,7 @@
         { "key": "Strict-Transport-Security", "value": "max-age=63072000; includeSubDomains; preload" },
         {
           "key": "Content-Security-Policy",
-          "value": "default-src 'self'; script-src 'self' 'unsafe-inline'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.supabase.co https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.afrivate.org; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self' blob: https://www.youtube.com https://youtube.com https://player.vimeo.com https://*.supabase.co; object-src 'none';"
+          "value": "default-src 'self'; script-src 'self' 'unsafe-inline' https://accounts.google.com https://apis.google.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; img-src 'self' data: blob: https:; media-src 'self' blob: https://*.supabase.co https:; connect-src 'self' https://*.supabase.co wss://*.supabase.co https://www.afrivate.org https://accounts.google.com https://oauth2.googleapis.com https://www.googleapis.com https://gmail.googleapis.com https://apis.google.com https://cdn.jsdelivr.net https://*.jsdelivr.net; font-src 'self' data: https://fonts.gstatic.com; frame-src 'self' blob: https://accounts.google.com https://docs.google.com https://www.youtube.com https://youtube.com https://player.vimeo.com https://*.supabase.co; worker-src 'self' blob:; child-src 'self' blob:; object-src 'none';"
         }
       ]
     }

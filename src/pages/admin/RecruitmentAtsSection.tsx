@@ -74,9 +74,7 @@ export function RecruitmentAtsSection() {
     [jobRequisitions],
   )
 
-  const [selectedJobId, setSelectedJobId] = useState(
-    () => openJobs.find((j) => /front/i.test(j.title))?.id ?? openJobs[0]?.id ?? '',
-  )
+  const [selectedJobId, setSelectedJobId] = useState('')
   const [source, setSource] = useState<AtsSource>('gmail')
   const [paste, setPaste] = useState('')
   const [filter, setFilter] = useState<FilterMode>('viable')
@@ -90,16 +88,16 @@ export function RecruitmentAtsSection() {
   const [newRoleTitle, setNewRoleTitle] = useState('Front-End Developer')
   const [newRoleDept, setNewRoleDept] = useState('Technology & Product')
 
-  useEffect(() => {
-    if (selectedJobId && openJobs.some((j) => j.id === selectedJobId)) return
-    const preferred =
+  const resolvedJobId = useMemo(() => {
+    if (selectedJobId && openJobs.some((j) => j.id === selectedJobId)) return selectedJobId
+    return (
       openJobs.find((j) => /front/i.test(j.title)) ??
       openJobs.find((j) => j.title === newRoleTitle.trim()) ??
       openJobs[0]
-    setSelectedJobId(preferred?.id ?? '')
+    )?.id ?? ''
   }, [openJobs, selectedJobId, newRoleTitle])
 
-  const selectedJob = jobRequisitions.find((j) => j.id === selectedJobId)
+  const selectedJob = jobRequisitions.find((j) => j.id === resolvedJobId)
   const roleProfile = detectAtsRoleProfile(selectedJob?.title ?? newRoleTitle)
 
   useEffect(() => {
@@ -116,9 +114,9 @@ export function RecruitmentAtsSection() {
   }, [roleProfile])
 
   const candidatesForRole = useMemo(() => {
-    const rows = jobCandidates.filter((c) => c.requisitionId === selectedJobId)
+    const rows = jobCandidates.filter((c) => c.requisitionId === resolvedJobId)
     return [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-  }, [jobCandidates, selectedJobId])
+  }, [jobCandidates, resolvedJobId])
 
   const visible = useMemo(() => {
     return candidatesForRole.filter((c) => {
@@ -169,14 +167,14 @@ export function RecruitmentAtsSection() {
       appliedAt?: string
     }>,
   ) => {
-    if (!selectedJobId) {
+    if (!resolvedJobId) {
       notifyError('Create or select a job requisition first.')
       return { added: 0, skipped: 0 }
     }
 
     let added = 0
     let skipped = 0
-    const existing = jobCandidates.filter((c) => c.requisitionId === selectedJobId)
+    const existing = jobCandidates.filter((c) => c.requisitionId === resolvedJobId)
     const scoringProfile = roleProfile === 'general' ? 'frontend' : roleProfile
 
     for (const item of items) {
@@ -194,7 +192,7 @@ export function RecruitmentAtsSection() {
       }
 
       addJobCandidate({
-        requisitionId: selectedJobId,
+        requisitionId: resolvedJobId,
         name: result.name,
         email: result.email,
         stage:
@@ -239,7 +237,7 @@ export function RecruitmentAtsSection() {
   }
 
   const syncFromGmail = async () => {
-    if (!selectedJobId) {
+    if (!resolvedJobId) {
       notifyError('Create or select a job requisition first.')
       return
     }
@@ -286,7 +284,7 @@ export function RecruitmentAtsSection() {
   }
 
   const rescoreVisible = () => {
-    if (!selectedJobId) return
+    if (!resolvedJobId) return
     let n = 0
     for (const c of candidatesForRole) {
       if (!c.notes?.trim()) continue
@@ -398,7 +396,7 @@ export function RecruitmentAtsSection() {
           <div className="grid gap-3 sm:grid-cols-2">
             <Select
               label="Role"
-              value={selectedJobId}
+              value={resolvedJobId}
               onChange={(e) => setSelectedJobId(e.target.value)}
               options={[
                 { value: '', label: 'Select role…' },
@@ -418,7 +416,7 @@ export function RecruitmentAtsSection() {
           <Button
             onClick={() => void syncFromGmail()}
             loading={syncing}
-            disabled={!selectedJobId}
+            disabled={!resolvedJobId}
           >
             <Mail className="h-4 w-4" />
             Sync from {HR_MAILBOX}
@@ -442,7 +440,7 @@ export function RecruitmentAtsSection() {
           variant="secondary"
           onClick={screenAndSave}
           loading={busy}
-          disabled={!paste.trim() || !selectedJobId}
+          disabled={!paste.trim() || !resolvedJobId}
         >
           <Upload className="h-4 w-4" />
           Score & save pasted
@@ -471,7 +469,7 @@ export function RecruitmentAtsSection() {
           </div>
         </div>
 
-        {!selectedJobId ? (
+        {!resolvedJobId ? (
           <EmptyState icon={Briefcase} title="Select a role" description="Choose a requisition to view ranked applicants." />
         ) : visible.length === 0 ? (
           <EmptyState

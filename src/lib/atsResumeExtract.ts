@@ -20,7 +20,8 @@ export interface ResumeExtractResult {
 
 function normalizeExtracted(text: string): string {
   return text
-    .replace(/\u0000/g, ' ')
+    .split('\0')
+    .join(' ')
     .replace(/[ \t]+\n/g, '\n')
     .replace(/\n{3,}/g, '\n\n')
     .replace(/[^\S\n]{2,}/g, ' ')
