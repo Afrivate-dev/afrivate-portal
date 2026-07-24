@@ -23,6 +23,7 @@ import { useHr } from '@/context/HrContext'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   fetchGmailApplications,
+  GMAIL_ATS_LOOKBACK_DAYS,
   HR_MAILBOX,
   isGmailAtsConfigured,
 } from '@/lib/gmailAtsSync'
@@ -262,7 +263,7 @@ export function RecruitmentAtsSection() {
       )
       if (added) notifySuccess(`Synced ${added} new application${added === 1 ? '' : 's'} from ${HR_MAILBOX}.`)
       else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
-      else notifyError('No matching application emails found in the last 45 days.')
+      else notifyError(`No matching application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
     } catch (err) {
       notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
     } finally {

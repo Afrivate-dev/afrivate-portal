@@ -4,9 +4,11 @@
  * Add Gmail API scope and authorized JS origins in Google Cloud Console.
  */
 
-const CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID?.trim()
+const CLIENT_ID = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()
 const HR_MAILBOX = 'afrivatehr@gmail.com'
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
+/** How far back Sync searches (keep in sync with UI copy). */
+export const GMAIL_ATS_LOOKBACK_DAYS = 90
 
 export interface GmailApplicationMessage {
   id: string
@@ -16,34 +18,74 @@ export interface GmailApplicationMessage {
   date?: string
   snippet: string
   bodyText: string
+  attachmentNames?: string[]
 }
 
 function loadGsi(): Promise<void> {
   if (window.google?.accounts?.oauth2) return Promise.resolve()
   return new Promise((resolve, reject) => {
-    const existing = document.querySelector('script[data-gsi="1"]')
+    const finish = () => {
+      if (window.google?.accounts?.oauth2) resolve()
+      else reject(new Error('Google Identity Services loaded but oauth2 is unavailable.'))
+    }
+    const existing = document.querySelector('script[data-gsi="1"]') as HTMLScriptElement | null
     if (existing) {
-      existing.addEventListener('load', () => resolve())
+      if (window.google?.accounts?.oauth2) {
+        resolve()
+        return
+      }
+      existing.addEventListener('load', finish, { once: true })
+      existing.addEventListener('error', () => reject(new Error('Could not load Google Identity Services')), {
+        once: true,
+      })
+      window.setTimeout(() => {
+        if (window.google?.accounts?.oauth2) resolve()
+      }, 500)
       return
     }
     const s = document.createElement('script')
     s.src = 'https://accounts.google.com/gsi/client'
     s.async = true
     s.dataset.gsi = '1'
-    s.onload = () => resolve()
+    s.onload = finish
     s.onerror = () => reject(new Error('Could not load Google Identity Services'))
     document.head.appendChild(s)
   })
 }
 
+export function isValidGoogleClientId(clientId: string | undefined | null): boolean {
+  if (!clientId) return false
+  const matches = clientId.match(/\.apps\.googleusercontent\.com/g) ?? []
+  return matches.length === 1 && !clientId.endsWith('.apps.googleusercontent.com.apps.googleusercontent.com')
+}
+
 export function isGmailAtsConfigured(): boolean {
-  return Boolean(CLIENT_ID)
+  return isValidGoogleClientId(CLIENT_ID)
+}
+
+function describeOAuthError(error?: string): string {
+  const code = (error || '').toLowerCase()
+  if (code.includes('popup_closed') || code.includes('access_denied')) {
+    return 'Google sign-in was cancelled. Try again and allow Gmail access for afrivatehr@gmail.com.'
+  }
+  if (code.includes('idpiframe_initialization_failed') || code.includes('origin')) {
+    return 'This site origin is not allowed for the Google Client ID. Add it under Authorized JavaScript origins in Google Cloud.'
+  }
+  if (code.includes('invalid_client') || code.includes('unauthorized_client')) {
+    return 'Invalid Google Client ID. Check VITE_GOOGLE_CLIENT_ID (it should end with .apps.googleusercontent.com once).'
+  }
+  return error || 'Gmail authorization failed'
 }
 
 export async function requestGmailAccessToken(): Promise<string> {
   if (!CLIENT_ID) {
     throw new Error(
       'Google Client ID is not configured. Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.',
+    )
+  }
+  if (!isValidGoogleClientId(CLIENT_ID)) {
+    throw new Error(
+      'VITE_GOOGLE_CLIENT_ID looks malformed. It should look like 123-abc.apps.googleusercontent.com (suffix only once).',
     )
   }
   await loadGsi()
@@ -53,23 +95,31 @@ export async function requestGmailAccessToken(): Promise<string> {
       reject(new Error('Google Identity Services did not load. Refresh and try again.'))
       return
     }
+
+    let attemptedConsent = false
     const client = oauth2.initTokenClient({
       client_id: CLIENT_ID,
       scope: GMAIL_SCOPE,
       hint: HR_MAILBOX,
       callback: (resp) => {
-        if (resp.error || !resp.access_token) {
-          reject(new Error(resp.error || 'Gmail authorization was cancelled'))
+        if (resp.access_token) {
+          resolve(resp.access_token)
           return
         }
-        resolve(resp.access_token)
+        if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
+          attemptedConsent = true
+          client.requestAccessToken({ prompt: 'consent' })
+          return
+        }
+        reject(new Error(describeOAuthError(resp.error)))
       },
     })
-    client.requestAccessToken({ prompt: '' })
+    client.requestAccessToken({ prompt: 'consent' })
   })
 }
 
-function decodeBodyData(data?: string): string {
+/** Exported for tests — Gmail API uses URL-safe base64. */
+export function decodeBodyData(data?: string): string {
   if (!data) return ''
   const normalized = data.replace(/-/g, '+').replace(/_/g, '/')
   try {
@@ -100,32 +150,50 @@ function stripHtml(html: string): string {
     .trim()
 }
 
-type GmailPayload = {
-  payload?: {
-    mimeType?: string
-    body?: { data?: string }
-    parts?: GmailPayload['payload'][]
-    headers?: Array<{ name: string; value: string }>
-  }
-  snippet?: string
+export type GmailApiPart = {
+  mimeType?: string
+  filename?: string
+  body?: { data?: string; attachmentId?: string; size?: number }
+  parts?: GmailApiPart[]
+  headers?: Array<{ name: string; value: string }>
 }
 
-function extractTextFromPayload(payload?: GmailPayload['payload']): string {
-  if (!payload) return ''
-  const chunks: string[] = []
+export type GmailApiMessage = {
+  id: string
+  threadId: string
+  snippet?: string
+  payload?: GmailApiPart
+}
 
-  const walk = (part?: GmailPayload['payload']) => {
+function collectAttachmentNames(payload?: GmailApiPart): string[] {
+  const names: string[] = []
+  const walk = (part?: GmailApiPart) => {
+    if (!part) return
+    if (part.filename?.trim()) names.push(part.filename.trim())
+    part.parts?.forEach(walk)
+  }
+  walk(payload)
+  return names
+}
+
+export function extractTextFromPayload(payload?: GmailApiPart): string {
+  if (!payload) return ''
+  const plain: string[] = []
+  const html: string[] = []
+
+  const walk = (part?: GmailApiPart) => {
     if (!part) return
     const mime = (part.mimeType || '').toLowerCase()
     if (part.body?.data) {
       const decoded = decodeBodyData(part.body.data)
-      if (mime.includes('html')) chunks.push(stripHtml(decoded))
-      else chunks.push(decoded)
+      if (mime.includes('text/plain')) plain.push(decoded)
+      else if (mime.includes('html')) html.push(stripHtml(decoded))
+      else if (!mime.includes('image/') && !mime.includes('application/pdf')) plain.push(decoded)
     }
     part.parts?.forEach(walk)
   }
   walk(payload)
-  return chunks.join('\n\n').trim()
+  return [...plain, ...html].join('\n\n').trim()
 }
 
 function headerValue(
@@ -135,19 +203,55 @@ function headerValue(
   return headers?.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? ''
 }
 
+/** Build the text blob used for ATS scoring from a Gmail API message. */
+export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMessage {
+  const headers = msg.payload?.headers
+  const subject = headerValue(headers, 'Subject')
+  const from = headerValue(headers, 'From')
+  const date = headerValue(headers, 'Date')
+  const attachmentNames = collectAttachmentNames(msg.payload)
+  const body =
+    extractTextFromPayload(msg.payload) ||
+    msg.snippet ||
+    ''
+  const attachmentLine =
+    attachmentNames.length > 0 ? `\nAttachments: ${attachmentNames.join(', ')}` : ''
+  const bodyText = [`Subject: ${subject}`, `From: ${from}`, '', body, attachmentLine]
+    .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
+    .join('\n')
+    .trim()
+
+  return {
+    id: msg.id,
+    threadId: msg.threadId,
+    subject,
+    from,
+    date: date || undefined,
+    snippet: msg.snippet ?? '',
+    bodyText,
+    attachmentNames,
+  }
+}
+
 /** Default query targets AfriVate application emails and common job-board forwards. */
-export function defaultGmailAtsQuery(days = 45): string {
+export function defaultGmailAtsQuery(days = GMAIL_ATS_LOOKBACK_DAYS): string {
   return [
     `newer_than:${days}d`,
     '(',
-    'subject:"APPLICATION FOR FRONT-END"',
-    'OR subject:"APPLICATION FOR BACK-END"',
-    'OR subject:"APPLICATION FOR GRAPHIC"',
+    'subject:APPLICATION',
     'OR subject:application',
+    'OR subject:"Front-End"',
+    'OR subject:"Front End"',
+    'OR subject:"Back-End"',
+    'OR subject:"Graphic Designer"',
     'OR from:indeedemail.com',
     'OR from:indeed.com',
+    'OR from:members@indeed.com',
     'OR from:linkedin.com',
+    'OR from:jobs-noreply@linkedin.com',
     ')',
+    '-in:spam',
+    '-in:trash',
   ].join(' ')
 }
 
@@ -155,16 +259,19 @@ export async function fetchGmailApplications(options?: {
   accessToken?: string
   query?: string
   maxResults?: number
+  /** Injected for tests */
+  fetchImpl?: typeof fetch
 }): Promise<GmailApplicationMessage[]> {
   const token = options?.accessToken ?? (await requestGmailAccessToken())
   const query = options?.query ?? defaultGmailAtsQuery()
   const maxResults = options?.maxResults ?? 50
+  const doFetch = options?.fetchImpl ?? fetch
 
   const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
   listUrl.searchParams.set('q', query)
   listUrl.searchParams.set('maxResults', String(maxResults))
 
-  const listRes = await fetch(listUrl.toString(), {
+  const listRes = await doFetch(listUrl.toString(), {
     headers: { Authorization: `Bearer ${token}` },
   })
   if (!listRes.ok) {
@@ -177,30 +284,13 @@ export async function fetchGmailApplications(options?: {
   const out: GmailApplicationMessage[] = []
 
   for (const m of ids) {
-    const msgRes = await fetch(
+    const msgRes = await doFetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
       { headers: { Authorization: `Bearer ${token}` } },
     )
     if (!msgRes.ok) continue
-    const msg = (await msgRes.json()) as GmailPayload & {
-      id: string
-      threadId: string
-      snippet?: string
-    }
-    const headers = msg.payload?.headers
-    const subject = headerValue(headers, 'Subject')
-    const from = headerValue(headers, 'From')
-    const date = headerValue(headers, 'Date')
-    const bodyText = extractTextFromPayload(msg.payload) || msg.snippet || ''
-    out.push({
-      id: msg.id,
-      threadId: msg.threadId,
-      subject,
-      from,
-      date,
-      snippet: msg.snippet ?? '',
-      bodyText: [`Subject: ${subject}`, `From: ${from}`, '', bodyText].join('\n'),
-    })
+    const msg = (await msgRes.json()) as GmailApiMessage
+    out.push(parseGmailApiMessage(msg))
   }
 
   return out
