@@ -191,6 +191,9 @@ export interface JobCandidate {
   requisitionId: string
   name: string
   email?: string
+  phone?: string
+  linkedinUrl?: string
+  location?: string
   stage: CandidateStage
   notes?: string
   score?: number
@@ -203,6 +206,8 @@ export interface JobCandidate {
   recommendation?: CandidateRecommendation
   /** Gmail message id or Indeed application id for sync dedupe. */
   externalId?: string
+  gmailThreadId?: string
+  gmailMessageId?: string
   appliedAt?: string
   updatedAt: string
 }

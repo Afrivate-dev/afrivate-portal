@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useState } from 'react'
 import {
   Briefcase,
+  ExternalLink,
   Filter,
   Github,
   Link2,
   Mail,
+  MapPin,
+  Phone,
   RotateCcw,
   Save,
   Settings2,
   Sparkles,
+  Trophy,
   Upload,
   UserCheck,
 } from 'lucide-react'
@@ -24,16 +28,20 @@ import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   fetchGmailApplications,
   GMAIL_ATS_LOOKBACK_DAYS,
+  gmailThreadUrl,
   HR_MAILBOX,
   isGmailAtsConfigured,
 } from '@/lib/gmailAtsSync'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import type { CandidateSource, CandidateStage, JobCandidate } from '@/types/hr'
 import {
+  ATS_STANDARD_ROLES,
   defaultCriteriaForProfile,
+  detectAtsRoleFromApplication,
   detectAtsRoleProfile,
   detectSourceFromEmail,
   isViableCandidate,
+  labelForAtsRoleProfile,
   recommendationTone,
   screenApplicationText,
   splitApplicationBatch,
@@ -54,7 +62,14 @@ const SOURCE_OPTIONS: { value: AtsSource; label: string }[] = [
   { value: 'other', label: 'Other' },
 ]
 
-type FilterMode = 'all' | 'viable' | 'strong' | 'weak' | 'reject'
+type FilterMode = 'top10' | 'all' | 'viable' | 'strong' | 'weak' | 'reject'
+type RoleTab = Exclude<AtsRoleProfile, 'general'> | 'general'
+
+const UNASSIGNED_ROLE = {
+  profile: 'general' as const,
+  title: 'Unassigned / Other',
+  department: 'Recruitment',
+}
 
 function newCriterionId() {
   return `c_${Date.now().toString(36)}_${Math.random().toString(36).slice(2, 7)}`
@@ -74,10 +89,10 @@ export function RecruitmentAtsSection() {
     [jobRequisitions],
   )
 
-  const [selectedJobId, setSelectedJobId] = useState('')
+  const [selectedRole, setSelectedRole] = useState<RoleTab>('frontend')
   const [source, setSource] = useState<AtsSource>('gmail')
   const [paste, setPaste] = useState('')
-  const [filter, setFilter] = useState<FilterMode>('viable')
+  const [filter, setFilter] = useState<FilterMode>('top10')
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncLabel, setSyncLabel] = useState('')
@@ -85,25 +100,98 @@ export function RecruitmentAtsSection() {
   const [criteriaOpen, setCriteriaOpen] = useState(true)
   const [criteria, setCriteria] = useState<AtsCriteriaProfile>(() => defaultCriteriaForProfile('frontend'))
   const [criteriaDirty, setCriteriaDirty] = useState(false)
-  const [newRoleTitle, setNewRoleTitle] = useState('Front-End Developer')
-  const [newRoleDept, setNewRoleDept] = useState('Technology & Product')
+
+  const findOpenJobForProfile = (profile: AtsRoleProfile) => {
+    if (profile === 'general') {
+      return (
+        openJobs.find((j) => /unassigned|other/i.test(j.title)) ??
+        openJobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
+      )
+    }
+    const standard = ATS_STANDARD_ROLES.find((r) => r.profile === profile)
+    return (
+      openJobs.find((j) => detectAtsRoleProfile(j.title) === profile) ??
+      openJobs.find((j) => j.title === standard?.title)
+    )
+  }
+
+  const ensureJobForProfile = (profile: AtsRoleProfile): string => {
+    const existing = findOpenJobForProfile(profile)
+    if (existing) return existing.id
+    if (profile === 'general') {
+      return addJobRequisition({
+        title: UNASSIGNED_ROLE.title,
+        department: UNASSIGNED_ROLE.department,
+        status: 'open',
+      })
+    }
+    const def = ATS_STANDARD_ROLES.find((r) => r.profile === profile)!
+    return addJobRequisition({
+      title: def.title,
+      department: def.department,
+      status: 'open',
+    })
+  }
+
+  const ensureStandardRoles = () => {
+    for (const role of ATS_STANDARD_ROLES) {
+      ensureJobForProfile(role.profile)
+    }
+  }
+
+  const roleCounts = useMemo(() => {
+    const counts: Record<RoleTab, number> = { frontend: 0, backend: 0, designer: 0, general: 0 }
+    const jobs = jobRequisitions.filter((j) => j.status === 'open')
+    const jobFor = (profile: RoleTab) => {
+      if (profile === 'general') {
+        return (
+          jobs.find((j) => /unassigned|other/i.test(j.title)) ??
+          jobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
+        )
+      }
+      const standard = ATS_STANDARD_ROLES.find((r) => r.profile === profile)
+      return (
+        jobs.find((j) => detectAtsRoleProfile(j.title) === profile) ??
+        jobs.find((j) => j.title === standard?.title)
+      )
+    }
+    for (const role of ['frontend', 'backend', 'designer', 'general'] as const) {
+      const job = jobFor(role)
+      if (!job) continue
+      counts[role] = jobCandidates.filter((c) => c.requisitionId === job.id).length
+    }
+    return counts
+  }, [jobCandidates, jobRequisitions])
 
   const resolvedJobId = useMemo(() => {
-    if (selectedJobId && openJobs.some((j) => j.id === selectedJobId)) return selectedJobId
+    const jobs = jobRequisitions.filter((j) => j.status === 'open')
+    if (selectedRole === 'general') {
+      return (
+        jobs.find((j) => /unassigned|other/i.test(j.title)) ??
+        jobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
+      )?.id ?? ''
+    }
+    const standard = ATS_STANDARD_ROLES.find((r) => r.profile === selectedRole)
     return (
-      openJobs.find((j) => /front/i.test(j.title)) ??
-      openJobs.find((j) => j.title === newRoleTitle.trim()) ??
-      openJobs[0]
+      jobs.find((j) => detectAtsRoleProfile(j.title) === selectedRole) ??
+      jobs.find((j) => j.title === standard?.title)
     )?.id ?? ''
-  }, [openJobs, selectedJobId, newRoleTitle])
+  }, [jobRequisitions, selectedRole])
 
   const selectedJob = jobRequisitions.find((j) => j.id === resolvedJobId)
-  const roleProfile = detectAtsRoleProfile(selectedJob?.title ?? newRoleTitle)
+  const roleProfile: Exclude<AtsRoleProfile, 'general'> =
+    selectedRole === 'general' ? 'frontend' : selectedRole
+
+  useEffect(() => {
+    ensureStandardRoles()
+    // Create missing standard role sections when ATS opens / jobs change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [openJobs.length])
 
   useEffect(() => {
     let cancelled = false
     void (async () => {
-      const loaded = await loadAtsCriteria(roleProfile === 'general' ? 'frontend' : roleProfile)
+      const loaded = await loadAtsCriteria(roleProfile)
       if (cancelled) return
       setCriteria(loaded)
       setCriteriaDirty(false)
@@ -114,11 +202,13 @@ export function RecruitmentAtsSection() {
   }, [roleProfile])
 
   const candidatesForRole = useMemo(() => {
+    if (!resolvedJobId) return []
     const rows = jobCandidates.filter((c) => c.requisitionId === resolvedJobId)
     return [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
   }, [jobCandidates, resolvedJobId])
 
   const visible = useMemo(() => {
+    if (filter === 'top10') return candidatesForRole.slice(0, 10)
     return candidatesForRole.filter((c) => {
       if (filter === 'all') return true
       if (filter === 'viable') {
@@ -128,6 +218,8 @@ export function RecruitmentAtsSection() {
       return c.recommendation === filter
     })
   }, [candidatesForRole, filter, criteria.viableMin])
+
+  const topTen = useMemo(() => candidatesForRole.slice(0, 10), [candidatesForRole])
 
   const stats = useMemo(() => {
     const total = candidatesForRole.length
@@ -155,36 +247,59 @@ export function RecruitmentAtsSection() {
   }
 
   const resetCriteria = () => {
-    const profile = roleProfile === 'general' ? 'frontend' : roleProfile
-    patchCriteria(defaultCriteriaForProfile(profile))
+    patchCriteria(defaultCriteriaForProfile(roleProfile))
   }
 
-  const importScreened = (
+  const importScreened = async (
     items: Array<{
       text: string
       source: AtsSource
       externalId?: string
       appliedAt?: string
+      gmailThreadId?: string
+      gmailMessageId?: string
+      /** When set, skip auto-detect (e.g. manual paste into current role tab). */
+      forceProfile?: AtsRoleProfile
     }>,
   ) => {
-    if (!resolvedJobId) {
-      notifyError('Create or select a job requisition first.')
-      return { added: 0, skipped: 0 }
-    }
+    ensureStandardRoles()
 
     let added = 0
     let skipped = 0
-    const existing = jobCandidates.filter((c) => c.requisitionId === resolvedJobId)
-    const scoringProfile = roleProfile === 'general' ? 'frontend' : roleProfile
+    const byRole: Partial<Record<AtsRoleProfile, number>> = {}
+
+    const criteriaCache: Partial<Record<Exclude<AtsRoleProfile, 'general'>, AtsCriteriaProfile>> = {
+      frontend: selectedRole === 'frontend' ? criteria : undefined,
+      backend: selectedRole === 'backend' ? criteria : undefined,
+      designer: selectedRole === 'designer' ? criteria : undefined,
+    }
+
+    for (const profile of ['frontend', 'backend', 'designer'] as const) {
+      if (!criteriaCache[profile]) {
+        criteriaCache[profile] = await loadAtsCriteria(profile)
+      }
+    }
+
+    const existingAll = [...jobCandidates]
 
     for (const item of items) {
-      const result = screenApplicationText(item.text, scoringProfile as AtsRoleProfile, criteria)
+      const detected = item.forceProfile ?? detectAtsRoleFromApplication(item.text)
+      const profile = detected === 'general' ? 'general' : detected
+      const scoringProfile: Exclude<AtsRoleProfile, 'general'> =
+        profile === 'general' ? 'frontend' : profile
+      const jobId = ensureJobForProfile(profile)
+      const roleCriteria = criteriaCache[scoringProfile] ?? defaultCriteriaForProfile(scoringProfile)
+
+      const result = screenApplicationText(item.text, scoringProfile, roleCriteria)
       const emailKey = result.email?.toLowerCase()
-      const duplicate = existing.some(
+      const duplicate = existingAll.some(
         (c) =>
           (item.externalId && c.externalId === item.externalId) ||
-          (emailKey && c.email?.toLowerCase() === emailKey) ||
-          (!emailKey && !item.externalId && c.name.toLowerCase() === result.name.toLowerCase()),
+          (emailKey && c.email?.toLowerCase() === emailKey && c.requisitionId === jobId) ||
+          (!emailKey &&
+            !item.externalId &&
+            c.requisitionId === jobId &&
+            c.name.toLowerCase() === result.name.toLowerCase()),
       )
       if (duplicate) {
         skipped += 1
@@ -192,9 +307,12 @@ export function RecruitmentAtsSection() {
       }
 
       addJobCandidate({
-        requisitionId: resolvedJobId,
+        requisitionId: jobId,
         name: result.name,
         email: result.email,
+        phone: result.phone,
+        linkedinUrl: result.linkedinUrl,
+        location: result.location,
         stage:
           result.recommendation === 'reject'
             ? 'rejected'
@@ -208,52 +326,72 @@ export function RecruitmentAtsSection() {
         score: result.score,
         recommendation: result.recommendation,
         scoreBreakdown: result.breakdown as Record<string, number>,
-        resumeSummary: result.summary,
-        notes: item.text.slice(0, 4000),
+        resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${result.summary}`,
+        notes: item.text.slice(0, 12000),
         externalId: item.externalId,
+        gmailThreadId: item.gmailThreadId,
+        gmailMessageId: item.gmailMessageId,
         appliedAt: item.appliedAt ?? new Date().toISOString(),
       })
+      existingAll.push({
+        id: `temp_${added}`,
+        requisitionId: jobId,
+        name: result.name,
+        email: result.email,
+        externalId: item.externalId,
+        stage: 'screen',
+        updatedAt: new Date().toISOString(),
+      })
       added += 1
+      byRole[profile] = (byRole[profile] ?? 0) + 1
     }
 
-    return { added, skipped }
+    return { added, skipped, byRole }
   }
 
-  const screenAndSave = () => {
+  const screenAndSave = async () => {
     if (!paste.trim()) {
       notifyError('Paste one or more applications from Gmail or Indeed.')
       return
     }
     setBusy(true)
     const chunks = splitApplicationBatch(paste)
-    const { added, skipped } = importScreened(
-      chunks.map((text) => ({ text, source })),
+    const { added, skipped, byRole } = await importScreened(
+      chunks.map((text) => ({
+        text,
+        source,
+        // Paste into the active role tab unless the text clearly names another role
+        forceProfile: detectAtsRoleFromApplication(text) === 'general' ? selectedRole : undefined,
+      })),
     )
     setBusy(false)
     setPaste('')
-    if (added) notifySuccess(`Screened ${added} application${added === 1 ? '' : 's'}.`)
+    if (added) {
+      const parts = Object.entries(byRole)
+        .map(([k, n]) => `${n} → ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
+        .join(', ')
+      notifySuccess(`Screened ${added} application${added === 1 ? '' : 's'}${parts ? ` (${parts})` : ''}.`)
+    }
     if (skipped) notifyError(`Skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}.`)
     if (!added && !skipped) notifyError('No usable applications found in the paste.')
   }
 
   const syncFromGmail = async () => {
-    if (!resolvedJobId) {
-      notifyError('Create or select a job requisition first.')
-      return
-    }
     if (!isGmailAtsConfigured()) {
       notifyError('Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.')
       return
     }
 
     setSyncing(true)
+    setSyncLabel('Ensuring role sections…')
+    ensureStandardRoles()
     setSyncLabel('Connecting to Gmail…')
     try {
       const messages = await fetchGmailApplications({
         onProgress: ({ label }) => setSyncLabel(label),
       })
-      setSyncLabel('Ranking candidates…')
-      const { added, skipped } = importScreened(
+      setSyncLabel('Sorting by role & ranking…')
+      const { added, skipped, byRole } = await importScreened(
         messages.map((m) => {
           const parsed = m.date ? Date.parse(m.date) : NaN
           const resumeNote = m.resumeFilesScanned?.length
@@ -263,18 +401,26 @@ export function RecruitmentAtsSection() {
             text: `${m.bodyText}${resumeNote}`,
             source: detectSourceFromEmail(m.from, m.subject),
             externalId: `gmail:${m.id}`,
+            gmailThreadId: m.threadId,
+            gmailMessageId: m.id,
             appliedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
           }
         }),
       )
       if (added) {
         const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
+        const parts = Object.entries(byRole)
+          .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
+          .join(', ')
         notifySuccess(
-          `Synced ${added} new application${added === 1 ? '' : 's'} from ${HR_MAILBOX}` +
-            (withCv ? ` (${withCv} with CV text scanned).` : '.'),
+          `Synced ${added} email${added === 1 ? '' : 's'} into role sections` +
+            (parts ? `: ${parts}` : '') +
+            (withCv ? ` (${withCv} with CV scanned).` : '.'),
         )
+        const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
+        if (preferred) setSelectedRole(preferred)
       } else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
-      else notifyError(`No matching application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
+      else notifyError(`No inbox emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
     } catch (err) {
       notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
     } finally {
@@ -290,10 +436,15 @@ export function RecruitmentAtsSection() {
       if (!c.notes?.trim()) continue
       const result = screenApplicationText(
         c.notes,
-        roleProfile === 'general' ? 'frontend' : roleProfile,
+        roleProfile,
         criteria,
       )
       updateJobCandidate(c.id, {
+        name: result.name !== 'Unknown candidate' ? result.name : c.name,
+        email: result.email ?? c.email,
+        phone: result.phone ?? c.phone,
+        linkedinUrl: result.linkedinUrl ?? c.linkedinUrl,
+        location: result.location ?? c.location,
         score: result.score,
         recommendation: result.recommendation,
         scoreBreakdown: result.breakdown as Record<string, number>,
@@ -319,14 +470,44 @@ export function RecruitmentAtsSection() {
         <div>
           <h2 className="text-lg font-semibold text-fg">Recruitment ATS</h2>
           <p className="mt-1 text-sm text-muted">
-            Sync applications from {HR_MAILBOX}, score them with editable ranking criteria, and shortlist viable candidates.
+            Applications are sorted into role sections (Front-End, Back-End, Graphic Designer). Sync from {HR_MAILBOX} auto-routes each email.
           </p>
         </div>
-        <Badge tone="brand">{criteria.label} · {roleProfile}</Badge>
+        <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
+      </div>
+
+      <div className="flex flex-wrap gap-2">
+        {ATS_STANDARD_ROLES.map((role) => (
+          <button
+            key={role.profile}
+            type="button"
+            onClick={() => setSelectedRole(role.profile)}
+            className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+              selectedRole === role.profile
+                ? 'border-accent bg-accent/10 text-fg font-medium'
+                : 'border-border bg-surface text-muted hover:text-fg'
+            }`}
+          >
+            {role.title}
+            <span className="ml-2 text-xs text-muted">({roleCounts[role.profile]})</span>
+          </button>
+        ))}
+        <button
+          type="button"
+          onClick={() => setSelectedRole('general')}
+          className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+            selectedRole === 'general'
+              ? 'border-accent bg-accent/10 text-fg font-medium'
+              : 'border-border bg-surface text-muted hover:text-fg'
+          }`}
+        >
+          Unassigned / Other
+          <span className="ml-2 text-xs text-muted">({roleCounts.general})</span>
+        </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
-        <Card padding="md"><p className="text-xs text-muted">Total screened</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.total}</p></Card>
+        <Card padding="md"><p className="text-xs text-muted">In this role</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.total}</p></Card>
         <Card padding="md"><p className="text-xs text-muted">Viable+</p><p className="mt-1 text-2xl font-semibold text-accent">{stats.viable}</p></Card>
         <Card padding="md"><p className="text-xs text-muted">Strong</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.strong}</p></Card>
         <Card padding="md"><p className="text-xs text-muted">Reject</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.reject}</p></Card>
@@ -336,7 +517,9 @@ export function RecruitmentAtsSection() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">Ranking criteria</h3>
+            <h3 className="text-sm font-semibold text-fg">
+              Ranking criteria · {labelForAtsRoleProfile(selectedRole === 'general' ? 'frontend' : selectedRole)}
+            </h3>
             {criteriaDirty ? <Badge tone="warning">Unsaved</Badge> : null}
           </div>
           <div className="flex flex-wrap gap-2">
@@ -374,84 +557,96 @@ export function RecruitmentAtsSection() {
           <h3 className="text-sm font-semibold text-fg">Import applications</h3>
         </div>
 
-        {openJobs.length === 0 ? (
-          <div className="grid gap-2 sm:grid-cols-2">
-            <Input label="Create role title" value={newRoleTitle} onChange={(e) => setNewRoleTitle(e.target.value)} />
-            <Input label="Department" value={newRoleDept} onChange={(e) => setNewRoleDept(e.target.value)} />
-            <Button
-              className="sm:col-span-2"
-              onClick={() => {
-                addJobRequisition({
-                  title: newRoleTitle.trim(),
-                  department: newRoleDept.trim(),
-                  status: 'open',
-                })
-                notifySuccess('Requisition created. It will appear in the role list.')
-              }}
-            >
-              Create requisition
-            </Button>
-          </div>
-        ) : (
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Select
-              label="Role"
-              value={resolvedJobId}
-              onChange={(e) => setSelectedJobId(e.target.value)}
-              options={[
-                { value: '', label: 'Select role…' },
-                ...openJobs.map((j) => ({ value: j.id, label: `${j.title} (${j.department})` })),
-              ]}
-            />
-            <Select
-              label="Paste source (manual import)"
-              value={source}
-              onChange={(e) => setSource(e.target.value as AtsSource)}
-              options={SOURCE_OPTIONS}
-            />
-          </div>
-        )}
+        <Select
+          label="Paste source (manual import)"
+          value={source}
+          onChange={(e) => setSource(e.target.value as AtsSource)}
+          options={SOURCE_OPTIONS}
+        />
 
         <div className="flex flex-wrap gap-2">
-          <Button
-            onClick={() => void syncFromGmail()}
-            loading={syncing}
-            disabled={!resolvedJobId}
-          >
+          <Button onClick={() => void syncFromGmail()} loading={syncing}>
             <Mail className="h-4 w-4" />
             Sync from {HR_MAILBOX}
           </Button>
           <p className="self-center text-xs text-muted">
             {syncLabel ||
-              `Sign in as ${HR_MAILBOX}. Sync reads application emails and scans attached CVs (PDF, DOCX, JPG/PNG) into the ranking score.`}
+              `Syncs the inbox, detects each application’s role (e.g. Front-End Developer), and files it into that section with CV scanning.`}
           </p>
         </div>
 
         <Textarea
-          label="Or paste applications"
-          hint="Paste one application, or several separated by a line with --- ."
+          label={`Or paste into ${labelForAtsRoleProfile(selectedRole)}`}
+          hint="Paste one application, or several separated by --- . Clear role signals in the text can still move an app to another section."
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={8}
-          placeholder={`Example:\nFrom: Jane Doe <jane@email.com>\nSubject: APPLICATION FOR FRONT-END DEVELOPER — Jane Doe\n\nCover letter...\nReact, TypeScript, GitHub: https://github.com/jane\nPortfolio: https://jane.vercel.app`}
+          placeholder={`Example:\nFrom: Jane Doe <jane@email.com>\nSubject: APPLICATION FOR FRONT-END DEVELOPER — Jane Doe\n\nCover letter...\nReact, TypeScript...`}
         />
 
         <Button
           variant="secondary"
-          onClick={screenAndSave}
+          onClick={() => void screenAndSave()}
           loading={busy}
-          disabled={!paste.trim() || !resolvedJobId}
+          disabled={!paste.trim()}
         >
           <Upload className="h-4 w-4" />
           Score & save pasted
         </Button>
       </Card>
 
+      {topTen.length > 0 ? (
+        <Card padding="md" className="space-y-3">
+          <div className="flex items-center gap-2">
+            <Trophy className="h-4 w-4 text-accent" />
+            <h3 className="text-sm font-semibold text-fg">
+              Top 10 · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+            </h3>
+            <Badge tone="brand">by score</Badge>
+          </div>
+          <ol className="space-y-2">
+            {topTen.map((c, i) => (
+              <li
+                key={c.id}
+                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
+              >
+                <div className="min-w-0">
+                  <p className="font-medium text-fg">
+                    <span className="mr-2 text-muted">#{i + 1}</span>
+                    {c.name}
+                  </p>
+                  <p className="truncate text-xs text-muted">
+                    {[c.email, c.phone, c.location].filter(Boolean).join(' · ') || 'No contact details yet'}
+                  </p>
+                </div>
+                <div className="flex flex-wrap items-center gap-2">
+                  <Badge tone={recommendationTone(c.recommendation)}>{c.recommendation ?? 'unscored'}</Badge>
+                  <Badge tone="muted">{c.score ?? 0}/100</Badge>
+                  {c.gmailThreadId ? (
+                    <a
+                      className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                      href={gmailThreadUrl(c.gmailThreadId)}
+                      target="_blank"
+                      rel="noreferrer"
+                    >
+                      <ExternalLink className="h-3.5 w-3.5" />
+                      Open email
+                    </a>
+                  ) : null}
+                </div>
+              </li>
+            ))}
+          </ol>
+        </Card>
+      ) : null}
+
       <Card padding="md" className="space-y-4">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div className="flex items-center gap-2">
             <UserCheck className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">Ranked candidates</h3>
+            <h3 className="text-sm font-semibold text-fg">
+              Ranked · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+            </h3>
           </div>
           <div className="flex items-center gap-2">
             <Filter className="h-4 w-4 text-muted" />
@@ -460,6 +655,7 @@ export function RecruitmentAtsSection() {
               value={filter}
               onChange={(e) => setFilter(e.target.value as FilterMode)}
             >
+              <option value="top10">Top 10</option>
               <option value="viable">Viable & strong</option>
               <option value="strong">Strong only</option>
               <option value="all">All screened</option>
@@ -470,18 +666,19 @@ export function RecruitmentAtsSection() {
         </div>
 
         {!resolvedJobId ? (
-          <EmptyState icon={Briefcase} title="Select a role" description="Choose a requisition to view ranked applicants." />
+          <EmptyState icon={Briefcase} title="No role section yet" description="Sync Gmail or paste an application — Front-End / Back-End / Designer sections are created automatically." />
         ) : visible.length === 0 ? (
           <EmptyState
             icon={Briefcase}
-            title="No candidates in this view"
-            description="Sync Gmail or paste applications above, or switch the filter."
+            title={`No ${selectedJob?.title ?? 'candidates'} in this view`}
+            description="Sync Gmail (apps auto-sort by role), paste into this tab, or switch the filter."
           />
         ) : (
           <ul className="space-y-3">
-            {visible.map((c) => (
+            {visible.map((c, index) => (
               <CandidateRow
                 key={c.id}
+                rank={filter === 'top10' ? index + 1 : candidatesForRole.findIndex((x) => x.id === c.id) + 1}
                 candidate={c}
                 criteria={criteria}
                 onUpdate={updateJobCandidate}
@@ -658,10 +855,12 @@ function CriteriaEditor({
 }
 
 function CandidateRow({
+  rank,
   candidate,
   criteria,
   onUpdate,
 }: {
+  rank: number
   candidate: JobCandidate
   criteria: AtsCriteriaProfile
   onUpdate: (id: string, patch: Partial<JobCandidate>) => void
@@ -670,20 +869,48 @@ function CandidateRow({
     ([key, pts]) => key !== 'red_flags' && pts > 0,
   )
   const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
+  const mailUrl = candidate.gmailThreadId ? gmailThreadUrl(candidate.gmailThreadId) : null
 
   return (
     <li className="rounded-lg border border-border p-4">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
-            <p className="font-semibold text-fg">{candidate.name}</p>
+            <Badge tone="muted">#{rank}</Badge>
+            {mailUrl ? (
+              <a
+                className="font-semibold text-fg hover:text-accent hover:underline"
+                href={mailUrl}
+                target="_blank"
+                rel="noreferrer"
+                title="Open original application in Gmail"
+              >
+                {candidate.name}
+              </a>
+            ) : (
+              <p className="font-semibold text-fg">{candidate.name}</p>
+            )}
             <Badge tone={recommendationTone(candidate.recommendation)}>
               {candidate.recommendation ?? 'unscored'}
             </Badge>
             <Badge tone="muted">{candidate.score ?? 0}/100</Badge>
             {candidate.source ? <Badge tone="muted">{candidate.source}</Badge> : null}
           </div>
-          {candidate.email ? <p className="mt-1 text-sm text-muted">{candidate.email}</p> : null}
+          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
+            {candidate.email ? <span>{candidate.email}</span> : null}
+            {candidate.phone ? (
+              <span className="inline-flex items-center gap-1">
+                <Phone className="h-3.5 w-3.5" />
+                {candidate.phone}
+              </span>
+            ) : null}
+            {candidate.location ? (
+              <span className="inline-flex items-center gap-1">
+                <MapPin className="h-3.5 w-3.5" />
+                {candidate.location}
+              </span>
+            ) : null}
+          </div>
           {candidate.resumeSummary ? (
             <p className="mt-2 text-sm text-fg">{candidate.resumeSummary}</p>
           ) : null}
@@ -697,6 +924,11 @@ function CandidateRow({
             </div>
           ) : null}
           <div className="mt-2 flex flex-wrap gap-3 text-xs">
+            {mailUrl ? (
+              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={mailUrl} target="_blank" rel="noreferrer">
+                <ExternalLink className="h-3.5 w-3.5" /> Open in Gmail
+              </a>
+            ) : null}
             {candidate.githubUrl ? (
               <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.githubUrl} target="_blank" rel="noreferrer">
                 <Github className="h-3.5 w-3.5" /> GitHub
@@ -705,6 +937,11 @@ function CandidateRow({
             {candidate.portfolioUrl ? (
               <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.portfolioUrl} target="_blank" rel="noreferrer">
                 <Link2 className="h-3.5 w-3.5" /> Portfolio
+              </a>
+            ) : null}
+            {candidate.linkedinUrl ? (
+              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.linkedinUrl} target="_blank" rel="noreferrer">
+                LinkedIn
               </a>
             ) : null}
             {candidate.coverLetter ? <span className="text-muted">Cover letter detected</span> : <span className="text-muted">No cover letter signals</span>}

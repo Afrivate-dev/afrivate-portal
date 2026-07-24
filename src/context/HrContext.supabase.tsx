@@ -719,6 +719,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         if (error) reportHrError('add job requisition', error)
         await reloadHr()
       })()
+      return row.id
     },
     [client, reloadHr, user?.id],
   )

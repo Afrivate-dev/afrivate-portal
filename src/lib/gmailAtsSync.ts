@@ -15,7 +15,11 @@ const HR_MAILBOX = 'afrivatehr@gmail.com'
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
 /** How far back Sync searches (keep in sync with UI copy). */
 export const GMAIL_ATS_LOOKBACK_DAYS = 90
-const MAX_RESUME_ATTACHMENTS_PER_MESSAGE = 3
+/** Gmail API page size (max 500). We paginate until the inbox query is exhausted. */
+export const GMAIL_LIST_PAGE_SIZE = 500
+/** Safety ceiling so a huge inbox cannot freeze the browser in one session. */
+export const GMAIL_SYNC_HARD_CAP = 2000
+const MAX_RESUME_ATTACHMENTS_PER_MESSAGE = 4
 
 export interface GmailApplicationMessage {
   id: string
@@ -29,6 +33,16 @@ export interface GmailApplicationMessage {
   /** Filenames whose text was successfully extracted into bodyText. */
   resumeFilesScanned?: string[]
   resumeExtractErrors?: string[]
+}
+
+/** Open the original Gmail thread for afrivatehr@gmail.com (or another mailbox). */
+export function gmailThreadUrl(threadId: string, mailbox = HR_MAILBOX): string {
+  return `https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${threadId}`
+}
+
+/** Default: entire inbox (excl. spam/trash) in the lookback window — attachments scanned per email. */
+export function defaultGmailAtsQuery(days = GMAIL_ATS_LOOKBACK_DAYS): string {
+  return [`in:inbox`, `newer_than:${days}d`, `-in:spam`, `-in:trash`].join(' ')
 }
 
 function loadGsi(): Promise<void> {
@@ -366,32 +380,57 @@ export async function enrichMessageWithResumeText(
   }
 }
 
-/** Default query targets AfriVate application emails and common job-board forwards. */
-export function defaultGmailAtsQuery(days = GMAIL_ATS_LOOKBACK_DAYS): string {
-  return [
-    `newer_than:${days}d`,
-    '(',
-    'subject:APPLICATION',
-    'OR subject:application',
-    'OR subject:"Front-End"',
-    'OR subject:"Front End"',
-    'OR subject:"Back-End"',
-    'OR subject:"Graphic Designer"',
-    'OR from:indeedemail.com',
-    'OR from:indeed.com',
-    'OR from:members@indeed.com',
-    'OR from:linkedin.com',
-    'OR from:jobs-noreply@linkedin.com',
-    ')',
-    '-in:spam',
-    '-in:trash',
-  ].join(' ')
+async function listAllGmailMessageIds(options: {
+  token: string
+  query: string
+  hardCap: number
+  pageSize: number
+  fetchImpl: typeof fetch
+  onProgress?: (info: { done: number; total: number; label: string }) => void
+}): Promise<Array<{ id: string; threadId: string }>> {
+  const ids: Array<{ id: string; threadId: string }> = []
+  let pageToken: string | undefined
+  let page = 0
+
+  do {
+    page += 1
+    const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
+    listUrl.searchParams.set('q', options.query)
+    listUrl.searchParams.set('maxResults', String(options.pageSize))
+    if (pageToken) listUrl.searchParams.set('pageToken', pageToken)
+
+    options.onProgress?.({
+      done: ids.length,
+      total: Math.max(ids.length, 1),
+      label: `Listing inbox emails (page ${page}, ${ids.length} found)…`,
+    })
+
+    const listRes = await options.fetchImpl(listUrl.toString(), {
+      headers: { Authorization: `Bearer ${options.token}` },
+    })
+    if (!listRes.ok) {
+      const err = await listRes.text()
+      throw new Error(`Gmail list failed (${listRes.status}): ${err.slice(0, 200)}`)
+    }
+
+    const listJson = (await listRes.json()) as {
+      messages?: Array<{ id: string; threadId: string }>
+      nextPageToken?: string
+      resultSizeEstimate?: number
+    }
+    ids.push(...(listJson.messages ?? []))
+    pageToken = listJson.nextPageToken
+  } while (pageToken && ids.length < options.hardCap)
+
+  return ids.slice(0, options.hardCap)
 }
 
 export async function fetchGmailApplications(options?: {
   accessToken?: string
   query?: string
+  /** @deprecated Prefer hardCap — sync paginates the full inbox query. */
   maxResults?: number
+  hardCap?: number
   /** When false, skip CV download/OCR (faster tests). Default true. */
   extractResumes?: boolean
   /** Injected for tests */
@@ -401,24 +440,19 @@ export async function fetchGmailApplications(options?: {
 }): Promise<GmailApplicationMessage[]> {
   const token = options?.accessToken ?? (await requestGmailAccessToken())
   const query = options?.query ?? defaultGmailAtsQuery()
-  const maxResults = options?.maxResults ?? 50
+  const hardCap = options?.hardCap ?? options?.maxResults ?? GMAIL_SYNC_HARD_CAP
   const doFetch = options?.fetchImpl ?? fetch
   const extractResumes = options?.extractResumes !== false
 
-  const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
-  listUrl.searchParams.set('q', query)
-  listUrl.searchParams.set('maxResults', String(maxResults))
-
-  const listRes = await doFetch(listUrl.toString(), {
-    headers: { Authorization: `Bearer ${token}` },
+  const ids = await listAllGmailMessageIds({
+    token,
+    query,
+    hardCap,
+    pageSize: Math.min(GMAIL_LIST_PAGE_SIZE, hardCap),
+    fetchImpl: doFetch,
+    onProgress: options?.onProgress,
   })
-  if (!listRes.ok) {
-    const err = await listRes.text()
-    throw new Error(`Gmail list failed (${listRes.status}): ${err.slice(0, 200)}`)
-  }
 
-  const listJson = (await listRes.json()) as { messages?: Array<{ id: string; threadId: string }> }
-  const ids = listJson.messages ?? []
   const out: GmailApplicationMessage[] = []
 
   for (let i = 0; i < ids.length; i += 1) {
@@ -426,7 +460,7 @@ export async function fetchGmailApplications(options?: {
     options?.onProgress?.({
       done: i,
       total: ids.length,
-      label: `Reading application ${i + 1} of ${ids.length}…`,
+      label: `Reading email ${i + 1} of ${ids.length}…`,
     })
     const msgRes = await doFetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
@@ -439,7 +473,7 @@ export async function fetchGmailApplications(options?: {
       options?.onProgress?.({
         done: i,
         total: ids.length,
-        label: `Scanning CV attachments (${i + 1}/${ids.length})…`,
+        label: `Scanning attachments for email ${i + 1} of ${ids.length}…`,
       })
       parsed = await enrichMessageWithResumeText(msg, parsed, {
         accessToken: token,

@@ -97,7 +97,7 @@ export interface HrContextValue {
 
   jobRequisitions: JobRequisition[]
   jobCandidates: JobCandidate[]
-  addJobRequisition: (r: Omit<JobRequisition, 'id' | 'createdAt'>) => void
+  addJobRequisition: (r: Omit<JobRequisition, 'id' | 'createdAt'>) => string
   updateJobRequisition: (id: string, patch: Partial<JobRequisition>) => void
   addJobCandidate: (c: Omit<JobCandidate, 'id' | 'updatedAt'>) => void
   updateJobCandidate: (id: string, patch: Partial<JobCandidate>) => void

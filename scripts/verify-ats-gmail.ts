@@ -66,11 +66,10 @@ await check('Google client ID validation', () => {
   assert.equal(isValidGoogleClientId(undefined), false)
 })
 
-await check('Gmail query includes lookback + application subjects', () => {
+await check('Gmail query includes lookback + inbox scope', () => {
   const q = defaultGmailAtsQuery()
   assert.match(q, new RegExp(`newer_than:${GMAIL_ATS_LOOKBACK_DAYS}d`))
-  assert.match(q, /subject:APPLICATION/i)
-  assert.match(q, /indeed/i)
+  assert.match(q, /in:inbox/i)
 })
 
 await check('URL-safe base64 body decode', () => {
@@ -179,25 +178,37 @@ await check('Batch split and source detection', () => {
   assert.equal(detectSourceFromEmail('Ada <ada@gmail.com>', 'APPLICATION'), 'gmail')
 })
 
-await check('fetchGmailApplications with mocked Gmail API', async () => {
+await check('fetchGmailApplications paginates beyond 50', async () => {
   const plain = Buffer.from(
     'Cover letter. React TypeScript GitHub https://github.com/mock Portfolio https://mock.vercel.app',
     'utf8',
   ).toString('base64')
 
+  let listCalls = 0
   const fetchImpl: typeof fetch = async (input) => {
     const url = String(input)
-    if (url.includes('/messages?') || url.includes('/messages&') || url.includes('messages?q=')) {
-      return new Response(JSON.stringify({ messages: [{ id: 'msg1', threadId: 'th1' }] }), {
+    if (url.includes('users/me/messages') && !url.includes('/messages/msg')) {
+      listCalls += 1
+      if (listCalls === 1) {
+        return new Response(
+          JSON.stringify({
+            messages: [{ id: 'msg1', threadId: 'th1' }],
+            nextPageToken: 'page2',
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return new Response(JSON.stringify({ messages: [{ id: 'msg2', threadId: 'th2' }] }), {
         status: 200,
         headers: { 'Content-Type': 'application/json' },
       })
     }
-    if (url.includes('/messages/msg1')) {
+    if (url.includes('/messages/msg1') || url.includes('/messages/msg2')) {
+      const id = url.includes('msg2') ? 'msg2' : 'msg1'
       return new Response(
         JSON.stringify({
-          id: 'msg1',
-          threadId: 'th1',
+          id,
+          threadId: id === 'msg2' ? 'th2' : 'th1',
           snippet: 'Cover letter',
           payload: {
             headers: [
@@ -219,13 +230,45 @@ await check('fetchGmailApplications with mocked Gmail API', async () => {
     fetchImpl,
     extractResumes: false,
   })
-  assert.equal(messages.length, 1)
+  assert.equal(listCalls, 2)
+  assert.equal(messages.length, 2)
   assert.equal(messages[0]?.id, 'msg1')
+  assert.equal(messages[1]?.id, 'msg2')
   assert.match(messages[0]?.bodyText ?? '', /mock@example.com/i)
 
   const scored = screenApplicationText(messages[0]!.bodyText, 'frontend')
   assert.ok(scored.score >= 40)
   assert.ok(scored.email === 'mock@example.com')
+})
+
+await check('Personal info extraction + Gmail thread URL', async () => {
+  const { parseFromAddress } = await import('../src/utils/atsScoring.ts')
+  const { gmailThreadUrl, HR_MAILBOX } = await import('../src/lib/gmailAtsSync.ts')
+
+  const from = parseFromAddress('Ada Lovelace <ada@example.com>')
+  assert.equal(from.name, 'Ada Lovelace')
+  assert.equal(from.email, 'ada@example.com')
+
+  const raw = `Subject: APPLICATION FOR FRONT-END DEVELOPER — Ada Lovelace
+From: Ada Lovelace <ada@example.com>
+Phone: +234 801 234 5678
+Location: Lagos, Nigeria
+LinkedIn: https://linkedin.com/in/ada-lovelace
+Dear Afrivate, I am writing to apply. React TypeScript 3 years of experience.
+GitHub: https://github.com/ada Portfolio: https://ada.vercel.app`
+
+  const scored = screenApplicationText(raw, 'frontend')
+  assert.equal(scored.name, 'Ada Lovelace')
+  assert.equal(scored.email, 'ada@example.com')
+  assert.ok(scored.phone?.includes('801'))
+  assert.ok(/Lagos/i.test(scored.location ?? ''))
+  assert.ok(scored.linkedinUrl?.includes('linkedin.com/in/ada'))
+  assert.match(scored.summary, /Ada Lovelace/)
+
+  const url = gmailThreadUrl('thread123')
+  assert.match(url, /mail\.google\.com/)
+  assert.match(url, /thread123/)
+  assert.ok(url.includes(encodeURIComponent(HR_MAILBOX)))
 })
 
 await check('Resume attachment text is downloaded, extracted, and scored', async () => {
@@ -297,6 +340,32 @@ await check('Resume attachment text is downloaded, extracted, and scored', async
   assert.ok((scored.breakdown.resume_file ?? 0) > 0, 'resume_file criterion should score')
   assert.ok(scored.matched.some((m) => /resume|cv/i.test(m)))
   assert.ok(scored.score >= 55, `expected stronger score with CV text, got ${scored.score}`)
+})
+
+await check('Applications are routed to Front-End / Back-End / Designer roles', async () => {
+  const { detectAtsRoleFromApplication, labelForAtsRoleProfile, ATS_STANDARD_ROLES } = await import(
+    '../src/utils/atsScoring.ts'
+  )
+  assert.equal(ATS_STANDARD_ROLES[0]?.title, 'Front-End Developer')
+  assert.equal(
+    detectAtsRoleFromApplication(
+      'Subject: APPLICATION FOR FRONT-END DEVELOPER — Jane\nFrom: Jane <j@x.com>\nReact TypeScript',
+    ),
+    'frontend',
+  )
+  assert.equal(
+    detectAtsRoleFromApplication(
+      'Subject: APPLICATION FOR BACK-END DEVELOPER — Sam\nNestJS PostgreSQL Node.js',
+    ),
+    'backend',
+  )
+  assert.equal(
+    detectAtsRoleFromApplication(
+      'Subject: APPLICATION FOR GRAPHIC DESIGNER — Pat\nPhotoshop Illustrator Figma',
+    ),
+    'designer',
+  )
+  assert.equal(labelForAtsRoleProfile('frontend'), 'Front-End Developer')
 })
 
 await check('Editable criteria change ranking outcome', () => {

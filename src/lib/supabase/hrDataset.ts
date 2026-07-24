@@ -181,6 +181,9 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
     requisitionId: String(r.requisition_id),
     name: String(r.name ?? ''),
     email: r.email ? String(r.email) : undefined,
+    phone: r.phone ? String(r.phone) : undefined,
+    linkedinUrl: r.linkedin_url ? String(r.linkedin_url) : undefined,
+    location: r.location ? String(r.location) : undefined,
     stage: String(r.stage ?? 'applied') as JobCandidate['stage'],
     notes: r.notes ? String(r.notes) : undefined,
     score: r.score != null ? Number(r.score) : undefined,
@@ -194,6 +197,8 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
       ? (String(r.recommendation) as JobCandidate['recommendation'])
       : undefined,
     externalId: r.external_id ? String(r.external_id) : undefined,
+    gmailThreadId: r.gmail_thread_id ? String(r.gmail_thread_id) : undefined,
+    gmailMessageId: r.gmail_message_id ? String(r.gmail_message_id) : undefined,
     appliedAt: r.applied_at ? String(r.applied_at) : undefined,
     updatedAt: String(r.updated_at),
   }
@@ -205,6 +210,9 @@ export function jobCandidateToRow(c: JobCandidate) {
     requisition_id: c.requisitionId,
     name: c.name,
     email: c.email ?? null,
+    phone: c.phone ?? null,
+    linkedin_url: c.linkedinUrl ?? null,
+    location: c.location ?? null,
     stage: c.stage,
     notes: c.notes ?? null,
     score: c.score ?? null,
@@ -216,6 +224,8 @@ export function jobCandidateToRow(c: JobCandidate) {
     score_breakdown: c.scoreBreakdown ?? {},
     recommendation: c.recommendation ?? null,
     external_id: c.externalId ?? null,
+    gmail_thread_id: c.gmailThreadId ?? null,
+    gmail_message_id: c.gmailMessageId ?? null,
     applied_at: c.appliedAt ?? null,
     updated_at: c.updatedAt,
   }
