@@ -1,4 +1,4 @@
-﻿import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useSessionStorage } from '@/hooks/useSessionStorage'
 import { useAutoLogout } from '@/hooks/useAutoLogout'
@@ -230,6 +230,7 @@ interface AuthContextValue {
     email: string,
     password: string,
     name: string,
+    options?: { jobTitle?: string },
   ) => Promise<{ ok: boolean; error?: string; needsEmailConfirmation?: boolean }>
   logout: () => void
   updateProfile: (patch: Partial<User>) => void
@@ -252,7 +253,19 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [profileError, setProfileError] = useState<string | null>(null)
 
   const applyPortalUser = useCallback((result: ProfileLoadResult) => {
-    setSupabaseUser(result.user)
+    setSupabaseUser((prev) => {
+      if (!result.user) return null
+      // On profile read failure, session metadata defaults active:false. Keep the last
+      // confirmed active/role so a blip does not bounce approved users to pending.
+      if (result.profileLoadFailed && prev && prev.id === result.user.id) {
+        return {
+          ...result.user,
+          active: prev.active,
+          role: prev.role,
+        }
+      }
+      return result.user
+    })
     setProfileLoadFailed(result.profileLoadFailed)
     setProfileError(result.profileError)
   }, [])
@@ -361,11 +374,17 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const register = useCallback(
-    async (email: string, password: string, name: string) => {
+    async (
+      email: string,
+      password: string,
+      name: string,
+      options?: { jobTitle?: string },
+    ) => {
       if (!supabaseMode || !supabase) {
         try {
           const trimmedEmail = email.trim().toLowerCase()
           const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+          const trimmedTitle = options?.jobTitle?.trim().slice(0, 120) || ''
           const pwError = validatePortalPassword(password)
           if (pwError) return { ok: false as const, error: pwError }
           const rows = JSON.parse(localStorage.getItem('av-users') ?? '[]') as User[]
@@ -379,7 +398,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: trimmedName,
             role: 'staff',
             department: 'General',
-            jobTitle: '',
+            jobTitle: trimmedTitle,
             joinedAt: new Date().toISOString().slice(0, 10),
             active: false,
           }
@@ -392,11 +411,15 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       }
       const trimmedEmail = email.trim().toLowerCase()
       const trimmedName = name.trim() || trimmedEmail.split('@')[0] || 'User'
+      const trimmedTitle = options?.jobTitle?.trim().slice(0, 120) || ''
       const { data, error } = await supabase.auth.signUp({
         email: trimmedEmail,
         password,
         options: {
-          data: { name: trimmedName },
+          data: {
+            name: trimmedName,
+            ...(trimmedTitle ? { job_title: trimmedTitle } : {}),
+          },
           emailRedirectTo: `${window.location.origin}/login`,
         },
       })

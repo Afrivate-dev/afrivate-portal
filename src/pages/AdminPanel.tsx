@@ -1,4 +1,4 @@
-﻿import { useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Users as UsersIcon,
   Megaphone,
@@ -15,6 +15,7 @@ import {
   UsersRound,
   BarChart3,
   UserCheck,
+  Briefcase,
 } from 'lucide-react'
 import {
   addMonths,
@@ -45,6 +46,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { HrDashboardSection } from '@/pages/admin/HrDashboardSection'
+import { RecruitmentAtsSection } from '@/pages/admin/RecruitmentAtsSection'
 import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
@@ -73,7 +75,7 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
-type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr'
+type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Staff' },
@@ -171,8 +173,8 @@ export function AdminPanelPage() {
 
   const openApprovalForUser = (u: User) => {
     const req = accessRequests.find((r) => r.userId === u.id)
-    // Always start from what they typed on the access request (admin may edit).
-    const requestedTitle = req?.jobTitle?.trim() || resolveAccessJobTitle(u, req)
+    // Prefer exactly what they typed on the access request; then profile.
+    const requestedTitle = resolveAccessJobTitle(u, req)
     setApprovingUser(u)
     setApprovalRole('staff')
     setApprovalDeptId(req?.preferredDepartmentId ?? departments[0]?.id ?? '')
@@ -225,14 +227,11 @@ export function AdminPanelPage() {
       setAlertMessage('Please select a department.')
       return
     }
-    // Store exactly what is in the field (pre-filled from their request unless admin edited it).
-    const jobTitleToApply = approvalTitle.trim()
-    if (!jobTitleToApply) {
-      setAlertMessage(
-        'Job title is missing. It should match what they entered on their access request.',
-      )
-      return
-    }
+    const req = accessRequests.find((r) => r.userId === approvingUser.id)
+    // Field is pre-filled from their request. If somehow empty, resolve again
+    // from request/profile — never ask the admin to retype what staff entered.
+    const jobTitleToApply =
+      approvalTitle.trim() || resolveAccessJobTitle(approvingUser, req)
     const ok = await confirm({
       title: confirms.approveAccountTitle,
       message: confirms.approveAccount,
@@ -444,6 +443,14 @@ export function AdminPanelPage() {
         label: (
           <span className="inline-flex items-center gap-2">
             <BarChart3 className="h-4 w-4" /> HR dashboard
+          </span>
+        ),
+      },
+      {
+        id: 'recruitment',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <Briefcase className="h-4 w-4" /> Recruitment ATS
           </span>
         ),
       },
@@ -1499,6 +1506,7 @@ export function AdminPanelPage() {
       ) : null}
 
       {section === 'hr' ? <HrDashboardSection metrics={getMetrics()} /> : null}
+      {section === 'recruitment' ? <RecruitmentAtsSection /> : null}
 
       {/* Modals */}
 
@@ -1652,11 +1660,14 @@ export function AdminPanelPage() {
             />
             <Input
               label="Job title"
-              hint="Pre-filled from their access request. Change only if you need to correct it — otherwise leave it as they entered."
+              hint={
+                approvalTitle.trim()
+                  ? 'Pre-filled from their access request. Change only if you need to correct it.'
+                  : 'No job title was saved on their request — enter one, or ask them to request access again.'
+              }
               value={approvalTitle}
               onChange={(e) => setApprovalTitle(e.target.value)}
-              placeholder="What they entered when requesting access"
-              required
+              placeholder="e.g. Product Designer"
             />
           </div>
         ) : null}

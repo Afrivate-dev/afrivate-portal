@@ -202,21 +202,39 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         }))
 
       let loadedAccess: AccessRequest[] = []
-      if (accessErr?.message?.includes('preferred_department_id')) {
-        const { data: basicRows } = await client
+      if (accessErr?.message?.includes('preferred_department_id') || accessErr?.message?.includes('job_title')) {
+        const { data: basicRows, error: basicErr } = await client
           .from('portal_access_requests')
-          .select('user_id, message, job_title, status, requested_at')
+          .select('user_id, message, status, requested_at')
           .in('status', ['pending', 'acknowledged', 'dismissed'])
-        loadedAccess = mapAccessRows((basicRows ?? []) as Record<string, unknown>[])
+        if (!basicErr && basicRows) {
+          loadedAccess = mapAccessRows(basicRows as Record<string, unknown>[])
+        }
       } else if (accessRows) {
         loadedAccess = mapAccessRows(accessRows as Record<string, unknown>[])
-      } else if (accessErr) {
+      }
+
+      if (accessErr) {
         const { data: rpcRows, error: rpcErr } = await client.rpc(
           'list_portal_access_requests_for_admin',
         )
         if (!rpcErr && rpcRows) {
-          loadedAccess = mapAccessRows(rpcRows as Record<string, unknown>[])
-        } else {
+          const fromRpc = mapAccessRows(rpcRows as Record<string, unknown>[])
+          if (fromRpc.length && !loadedAccess.length) {
+            loadedAccess = fromRpc
+          } else if (fromRpc.length) {
+            const byId = new Map(fromRpc.map((r) => [r.userId, r]))
+            loadedAccess = loadedAccess.map((r) => {
+              const extra = byId.get(r.userId)
+              if (!extra) return r
+              return {
+                ...r,
+                jobTitle: r.jobTitle || extra.jobTitle,
+                preferredDepartmentId: r.preferredDepartmentId || extra.preferredDepartmentId,
+              }
+            })
+          }
+        } else if (!loadedAccess.length) {
           console.warn('[data] access requests load failed:', accessErr.message)
         }
       }

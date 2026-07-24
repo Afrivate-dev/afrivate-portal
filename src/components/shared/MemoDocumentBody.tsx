@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, Expand, FileText } from 'lucide-react'
+import { Download, Expand, ExternalLink, FileText } from 'lucide-react'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
 import {
   buildHtmlAssetMap,
+  canPreviewPdfInline,
   detectDocumentPreviewKind,
   rewriteHtmlAssetUrls,
   sanitizeHtmlDocument,
@@ -101,11 +102,29 @@ export function MemoDocumentBody({
           heightClass={heightClass}
         />
       ) : kind === 'pdf' ? (
-        <iframe
-          title={fileName}
-          src={resolved}
-          className={cn('w-full rounded-md border border-border bg-white', heightClass)}
-        />
+        canPreviewPdfInline() ? (
+          <iframe
+            title={fileName}
+            src={resolved}
+            className={cn('w-full rounded-md border border-border bg-white', heightClass)}
+          />
+        ) : (
+          <div className="flex flex-col items-center gap-3 rounded-md border border-border bg-surface-2/30 px-4 py-10 text-center">
+            <FileText className="h-10 w-10 text-muted" />
+            <p className="text-sm text-muted">
+              This device opens PDFs in its own viewer. Tap below to read the memo.
+            </p>
+            <a
+              href={resolved}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-1.5 rounded-md bg-accent px-3 py-1.5 text-sm font-medium text-white hover:bg-accent-hover"
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open PDF
+            </a>
+          </div>
+        )
       ) : kind === 'docx' ? (
         <InlineDocx resolved={resolved} fileName={fileName} heightClass={heightClass} />
       ) : (

@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { createPortal } from 'react-dom'
-import { Download, FileText, X } from 'lucide-react'
+import { Download, ExternalLink, FileText, X } from 'lucide-react'
 import {
   buildHtmlAssetMap,
+  canPreviewPdfInline,
   detectDocumentPreviewKind,
   rewriteHtmlAssetUrls,
   sanitizeHtmlDocument,
@@ -95,6 +96,36 @@ function DownloadFallback({
       >
         <Download className="h-4 w-4" /> Download file
       </a>
+    </div>
+  )
+}
+
+function PdfOpenFallback({ resolved, fileName }: { resolved: string; fileName: string }) {
+  return (
+    <div className="flex flex-col items-center justify-center gap-4 py-16 text-center">
+      <FileText className="h-12 w-12 text-muted" />
+      <p className="max-w-sm text-sm text-muted">
+        This device opens PDFs in its own viewer. Tap below to read {fileName}.
+      </p>
+      <div className="flex flex-wrap items-center justify-center gap-2">
+        <a
+          href={resolved}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+        >
+          <ExternalLink className="h-4 w-4" /> Open PDF
+        </a>
+        <a
+          href={resolved}
+          download={fileName}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="inline-flex items-center gap-2 rounded-md border border-border px-4 py-2 text-sm font-medium text-fg hover:bg-surface-2"
+        >
+          <Download className="h-4 w-4" /> Download
+        </a>
+      </div>
     </div>
   )
 }
@@ -278,11 +309,15 @@ function DocumentPreviewBody({
       ) : !resolved ? (
         <p className="py-12 text-center text-sm text-muted">Loading preview…</p>
       ) : kind === 'pdf' ? (
-        <iframe
-          title={title}
-          src={resolved}
-          className="h-[min(70vh,720px)] w-full rounded-md border border-border bg-white"
-        />
+        canPreviewPdfInline() ? (
+          <iframe
+            title={title}
+            src={resolved}
+            className="h-[min(70vh,720px)] w-full rounded-md border border-border bg-white"
+          />
+        ) : (
+          <PdfOpenFallback resolved={resolved} fileName={fileName} />
+        )
       ) : kind === 'html' ? (
         <HtmlPreview resolved={resolved} url={url} siblings={siblings} fileName={fileName} />
       ) : kind === 'docx' ? (

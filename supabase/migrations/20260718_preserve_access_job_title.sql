@@ -3,6 +3,19 @@
 -- 2) Access request writes job_title onto profiles
 -- 3) Approval prefers request/profile title over the "Staff" placeholder
 -- 4) Backfill existing pending/approved rows from access requests
+--
+-- Important: handle_new_user inserts an empty access-request row on signup.
+-- submit_portal_access_request must still save job title when called seconds
+-- later — do not short-circuit that as "already requested".
+
+alter table public.portal_access_requests
+  add column if not exists job_title text;
+
+alter table public.profiles
+  add column if not exists job_title text;
+
+-- Drop legacy 1-arg overload so PostgREST always hits the 3-arg version
+drop function if exists public.submit_portal_access_request(text);
 
 -- ── handle_new_user: no default job title of Staff ───────────────────────────
 create or replace function public.handle_new_user()
@@ -87,9 +100,14 @@ begin
   from public.portal_access_requests
   where user_id = v_uid;
 
+  -- Rate-limit empty duplicate spam only. Signup creates a blank request row
+  -- immediately before this RPC; we must still persist job title / department.
   if v_existing is not null
      and v_existing_status = 'pending'
-     and v_existing > now() - interval '1 minute' then
+     and v_existing > now() - interval '1 minute'
+     and v_job_title is null
+     and v_dept_id is null
+     and v_msg is null then
     return jsonb_build_object('success', true, 'already_requested', true);
   end if;
 
@@ -98,16 +116,19 @@ begin
   )
   values (v_uid, v_msg, v_dept_id, v_job_title, now(), 'pending')
   on conflict (user_id) do update set
-    message = excluded.message,
-    preferred_department_id = excluded.preferred_department_id,
-    job_title = excluded.job_title,
+    message = coalesce(excluded.message, portal_access_requests.message),
+    preferred_department_id = coalesce(
+      excluded.preferred_department_id,
+      portal_access_requests.preferred_department_id
+    ),
+    job_title = coalesce(excluded.job_title, portal_access_requests.job_title),
     requested_at = excluded.requested_at,
     status = 'pending';
 
   -- Keep the typed job title on the profile so directory/UI never show "Staff"
   update public.profiles
   set
-    job_title = coalesce(v_job_title, job_title),
+    job_title = case when v_job_title is not null then v_job_title else job_title end,
     department = coalesce(v_dept_name, department),
     updated_at = now()
   where id = v_uid
@@ -190,27 +211,26 @@ begin
     return jsonb_build_object('success', false, 'error', 'User id is required');
   end if;
 
-  -- Prefer explicit title → access request → existing profile (ignore placeholder "Staff")
-  if v_job_title is null or lower(v_job_title) = 'staff' then
+  -- The approval form is pre-filled from the access request. If the approver
+  -- leaves it unchanged, that exact requested title is stored. If they edit
+  -- it, the explicit edited value is stored (including a deliberate "Staff").
+  -- Fall back only when no title was supplied to the RPC.
+  if v_job_title is null then
     select nullif(trim(job_title), '') into v_req_title
     from public.portal_access_requests
     where user_id = p_user_id;
 
-    if v_req_title is not null and lower(v_req_title) <> 'staff' then
+    if v_req_title is not null then
       v_job_title := v_req_title;
     end if;
   end if;
 
-  if v_job_title is null or lower(v_job_title) = 'staff' then
+  if v_job_title is null then
     select nullif(trim(job_title), '') into v_existing_title
     from public.profiles
     where id = p_user_id;
 
-    if v_existing_title is not null and lower(v_existing_title) <> 'staff' then
-      v_job_title := v_existing_title;
-    elsif v_job_title is null then
-      v_job_title := coalesce(v_existing_title, '');
-    end if;
+    v_job_title := coalesce(v_existing_title, '');
   end if;
 
   v_job_title := coalesce(v_job_title, '');
@@ -288,6 +308,43 @@ end;
 $$;
 
 -- Backfill: copy requested titles onto profiles still stuck on placeholder Staff / blank
+update public.profiles p
+set
+  job_title = trim(r.job_title),
+  updated_at = now()
+from public.portal_access_requests r
+where r.user_id = p.id
+  and nullif(trim(r.job_title), '') is not null
+  and lower(trim(r.job_title)) <> 'staff'
+  and (
+    p.job_title is null
+    or trim(p.job_title) = ''
+    or lower(trim(p.job_title)) = 'staff'
+  );
+
+-- Recover titles lost by the signup race (empty request + early already_requested).
+-- Inbox bodies include "Job title: …" or legacy "Role: …".
+update public.portal_access_requests r
+set job_title = trim(both from recovered.title)
+from (
+  select distinct on (n.from_user_id)
+    n.from_user_id as user_id,
+    (regexp_match(n.body, '(?:Job title|Role):\s*([^·\n]+)'))[1] as title
+  from public.portal_inbox_notifications n
+  where n.type = 'access_request'
+    and n.from_user_id is not null
+    and n.body ~ '(Job title|Role):'
+  order by n.from_user_id, n.created_at desc
+) recovered
+where r.user_id = recovered.user_id
+  and nullif(trim(recovered.title), '') is not null
+  and lower(trim(recovered.title)) <> 'staff'
+  and (
+    r.job_title is null
+    or trim(r.job_title) = ''
+    or lower(trim(r.job_title)) = 'staff'
+  );
+
 update public.profiles p
 set
   job_title = trim(r.job_title),

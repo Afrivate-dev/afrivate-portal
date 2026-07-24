@@ -17,6 +17,18 @@ function extOf(nameOrUrl: string): string {
   return dot >= 0 ? base.slice(dot + 1).toLowerCase() : ''
 }
 
+/**
+ * Whether this browser can render a PDF inside an <iframe>.
+ * Android Chrome (and most mobile browsers) cannot — they show a blank frame
+ * or force a download. iOS renders only the first page of embedded PDFs.
+ * For those, we offer "Open PDF" (native viewer in a new tab) instead.
+ */
+export function canPreviewPdfInline(): boolean {
+  if (typeof window === 'undefined' || typeof navigator === 'undefined') return true
+  if ('pdfViewerEnabled' in navigator && navigator.pdfViewerEnabled === false) return false
+  return !window.matchMedia('(hover: none) and (pointer: coarse)').matches
+}
+
 export function detectDocumentPreviewKind(fileName: string, url: string): DocumentPreviewKind {
   const ext = extOf(fileName) || extOf(url)
   if (ext === 'pdf') return 'pdf'

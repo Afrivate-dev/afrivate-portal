@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useRef } from 'react'
 import { X } from 'lucide-react'
 import { cn } from '@/utils/helpers'
 
@@ -20,6 +20,10 @@ const sizes = {
 }
 
 export function Modal({ open, onClose, title, description, children, footer, size = 'md' }: ModalProps) {
+  // File pickers can synthesize a click on the backdrop when the OS dialog closes.
+  // Only close when the pointer interaction started on the backdrop itself.
+  const backdropPointerDown = useRef(false)
+
   useEffect(() => {
     if (!open) return
     const onKey = (e: KeyboardEvent) => e.key === 'Escape' && onClose()
@@ -31,6 +35,10 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     }
   }, [open, onClose])
 
+  useEffect(() => {
+    if (!open) backdropPointerDown.current = false
+  }, [open])
+
   if (!open) return null
 
   return (
@@ -41,7 +49,13 @@ export function Modal({ open, onClose, title, description, children, footer, siz
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
-        onClick={onClose}
+        onPointerDown={(e) => {
+          backdropPointerDown.current = e.target === e.currentTarget
+        }}
+        onClick={(e) => {
+          if (backdropPointerDown.current && e.target === e.currentTarget) onClose()
+          backdropPointerDown.current = false
+        }}
       />
       <div
         className={cn(
@@ -59,6 +73,7 @@ export function Modal({ open, onClose, title, description, children, footer, siz
             {description ? <p className="mt-1 text-xs text-muted sm:text-sm">{description}</p> : null}
           </div>
           <button
+            type="button"
             onClick={onClose}
             aria-label="Close"
             className="av-tap shrink-0 rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"

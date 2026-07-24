@@ -119,6 +119,17 @@ export function AppLayout() {
     )
   }
 
+  // Profile load failure falls back to session metadata with active:false — that is
+  // not a real pending-approval state. Show retry instead of locking approved users out.
+  if (profileLoadFailed && user.active === false) {
+    return (
+      <ProfileLoadErrorScreen
+        onRetry={() => void refreshUser()}
+        onSignOut={logout}
+      />
+    )
+  }
+
   if (user.active === false) {
     return <PendingApprovalScreen user={user} onSignOut={logout} />
   }

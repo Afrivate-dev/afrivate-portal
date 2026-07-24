@@ -8,6 +8,10 @@ interface ImportMetaEnv {
   readonly VITE_TEAM_CALENDAR_JSON_URL?: string
   /** Google “Embed calendar” iframe src URL */
   readonly VITE_GOOGLE_CALENDAR_EMBED_URL?: string
+  /** Google OAuth client ID (Drive picker + Gmail ATS sync) */
+  readonly VITE_GOOGLE_CLIENT_ID?: string
+  /** Google API key (Drive picker) */
+  readonly VITE_GOOGLE_API_KEY?: string
   /** Supabase project URL — Realtime presence + live notes */
   readonly VITE_SUPABASE_URL?: string
   /** Supabase publishable/anon key (see dashboard API settings) */
