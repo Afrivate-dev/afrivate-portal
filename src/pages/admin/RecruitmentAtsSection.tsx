@@ -31,6 +31,9 @@ import {
   gmailThreadUrl,
   HR_MAILBOX,
   isGmailAtsConfigured,
+  isGmailAtsReady,
+  preloadGmailAts,
+  requestGmailAccessTokenFromGesture,
 } from '@/lib/gmailAtsSync'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import type { CandidateSource, CandidateStage, JobCandidate } from '@/types/hr'
@@ -40,6 +43,7 @@ import {
   detectAtsRoleFromApplication,
   detectAtsRoleProfile,
   detectSourceFromEmail,
+  explainCandidateRanking,
   isViableCandidate,
   labelForAtsRoleProfile,
   recommendationTone,
@@ -187,6 +191,12 @@ export function RecruitmentAtsSection() {
     // Create missing standard role sections when ATS opens / jobs change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openJobs.length])
+
+  useEffect(() => {
+    void preloadGmailAts().catch(() => {
+      // Non-fatal — Sync will ask the user to retry if GSI is still loading
+    })
+  }, [])
 
   useEffect(() => {
     let cancelled = false
@@ -376,57 +386,76 @@ export function RecruitmentAtsSection() {
     if (!added && !skipped) notifyError('No usable applications found in the paste.')
   }
 
-  const syncFromGmail = async () => {
+  const syncFromGmail = () => {
     if (!isGmailAtsConfigured()) {
       notifyError('Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.')
       return
     }
+    if (!isGmailAtsReady()) {
+      void preloadGmailAts()
+      notifyError('Google sign-in is still loading. Wait 1–2 seconds, then click Sync again.')
+      return
+    }
+
+    // CRITICAL: start OAuth synchronously from the click (no await before this).
+    let tokenPromise: Promise<string>
+    try {
+      tokenPromise = requestGmailAccessTokenFromGesture()
+    } catch (err) {
+      notifyError(err instanceof Error ? err.message : 'Gmail authorization failed')
+      return
+    }
 
     setSyncing(true)
-    setSyncLabel('Ensuring role sections…')
+    setSyncLabel('Waiting for Google permission…')
     ensureStandardRoles()
-    setSyncLabel('Connecting to Gmail…')
-    try {
-      const messages = await fetchGmailApplications({
-        onProgress: ({ label }) => setSyncLabel(label),
-      })
-      setSyncLabel('Sorting by role & ranking…')
-      const { added, skipped, byRole } = await importScreened(
-        messages.map((m) => {
-          const parsed = m.date ? Date.parse(m.date) : NaN
-          const resumeNote = m.resumeFilesScanned?.length
-            ? `\n\n[ATS scanned CV: ${m.resumeFilesScanned.join(', ')}]`
-            : ''
-          return {
-            text: `${m.bodyText}${resumeNote}`,
-            source: detectSourceFromEmail(m.from, m.subject),
-            externalId: `gmail:${m.id}`,
-            gmailThreadId: m.threadId,
-            gmailMessageId: m.id,
-            appliedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
-          }
-        }),
-      )
-      if (added) {
-        const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
-        const parts = Object.entries(byRole)
-          .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
-          .join(', ')
-        notifySuccess(
-          `Synced ${added} email${added === 1 ? '' : 's'} into role sections` +
-            (parts ? `: ${parts}` : '') +
-            (withCv ? ` (${withCv} with CV scanned).` : '.'),
+
+    void (async () => {
+      try {
+        const token = await tokenPromise
+        setSyncLabel('Connecting to Gmail…')
+        const messages = await fetchGmailApplications({
+          accessToken: token,
+          onProgress: ({ label }) => setSyncLabel(label),
+        })
+        setSyncLabel('Sorting by role & ranking…')
+        const { added, skipped, byRole } = await importScreened(
+          messages.map((m) => {
+            const parsed = m.date ? Date.parse(m.date) : NaN
+            const resumeNote = m.resumeFilesScanned?.length
+              ? `\n\n[ATS scanned CV: ${m.resumeFilesScanned.join(', ')}]`
+              : ''
+            return {
+              text: `${m.bodyText}${resumeNote}`,
+              source: detectSourceFromEmail(m.from, m.subject),
+              externalId: `gmail:${m.id}`,
+              gmailThreadId: m.threadId,
+              gmailMessageId: m.id,
+              appliedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
+            }
+          }),
         )
-        const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
-        if (preferred) setSelectedRole(preferred)
-      } else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
-      else notifyError(`No inbox emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
-    } catch (err) {
-      notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
-    } finally {
-      setSyncing(false)
-      setSyncLabel('')
-    }
+        if (added) {
+          const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
+          const parts = Object.entries(byRole)
+            .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
+            .join(', ')
+          notifySuccess(
+            `Synced ${added} email${added === 1 ? '' : 's'} into role sections` +
+              (parts ? `: ${parts}` : '') +
+              (withCv ? ` (${withCv} with CV scanned).` : '.'),
+          )
+          const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
+          if (preferred) setSelectedRole(preferred)
+        } else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
+        else notifyError(`No inbox emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
+      } catch (err) {
+        notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
+      } finally {
+        setSyncing(false)
+        setSyncLabel('')
+      }
+    })()
   }
 
   const rescoreVisible = () => {
@@ -565,7 +594,7 @@ export function RecruitmentAtsSection() {
         />
 
         <div className="flex flex-wrap gap-2">
-          <Button onClick={() => void syncFromGmail()} loading={syncing}>
+          <Button onClick={syncFromGmail} loading={syncing}>
             <Mail className="h-4 w-4" />
             Sync from {HR_MAILBOX}
           </Button>
@@ -605,19 +634,23 @@ export function RecruitmentAtsSection() {
             <Badge tone="brand">by score</Badge>
           </div>
           <ol className="space-y-2">
-            {topTen.map((c, i) => (
+            {topTen.map((c, i) => {
+              const rank = i + 1
+              const reason = explainCandidateRanking(c, rank, topTen, criteria)
+              return (
               <li
                 key={c.id}
-                className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2"
+                className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2"
               >
-                <div className="min-w-0">
+                <div className="min-w-0 flex-1">
                   <p className="font-medium text-fg">
-                    <span className="mr-2 text-muted">#{i + 1}</span>
+                    <span className="mr-2 text-muted">#{rank}</span>
                     {c.name}
                   </p>
                   <p className="truncate text-xs text-muted">
                     {[c.email, c.phone, c.location].filter(Boolean).join(' · ') || 'No contact details yet'}
                   </p>
+                  <p className="mt-1 text-xs leading-relaxed text-fg/90">{reason}</p>
                 </div>
                 <div className="flex flex-wrap items-center gap-2">
                   <Badge tone={recommendationTone(c.recommendation)}>{c.recommendation ?? 'unscored'}</Badge>
@@ -635,7 +668,8 @@ export function RecruitmentAtsSection() {
                   ) : null}
                 </div>
               </li>
-            ))}
+              )
+            })}
           </ol>
         </Card>
       ) : null}

@@ -98,48 +98,110 @@ function describeOAuthError(error?: string): string {
   if (code.includes('invalid_client') || code.includes('unauthorized_client')) {
     return 'Invalid Google Client ID. Check VITE_GOOGLE_CLIENT_ID (it should end with .apps.googleusercontent.com once).'
   }
+  if (code.includes('illegal') || code.includes('invocation')) {
+    return 'Google sign-in must start from the Sync button click. Wait a second for Google to load, then click Sync again.'
+  }
   return error || 'Gmail authorization failed'
 }
 
-export async function requestGmailAccessToken(): Promise<string> {
+type TokenClient = {
+  requestAccessToken: (opts?: { prompt?: string }) => void
+}
+
+let gsiLoadPromise: Promise<void> | null = null
+let cachedTokenClient: TokenClient | null = null
+let tokenRequestHandler:
+  | ((resp: { access_token?: string; error?: string }) => void)
+  | null = null
+
+function ensureTokenClient(): TokenClient {
+  if (cachedTokenClient) return cachedTokenClient
+  const oauth2 = window.google?.accounts?.oauth2
+  if (!oauth2 || !CLIENT_ID) {
+    throw new Error('Google Identity Services did not load. Refresh and try again.')
+  }
+  cachedTokenClient = oauth2.initTokenClient({
+    client_id: CLIENT_ID,
+    scope: GMAIL_SCOPE,
+    hint: HR_MAILBOX,
+    callback: (resp) => {
+      tokenRequestHandler?.(resp)
+    },
+  })
+  return cachedTokenClient
+}
+
+/** Warm up GSI on ATS page load so Sync can open the Google popup from the click gesture. */
+export function preloadGmailAts(): Promise<void> {
+  if (!CLIENT_ID) return Promise.resolve()
+  if (!gsiLoadPromise) {
+    gsiLoadPromise = loadGsi()
+      .then(() => {
+        ensureTokenClient()
+      })
+      .catch((err) => {
+        gsiLoadPromise = null
+        throw err
+      })
+  }
+  return gsiLoadPromise
+}
+
+export function isGmailAtsReady(): boolean {
+  return Boolean(window.google?.accounts?.oauth2 && cachedTokenClient)
+}
+
+/**
+ * Request a Gmail token. Must be called directly from a click handler with no prior await,
+ * or browsers/Google will throw "illegal invocation" / block the popup.
+ */
+export function requestGmailAccessTokenFromGesture(): Promise<string> {
   if (!CLIENT_ID) {
-    throw new Error(
-      'Google Client ID is not configured. Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.',
+    return Promise.reject(
+      new Error(
+        'Google Client ID is not configured. Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.',
+      ),
     )
   }
   if (!isValidGoogleClientId(CLIENT_ID)) {
-    throw new Error(
-      'VITE_GOOGLE_CLIENT_ID looks malformed. It should look like 123-abc.apps.googleusercontent.com (suffix only once).',
+    return Promise.reject(
+      new Error(
+        'VITE_GOOGLE_CLIENT_ID looks malformed. It should look like 123-abc.apps.googleusercontent.com (suffix only once).',
+      ),
     )
   }
-  await loadGsi()
-  return new Promise((resolve, reject) => {
-    const oauth2 = window.google?.accounts?.oauth2
-    if (!oauth2) {
-      reject(new Error('Google Identity Services did not load. Refresh and try again.'))
-      return
-    }
+  if (!window.google?.accounts?.oauth2) {
+    return Promise.reject(
+      new Error('Google sign-in is still loading. Wait a moment, then click Sync again.'),
+    )
+  }
 
+  return new Promise((resolve, reject) => {
     let attemptedConsent = false
-    const client = oauth2.initTokenClient({
-      client_id: CLIENT_ID,
-      scope: GMAIL_SCOPE,
-      hint: HR_MAILBOX,
-      callback: (resp) => {
-        if (resp.access_token) {
-          resolve(resp.access_token)
-          return
-        }
-        if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
-          attemptedConsent = true
-          client.requestAccessToken({ prompt: 'consent' })
-          return
-        }
-        reject(new Error(describeOAuthError(resp.error)))
-      },
-    })
+    const client = ensureTokenClient()
+    tokenRequestHandler = (resp) => {
+      if (resp.access_token) {
+        tokenRequestHandler = null
+        resolve(resp.access_token)
+        return
+      }
+      if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
+        attemptedConsent = true
+        client.requestAccessToken({ prompt: 'consent' })
+        return
+      }
+      tokenRequestHandler = null
+      reject(new Error(describeOAuthError(resp.error)))
+    }
+    // Must run synchronously inside the user-gesture call stack
     client.requestAccessToken({ prompt: 'consent' })
   })
+}
+
+/** @deprecated Prefer preloadGmailAts + requestGmailAccessTokenFromGesture from Sync click. */
+export async function requestGmailAccessToken(): Promise<string> {
+  await preloadGmailAts()
+  return requestGmailAccessTokenFromGesture()
 }
 
 /** Exported for tests — Gmail API uses URL-safe base64. */
