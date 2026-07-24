@@ -82,6 +82,7 @@ export function RecruitmentAtsSection() {
   const [filter, setFilter] = useState<FilterMode>('viable')
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
+  const [syncLabel, setSyncLabel] = useState('')
   const [savingCriteria, setSavingCriteria] = useState(false)
   const [criteriaOpen, setCriteriaOpen] = useState(true)
   const [criteria, setCriteria] = useState<AtsCriteriaProfile>(() => defaultCriteriaForProfile('frontend'))
@@ -248,26 +249,39 @@ export function RecruitmentAtsSection() {
     }
 
     setSyncing(true)
+    setSyncLabel('Connecting to Gmail…')
     try {
-      const messages = await fetchGmailApplications()
+      const messages = await fetchGmailApplications({
+        onProgress: ({ label }) => setSyncLabel(label),
+      })
+      setSyncLabel('Ranking candidates…')
       const { added, skipped } = importScreened(
         messages.map((m) => {
           const parsed = m.date ? Date.parse(m.date) : NaN
+          const resumeNote = m.resumeFilesScanned?.length
+            ? `\n\n[ATS scanned CV: ${m.resumeFilesScanned.join(', ')}]`
+            : ''
           return {
-            text: m.bodyText,
+            text: `${m.bodyText}${resumeNote}`,
             source: detectSourceFromEmail(m.from, m.subject),
             externalId: `gmail:${m.id}`,
             appliedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
           }
         }),
       )
-      if (added) notifySuccess(`Synced ${added} new application${added === 1 ? '' : 's'} from ${HR_MAILBOX}.`)
-      else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
+      if (added) {
+        const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
+        notifySuccess(
+          `Synced ${added} new application${added === 1 ? '' : 's'} from ${HR_MAILBOX}` +
+            (withCv ? ` (${withCv} with CV text scanned).` : '.'),
+        )
+      } else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
       else notifyError(`No matching application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
     } catch (err) {
       notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
     } finally {
       setSyncing(false)
+      setSyncLabel('')
     }
   }
 
@@ -410,7 +424,8 @@ export function RecruitmentAtsSection() {
             Sync from {HR_MAILBOX}
           </Button>
           <p className="self-center text-xs text-muted">
-            Sign in as {HR_MAILBOX} when Google asks. Imports application subjects + Indeed/LinkedIn forwards, then ranks with your criteria.
+            {syncLabel ||
+              `Sign in as ${HR_MAILBOX}. Sync reads application emails and scans attached CVs (PDF, DOCX, JPG/PNG) into the ranking score.`}
           </p>
         </div>
 
@@ -611,6 +626,8 @@ function CriteriaEditor({
                       value={c.minLength ?? 180}
                       onChange={(e) => updateCriterion(c.id, { minLength: Number(e.target.value) || 0 })}
                     />
+                  ) : c.kind === 'resume_file' ? (
+                    <span className="text-xs text-muted">Points when CV text is extracted from PDF/DOCX/JPG/PNG</span>
                   ) : (
                     <span className="text-xs text-muted">Auto-detected from application text</span>
                   )}
@@ -693,6 +710,9 @@ function CandidateRow({
               </a>
             ) : null}
             {candidate.coverLetter ? <span className="text-muted">Cover letter detected</span> : <span className="text-muted">No cover letter signals</span>}
+            {(candidate.scoreBreakdown?.resume_file ?? 0) > 0 || /---\s*Resume:/i.test(candidate.notes ?? '') ? (
+              <span className="text-muted">CV text scanned</span>
+            ) : null}
             {candidate.appliedAt ? <span className="text-muted">Applied {fmtDate(candidate.appliedAt)}</span> : null}
           </div>
         </div>

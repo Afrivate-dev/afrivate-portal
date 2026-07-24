@@ -1,14 +1,21 @@
 /**
  * Gmail ATS sync for afrivatehr@gmail.com using Google Identity Services + Gmail API.
- * Requires VITE_GOOGLE_CLIENT_ID (same OAuth client as Drive picker).
- * Add Gmail API scope and authorized JS origins in Google Cloud Console.
+ * Downloads and text-extracts CV/resume attachments (PDF, DOCX, images) for scoring.
  */
+
+import {
+  extractResumeText,
+  gmailAttachmentDataToArrayBuffer,
+  isLikelyResumeAttachment,
+  type ResumeExtractResult,
+} from './atsResumeExtract'
 
 const CLIENT_ID = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()
 const HR_MAILBOX = 'afrivatehr@gmail.com'
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
 /** How far back Sync searches (keep in sync with UI copy). */
 export const GMAIL_ATS_LOOKBACK_DAYS = 90
+const MAX_RESUME_ATTACHMENTS_PER_MESSAGE = 3
 
 export interface GmailApplicationMessage {
   id: string
@@ -19,6 +26,9 @@ export interface GmailApplicationMessage {
   snippet: string
   bodyText: string
   attachmentNames?: string[]
+  /** Filenames whose text was successfully extracted into bodyText. */
+  resumeFilesScanned?: string[]
+  resumeExtractErrors?: string[]
 }
 
 function loadGsi(): Promise<void> {
@@ -165,15 +175,54 @@ export type GmailApiMessage = {
   payload?: GmailApiPart
 }
 
+export type GmailAttachmentRef = {
+  filename: string
+  mimeType: string
+  attachmentId?: string
+  inlineData?: string
+  size?: number
+}
+
 function collectAttachmentNames(payload?: GmailApiPart): string[] {
-  const names: string[] = []
+  return collectResumeAttachmentRefs(payload, false).map((a) => a.filename)
+}
+
+/** Collect file parts suitable for CV/resume text extraction. */
+export function collectResumeAttachmentRefs(
+  payload?: GmailApiPart,
+  resumeOnly = true,
+): GmailAttachmentRef[] {
+  const out: GmailAttachmentRef[] = []
   const walk = (part?: GmailApiPart) => {
     if (!part) return
-    if (part.filename?.trim()) names.push(part.filename.trim())
+    const filename = part.filename?.trim()
+    if (filename) {
+      const mimeType = part.mimeType || 'application/octet-stream'
+      const candidate = {
+        filename,
+        mimeType,
+        attachmentId: part.body?.attachmentId,
+        inlineData: part.body?.data,
+        size: part.body?.size,
+      }
+      if (!resumeOnly || isLikelyResumeAttachment(filename, mimeType)) {
+        out.push(candidate)
+      }
+    }
     part.parts?.forEach(walk)
   }
   walk(payload)
-  return names
+  // Prefer PDF/DOCX over images; keep stable order within type
+  const rank = (name: string) => {
+    const n = name.toLowerCase()
+    if (n.endsWith('.pdf')) return 0
+    if (n.endsWith('.docx')) return 1
+    if (n.endsWith('.txt') || n.endsWith('.rtf') || n.endsWith('.md')) return 2
+    return 3
+  }
+  return out
+    .sort((a, b) => rank(a.filename) - rank(b.filename))
+    .slice(0, MAX_RESUME_ATTACHMENTS_PER_MESSAGE)
 }
 
 export function extractTextFromPayload(payload?: GmailApiPart): string {
@@ -184,11 +233,18 @@ export function extractTextFromPayload(payload?: GmailApiPart): string {
   const walk = (part?: GmailApiPart) => {
     if (!part) return
     const mime = (part.mimeType || '').toLowerCase()
+    // Skip binary attachment payloads here — handled by resume extractor
+    if (part.filename?.trim()) {
+      part.parts?.forEach(walk)
+      return
+    }
     if (part.body?.data) {
       const decoded = decodeBodyData(part.body.data)
       if (mime.includes('text/plain')) plain.push(decoded)
       else if (mime.includes('html')) html.push(stripHtml(decoded))
-      else if (!mime.includes('image/') && !mime.includes('application/pdf')) plain.push(decoded)
+      else if (!mime.includes('image/') && !mime.includes('application/pdf') && !mime.includes('officedocument')) {
+        plain.push(decoded)
+      }
     }
     part.parts?.forEach(walk)
   }
@@ -203,17 +259,19 @@ function headerValue(
   return headers?.find((h) => h.name.toLowerCase() === name.toLowerCase())?.value ?? ''
 }
 
-/** Build the text blob used for ATS scoring from a Gmail API message. */
+export function formatResumeExtractBlock(extracted: ResumeExtractResult): string {
+  if (!extracted.text.trim()) return ''
+  return [`--- Resume: ${extracted.filename} ---`, extracted.text.trim()].join('\n')
+}
+
+/** Build the text blob used for ATS scoring from a Gmail API message (body only; resumes added later). */
 export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMessage {
   const headers = msg.payload?.headers
   const subject = headerValue(headers, 'Subject')
   const from = headerValue(headers, 'From')
   const date = headerValue(headers, 'Date')
   const attachmentNames = collectAttachmentNames(msg.payload)
-  const body =
-    extractTextFromPayload(msg.payload) ||
-    msg.snippet ||
-    ''
+  const body = extractTextFromPayload(msg.payload) || msg.snippet || ''
   const attachmentLine =
     attachmentNames.length > 0 ? `\nAttachments: ${attachmentNames.join(', ')}` : ''
   const bodyText = [`Subject: ${subject}`, `From: ${from}`, '', body, attachmentLine]
@@ -230,6 +288,81 @@ export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMess
     snippet: msg.snippet ?? '',
     bodyText,
     attachmentNames,
+  }
+}
+
+async function downloadGmailAttachmentData(
+  messageId: string,
+  attachmentId: string,
+  token: string,
+  doFetch: typeof fetch,
+): Promise<string> {
+  const url = `https://gmail.googleapis.com/gmail/v1/users/me/messages/${messageId}/attachments/${attachmentId}`
+  const res = await doFetch(url, { headers: { Authorization: `Bearer ${token}` } })
+  if (!res.ok) {
+    throw new Error(`Attachment download failed (${res.status})`)
+  }
+  const json = (await res.json()) as { data?: string }
+  if (!json.data) throw new Error('Attachment payload empty')
+  return json.data
+}
+
+/** Download + extract text from CV attachments and append to bodyText for scoring. */
+export async function enrichMessageWithResumeText(
+  msg: GmailApiMessage,
+  parsed: GmailApplicationMessage,
+  options: {
+    accessToken: string
+    fetchImpl?: typeof fetch
+    extractFn?: typeof extractResumeText
+  },
+): Promise<GmailApplicationMessage> {
+  const doFetch = options.fetchImpl ?? fetch
+  const extractFn = options.extractFn ?? extractResumeText
+  const refs = collectResumeAttachmentRefs(msg.payload, true)
+  if (!refs.length) return parsed
+
+  const blocks: string[] = []
+  const scanned: string[] = []
+  const errors: string[] = []
+
+  for (const ref of refs) {
+    try {
+      const rawB64 =
+        ref.inlineData ||
+        (ref.attachmentId
+          ? await downloadGmailAttachmentData(msg.id, ref.attachmentId, options.accessToken, doFetch)
+          : '')
+      if (!rawB64) {
+        errors.push(`${ref.filename}: no attachment data`)
+        continue
+      }
+      const buffer = gmailAttachmentDataToArrayBuffer(rawB64)
+      const extracted = await extractFn(buffer, ref.filename, ref.mimeType)
+      if (extracted.error && !extracted.text) {
+        errors.push(`${ref.filename}: ${extracted.error}`)
+        continue
+      }
+      if (!extracted.text.trim()) {
+        errors.push(`${ref.filename}: no readable text`)
+        continue
+      }
+      blocks.push(formatResumeExtractBlock(extracted))
+      scanned.push(ref.filename)
+    } catch (err) {
+      errors.push(`${ref.filename}: ${err instanceof Error ? err.message : 'extract failed'}`)
+    }
+  }
+
+  if (!blocks.length) {
+    return { ...parsed, resumeExtractErrors: errors.length ? errors : undefined }
+  }
+
+  return {
+    ...parsed,
+    bodyText: [parsed.bodyText, '', ...blocks].join('\n').trim(),
+    resumeFilesScanned: scanned,
+    resumeExtractErrors: errors.length ? errors : undefined,
   }
 }
 
@@ -259,13 +392,18 @@ export async function fetchGmailApplications(options?: {
   accessToken?: string
   query?: string
   maxResults?: number
+  /** When false, skip CV download/OCR (faster tests). Default true. */
+  extractResumes?: boolean
   /** Injected for tests */
   fetchImpl?: typeof fetch
+  extractFn?: typeof extractResumeText
+  onProgress?: (info: { done: number; total: number; label: string }) => void
 }): Promise<GmailApplicationMessage[]> {
   const token = options?.accessToken ?? (await requestGmailAccessToken())
   const query = options?.query ?? defaultGmailAtsQuery()
   const maxResults = options?.maxResults ?? 50
   const doFetch = options?.fetchImpl ?? fetch
+  const extractResumes = options?.extractResumes !== false
 
   const listUrl = new URL('https://gmail.googleapis.com/gmail/v1/users/me/messages')
   listUrl.searchParams.set('q', query)
@@ -283,16 +421,36 @@ export async function fetchGmailApplications(options?: {
   const ids = listJson.messages ?? []
   const out: GmailApplicationMessage[] = []
 
-  for (const m of ids) {
+  for (let i = 0; i < ids.length; i += 1) {
+    const m = ids[i]!
+    options?.onProgress?.({
+      done: i,
+      total: ids.length,
+      label: `Reading application ${i + 1} of ${ids.length}…`,
+    })
     const msgRes = await doFetch(
       `https://gmail.googleapis.com/gmail/v1/users/me/messages/${m.id}?format=full`,
       { headers: { Authorization: `Bearer ${token}` } },
     )
     if (!msgRes.ok) continue
     const msg = (await msgRes.json()) as GmailApiMessage
-    out.push(parseGmailApiMessage(msg))
+    let parsed = parseGmailApiMessage(msg)
+    if (extractResumes) {
+      options?.onProgress?.({
+        done: i,
+        total: ids.length,
+        label: `Scanning CV attachments (${i + 1}/${ids.length})…`,
+      })
+      parsed = await enrichMessageWithResumeText(msg, parsed, {
+        accessToken: token,
+        fetchImpl: doFetch,
+        extractFn: options?.extractFn,
+      })
+    }
+    out.push(parsed)
   }
 
+  options?.onProgress?.({ done: ids.length, total: ids.length, label: 'Scoring applications…' })
   return out
 }
 
