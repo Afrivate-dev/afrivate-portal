@@ -21,14 +21,15 @@ import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Input } from '@/components/ui/Input'
+import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { useHr } from '@/context/HrContext'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
+  candidateGmailUrl,
   fetchGmailApplications,
   GMAIL_ATS_LOOKBACK_DAYS,
-  gmailThreadUrl,
   HR_MAILBOX,
   isGmailAtsConfigured,
   isGmailAtsReady,
@@ -44,8 +45,10 @@ import {
   detectAtsRoleProfile,
   detectSourceFromEmail,
   explainCandidateRanking,
+  isPlausiblePersonName,
   isViableCandidate,
   labelForAtsRoleProfile,
+  recommendationLabel,
   recommendationTone,
   screenApplicationText,
   splitApplicationBatch,
@@ -55,6 +58,16 @@ import {
   type AtsSource,
 } from '@/utils/atsScoring'
 import { fmtDate } from '@/utils/helpers'
+
+function criterionKindHint(kind: AtsCriterion['kind']): string {
+  if (kind === 'keywords') return 'Looks for these words in the application'
+  if (kind === 'github') return 'Checks for a GitHub link'
+  if (kind === 'portfolio') return 'Checks for a portfolio or live project link'
+  if (kind === 'cover_letter') return 'Checks for a cover letter'
+  if (kind === 'resume_file') return 'Checks that a CV was scanned'
+  if (kind === 'min_length') return 'Minimum application length'
+  return kind
+}
 
 const SOURCE_OPTIONS: { value: AtsSource; label: string }[] = [
   { value: 'gmail', label: 'Gmail' },
@@ -104,6 +117,12 @@ export function RecruitmentAtsSection() {
   const [criteriaOpen, setCriteriaOpen] = useState(true)
   const [criteria, setCriteria] = useState<AtsCriteriaProfile>(() => defaultCriteriaForProfile('frontend'))
   const [criteriaDirty, setCriteriaDirty] = useState(false)
+  const [selectedCandidateId, setSelectedCandidateId] = useState<string | null>(null)
+
+  const selectedCandidate = useMemo(
+    () => (selectedCandidateId ? jobCandidates.find((c) => c.id === selectedCandidateId) ?? null : null),
+    [jobCandidates, selectedCandidateId],
+  )
 
   const findOpenJobForProfile = (profile: AtsRoleProfile) => {
     if (profile === 'general') {
@@ -253,7 +272,7 @@ export function RecruitmentAtsSection() {
       return
     }
     setCriteriaDirty(false)
-    notifySuccess('Ranking criteria saved.')
+    notifySuccess('Scoring rules saved.')
   }
 
   const resetCriteria = () => {
@@ -361,7 +380,7 @@ export function RecruitmentAtsSection() {
 
   const screenAndSave = async () => {
     if (!paste.trim()) {
-      notifyError('Paste one or more applications from Gmail or Indeed.')
+      notifyError('Paste at least one application first.')
       return
     }
     setBusy(true)
@@ -380,20 +399,20 @@ export function RecruitmentAtsSection() {
       const parts = Object.entries(byRole)
         .map(([k, n]) => `${n} → ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
         .join(', ')
-      notifySuccess(`Screened ${added} application${added === 1 ? '' : 's'}${parts ? ` (${parts})` : ''}.`)
+      notifySuccess(`Added ${added} application${added === 1 ? '' : 's'}${parts ? ` (${parts})` : ''}.`)
     }
     if (skipped) notifyError(`Skipped ${skipped} duplicate${skipped === 1 ? '' : 's'}.`)
-    if (!added && !skipped) notifyError('No usable applications found in the paste.')
+    if (!added && !skipped) notifyError('Could not find a usable application in what you pasted.')
   }
 
   const syncFromGmail = () => {
     if (!isGmailAtsConfigured()) {
-      notifyError('Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.')
+      notifyError(`Gmail sync is not set up yet. Ask an admin to add the Google Client ID for ${HR_MAILBOX}.`)
       return
     }
     if (!isGmailAtsReady()) {
       void preloadGmailAts()
-      notifyError('Google sign-in is still loading. Wait 1–2 seconds, then click Sync again.')
+      notifyError('Google sign-in is still loading. Wait a moment, then try Sync again.')
       return
     }
 
@@ -441,16 +460,16 @@ export function RecruitmentAtsSection() {
             .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
             .join(', ')
           notifySuccess(
-            `Synced ${added} email${added === 1 ? '' : 's'} into role sections` +
+            `Imported ${added} application${added === 1 ? '' : 's'}` +
               (parts ? `: ${parts}` : '') +
               (withCv ? ` (${withCv} with CV scanned).` : '.'),
           )
           const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
           if (preferred) setSelectedRole(preferred)
-        } else if (skipped) notifySuccess(`Already up to date (${skipped} previously imported).`)
-        else notifyError(`No inbox emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
+        } else if (skipped) notifySuccess(`Everything is up to date (${skipped} already imported).`)
+        else notifyError(`No emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
       } catch (err) {
-        notifyError(err instanceof Error ? err.message : 'Gmail sync failed')
+        notifyError(err instanceof Error ? err.message : 'Could not sync from Gmail')
       } finally {
         setSyncing(false)
         setSyncLabel('')
@@ -468,8 +487,14 @@ export function RecruitmentAtsSection() {
         roleProfile,
         criteria,
       )
+      const nextName =
+        result.name !== 'Unknown candidate'
+          ? result.name
+          : isPlausiblePersonName(c.name)
+            ? c.name
+            : 'Unknown candidate'
       updateJobCandidate(c.id, {
-        name: result.name !== 'Unknown candidate' ? result.name : c.name,
+        name: nextName,
         email: result.email ?? c.email,
         phone: result.phone ?? c.phone,
         linkedinUrl: result.linkedinUrl ?? c.linkedinUrl,
@@ -490,16 +515,21 @@ export function RecruitmentAtsSection() {
       })
       n += 1
     }
-    notifySuccess(n ? `Re-scored ${n} candidate${n === 1 ? '' : 's'} with current criteria.` : 'No stored application text to re-score.')
+    notifySuccess(
+      n
+        ? `Updated scores and names for ${n} candidate${n === 1 ? '' : 's'}.`
+        : 'No saved application text to refresh.',
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-fg">Recruitment ATS</h2>
-          <p className="mt-1 text-sm text-muted">
-            Applications are sorted into role sections (Front-End, Back-End, Graphic Designer). Sync from {HR_MAILBOX} auto-routes each email.
+          <h2 className="text-lg font-semibold text-fg">Recruitment</h2>
+          <p className="mt-1 max-w-2xl text-sm text-muted">
+            Review applications by role, see who ranks highest, and open the original email in Gmail.
+            Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
           </p>
         </div>
         <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
@@ -530,16 +560,28 @@ export function RecruitmentAtsSection() {
               : 'border-border bg-surface text-muted hover:text-fg'
           }`}
         >
-          Unassigned / Other
+          Other roles
           <span className="ml-2 text-xs text-muted">({roleCounts.general})</span>
         </button>
       </div>
 
       <div className="grid gap-3 sm:grid-cols-4">
-        <Card padding="md"><p className="text-xs text-muted">In this role</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.total}</p></Card>
-        <Card padding="md"><p className="text-xs text-muted">Viable+</p><p className="mt-1 text-2xl font-semibold text-accent">{stats.viable}</p></Card>
-        <Card padding="md"><p className="text-xs text-muted">Strong</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.strong}</p></Card>
-        <Card padding="md"><p className="text-xs text-muted">Reject</p><p className="mt-1 text-2xl font-semibold text-fg">{stats.reject}</p></Card>
+        <Card padding="md">
+          <p className="text-xs text-muted">Candidates</p>
+          <p className="mt-1 text-2xl font-semibold text-fg">{stats.total}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-xs text-muted">Worth reviewing</p>
+          <p className="mt-1 text-2xl font-semibold text-accent">{stats.viable}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-xs text-muted">Strong fit</p>
+          <p className="mt-1 text-2xl font-semibold text-fg">{stats.strong}</p>
+        </Card>
+        <Card padding="md">
+          <p className="text-xs text-muted">Not a fit</p>
+          <p className="mt-1 text-2xl font-semibold text-fg">{stats.reject}</p>
+        </Card>
       </div>
 
       <Card padding="md" className="space-y-4">
@@ -547,9 +589,9 @@ export function RecruitmentAtsSection() {
           <div className="flex items-center gap-2">
             <Settings2 className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
-              Ranking criteria · {labelForAtsRoleProfile(selectedRole === 'general' ? 'frontend' : selectedRole)}
+              Scoring rules · {labelForAtsRoleProfile(selectedRole === 'general' ? 'frontend' : selectedRole)}
             </h3>
-            {criteriaDirty ? <Badge tone="warning">Unsaved</Badge> : null}
+            {criteriaDirty ? <Badge tone="warning">Unsaved changes</Badge> : null}
           </div>
           <div className="flex flex-wrap gap-2">
             <Button variant="ghost" size="sm" onClick={() => setCriteriaOpen((o) => !o)}>
@@ -557,11 +599,11 @@ export function RecruitmentAtsSection() {
             </Button>
             <Button variant="secondary" size="sm" onClick={resetCriteria}>
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset defaults
+              Reset to defaults
             </Button>
             <Button size="sm" loading={savingCriteria} onClick={() => void persistCriteria()} disabled={!criteriaDirty}>
               <Save className="h-3.5 w-3.5" />
-              Save criteria
+              Save rules
             </Button>
           </div>
         </div>
@@ -574,8 +616,8 @@ export function RecruitmentAtsSection() {
           />
         ) : (
           <p className="text-xs text-muted">
-            Strong ≥ {criteria.strongMin} · Viable ≥ {criteria.viableMin} · Reject &lt; {criteria.rejectBelow} ·{' '}
-            {criteria.criteria.filter((c) => c.enabled !== false).length} active signals
+            Strong fit from {criteria.strongMin}+ · Good fit from {criteria.viableMin}+ · Not a fit below{' '}
+            {criteria.rejectBelow} · {criteria.criteria.filter((c) => c.enabled !== false).length} active checks
           </p>
         )}
       </Card>
@@ -583,11 +625,11 @@ export function RecruitmentAtsSection() {
       <Card padding="md" className="space-y-4">
         <div className="flex items-center gap-2">
           <Sparkles className="h-4 w-4 text-accent" />
-          <h3 className="text-sm font-semibold text-fg">Import applications</h3>
+          <h3 className="text-sm font-semibold text-fg">Bring in applications</h3>
         </div>
 
         <Select
-          label="Paste source (manual import)"
+          label="Where did this paste come from?"
           value={source}
           onChange={(e) => setSource(e.target.value as AtsSource)}
           options={SOURCE_OPTIONS}
@@ -596,21 +638,21 @@ export function RecruitmentAtsSection() {
         <div className="flex flex-wrap gap-2">
           <Button onClick={syncFromGmail} loading={syncing}>
             <Mail className="h-4 w-4" />
-            Sync from {HR_MAILBOX}
+            Sync Gmail ({HR_MAILBOX})
           </Button>
           <p className="self-center text-xs text-muted">
             {syncLabel ||
-              `Syncs the inbox, detects each application’s role (e.g. Front-End Developer), and files it into that section with CV scanning.`}
+              'Pulls inbox emails, reads CVs, scores each person, and places them under the right role.'}
           </p>
         </div>
 
         <Textarea
           label={`Or paste into ${labelForAtsRoleProfile(selectedRole)}`}
-          hint="Paste one application, or several separated by --- . Clear role signals in the text can still move an app to another section."
+          hint="Paste one application, or several separated by --- . If the text clearly names another role, it will move there."
           value={paste}
           onChange={(e) => setPaste(e.target.value)}
           rows={8}
-          placeholder={`Example:\nFrom: Jane Doe <jane@email.com>\nSubject: APPLICATION FOR FRONT-END DEVELOPER — Jane Doe\n\nCover letter...\nReact, TypeScript...`}
+          placeholder={`Example:\nFrom: Ada Lovelace <ada@email.com>\nSubject: APPLICATION FOR FRONT-END DEVELOPER — Ada Lovelace\n\nDear team,\nI am applying for the Front-End role...\n\nYours sincerely,\nAda Lovelace`}
         />
 
         <Button
@@ -620,54 +662,70 @@ export function RecruitmentAtsSection() {
           disabled={!paste.trim()}
         >
           <Upload className="h-4 w-4" />
-          Score & save pasted
+          Score & add pasted applications
         </Button>
       </Card>
 
       {topTen.length > 0 ? (
         <Card padding="md" className="space-y-3">
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <Trophy className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
               Top 10 · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
             </h3>
-            <Badge tone="brand">by score</Badge>
+            <Badge tone="brand">Highest scores</Badge>
+            <p className="w-full text-xs text-muted sm:w-auto sm:ml-auto">Click a name to see details and open Gmail</p>
           </div>
           <ol className="space-y-2">
             {topTen.map((c, i) => {
               const rank = i + 1
               const reason = explainCandidateRanking(c, rank, topTen, criteria)
+              const mailUrl = candidateGmailUrl(c)
               return (
-              <li
-                key={c.id}
-                className="flex flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2"
-              >
-                <div className="min-w-0 flex-1">
-                  <p className="font-medium text-fg">
-                    <span className="mr-2 text-muted">#{rank}</span>
-                    {c.name}
-                  </p>
-                  <p className="truncate text-xs text-muted">
-                    {[c.email, c.phone, c.location].filter(Boolean).join(' · ') || 'No contact details yet'}
-                  </p>
-                  <p className="mt-1 text-xs leading-relaxed text-fg/90">{reason}</p>
-                </div>
-                <div className="flex flex-wrap items-center gap-2">
-                  <Badge tone={recommendationTone(c.recommendation)}>{c.recommendation ?? 'unscored'}</Badge>
-                  <Badge tone="muted">{c.score ?? 0}/100</Badge>
-                  {c.gmailThreadId ? (
-                    <a
-                      className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-                      href={gmailThreadUrl(c.gmailThreadId)}
-                      target="_blank"
-                      rel="noreferrer"
-                    >
-                      <ExternalLink className="h-3.5 w-3.5" />
-                      Open email
-                    </a>
-                  ) : null}
-                </div>
-              </li>
+                <li key={c.id}>
+                  <div
+                    role="button"
+                    tabIndex={0}
+                    onClick={() => setSelectedCandidateId(c.id)}
+                    onKeyDown={(e) => {
+                      if (e.key === 'Enter' || e.key === ' ') {
+                        e.preventDefault()
+                        setSelectedCandidateId(c.id)
+                      }
+                    }}
+                    className="flex w-full cursor-pointer flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2 text-left transition-colors hover:border-accent/50 hover:bg-surface-2"
+                  >
+                    <div className="min-w-0 flex-1">
+                      <p className="font-medium text-fg">
+                        <span className="mr-2 text-muted">#{rank}</span>
+                        {c.name}
+                      </p>
+                      <p className="truncate text-xs text-muted">
+                        {[c.email, c.phone, c.location].filter(Boolean).join(' · ') ||
+                          'Contact details will appear here after sync'}
+                      </p>
+                      <p className="mt-1 text-xs leading-relaxed text-fg/90">{reason}</p>
+                    </div>
+                    <div className="flex flex-wrap items-center gap-2">
+                      <Badge tone={recommendationTone(c.recommendation)}>
+                        {recommendationLabel(c.recommendation)}
+                      </Badge>
+                      <Badge tone="muted">{c.score ?? 0}/100</Badge>
+                      {mailUrl ? (
+                        <a
+                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
+                          href={mailUrl}
+                          target="_blank"
+                          rel="noreferrer"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <ExternalLink className="h-3.5 w-3.5" />
+                          Open in Gmail
+                        </a>
+                      ) : null}
+                    </div>
+                  </div>
+                </li>
               )
             })}
           </ol>
@@ -679,7 +737,7 @@ export function RecruitmentAtsSection() {
           <div className="flex items-center gap-2">
             <UserCheck className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
-              Ranked · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+              All candidates · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
             </h3>
           </div>
           <div className="flex items-center gap-2">
@@ -690,22 +748,26 @@ export function RecruitmentAtsSection() {
               onChange={(e) => setFilter(e.target.value as FilterMode)}
             >
               <option value="top10">Top 10</option>
-              <option value="viable">Viable & strong</option>
-              <option value="strong">Strong only</option>
-              <option value="all">All screened</option>
-              <option value="weak">Weak</option>
-              <option value="reject">Reject</option>
+              <option value="viable">Worth reviewing</option>
+              <option value="strong">Strong fit only</option>
+              <option value="all">Everyone</option>
+              <option value="weak">Weak fit</option>
+              <option value="reject">Not a fit</option>
             </select>
           </div>
         </div>
 
         {!resolvedJobId ? (
-          <EmptyState icon={Briefcase} title="No role section yet" description="Sync Gmail or paste an application — Front-End / Back-End / Designer sections are created automatically." />
+          <EmptyState
+            icon={Briefcase}
+            title="No role set up yet"
+            description="Sync Gmail or paste an application. Role sections are created automatically."
+          />
         ) : visible.length === 0 ? (
           <EmptyState
             icon={Briefcase}
-            title={`No ${selectedJob?.title ?? 'candidates'} in this view`}
-            description="Sync Gmail (apps auto-sort by role), paste into this tab, or switch the filter."
+            title="No candidates in this view"
+            description="Sync Gmail, paste an application into this role, or change the filter above."
           />
         ) : (
           <ul className="space-y-3">
@@ -715,12 +777,26 @@ export function RecruitmentAtsSection() {
                 rank={filter === 'top10' ? index + 1 : candidatesForRole.findIndex((x) => x.id === c.id) + 1}
                 candidate={c}
                 criteria={criteria}
+                onOpen={() => setSelectedCandidateId(c.id)}
                 onUpdate={updateJobCandidate}
               />
             ))}
           </ul>
         )}
       </Card>
+
+      <CandidateDetailModal
+        candidate={selectedCandidate}
+        criteria={criteria}
+        rank={
+          selectedCandidate
+            ? candidatesForRole.findIndex((x) => x.id === selectedCandidate.id) + 1
+            : 0
+        }
+        peers={candidatesForRole}
+        onClose={() => setSelectedCandidateId(null)}
+        onUpdate={updateJobCandidate}
+      />
     </div>
   )
 }
@@ -755,7 +831,7 @@ function CriteriaEditor({
         ...profile.criteria,
         {
           id: newCriterionId(),
-          label: 'New criterion',
+          label: 'New check',
           kind: 'keywords',
           weight: 8,
           keywords: [],
@@ -767,21 +843,24 @@ function CriteriaEditor({
 
   return (
     <div className="space-y-4">
+      <p className="text-xs text-muted">
+        Set score thresholds and what each application is checked for. After editing, refresh scores to update names and rankings.
+      </p>
       <div className="grid gap-3 sm:grid-cols-3">
         <Input
-          label="Strong minimum"
+          label="Strong fit from (score)"
           type="number"
           value={String(profile.strongMin)}
           onChange={(e) => onChange({ ...profile, strongMin: Number(e.target.value) || 0 })}
         />
         <Input
-          label="Viable minimum"
+          label="Good fit from (score)"
           type="number"
           value={String(profile.viableMin)}
           onChange={(e) => onChange({ ...profile, viableMin: Number(e.target.value) || 0 })}
         />
         <Input
-          label="Reject below"
+          label="Not a fit below (score)"
           type="number"
           value={String(profile.rejectBelow)}
           onChange={(e) => onChange({ ...profile, rejectBelow: Number(e.target.value) || 0 })}
@@ -793,10 +872,10 @@ function CriteriaEditor({
           <thead className="bg-surface-2 text-xs text-muted">
             <tr>
               <th className="px-3 py-2 font-medium">On</th>
-              <th className="px-3 py-2 font-medium">Criterion</th>
-              <th className="px-3 py-2 font-medium">Weight</th>
-              <th className="px-3 py-2 font-medium">Must-have</th>
-              <th className="px-3 py-2 font-medium">Keywords</th>
+              <th className="px-3 py-2 font-medium">What we check</th>
+              <th className="px-3 py-2 font-medium">Points</th>
+              <th className="px-3 py-2 font-medium">Required</th>
+              <th className="px-3 py-2 font-medium">Details</th>
               <th className="px-3 py-2 font-medium" />
             </tr>
           </thead>
@@ -816,7 +895,7 @@ function CriteriaEditor({
                     value={c.label}
                     onChange={(e) => updateCriterion(c.id, { label: e.target.value })}
                   />
-                  <p className="mt-1 text-[11px] text-muted">{c.kind}</p>
+                  <p className="mt-1 text-[11px] text-muted">{criterionKindHint(c.kind)}</p>
                 </td>
                 <td className="px-3 py-2">
                   <input
@@ -856,9 +935,9 @@ function CriteriaEditor({
                       onChange={(e) => updateCriterion(c.id, { minLength: Number(e.target.value) || 0 })}
                     />
                   ) : c.kind === 'resume_file' ? (
-                    <span className="text-xs text-muted">Points when CV text is extracted from PDF/DOCX/JPG/PNG</span>
+                    <span className="text-xs text-muted">Points when CV text is read from PDF, Word, or image</span>
                   ) : (
-                    <span className="text-xs text-muted">Auto-detected from application text</span>
+                    <span className="text-xs text-muted">Detected automatically from the application</span>
                   )}
                 </td>
                 <td className="px-3 py-2">
@@ -878,10 +957,10 @@ function CriteriaEditor({
 
       <div className="flex flex-wrap gap-2">
         <Button variant="secondary" size="sm" onClick={addCriterion}>
-          Add criterion
+          Add check
         </Button>
         <Button variant="ghost" size="sm" onClick={onRescore}>
-          Re-score existing with these criteria
+          Refresh scores & names
         </Button>
       </div>
     </div>
@@ -892,46 +971,36 @@ function CandidateRow({
   rank,
   candidate,
   criteria,
+  onOpen,
   onUpdate,
 }: {
   rank: number
   candidate: JobCandidate
   criteria: AtsCriteriaProfile
+  onOpen: () => void
   onUpdate: (id: string, patch: Partial<JobCandidate>) => void
 }) {
   const breakdownEntries = Object.entries(candidate.scoreBreakdown ?? {}).filter(
     ([key, pts]) => key !== 'red_flags' && pts > 0,
   )
   const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
-  const mailUrl = candidate.gmailThreadId ? gmailThreadUrl(candidate.gmailThreadId) : null
+  const mailUrl = candidateGmailUrl(candidate)
 
   return (
-    <li className="rounded-lg border border-border p-4">
+    <li className="rounded-lg border border-border p-4 transition-colors hover:border-accent/40">
       <div className="flex flex-wrap items-start justify-between gap-3">
-        <div className="min-w-0">
+        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="muted">#{rank}</Badge>
-            {mailUrl ? (
-              <a
-                className="font-semibold text-fg hover:text-accent hover:underline"
-                href={mailUrl}
-                target="_blank"
-                rel="noreferrer"
-                title="Open original application in Gmail"
-              >
-                {candidate.name}
-              </a>
-            ) : (
-              <p className="font-semibold text-fg">{candidate.name}</p>
-            )}
+            <p className="font-semibold text-fg hover:text-accent">{candidate.name}</p>
             <Badge tone={recommendationTone(candidate.recommendation)}>
-              {candidate.recommendation ?? 'unscored'}
+              {recommendationLabel(candidate.recommendation)}
             </Badge>
             <Badge tone="muted">{candidate.score ?? 0}/100</Badge>
             {candidate.source ? <Badge tone="muted">{candidate.source}</Badge> : null}
           </div>
           <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-            {candidate.email ? <span>{candidate.email}</span> : null}
+            {candidate.email ? <span>{candidate.email}</span> : <span>No email found yet</span>}
             {candidate.phone ? (
               <span className="inline-flex items-center gap-1">
                 <Phone className="h-3.5 w-3.5" />
@@ -957,47 +1026,207 @@ function CandidateRow({
               ))}
             </div>
           ) : null}
-          <div className="mt-2 flex flex-wrap gap-3 text-xs">
-            {mailUrl ? (
-              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={mailUrl} target="_blank" rel="noreferrer">
-                <ExternalLink className="h-3.5 w-3.5" /> Open in Gmail
-              </a>
-            ) : null}
-            {candidate.githubUrl ? (
-              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.githubUrl} target="_blank" rel="noreferrer">
-                <Github className="h-3.5 w-3.5" /> GitHub
-              </a>
-            ) : null}
-            {candidate.portfolioUrl ? (
-              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.portfolioUrl} target="_blank" rel="noreferrer">
-                <Link2 className="h-3.5 w-3.5" /> Portfolio
-              </a>
-            ) : null}
-            {candidate.linkedinUrl ? (
-              <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.linkedinUrl} target="_blank" rel="noreferrer">
-                LinkedIn
-              </a>
-            ) : null}
-            {candidate.coverLetter ? <span className="text-muted">Cover letter detected</span> : <span className="text-muted">No cover letter signals</span>}
-            {(candidate.scoreBreakdown?.resume_file ?? 0) > 0 || /---\s*Resume:/i.test(candidate.notes ?? '') ? (
-              <span className="text-muted">CV text scanned</span>
-            ) : null}
-            {candidate.appliedAt ? <span className="text-muted">Applied {fmtDate(candidate.appliedAt)}</span> : null}
-          </div>
+          <p className="mt-2 text-xs text-accent">View details →</p>
+        </button>
+        <div className="flex flex-col items-end gap-2">
+          {mailUrl ? (
+            <a
+              className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+              href={mailUrl}
+              target="_blank"
+              rel="noreferrer"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink className="h-3.5 w-3.5" />
+              Open in Gmail
+            </a>
+          ) : null}
+          <select
+            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+            value={candidate.stage}
+            onChange={(e) => onUpdate(candidate.id, { stage: e.target.value as CandidateStage })}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <option value="applied">Applied</option>
+            <option value="screen">Screening</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="hired">Hired</option>
+            <option value="rejected">Rejected</option>
+          </select>
         </div>
-        <select
-          className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
-          value={candidate.stage}
-          onChange={(e) => onUpdate(candidate.id, { stage: e.target.value as CandidateStage })}
-        >
-          <option value="applied">Applied</option>
-          <option value="screen">Screen</option>
-          <option value="interview">Interview</option>
-          <option value="offer">Offer</option>
-          <option value="hired">Hired</option>
-          <option value="rejected">Rejected</option>
-        </select>
       </div>
     </li>
+  )
+}
+
+function CandidateDetailModal({
+  candidate,
+  criteria,
+  rank,
+  peers,
+  onClose,
+  onUpdate,
+}: {
+  candidate: JobCandidate | null
+  criteria: AtsCriteriaProfile
+  rank: number
+  peers: JobCandidate[]
+  onClose: () => void
+  onUpdate: (id: string, patch: Partial<JobCandidate>) => void
+}) {
+  if (!candidate) return null
+
+  const mailUrl = candidateGmailUrl(candidate)
+  const reason =
+    rank > 0 ? explainCandidateRanking(candidate, rank, peers.slice(0, 10), criteria) : undefined
+  const breakdownEntries = Object.entries(candidate.scoreBreakdown ?? {}).filter(
+    ([key, pts]) => key !== 'red_flags' && pts > 0,
+  )
+  const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
+  const applicationPreview = (candidate.notes ?? '')
+    .replace(/\n---\s*Resume:[\s\S]*$/i, '')
+    .trim()
+    .slice(0, 1200)
+
+  return (
+    <Modal
+      open
+      onClose={onClose}
+      size="lg"
+      title={candidate.name}
+      description={
+        rank > 0
+          ? `Rank #${rank} · ${recommendationLabel(candidate.recommendation)} · ${candidate.score ?? 0}/100`
+          : `${recommendationLabel(candidate.recommendation)} · ${candidate.score ?? 0}/100`
+      }
+      footer={
+        <>
+          <Button variant="ghost" onClick={onClose}>
+            Close
+          </Button>
+          {mailUrl ? (
+            <Button
+              onClick={() => {
+                window.open(mailUrl, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              <ExternalLink className="h-4 w-4" />
+              Open in Gmail
+            </Button>
+          ) : candidate.email ? (
+            <Button
+              onClick={() => {
+                window.open(`mailto:${candidate.email}`, '_blank', 'noopener,noreferrer')
+              }}
+            >
+              <Mail className="h-4 w-4" />
+              Email candidate
+            </Button>
+          ) : null}
+        </>
+      }
+    >
+      <div className="space-y-5">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <p className="text-xs font-medium text-muted">Email</p>
+            <p className="mt-0.5 text-sm text-fg">{candidate.email || 'Not found in application'}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">Phone</p>
+            <p className="mt-0.5 text-sm text-fg">{candidate.phone || 'Not found'}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">Location</p>
+            <p className="mt-0.5 text-sm text-fg">{candidate.location || 'Not found'}</p>
+          </div>
+          <div>
+            <p className="text-xs font-medium text-muted">Applied</p>
+            <p className="mt-0.5 text-sm text-fg">
+              {candidate.appliedAt ? fmtDate(candidate.appliedAt) : 'Unknown date'}
+            </p>
+          </div>
+        </div>
+
+        {reason ? (
+          <div>
+            <p className="text-xs font-medium text-muted">Why this ranking</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg">{reason}</p>
+          </div>
+        ) : null}
+
+        {candidate.resumeSummary ? (
+          <div>
+            <p className="text-xs font-medium text-muted">Summary</p>
+            <p className="mt-1 text-sm text-fg">{candidate.resumeSummary}</p>
+          </div>
+        ) : null}
+
+        {breakdownEntries.length > 0 ? (
+          <div>
+            <p className="text-xs font-medium text-muted">Score breakdown</p>
+            <div className="mt-2 flex flex-wrap gap-1.5">
+              {breakdownEntries.map(([id, pts]) => (
+                <Badge key={id} tone="muted">
+                  {labelFor(id)} +{pts}
+                </Badge>
+              ))}
+            </div>
+          </div>
+        ) : null}
+
+        <div className="flex flex-wrap gap-3 text-sm">
+          {candidate.githubUrl ? (
+            <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.githubUrl} target="_blank" rel="noreferrer">
+              <Github className="h-3.5 w-3.5" /> GitHub
+            </a>
+          ) : null}
+          {candidate.portfolioUrl ? (
+            <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.portfolioUrl} target="_blank" rel="noreferrer">
+              <Link2 className="h-3.5 w-3.5" /> Portfolio
+            </a>
+          ) : null}
+          {candidate.linkedinUrl ? (
+            <a className="inline-flex items-center gap-1 text-accent hover:underline" href={candidate.linkedinUrl} target="_blank" rel="noreferrer">
+              LinkedIn
+            </a>
+          ) : null}
+          {candidate.coverLetter ? (
+            <span className="text-muted">Cover letter detected</span>
+          ) : (
+            <span className="text-muted">No clear cover letter</span>
+          )}
+        </div>
+
+        <div>
+          <p className="text-xs font-medium text-muted">Hiring stage</p>
+          <select
+            className="mt-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+            value={candidate.stage}
+            onChange={(e) => onUpdate(candidate.id, { stage: e.target.value as CandidateStage })}
+          >
+            <option value="applied">Applied</option>
+            <option value="screen">Screening</option>
+            <option value="interview">Interview</option>
+            <option value="offer">Offer</option>
+            <option value="hired">Hired</option>
+            <option value="rejected">Rejected</option>
+          </select>
+        </div>
+
+        {applicationPreview ? (
+          <div>
+            <p className="text-xs font-medium text-muted">Application excerpt</p>
+            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+              {applicationPreview}
+              {(candidate.notes?.length ?? 0) > 1200 ? '…' : ''}
+            </pre>
+          </div>
+        ) : (
+          <p className="text-sm text-muted">No application text stored for this candidate.</p>
+        )}
+      </div>
+    </Modal>
   )
 }

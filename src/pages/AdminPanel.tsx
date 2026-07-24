@@ -450,7 +450,7 @@ export function AdminPanelPage() {
         id: 'recruitment',
         label: (
           <span className="inline-flex items-center gap-2">
-            <Briefcase className="h-4 w-4" /> Recruitment ATS
+            <Briefcase className="h-4 w-4" /> Recruitment
           </span>
         ),
       },
