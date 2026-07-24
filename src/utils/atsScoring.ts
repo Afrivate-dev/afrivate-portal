@@ -10,6 +10,7 @@ export type AtsCriterionKind =
   | 'portfolio'
   | 'cover_letter'
   | 'min_length'
+  | 'resume_file'
 
 export interface AtsCriterion {
   id: string
@@ -80,6 +81,7 @@ export function defaultFrontendCriteria(): AtsCriteriaProfile {
       { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, mustHave: true, enabled: true },
       { id: 'portfolio', label: 'Portfolio / deployed work', kind: 'portfolio', weight: 10, mustHave: true, enabled: true },
       { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 8, mustHave: true, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV scanned', kind: 'resume_file', weight: 10, mustHave: true, enabled: true },
       { id: 'testing', label: 'Testing', kind: 'keywords', weight: 6, keywords: ['jest', 'vitest', 'testing library', 'playwright', 'cypress', 'unit test'], enabled: true },
       { id: 'tooling', label: 'Modern tooling', kind: 'keywords', weight: 8, keywords: ['vite', 'webpack', 'react router', 'tanstack', 'zustand', 'redux', 'figma', 'pwa'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 180, enabled: true },
@@ -103,6 +105,7 @@ export function defaultBackendCriteria(): AtsCriteriaProfile {
       { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, mustHave: true, enabled: true },
       { id: 'portfolio', label: 'Portfolio / repo evidence', kind: 'portfolio', weight: 6, enabled: true },
       { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 8, mustHave: true, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV scanned', kind: 'resume_file', weight: 10, mustHave: true, enabled: true },
       { id: 'testing', label: 'Testing / API docs', kind: 'keywords', weight: 6, keywords: ['jest', 'vitest', 'integration test', 'swagger', 'openapi'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 180, enabled: true },
     ],
@@ -121,6 +124,7 @@ export function defaultDesignerCriteria(): AtsCriteriaProfile {
       { id: 'branding', label: 'Brand / layout / campaigns', kind: 'keywords', weight: 18, keywords: ['brand', 'typography', 'layout', 'visual identity', 'campaign', 'social media'], enabled: true },
       { id: 'portfolio', label: 'Portfolio', kind: 'portfolio', weight: 22, mustHave: true, enabled: true },
       { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 10, mustHave: true, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV / portfolio PDF scanned', kind: 'resume_file', weight: 12, mustHave: true, enabled: true },
       { id: 'collaboration', label: 'Briefs / feedback / deadlines', kind: 'keywords', weight: 8, keywords: ['brief', 'feedback', 'collaboration', 'deadline'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 160, enabled: true },
     ],
@@ -186,6 +190,11 @@ function extractUrls(raw: string): { githubUrl?: string; portfolioUrl?: string }
   }
 }
 
+function hasResumeFileText(text: string): boolean {
+  // Marker inserted by Gmail sync after successful PDF/DOCX/image text extraction
+  return /---\s*resume:/i.test(text)
+}
+
 function hasCoverLetter(text: string): boolean {
   return includesAny(text, [
     'cover letter',
@@ -247,6 +256,9 @@ function scoreWithCriteria(
       points = hit ? c.weight : 0
     } else if (c.kind === 'cover_letter') {
       hit = coverLetter
+      points = hit ? c.weight : 0
+    } else if (c.kind === 'resume_file') {
+      hit = hasResumeFileText(text)
       points = hit ? c.weight : 0
     } else if (c.kind === 'min_length') {
       const min = c.minLength ?? 180

@@ -48,6 +48,12 @@ export default defineConfig({
       '@': path.resolve(__dirname, './src'),
     },
   },
+  optimizeDeps: {
+    include: ['pdfjs-dist', 'mammoth', 'tesseract.js'],
+  },
+  worker: {
+    format: 'es',
+  },
   server: {
     port: 5173,
     host: true,

@@ -47,6 +47,7 @@ test.describe('Recruitment ATS sync pipeline (mocked Gmail)', () => {
       const messages = await gmail.fetchGmailApplications({
         accessToken: 'fake',
         fetchImpl,
+        extractResumes: false,
       })
       const scored = scoring.screenApplicationText(messages[0].bodyText, 'frontend')
       return {

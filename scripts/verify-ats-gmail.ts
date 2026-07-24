@@ -217,6 +217,7 @@ await check('fetchGmailApplications with mocked Gmail API', async () => {
   const messages = await fetchGmailApplications({
     accessToken: 'test-token',
     fetchImpl,
+    extractResumes: false,
   })
   assert.equal(messages.length, 1)
   assert.equal(messages[0]?.id, 'msg1')
@@ -225,6 +226,77 @@ await check('fetchGmailApplications with mocked Gmail API', async () => {
   const scored = screenApplicationText(messages[0]!.bodyText, 'frontend')
   assert.ok(scored.score >= 40)
   assert.ok(scored.email === 'mock@example.com')
+})
+
+await check('Resume attachment text is downloaded, extracted, and scored', async () => {
+  const {
+    enrichMessageWithResumeText,
+    parseGmailApiMessage,
+  } = await import('../src/lib/gmailAtsSync.ts')
+  const { classifyResumeFile, isLikelyResumeAttachment } = await import('../src/lib/atsResumeExtract.ts')
+
+  assert.equal(classifyResumeFile('Ada_CV.pdf'), 'pdf')
+  assert.equal(classifyResumeFile('Ada.docx'), 'docx')
+  assert.equal(classifyResumeFile('scan.png'), 'image')
+  assert.equal(isLikelyResumeAttachment('photo.png', 'image/png'), true)
+  assert.equal(isLikelyResumeAttachment('Ada_CV.pdf'), true)
+
+  const msg = {
+    id: 'm-cv',
+    threadId: 't',
+    snippet: 'Please find attached',
+    payload: {
+      headers: [
+        { name: 'Subject', value: 'APPLICATION FOR FRONT-END DEVELOPER — Ada' },
+        { name: 'From', value: 'Ada <ada@x.com>' },
+      ],
+      parts: [
+        {
+          mimeType: 'text/plain',
+          body: {
+            data: Buffer.from('Please find my CV attached.', 'utf8').toString('base64'),
+          },
+        },
+        {
+          filename: 'Ada_Lovelace_CV.pdf',
+          mimeType: 'application/pdf',
+          body: { attachmentId: 'att-1', size: 1000 },
+        },
+      ],
+    },
+  }
+  const parsed = parseGmailApiMessage(msg)
+  const enriched = await enrichMessageWithResumeText(msg, parsed, {
+    accessToken: 'tok',
+    fetchImpl: async (input) => {
+      const url = String(input)
+      if (url.includes('/attachments/att-1')) {
+        const payload = Buffer.from('React TypeScript GitHub https://github.com/ada Portfolio https://ada.vercel.app', 'utf8')
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+        return new Response(JSON.stringify({ data: payload }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('no', { status: 404 })
+    },
+    extractFn: async (_data, filename) => ({
+      kind: 'pdf',
+      filename,
+      text: 'React TypeScript Vite Tailwind GitHub https://github.com/ada Portfolio https://ada.vercel.app Jest Testing Library',
+    }),
+  })
+
+  assert.ok(enriched.resumeFilesScanned?.includes('Ada_Lovelace_CV.pdf'))
+  assert.match(enriched.bodyText, /--- Resume: Ada_Lovelace_CV\.pdf ---/)
+  assert.match(enriched.bodyText, /React TypeScript/)
+
+  const scored = screenApplicationText(enriched.bodyText, 'frontend')
+  assert.ok((scored.breakdown.resume_file ?? 0) > 0, 'resume_file criterion should score')
+  assert.ok(scored.matched.some((m) => /resume|cv/i.test(m)))
+  assert.ok(scored.score >= 55, `expected stronger score with CV text, got ${scored.score}`)
 })
 
 await check('Editable criteria change ranking outcome', () => {
