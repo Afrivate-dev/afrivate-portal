@@ -80,20 +80,59 @@ function titleCaseName(value: string): string {
     .replace(/\b\w/g, (c) => c.toUpperCase())
 }
 
+const NAME_BLOCKLIST =
+  /\b(javascript|typescript|python|java|react|nodejs|node\.?js|html|css|sql|sincerely|regards|faithfully|dear|hello|thanks|thank you|cover letter|resume|curriculum|vitae|application|frontend|front-end|backend|back-end|developer|engineer|designer|portfolio|github|linkedin|attachments|subject|best wishes|kind regards|yours|warm regards|looking forward|please find|cv|phone|email|mobile|whatsapp|lagos|nigeria|remote)\b/i
+
+/** Strip rank markers / punctuation noise before treating text as a person name. */
+export function normalizePersonNameCandidate(value: string): string {
+  return value
+    .trim()
+    .replace(/^["']|["']$/g, '')
+    .replace(/^#?\d+[.)]?\s*/g, '')
+    .replace(/[,.;:!?]+$/g, '')
+    .replace(/\s+/g, ' ')
+    .trim()
+}
+
+/** True when a string looks like a real person name (not a skill, closing, or subject fragment). */
+export function isPlausiblePersonName(value: string, opts?: { allowSingleWord?: boolean }): boolean {
+  const cleaned = normalizePersonNameCandidate(value)
+  if (cleaned.length < 3 || cleaned.length > 70) return false
+  if (EMAIL_RE.test(cleaned) || /^https?:\/\//i.test(cleaned)) return false
+  if (NAME_BLOCKLIST.test(cleaned)) return false
+  if (/[#@/\\]/.test(cleaned) || /\d/.test(cleaned)) return false
+  if (/^(yours?|sincerely|regards|faithfully|best|kind|warm)\b/i.test(cleaned)) return false
+
+  const words = cleaned.split(/\s+/).filter(Boolean)
+  if (words.length === 0 || words.length > 5) return false
+  if (words.length === 1 && !opts?.allowSingleWord) return false
+
+  if (!words.every((w) => /^[A-Za-z][A-Za-z'’.-]*$/.test(w))) return false
+  // Reject single tech-looking tokens (e.g. JavaScript, TypeScript)
+  if (words.length === 1 && words[0]!.length > 12) return false
+  return true
+}
+
 /** Parse `Name <email@x.com>` or plain email from a From header / address line. */
 export function parseFromAddress(from: string): { name?: string; email?: string } {
   const trimmed = from.trim()
   const angle = trimmed.match(/^(.*?)\s*<([^>]+)>$/)
   if (angle) {
     const email = angle[2]?.trim()
-    const name = angle[1]?.replace(/^["']|["']$/g, '').trim()
+    const rawName = angle[1]?.replace(/^["']|["']$/g, '').trim()
+    const name =
+      rawName && !EMAIL_RE.test(rawName) && isPlausiblePersonName(rawName, { allowSingleWord: true })
+        ? titleCaseName(normalizePersonNameCandidate(rawName))
+        : undefined
     return {
-      name: name && !EMAIL_RE.test(name) ? titleCaseName(name) : undefined,
+      name,
       email: email && EMAIL_RE.test(email) ? email : undefined,
     }
   }
   if (EMAIL_RE.test(trimmed)) return { email: trimmed.match(EMAIL_RE)?.[0] }
-  if (trimmed.length >= 3 && trimmed.length <= 60) return { name: titleCaseName(trimmed) }
+  if (isPlausiblePersonName(trimmed, { allowSingleWord: true })) {
+    return { name: titleCaseName(normalizePersonNameCandidate(trimmed)) }
+  }
   return {}
 }
 
@@ -123,58 +162,74 @@ function extractLocation(raw: string): string | undefined {
   return cities
 }
 
+function nameFromEmailLocal(email?: string): string | undefined {
+  if (!email) return undefined
+  const local = email.split('@')[0] ?? ''
+  const words = local
+    .replace(/\d+/g, ' ')
+    .replace(/[._+-]+/g, ' ')
+    .trim()
+  if (!words || NAME_BLOCKLIST.test(words)) return undefined
+  const titled = titleCaseName(normalizePersonNameCandidate(words))
+  return isPlausiblePersonName(titled, { allowSingleWord: true }) ? titled : undefined
+}
+
 function extractName(raw: string, email?: string): string {
+  // 1) Email From: display name (most reliable for Gmail sync)
   const fromLine = raw.match(FROM_HEADER_RE)?.[1]
   if (fromLine) {
     const parsed = parseFromAddress(fromLine)
-    if (parsed.name && !/noreply|indeed|linkedin|no-reply/i.test(parsed.name)) return parsed.name
+    if (parsed.name && !/noreply|indeed|linkedin|no-reply|mailer/i.test(parsed.name)) {
+      return parsed.name
+    }
   }
 
+  // 2) Subject: APPLICATION FOR … — Full Name
   const subject = raw.match(SUBJECT_HEADER_RE)?.[1] ?? ''
   const subjectName =
-    subject.match(/[—–-]\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){0,3})\s*$/)?.[1] ||
-    subject.match(/for\s+(.+?)\s*[—–-]/i)?.[1]
-  if (subjectName && subjectName.trim().split(/\s+/).length <= 4) {
-    return titleCaseName(subjectName.replace(/developer|application|front-?end|back-?end/gi, '').trim())
+    subject.match(/[—–-]\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\s*$/)?.[1] ||
+    subject.match(/:\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\s*$/)?.[1]
+  if (subjectName && isPlausiblePersonName(subjectName)) {
+    return titleCaseName(normalizePersonNameCandidate(subjectName))
   }
 
+  // 3) Explicit Name / Full name labels
   const labeled = raw.match(
-    /(?:^|\n)\s*(?:name|full name|applicant)\s*[:-]\s*([A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){0,3})/i,
+    /(?:^|\n)\s*(?:full\s*name|candidate\s*name|applicant\s*name|name)\s*[:-]\s*([A-Za-z][A-Za-z'’.-]+(?:\s+[A-Za-z][A-Za-z'’.-]+){0,3})/i,
   )
-  if (labeled?.[1]) return titleCaseName(labeled[1])
+  if (labeled?.[1] && isPlausiblePersonName(labeled[1], { allowSingleWord: true })) {
+    return titleCaseName(normalizePersonNameCandidate(labeled[1]))
+  }
 
+  // 4) Signature after letter closing (never use "Yours sincerely" itself)
+  const signature = raw.match(
+    /(?:yours?\s+sincerely|kind\s+regards|best\s+regards|warm\s+regards|respectfully)[,.]?\s*(?:\r?\n)+\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\s*(?:\r?\n|$)/i,
+  )
+  if (signature?.[1] && isPlausiblePersonName(signature[1])) {
+    return titleCaseName(normalizePersonNameCandidate(signature[1]))
+  }
+
+  // 5) First plausible multi-word line near the top of the body
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
 
-  for (const line of lines.slice(0, 16)) {
+  for (const line of lines.slice(0, 20)) {
     const lower = line.toLowerCase()
     if (lower.startsWith('from:') || lower.startsWith('subject:') || lower.startsWith('to:')) continue
     if (lower.startsWith('--- resume:')) continue
+    if (/^(yours?|kind|best|warm|dear|hi|hello|thanks)\b/i.test(line)) continue
     if (EMAIL_RE.test(line) && line.length < 80) continue
     if (/^https?:\/\//i.test(line)) continue
-    const cleaned = line
-      .replace(/^name\s*[:-]\s*/i, '')
-      .replace(/^applicant\s*[:-]\s*/i, '')
-      .replace(/^dear\s+.*/i, '')
-      .trim()
-    if (
-      cleaned.length >= 3 &&
-      cleaned.length <= 60 &&
-      /[A-Za-z]/.test(cleaned) &&
-      cleaned.split(/\s+/).length <= 6 &&
-      !/application|frontend|front-end|developer|cover letter|cv|resume|attachments/i.test(cleaned)
-    ) {
-      return titleCaseName(cleaned)
-    }
+    const cleaned = normalizePersonNameCandidate(
+      line.replace(/^name\s*[:-]\s*/i, '').replace(/^applicant\s*[:-]\s*/i, ''),
+    )
+    if (isPlausiblePersonName(cleaned)) return titleCaseName(cleaned)
   }
 
-  if (email) {
-    const local = email.split('@')[0] ?? 'Candidate'
-    return titleCaseName(local.replace(/[._-]+/g, ' '))
-  }
-  return 'Unknown candidate'
+  // 6) Fallback from email local-part
+  return nameFromEmailLocal(email) ?? 'Unknown candidate'
 }
 
 export function defaultFrontendCriteria(): AtsCriteriaProfile {
@@ -521,6 +576,15 @@ export function recommendationTone(
   return 'muted'
 }
 
+/** Short, plain-language label for a recommendation. */
+export function recommendationLabel(recommendation?: AtsRecommendation | null): string {
+  if (recommendation === 'strong') return 'Strong fit'
+  if (recommendation === 'viable') return 'Good fit'
+  if (recommendation === 'weak') return 'Weak fit'
+  if (recommendation === 'reject') return 'Not a fit'
+  return 'Not scored'
+}
+
 export function isViableCandidate(c: Pick<JobCandidate, 'recommendation' | 'score'>): boolean {
   if (c.recommendation === 'strong' || c.recommendation === 'viable') return true
   return (c.score ?? 0) >= 55
@@ -535,10 +599,21 @@ export function explainCandidateRanking(
 ): string {
   const parts: string[] = []
   const score = candidate.score ?? 0
-  parts.push(`#${rank} with ${score}/100 (${candidate.recommendation ?? 'unscored'}).`)
+  const fit =
+    candidate.recommendation === 'strong'
+      ? 'strong fit'
+      : candidate.recommendation === 'viable'
+        ? 'good fit'
+        : candidate.recommendation === 'weak'
+          ? 'weak fit'
+          : candidate.recommendation === 'reject'
+            ? 'poor fit'
+            : 'not yet rated'
+
+  parts.push(`Ranked #${rank} with a score of ${score} out of 100 (${fit}).`)
 
   if (rank === 1) {
-    parts.push('Highest overall match against this role’s ranking criteria.')
+    parts.push('Best overall match for this role based on your scoring rules.')
   }
 
   const signals = Object.entries(candidate.scoreBreakdown ?? {})
@@ -551,18 +626,16 @@ export function explainCandidateRanking(
     })
 
   if (signals.length) {
-    parts.push(`Why here: ${signals.join(', ')}.`)
-  } else if (candidate.resumeSummary) {
-    parts.push(candidate.resumeSummary)
+    parts.push(`Stood out for: ${signals.join(', ')}.`)
   }
 
-  const next = rankedPeers[rank] // 0-based list; rank is 1-based → next competitor
+  const next = rankedPeers[rank]
   if (next && next.score != null) {
     const gap = score - next.score
     if (gap > 0) {
-      parts.push(`${gap} point${gap === 1 ? '' : 's'} above #${rank + 1} (${next.name}).`)
+      parts.push(`${gap} point${gap === 1 ? '' : 's'} ahead of ${next.name} (#${rank + 1}).`)
     } else if (gap === 0) {
-      parts.push(`Tied with #${rank + 1} (${next.name}) on score.`)
+      parts.push(`Same score as ${next.name} (#${rank + 1}).`)
     }
   }
 
@@ -570,7 +643,7 @@ export function explainCandidateRanking(
   if (prev && prev.score != null && rank > 1) {
     const gap = prev.score - score
     if (gap > 0) {
-      parts.push(`${gap} point${gap === 1 ? '' : 's'} behind #${rank - 1} (${prev.name}).`)
+      parts.push(`${gap} point${gap === 1 ? '' : 's'} behind ${prev.name} (#${rank - 1}).`)
     }
   }
 

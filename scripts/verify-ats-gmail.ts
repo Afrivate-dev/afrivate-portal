@@ -8,10 +8,12 @@ import { resolve } from 'node:path'
 import {
   defaultCriteriaForProfile,
   detectSourceFromEmail,
+  isPlausiblePersonName,
   screenApplicationText,
   splitApplicationBatch,
 } from '../src/utils/atsScoring.ts'
 import {
+  candidateGmailUrl,
   decodeBodyData,
   defaultGmailAtsQuery,
   fetchGmailApplications,
@@ -82,6 +84,15 @@ await check('URL-safe base64 body decode', () => {
   assert.equal(decodeBodyData(b64), text)
 })
 
+await check('Candidate Gmail / mailto links', () => {
+  const thread = candidateGmailUrl({ gmailThreadId: 'thread123', gmailMessageId: 'msg456' })
+  assert.ok(thread?.includes('mail.google.com'))
+  assert.ok(thread?.includes('thread123') || thread?.includes('msg456'))
+  const mailto = candidateGmailUrl({ email: 'ada@example.com' })
+  assert.equal(mailto, 'mailto:ada@example.com')
+  assert.equal(candidateGmailUrl({}), null)
+})
+
 await check('Parse multipart Gmail message + attachment names', () => {
   const plain = Buffer.from(
     'Dear Afrivate,\nI am writing to apply. React TypeScript GitHub https://github.com/jane\nPortfolio https://jane.vercel.app',
@@ -149,6 +160,7 @@ GitHub: https://github.com/ada
 Portfolio: https://ada.vercel.app
 I use Jest and Testing Library. Cover letter included here with my experience.`
   const result = screenApplicationText(raw, 'frontend', defaultCriteriaForProfile('frontend'))
+  assert.equal(result.name, 'Ada Lovelace')
   assert.equal(result.email, 'ada@example.com')
   assert.ok(result.githubUrl?.includes('github.com/ada'))
   assert.ok(result.portfolioUrl)
@@ -158,6 +170,36 @@ I use Jest and Testing Library. Cover letter included here with my experience.`
     result.recommendation === 'strong' || result.recommendation === 'viable',
     `got ${result.recommendation}`,
   )
+})
+
+await check('Rejects junk names like JavaScript / Yours sincerely', () => {
+  assert.equal(isPlausiblePersonName('JavaScript'), false)
+  assert.equal(isPlausiblePersonName('#4JavaScript'), false)
+  assert.equal(isPlausiblePersonName('Yours sincerely'), false)
+  assert.equal(isPlausiblePersonName('Yours sincerely,'), false)
+  assert.equal(isPlausiblePersonName('Ada Lovelace'), true)
+
+  const fromSignature = `Subject: APPLICATION FOR FRONT-END DEVELOPER
+From: noreply@mail.com
+
+Dear team,
+Please find my application for the Front-End role. I use React and TypeScript.
+
+Yours sincerely,
+Chioma Adebayo`
+  const signed = screenApplicationText(fromSignature, 'frontend')
+  assert.equal(signed.name, 'Chioma Adebayo')
+
+  const junkSubject = `Subject: APPLICATION FOR FRONT-END DEVELOPER — JavaScript
+From: applicant@mail.com
+
+Dear team,
+I am applying. React TypeScript GitHub https://github.com/x Portfolio https://x.dev
+Yours sincerely,
+JavaScript`
+  const junk = screenApplicationText(junkSubject, 'frontend')
+  assert.notEqual(junk.name.toLowerCase(), 'javascript')
+  assert.notEqual(junk.name.toLowerCase(), 'yours sincerely')
 })
 
 await check('Weak application ranks weak/reject', () => {
@@ -397,7 +439,7 @@ await check('Top-10 ranking explanation includes score signals and gaps', async 
   assert.match(reason, /#1/)
   assert.match(reason, /92/)
   assert.match(reason, /React/)
-  assert.match(reason, /above #2/)
+  assert.match(reason, /ahead of Sam|#2/)
 })
 
 await check('Editable criteria change ranking outcome', () => {

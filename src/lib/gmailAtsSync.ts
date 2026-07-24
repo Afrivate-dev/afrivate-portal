@@ -35,9 +35,29 @@ export interface GmailApplicationMessage {
   resumeExtractErrors?: string[]
 }
 
-/** Open the original Gmail thread for afrivatehr@gmail.com (or another mailbox). */
-export function gmailThreadUrl(threadId: string, mailbox = HR_MAILBOX): string {
-  return `https://mail.google.com/mail/?authuser=${encodeURIComponent(mailbox)}#all/${threadId}`
+/** Open the original Gmail thread (or message) for the HR mailbox. */
+export function gmailThreadUrl(
+  threadId: string,
+  mailbox = HR_MAILBOX,
+  messageId?: string,
+): string {
+  const auth = encodeURIComponent(mailbox)
+  // Prefer thread view; fall back to message id when thread is missing
+  const target = threadId || messageId
+  if (!target) return `https://mail.google.com/mail/?authuser=${auth}#inbox`
+  return `https://mail.google.com/mail/?authuser=${auth}#all/${target}`
+}
+
+export function candidateGmailUrl(candidate: {
+  gmailThreadId?: string
+  gmailMessageId?: string
+  email?: string
+}): string | null {
+  if (candidate.gmailThreadId || candidate.gmailMessageId) {
+    return gmailThreadUrl(candidate.gmailThreadId || '', HR_MAILBOX, candidate.gmailMessageId)
+  }
+  if (candidate.email) return `mailto:${candidate.email}`
+  return null
 }
 
 /** Default: entire inbox (excl. spam/trash) in the lookback window — attachments scanned per email. */
