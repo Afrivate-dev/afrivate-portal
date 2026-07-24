@@ -368,6 +368,38 @@ await check('Applications are routed to Front-End / Back-End / Designer roles', 
   assert.equal(labelForAtsRoleProfile('frontend'), 'Front-End Developer')
 })
 
+await check('Top-10 ranking explanation includes score signals and gaps', async () => {
+  const { explainCandidateRanking, defaultCriteriaForProfile } = await import('../src/utils/atsScoring.ts')
+  const criteria = defaultCriteriaForProfile('frontend')
+  const peers = [
+    {
+      id: '1',
+      requisitionId: 'j',
+      name: 'Ada',
+      stage: 'screen' as const,
+      score: 92,
+      recommendation: 'strong' as const,
+      scoreBreakdown: { react: 20, typescript: 12, github_url: 8 },
+      updatedAt: new Date().toISOString(),
+    },
+    {
+      id: '2',
+      requisitionId: 'j',
+      name: 'Sam',
+      stage: 'screen' as const,
+      score: 80,
+      recommendation: 'viable' as const,
+      scoreBreakdown: { react: 20, portfolio: 10 },
+      updatedAt: new Date().toISOString(),
+    },
+  ]
+  const reason = explainCandidateRanking(peers[0]!, 1, peers, criteria)
+  assert.match(reason, /#1/)
+  assert.match(reason, /92/)
+  assert.match(reason, /React/)
+  assert.match(reason, /above #2/)
+})
+
 await check('Editable criteria change ranking outcome', () => {
   const raw = `Subject: APPLICATION
 From: Dev <dev@x.com>

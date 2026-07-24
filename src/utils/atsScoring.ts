@@ -526,6 +526,57 @@ export function isViableCandidate(c: Pick<JobCandidate, 'recommendation' | 'scor
   return (c.score ?? 0) >= 55
 }
 
+/** Human-readable explanation for why someone sits at a Top-N rank. */
+export function explainCandidateRanking(
+  candidate: JobCandidate,
+  rank: number,
+  rankedPeers: JobCandidate[],
+  criteria: AtsCriteriaProfile,
+): string {
+  const parts: string[] = []
+  const score = candidate.score ?? 0
+  parts.push(`#${rank} with ${score}/100 (${candidate.recommendation ?? 'unscored'}).`)
+
+  if (rank === 1) {
+    parts.push('Highest overall match against this role’s ranking criteria.')
+  }
+
+  const signals = Object.entries(candidate.scoreBreakdown ?? {})
+    .filter(([key, pts]) => key !== 'red_flags' && pts > 0)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 4)
+    .map(([id, pts]) => {
+      const label = criteria.criteria.find((c) => c.id === id)?.label ?? id
+      return `${label} (+${pts})`
+    })
+
+  if (signals.length) {
+    parts.push(`Why here: ${signals.join(', ')}.`)
+  } else if (candidate.resumeSummary) {
+    parts.push(candidate.resumeSummary)
+  }
+
+  const next = rankedPeers[rank] // 0-based list; rank is 1-based → next competitor
+  if (next && next.score != null) {
+    const gap = score - next.score
+    if (gap > 0) {
+      parts.push(`${gap} point${gap === 1 ? '' : 's'} above #${rank + 1} (${next.name}).`)
+    } else if (gap === 0) {
+      parts.push(`Tied with #${rank + 1} (${next.name}) on score.`)
+    }
+  }
+
+  const prev = rank > 1 ? rankedPeers[rank - 2] : undefined
+  if (prev && prev.score != null && rank > 1) {
+    const gap = prev.score - score
+    if (gap > 0) {
+      parts.push(`${gap} point${gap === 1 ? '' : 's'} behind #${rank - 1} (${prev.name}).`)
+    }
+  }
+
+  return parts.join(' ')
+}
+
 export function detectSourceFromEmail(from: string, subject: string): AtsSource {
   const hay = `${from} ${subject}`.toLowerCase()
   if (hay.includes('indeed')) return 'indeed'
