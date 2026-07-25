@@ -29,6 +29,8 @@ export interface GmailApplicationMessage {
   date?: string
   snippet: string
   bodyText: string
+  /** Original HTML body when the email included one (for Gmail-like preview). */
+  bodyHtml?: string
   attachmentNames?: string[]
   /** Filenames whose text was successfully extracted into bodyText. */
   resumeFilesScanned?: string[]
@@ -144,10 +146,10 @@ function describeOAuthError(error?: string): string {
   if (code.includes('popup_closed') || code.includes('access_denied') || code.includes('cancelled')) {
     return 'Google sign-in was cancelled. Try again and allow Gmail access for afrivatehr@gmail.com.'
   }
-  if (code.includes('redirect_uri') || code.includes('redirect uri')) {
+  if (code.includes('redirect_uri') || code.includes('redirect uri') || code.includes('redirect_uri_mismatch')) {
     const uri =
-      typeof window !== 'undefined' ? `${window.location.origin}/oauth/gmail-callback` : '/oauth/gmail-callback'
-    return `Add this Redirect URI in Google Cloud Console → Credentials → your OAuth client: ${uri}`
+      typeof window !== 'undefined' ? gmailOAuthRedirectUri() : 'https://portal.afrivate.org/oauth/gmail-callback'
+    return `Google rejected the redirect URI. In Google Cloud → Credentials → your OAuth client → Authorized redirect URIs, add exactly: ${uri}`
   }
   if (
     code.includes('idpiframe_initialization_failed') ||
@@ -169,6 +171,9 @@ function describeOAuthError(error?: string): string {
 export const GMAIL_OAUTH_MESSAGE_TYPE = 'afrivate-gmail-oauth'
 
 export function gmailOAuthRedirectUri(): string {
+  const fromEnv = import.meta.env?.VITE_GOOGLE_OAUTH_REDIRECT_URI?.trim()
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  // Must match Authorized redirect URIs in Google Cloud exactly (no trailing slash).
   return `${window.location.origin}/oauth/gmail-callback`
 }
 
@@ -406,7 +411,7 @@ export function collectResumeAttachmentRefs(
 export function extractTextFromPayload(payload?: GmailApiPart): string {
   if (!payload) return ''
   const plain: string[] = []
-  const html: string[] = []
+  const htmlAsText: string[] = []
 
   const walk = (part?: GmailApiPart) => {
     if (!part) return
@@ -419,7 +424,7 @@ export function extractTextFromPayload(payload?: GmailApiPart): string {
     if (part.body?.data) {
       const decoded = decodeBodyData(part.body.data)
       if (mime.includes('text/plain')) plain.push(decoded)
-      else if (mime.includes('html')) html.push(stripHtml(decoded))
+      else if (mime.includes('html')) htmlAsText.push(stripHtml(decoded))
       else if (!mime.includes('image/') && !mime.includes('application/pdf') && !mime.includes('officedocument')) {
         plain.push(decoded)
       }
@@ -427,7 +432,30 @@ export function extractTextFromPayload(payload?: GmailApiPart): string {
     part.parts?.forEach(walk)
   }
   walk(payload)
-  return [...plain, ...html].join('\n\n').trim()
+  return [...plain, ...htmlAsText].join('\n\n').trim()
+}
+
+/** Prefer the richest HTML part for Gmail-like preview (does not strip markup). */
+export function extractHtmlFromPayload(payload?: GmailApiPart): string | undefined {
+  if (!payload) return undefined
+  const htmlParts: string[] = []
+
+  const walk = (part?: GmailApiPart) => {
+    if (!part) return
+    const mime = (part.mimeType || '').toLowerCase()
+    if (part.filename?.trim()) {
+      part.parts?.forEach(walk)
+      return
+    }
+    if (part.body?.data && mime.includes('html')) {
+      htmlParts.push(decodeBodyData(part.body.data))
+    }
+    part.parts?.forEach(walk)
+  }
+  walk(payload)
+  if (!htmlParts.length) return undefined
+  // Prefer the longest HTML part (usually the full message vs a tiny wrapper)
+  return htmlParts.sort((a, b) => b.length - a.length)[0]
 }
 
 function headerValue(
@@ -450,6 +478,7 @@ export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMess
   const date = headerValue(headers, 'Date')
   const attachmentNames = collectAttachmentNames(msg.payload)
   const body = extractTextFromPayload(msg.payload) || msg.snippet || ''
+  const bodyHtml = extractHtmlFromPayload(msg.payload)
   const attachmentLine =
     attachmentNames.length > 0 ? `\nAttachments: ${attachmentNames.join(', ')}` : ''
   const bodyText = [`Subject: ${subject}`, `From: ${from}`, '', body, attachmentLine]
@@ -465,6 +494,7 @@ export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMess
     date: date || undefined,
     snippet: msg.snippet ?? '',
     bodyText,
+    bodyHtml,
     attachmentNames,
   }
 }

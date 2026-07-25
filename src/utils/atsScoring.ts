@@ -52,6 +52,13 @@ export interface AtsScreenResult {
   matched: string[]
   missing: string[]
   summary: string
+  summaryRich?: AtsRichSummary
+}
+
+export type AtsRichSummary = {
+  headline?: string
+  paragraphs?: string[]
+  sections?: Array<{ title: string; bullets: string[] }>
 }
 
 const EMAIL_RE = /[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}/i
@@ -522,7 +529,8 @@ export function screenApplicationText(
   roleProfile: AtsRoleProfile = 'frontend',
   criteria?: AtsCriteriaProfile,
 ): AtsScreenResult {
-  const raw = rawInput.trim()
+  // Ignore embedded HTML email payload when scoring
+  const raw = rawInput.split('<<<AFRIVATE_EMAIL_HTML>>>')[0]?.trim() ?? ''
   const text = ` ${raw.toLowerCase()} `
   const fromParsed = parseFromAddress(raw.match(FROM_HEADER_RE)?.[1] ?? '')
   const email = fromParsed.email || raw.match(EMAIL_RE)?.[0]
@@ -588,6 +596,12 @@ export function screenApplicationText(
     matched: scored.matched,
     missing: scored.missing,
     summary: summaryParts.filter(Boolean).join(' '),
+    summaryRich: buildCandidateSummaryRich({
+      identityBits: identityBits as string[],
+      recommendation: scored.recommendation,
+      matched: scored.matched,
+      missing: scored.missing,
+    }),
   }
 }
 
@@ -626,6 +640,38 @@ export function isViableCandidate(c: Pick<JobCandidate, 'recommendation' | 'scor
   return (c.score ?? 0) >= 55
 }
 
+export function buildCandidateSummaryRich(input: {
+  identityBits: string[]
+  recommendation: AtsRecommendation
+  matched: string[]
+  missing: string[]
+}): AtsRichSummary {
+  const fitLine =
+    input.recommendation === 'strong'
+      ? 'Strong fit for this role.'
+      : input.recommendation === 'viable'
+        ? 'Worth reviewing for this role.'
+        : input.recommendation === 'weak'
+          ? 'Weaker fit — only shortlist if you need more options.'
+          : 'Not a good match based on your required checks.'
+
+  const sections: NonNullable<AtsRichSummary['sections']> = []
+  if (input.matched.length) {
+    sections.push({ title: 'Looks good on', bullets: input.matched })
+  }
+  if (input.missing.length) {
+    sections.push({ title: 'Still needs', bullets: input.missing })
+  } else {
+    sections.push({ title: 'Gaps', bullets: ['No major required items missing.'] })
+  }
+
+  return {
+    headline: input.identityBits.length ? input.identityBits.join(' · ') : undefined,
+    paragraphs: [fitLine],
+    sections,
+  }
+}
+
 /** Human-readable explanation for why someone sits at a Top-N rank. */
 export function explainCandidateRanking(
   candidate: JobCandidate,
@@ -633,7 +679,20 @@ export function explainCandidateRanking(
   rankedPeers: JobCandidate[],
   criteria: AtsCriteriaProfile,
 ): string {
-  const parts: string[] = []
+  const rich = explainCandidateRankingRich(candidate, rank, rankedPeers, criteria)
+  return [
+    ...(rich.paragraphs ?? []),
+    ...(rich.sections ?? []).flatMap((s) => s.bullets),
+  ].join(' ')
+}
+
+/** Structured ranking explanation for rich UI. */
+export function explainCandidateRankingRich(
+  candidate: JobCandidate,
+  rank: number,
+  rankedPeers: JobCandidate[],
+  criteria: AtsCriteriaProfile,
+): AtsRichSummary {
   const score = candidate.score ?? 0
   const fit =
     candidate.recommendation === 'strong'
@@ -646,44 +705,42 @@ export function explainCandidateRanking(
             ? 'poor fit'
             : 'not yet rated'
 
-  parts.push(`Ranked #${rank} with a score of ${score} out of 100 (${fit}).`)
-
+  const paragraphs: string[] = [
+    `Ranked #${rank} with a score of ${score} out of 100 (${fit}).`,
+  ]
   if (rank === 1) {
-    parts.push('Best overall match for this role based on your scoring rules.')
+    paragraphs.push('Best overall match for this role based on your scoring rules.')
   }
 
   const signals = Object.entries(candidate.scoreBreakdown ?? {})
     .filter(([key, pts]) => key !== 'red_flags' && pts > 0)
     .sort((a, b) => b[1] - a[1])
-    .slice(0, 4)
+    .slice(0, 6)
     .map(([id, pts]) => {
       const label = criteria.criteria.find((c) => c.id === id)?.label ?? id
       return `${label} (+${pts})`
     })
 
-  if (signals.length) {
-    parts.push(`Stood out for: ${signals.join(', ')}.`)
-  }
-
+  const bullets: string[] = []
   const next = rankedPeers[rank]
   if (next && next.score != null) {
     const gap = score - next.score
-    if (gap > 0) {
-      parts.push(`${gap} point${gap === 1 ? '' : 's'} ahead of ${next.name} (#${rank + 1}).`)
-    } else if (gap === 0) {
-      parts.push(`Same score as ${next.name} (#${rank + 1}).`)
-    }
+    if (gap > 0) bullets.push(`${gap} point${gap === 1 ? '' : 's'} ahead of ${next.name} (#${rank + 1})`)
+    else if (gap === 0) bullets.push(`Same score as ${next.name} (#${rank + 1})`)
   }
-
   const prev = rank > 1 ? rankedPeers[rank - 2] : undefined
   if (prev && prev.score != null && rank > 1) {
     const gap = prev.score - score
-    if (gap > 0) {
-      parts.push(`${gap} point${gap === 1 ? '' : 's'} behind ${prev.name} (#${rank - 1}).`)
-    }
+    if (gap > 0) bullets.push(`${gap} point${gap === 1 ? '' : 's'} behind ${prev.name} (#${rank - 1})`)
   }
 
-  return parts.join(' ')
+  return {
+    paragraphs,
+    sections: [
+      signals.length ? { title: 'Stood out for', bullets: signals } : null,
+      bullets.length ? { title: 'Compared with nearby ranks', bullets } : null,
+    ].filter(Boolean) as NonNullable<AtsRichSummary['sections']>,
+  }
 }
 
 export function detectSourceFromEmail(from: string, subject: string): AtsSource {
