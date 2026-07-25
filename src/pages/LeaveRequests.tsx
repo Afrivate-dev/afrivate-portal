@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -14,6 +14,8 @@ import {
   XCircle,
   Clock,
   Trash2,
+  Upload,
+  Loader2,
 } from 'lucide-react'
 import {
   addMonths,
@@ -42,6 +44,7 @@ import { Modal } from '@/components/ui/Modal'
 import { Avatar } from '@/components/ui/Avatar'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
+import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
 import { cn, fmtDate, firstName, isHR, isLead, relativeTime } from '@/utils/helpers'
 import { managesPeople } from '@/lib/orgStructure'
 import { managedReportIds } from '@/utils/hrMetrics'
@@ -104,6 +107,8 @@ interface RequestDraft {
   endDate: string
   reason: string
   supportingDocName: string
+  /** Set immediately on attach (same pattern as memos / profile photo). */
+  supportingDocPath: string
 }
 
 const emptyDraft: RequestDraft = {
@@ -112,6 +117,45 @@ const emptyDraft: RequestDraft = {
   endDate: '',
   reason: '',
   supportingDocName: '',
+  supportingDocPath: '',
+}
+
+const LEAVE_DRAFT_KEY = 'av-leave-request-draft'
+
+type PersistedLeaveDraft = {
+  open: boolean
+  draft: RequestDraft
+}
+
+function readPersistedLeaveDraft(): PersistedLeaveDraft | null {
+  try {
+    const raw = sessionStorage.getItem(LEAVE_DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PersistedLeaveDraft
+    if (!parsed?.draft || typeof parsed.open !== 'boolean') return null
+    return {
+      open: parsed.open,
+      draft: { ...emptyDraft, ...parsed.draft },
+    }
+  } catch {
+    return null
+  }
+}
+
+function writePersistedLeaveDraft(open: boolean, draft: RequestDraft) {
+  try {
+    sessionStorage.setItem(LEAVE_DRAFT_KEY, JSON.stringify({ open, draft }))
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+function clearPersistedLeaveDraft() {
+  try {
+    sessionStorage.removeItem(LEAVE_DRAFT_KEY)
+  } catch {
+    /* ignore */
+  }
 }
 
 function dayCount(startISO: string, endISO: string) {
@@ -126,10 +170,13 @@ export function LeaveRequestsPage() {
   const canManage = isLead(user) || managesPeople(user, teams, departments)
   const canDeleteLeave = isHR(user)
   const [tab, setTab] = useState<Tab>('my')
-  const [formOpen, setFormOpen] = useState(false)
+  const persisted = useMemo(() => readPersistedLeaveDraft(), [])
+  const [formOpen, setFormOpen] = useState(() => persisted?.open ?? false)
   const [submitting, setSubmitting] = useState(false)
-  const [draft, setDraft] = useState<RequestDraft>(emptyDraft)
-  const [supportingFile, setSupportingFile] = useState<File | null>(null)
+  const [uploadingDoc, setUploadingDoc] = useState(false)
+  const [draft, setDraft] = useState<RequestDraft>(() =>
+    persisted?.draft ? { ...emptyDraft, ...persisted.draft } : { ...emptyDraft },
+  )
   const [reviewing, setReviewing] = useState<{ request: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
   const [reviewNote, setReviewNote] = useState('')
   const [approvedDays, setApprovedDays] = useState('')
@@ -192,10 +239,15 @@ export function LeaveRequestsPage() {
     [manageRequests],
   )
 
+  useEffect(() => {
+    writePersistedLeaveDraft(formOpen, draft)
+  }, [formOpen, draft])
+
   const resetForm = useCallback(() => {
     setDraft({ ...emptyDraft })
-    setSupportingFile(null)
     setSubmitting(false)
+    setUploadingDoc(false)
+    clearPersistedLeaveDraft()
   }, [])
 
   const openForm = useCallback(() => {
@@ -213,9 +265,40 @@ export function LeaveRequestsPage() {
     resetForm()
   }, [resetForm])
 
+  /** Same pattern as memo / profile photo: upload as soon as the file is chosen. */
+  const attachSupportingDoc = useCallback(
+    async (file: File) => {
+      if (!user) return
+      if (!isSupabaseAuthEnabled() || !supabase) {
+        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
+        return
+      }
+      setUploadingDoc(true)
+      try {
+        const uploaded = await uploadPortalFile(supabase, 'leave', file, user.id)
+        if ('error' in uploaded) {
+          notifyError(uploaded.error)
+          return
+        }
+        setDraft((d) => ({
+          ...d,
+          supportingDocName: file.name,
+          supportingDocPath: uploaded.path,
+        }))
+      } finally {
+        setUploadingDoc(false)
+      }
+    },
+    [user],
+  )
+
+  const clearSupportingDoc = useCallback(() => {
+    setDraft((d) => ({ ...d, supportingDocName: '', supportingDocPath: '' }))
+  }, [])
+
   const submitForm = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault()
-    if (!user || submitting) return
+    if (!user || submitting || uploadingDoc) return
     if (!draft.startDate || !draft.endDate || !draft.reason.trim()) return
     if (draft.endDate < draft.startDate) return
     const requestedDays = dayCount(draft.startDate, draft.endDate)
@@ -231,31 +314,14 @@ export function LeaveRequestsPage() {
     })
     if (!ok) return
     setSubmitting(true)
-    let supportingDocPath: string | undefined
-    let supportingDocName = draft.supportingDocName.trim() || undefined
-    if (supportingFile) {
-      if (!isSupabaseAuthEnabled() || !supabase) {
-        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
-        setSubmitting(false)
-        return
-      }
-      const uploaded = await uploadPortalFile(supabase, 'leave', supportingFile, user.id)
-      if ('error' in uploaded) {
-        notifyError(uploaded.error)
-        setSubmitting(false)
-        return
-      }
-      supportingDocPath = uploaded.path
-      supportingDocName = supportingFile.name
-    }
     submitLeave({
       userId: user.id,
       type: draft.type,
       startDate: draft.startDate,
       endDate: draft.endDate,
       reason: draft.reason.trim(),
-      supportingDocName,
-      supportingDocPath,
+      supportingDocName: draft.supportingDocName.trim() || undefined,
+      supportingDocPath: draft.supportingDocPath || undefined,
     })
     setFormOpen(false)
     resetForm()
@@ -510,7 +576,12 @@ export function LeaveRequestsPage() {
             <Button variant="ghost" type="button" onClick={cancelForm}>
               Cancel
             </Button>
-            <Button type="button" onClick={() => void submitForm()} loading={submitting} disabled={submitting}>
+            <Button
+              type="button"
+              onClick={() => void submitForm()}
+              loading={submitting}
+              disabled={submitting || uploadingDoc}
+            >
               Submit request
             </Button>
           </>
@@ -573,43 +644,57 @@ export function LeaveRequestsPage() {
                 : 'Brief context for HR / your team lead'
             }
           />
-          <div>
-            <label className="mb-1 block text-sm font-medium text-fg">
-              Supporting document (optional)
-            </label>
-            <input
-              type="file"
-              accept="image/*,.pdf,.doc,.docx"
-              className="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
-              onPointerDown={(e) => e.stopPropagation()}
-              onClick={(e) => e.stopPropagation()}
-              onChange={(e) => {
-                const file = e.target.files?.[0] ?? null
-                setSupportingFile(file)
-                if (file) setDraft((d) => ({ ...d, supportingDocName: file.name }))
-              }}
-            />
-            {supportingFile ? (
-              <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/40 px-3 py-2 text-xs text-fg">
-                <span className="min-w-0 truncate">{supportingFile.name}</span>
+          <div className="space-y-3 rounded-md border border-border bg-surface-2/20 p-3">
+            <p className="text-sm font-medium text-fg">Supporting document (optional)</p>
+            <p className="text-xs text-muted">
+              Upload a photo or PDF now — same as memos and profile photos. The file is saved as soon as
+              you pick it.
+            </p>
+            <div className="flex flex-wrap items-center gap-2">
+              <label className="inline-flex cursor-pointer">
+                <input
+                  type="file"
+                  accept="image/*,.pdf,.doc,.docx"
+                  className="sr-only"
+                  disabled={uploadingDoc || submitting}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0]
+                    e.target.value = ''
+                    if (file) void attachSupportingDoc(file)
+                  }}
+                />
+                <span className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg transition-colors hover:bg-surface-2">
+                  {uploadingDoc ? (
+                    <Loader2 className="h-4 w-4 animate-spin" aria-hidden />
+                  ) : (
+                    <Upload className="h-4 w-4" aria-hidden />
+                  )}
+                  {uploadingDoc ? 'Uploading…' : 'Upload file'}
+                </span>
+              </label>
+              <GoogleDrivePickerButton
+                onPicked={(file) => void attachSupportingDoc(file)}
+                disabled={uploadingDoc || submitting}
+              />
+            </div>
+            {draft.supportingDocPath ? (
+              <div className="flex items-center justify-between gap-2 rounded-md border border-border bg-surface px-2 py-1.5 text-sm">
+                <span className="min-w-0 truncate text-fg">{draft.supportingDocName || 'Attached file'}</span>
                 <button
                   type="button"
-                  className="shrink-0 text-muted hover:text-fg"
-                  onClick={() => {
-                    setSupportingFile(null)
-                    setDraft((d) => ({ ...d, supportingDocName: '' }))
-                  }}
+                  className="shrink-0 rounded p-1 text-muted hover:bg-danger/10 hover:text-danger ring-focus"
+                  aria-label="Remove attachment"
+                  onClick={clearSupportingDoc}
                 >
-                  Remove
+                  <Trash2 className="h-4 w-4" />
                 </button>
               </div>
             ) : (
               <Input
-                className="mt-2"
                 value={draft.supportingDocName}
                 onChange={(e) => setDraft((d) => ({ ...d, supportingDocName: e.target.value }))}
-                placeholder="e.g. medical-cert.pdf"
-                hint="Or attach a file above when storage is configured."
+                placeholder="Or type a document name (e.g. medical-cert.pdf)"
+                hint="Optional if you are not uploading a file."
               />
             )}
           </div>

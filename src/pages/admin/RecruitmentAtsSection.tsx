@@ -16,6 +16,7 @@ import {
   Upload,
   UserCheck,
 } from 'lucide-react'
+import { AtsRichText, parseLegacySummaryToRich } from '@/components/shared/AtsRichText'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -25,12 +26,14 @@ import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { useHr } from '@/context/HrContext'
+import { buildEmailPreviewDocument, joinApplicationNotes, splitApplicationNotes } from '@/lib/atsEmailHtml'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   candidateGmailUrl,
   encodeGmailExternalId,
   fetchGmailApplications,
   GMAIL_ATS_LOOKBACK_DAYS,
+  gmailOAuthRedirectUri,
   HR_MAILBOX,
   isGmailAtsConfigured,
   preloadGmailAts,
@@ -44,7 +47,7 @@ import {
   detectAtsRoleFromApplication,
   detectAtsRoleProfile,
   detectSourceFromEmail,
-  explainCandidateRanking,
+  explainCandidateRankingRich,
   isPlausiblePersonName,
   isViableCandidate,
   labelForAtsRoleProfile,
@@ -282,6 +285,7 @@ export function RecruitmentAtsSection() {
   const importScreened = async (
     items: Array<{
       text: string
+      html?: string
       source: AtsSource
       externalId?: string
       appliedAt?: string
@@ -356,7 +360,7 @@ export function RecruitmentAtsSection() {
         recommendation: result.recommendation,
         scoreBreakdown: result.breakdown as Record<string, number>,
         resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${result.summary}`,
-        notes: item.text.slice(0, 80000),
+        notes: joinApplicationNotes(item.text.slice(0, 80000), item.html?.slice(0, 200000)),
         externalId: item.externalId,
         gmailThreadId: item.gmailThreadId,
         gmailMessageId: item.gmailMessageId,
@@ -441,6 +445,7 @@ export function RecruitmentAtsSection() {
               : ''
             return {
               text: `${m.bodyText}${resumeNote}`,
+              html: m.bodyHtml,
               source: detectSourceFromEmail(m.from, m.subject),
               externalId: encodeGmailExternalId(m.threadId, m.id),
               gmailThreadId: m.threadId,
@@ -525,14 +530,25 @@ export function RecruitmentAtsSection() {
             Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
           </p>
           <p className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
-            For Sync to work, Google Cloud → your OAuth client needs both:
+            Google Cloud → Credentials → your OAuth client must include:
             <br />
-            1) Authorized JavaScript origins: your live site URL (and localhost if testing)
+            <span className="font-medium text-fg">Authorized JavaScript origins:</span> https://portal.afrivate.org
             <br />
-            2) Authorized redirect URIs:{' '}
-            <code className="text-fg">{typeof window !== 'undefined' ? `${window.location.origin}/oauth/gmail-callback` : '/oauth/gmail-callback'}</code>
+            <span className="font-medium text-fg">Authorized redirect URIs</span> (exact match, copy this):
             <br />
-            Allow pop-ups for this site, then sign in as {HR_MAILBOX}.
+            <button
+              type="button"
+              className="mt-1 break-all rounded border border-border bg-surface px-2 py-1 font-mono text-[11px] text-fg hover:border-accent"
+              onClick={() => {
+                const uri = gmailOAuthRedirectUri()
+                void navigator.clipboard?.writeText(uri)
+                notifySuccess('Redirect URI copied. Paste it under Authorized redirect URIs (not JavaScript origins).')
+              }}
+            >
+              {typeof window !== 'undefined' ? gmailOAuthRedirectUri() : 'https://portal.afrivate.org/oauth/gmail-callback'}
+            </button>
+            <br />
+            Allow pop-ups, then Sync and sign in as {HR_MAILBOX}.
           </p>
         </div>
         <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
@@ -682,7 +698,7 @@ export function RecruitmentAtsSection() {
           <ol className="space-y-2">
             {topTen.map((c, i) => {
               const rank = i + 1
-              const reason = explainCandidateRanking(c, rank, topTen, criteria)
+              const reason = explainCandidateRankingRich(c, rank, topTen, criteria)
               const mailUrl = candidateGmailUrl(c)
               return (
                 <li key={c.id}>
@@ -707,7 +723,7 @@ export function RecruitmentAtsSection() {
                         {[c.email, c.phone, c.location].filter(Boolean).join(' · ') ||
                           'Contact details will appear here after sync'}
                       </p>
-                      <p className="mt-1 text-xs leading-relaxed text-fg/90">{reason}</p>
+                      <AtsRichText block={reason} className="mt-2 space-y-1.5 text-xs leading-relaxed text-fg/90" />
                     </div>
                     <div className="flex flex-wrap items-center gap-2">
                       <Badge tone={recommendationTone(c.recommendation)}>
@@ -1018,7 +1034,10 @@ function CandidateRow({
             ) : null}
           </div>
           {candidate.resumeSummary ? (
-            <p className="mt-2 text-sm text-fg">{candidate.resumeSummary}</p>
+            <AtsRichText
+              block={parseLegacySummaryToRich(candidate.resumeSummary) ?? { paragraphs: [candidate.resumeSummary] }}
+              className="mt-2 space-y-1.5 text-sm text-fg"
+            />
           ) : null}
           {breakdownEntries.length > 0 ? (
             <div className="mt-2 flex flex-wrap gap-1.5">
@@ -1082,12 +1101,16 @@ function CandidateDetailModal({
 
   const mailUrl = candidateGmailUrl(candidate)
   const reason =
-    rank > 0 ? explainCandidateRanking(candidate, rank, peers.slice(0, 10), criteria) : undefined
+    rank > 0 ? explainCandidateRankingRich(candidate, rank, peers.slice(0, 10), criteria) : undefined
   const breakdownEntries = Object.entries(candidate.scoreBreakdown ?? {}).filter(
     ([key, pts]) => key !== 'red_flags' && pts > 0,
   )
   const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
-  const applicationText = (candidate.notes ?? '').trim()
+  const { text: applicationText, html: applicationHtml } = splitApplicationNotes(candidate.notes)
+  const emailDoc = applicationHtml ? buildEmailPreviewDocument(applicationHtml) : null
+  const summaryBlock =
+    parseLegacySummaryToRich(candidate.resumeSummary) ??
+    (candidate.resumeSummary ? { paragraphs: [candidate.resumeSummary] } : null)
 
   return (
     <Modal
@@ -1143,14 +1166,14 @@ function CandidateDetailModal({
         {reason ? (
           <div>
             <p className="text-xs font-medium text-muted">Why this ranking</p>
-            <p className="mt-1 text-sm leading-relaxed text-fg">{reason}</p>
+            <AtsRichText block={reason} className="mt-1 space-y-2 text-sm leading-relaxed text-fg" />
           </div>
         ) : null}
 
-        {candidate.resumeSummary ? (
+        {summaryBlock ? (
           <div>
             <p className="text-xs font-medium text-muted">Summary</p>
-            <p className="mt-1 text-sm leading-relaxed text-fg">{candidate.resumeSummary}</p>
+            <AtsRichText block={summaryBlock} className="mt-1 space-y-2 text-sm leading-relaxed text-fg" />
           </div>
         ) : null}
 
@@ -1206,11 +1229,31 @@ function CandidateDetailModal({
           </select>
         </div>
 
-        {applicationText ? (
+        {emailDoc ? (
+          <div>
+            <p className="text-xs font-medium text-muted">Full application</p>
+            <p className="mt-0.5 text-[11px] text-muted">Shown as it appeared in the email.</p>
+            <iframe
+              title={`Application from ${candidate.name}`}
+              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
+              referrerPolicy="no-referrer"
+              className="mt-2 h-[min(70vh,36rem)] w-full rounded-md border border-border bg-white"
+              srcDoc={emailDoc}
+            />
+            {/---\s*Resume:/i.test(applicationText) ? (
+              <details className="mt-3">
+                <summary className="cursor-pointer text-xs font-medium text-muted">Scanned CV text</summary>
+                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+                  {applicationText.split(/---\s*Resume:/i).slice(1).join('--- Resume:').trim() || applicationText}
+                </pre>
+              </details>
+            ) : null}
+          </div>
+        ) : applicationText ? (
           <div>
             <p className="text-xs font-medium text-muted">Full application</p>
             <p className="mt-0.5 text-[11px] text-muted">
-              Cover letter, email body, and any scanned CV text saved from Sync.
+              Plain-text copy (re-sync to load the original email layout when available).
             </p>
             <pre className="mt-2 max-h-[min(70vh,36rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
               {applicationText}
