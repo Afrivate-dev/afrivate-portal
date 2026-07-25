@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState } from 'react'
 import { Download, FileText, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { getPortalFileBlobUrl, getPortalFileSignedUrl } from '@/lib/supabase/fileStorage'
+import { resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
 import type { CandidateAttachment } from '@/types/hr'
 import { detectDocumentPreviewKind } from '@/utils/documentPreview'
 
@@ -24,10 +24,12 @@ export function AtsAttachmentPreview({
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
   const docxHost = useRef<HTMLDivElement>(null)
+  const revokeRef = useRef<(() => void) | undefined>(undefined)
 
   useEffect(() => {
-    let revoked: string | null = null
     let cancelled = false
+    revokeRef.current?.()
+    revokeRef.current = undefined
 
     void (async () => {
       setLoading(true)
@@ -38,26 +40,30 @@ export function AtsAttachmentPreview({
         setLoading(false)
         return
       }
-      const signed = await getPortalFileSignedUrl(supabase, attachment.storagePath)
-      const blobUrl = signed ? null : await getPortalFileBlobUrl(supabase, attachment.storagePath)
-      const resolved = signed || blobUrl
-      if (cancelled) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl)
-        return
-      }
-      if (!resolved) {
-        setError('Could not load this file.')
+      if (!attachment.storagePath) {
+        setError('This file was not saved. Sync Gmail again to upload it.')
         setLoading(false)
         return
       }
-      if (blobUrl) revoked = blobUrl
-      setUrl(resolved)
+      const resolved = await resolvePortalFilePreviewUrl(supabase, attachment.storagePath)
+      if (cancelled) {
+        resolved?.revoke?.()
+        return
+      }
+      if (!resolved) {
+        setError('Could not load this file. Sync again or check storage permissions.')
+        setLoading(false)
+        return
+      }
+      revokeRef.current = resolved.revoke
+      setUrl(resolved.url)
       setLoading(false)
     })()
 
     return () => {
       cancelled = true
-      if (revoked) URL.revokeObjectURL(revoked)
+      revokeRef.current?.()
+      revokeRef.current = undefined
     }
   }, [attachment.storagePath])
 
@@ -98,7 +104,7 @@ export function AtsAttachmentPreview({
           <Loader2 className="h-4 w-4 animate-spin" /> Loading file…
         </div>
       ) : error ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-2 text-sm text-muted">
+        <div className="flex h-64 flex-col items-center justify-center gap-2 px-3 text-center text-sm text-muted">
           <FileText className="h-8 w-8" />
           {error}
         </div>

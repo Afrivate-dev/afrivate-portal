@@ -192,7 +192,13 @@ export function RecruitmentAtsSection() {
   }
 
   const roleCounts = useMemo(() => {
-    const counts: Record<RoleTab, number> = { frontend: 0, backend: 0, designer: 0, general: 0 }
+    const counts: Record<RoleTab, number> = {
+      frontend: 0,
+      backend: 0,
+      fullstack: 0,
+      designer: 0,
+      general: 0,
+    }
     const jobs = jobRequisitions.filter((j) => j.status === 'open')
     const jobFor = (profile: RoleTab) => {
       if (profile === 'general') {
@@ -207,7 +213,7 @@ export function RecruitmentAtsSection() {
         jobs.find((j) => j.title === standard?.title)
       )
     }
-    for (const role of ['frontend', 'backend', 'designer', 'general'] as const) {
+    for (const role of ['frontend', 'backend', 'fullstack', 'designer', 'general'] as const) {
       const job = jobFor(role)
       if (!job) continue
       counts[role] = jobCandidates.filter((c) => c.requisitionId === job.id).length
@@ -335,16 +341,49 @@ export function RecruitmentAtsSection() {
       const criteriaCache: Partial<Record<Exclude<AtsRoleProfile, 'general'>, AtsCriteriaProfile>> = {
         frontend: selectedRole === 'frontend' ? criteria : undefined,
         backend: selectedRole === 'backend' ? criteria : undefined,
+        fullstack: selectedRole === 'fullstack' ? criteria : undefined,
         designer: selectedRole === 'designer' ? criteria : undefined,
       }
 
-      for (const profile of ['frontend', 'backend', 'designer'] as const) {
+      for (const profile of ['frontend', 'backend', 'fullstack', 'designer'] as const) {
         if (!criteriaCache[profile]) {
           criteriaCache[profile] = await loadAtsCriteria(profile)
         }
       }
 
       const existingAll = [...jobCandidates]
+      let refreshedAttachments = 0
+
+      const uploadItemAttachments = async (
+        item: (typeof items)[number],
+      ): Promise<CandidateAttachment[]> => {
+        const stored: CandidateAttachment[] = []
+        if (!supabase || !user?.id || !item.attachmentFiles?.length) return stored
+        const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
+        for (const file of item.attachmentFiles) {
+          const uploaded = await uploadAtsAttachmentBytes(
+            supabase,
+            user.id,
+            key,
+            file.filename,
+            file.bytes,
+            file.mimeType,
+          )
+          if ('error' in uploaded) {
+            console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
+            continue
+          }
+          stored.push({
+            id: `att_${uid()}`,
+            filename: file.filename,
+            mimeType: file.mimeType,
+            storagePath: uploaded.path,
+            kind: file.kind,
+            size: uploaded.size,
+          })
+        }
+        return stored
+      }
 
       for (const item of items) {
         const detected = item.forceProfile ?? detectAtsRoleFromApplication(item.text)
@@ -356,7 +395,7 @@ export function RecruitmentAtsSection() {
 
         const result = screenApplicationText(item.text, scoringProfile, roleCriteria)
         const emailKey = result.email?.toLowerCase()
-        const duplicate = existingAll.some(
+        const existing = existingAll.find(
           (c) =>
             (item.externalId && c.externalId === item.externalId) ||
             (emailKey && c.email?.toLowerCase() === emailKey && c.requisitionId === jobId) ||
@@ -365,37 +404,33 @@ export function RecruitmentAtsSection() {
               c.requisitionId === jobId &&
               c.name.toLowerCase() === result.name.toLowerCase()),
         )
-        if (duplicate) {
+        if (existing) {
+          // Re-sync: backfill missing CV files instead of skipping forever
+          const needsFiles =
+            (item.attachmentFiles?.length ?? 0) > 0 &&
+            (!(existing.attachments?.length) ||
+              existing.attachments.some((a) => !a.storagePath))
+          if (needsFiles && existing.id && !existing.id.startsWith('temp_')) {
+            const storedAttachments = await uploadItemAttachments(item)
+            if (storedAttachments.length) {
+              updateJobCandidate(existing.id, {
+                attachments: storedAttachments,
+                notes: joinApplicationNotes(
+                  item.text.slice(0, 80000),
+                  item.html?.slice(0, 200000),
+                ),
+                gmailThreadId: item.gmailThreadId ?? existing.gmailThreadId,
+                gmailMessageId: item.gmailMessageId ?? existing.gmailMessageId,
+              })
+              existing.attachments = storedAttachments
+              refreshedAttachments += 1
+            }
+          }
           skipped += 1
           continue
         }
 
-        const storedAttachments: CandidateAttachment[] = []
-        if (supabase && user?.id && item.attachmentFiles?.length) {
-          const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
-          for (const file of item.attachmentFiles) {
-            const uploaded = await uploadAtsAttachmentBytes(
-              supabase,
-              user.id,
-              key,
-              file.filename,
-              file.bytes,
-              file.mimeType,
-            )
-            if ('error' in uploaded) {
-              console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
-              continue
-            }
-            storedAttachments.push({
-              id: `att_${uid()}`,
-              filename: file.filename,
-              mimeType: file.mimeType,
-              storagePath: uploaded.path,
-              kind: file.kind,
-              size: uploaded.size,
-            })
-          }
-        }
+        const storedAttachments = await uploadItemAttachments(item)
 
         // Ensure resume criterion can pass when a DOCX/PDF was stored even if text extract was thin
         let scoringText = item.text
@@ -461,7 +496,7 @@ export function RecruitmentAtsSection() {
       if (failed && !added) {
         // Batch already reported; keep skipped count accurate
       }
-      return { added, skipped, byRole, failed }
+      return { added, skipped, byRole, failed, refreshedAttachments }
     } finally {
       resumeHrRealtime()
     }
@@ -529,7 +564,7 @@ export function RecruitmentAtsSection() {
           onProgress: ({ label }) => setSyncLabel(label),
         })
         setSyncLabel('Sorting by role & ranking…')
-        const { added, skipped, byRole, failed } = await importScreened(
+        const { added, skipped, byRole, failed, refreshedAttachments } = await importScreened(
           messages.map((m) => {
             const parsed = m.date ? Date.parse(m.date) : NaN
             const resumeNote = m.resumeFilesScanned?.length
@@ -550,6 +585,9 @@ export function RecruitmentAtsSection() {
         const purgeNote = purged
           ? ` · removed ${purged} non-application${purged === 1 ? '' : 's'} from ATS`
           : ''
+        const refreshNote = refreshedAttachments
+          ? ` · refreshed files on ${refreshedAttachments} existing candidate${refreshedAttachments === 1 ? '' : 's'}`
+          : ''
         if (added) {
           const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
           const parts = Object.entries(byRole)
@@ -564,11 +602,14 @@ export function RecruitmentAtsSection() {
                 ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
               purgeNote +
+              refreshNote +
               '.',
           )
-          const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
+          const preferred = (['frontend', 'backend', 'fullstack', 'designer'] as const).find(
+            (p) => (byRole[p] ?? 0) > 0,
+          )
           if (preferred) setSelectedRole(preferred)
-        } else if (skipped || skippedNonApplications || purged) {
+        } else if (skipped || skippedNonApplications || purged || refreshedAttachments) {
           notifySuccess(
             `No new applications` +
               (skipped ? ` (${skipped} already imported)` : '') +
@@ -576,6 +617,7 @@ export function RecruitmentAtsSection() {
                 ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
               purgeNote +
+              refreshNote +
               '.',
           )
         } else notifyError(`No application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
@@ -684,7 +726,15 @@ export function RecruitmentAtsSection() {
                 : 'border-border bg-surface text-muted hover:text-fg'
             }`}
           >
-            <span className="sm:hidden">{role.profile === 'frontend' ? 'Front-End' : role.profile === 'backend' ? 'Back-End' : 'Designer'}</span>
+            <span className="sm:hidden">
+              {role.profile === 'frontend'
+                ? 'Front-End'
+                : role.profile === 'backend'
+                  ? 'Back-End'
+                  : role.profile === 'fullstack'
+                    ? 'Full-Stack'
+                    : 'Designer'}
+            </span>
             <span className="hidden sm:inline">{role.title}</span>
             <span className="ml-2 text-xs text-muted">({roleCounts[role.profile]})</span>
           </button>

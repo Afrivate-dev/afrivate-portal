@@ -2,7 +2,7 @@ import type { JobCandidate } from '@/types/hr'
 
 export type AtsSource = 'gmail' | 'indeed' | 'bebee' | 'jobberman' | 'linkedin' | 'manual' | 'other'
 export type AtsRecommendation = 'strong' | 'viable' | 'weak' | 'reject'
-export type AtsRoleProfile = 'frontend' | 'backend' | 'designer' | 'general'
+export type AtsRoleProfile = 'frontend' | 'backend' | 'fullstack' | 'designer' | 'general'
 
 export type AtsCriterionKind =
   | 'keywords'
@@ -313,6 +313,32 @@ export function defaultBackendCriteria(): AtsCriteriaProfile {
   }
 }
 
+export function defaultFullstackCriteria(): AtsCriteriaProfile {
+  return {
+    roleProfile: 'fullstack',
+    label: 'Full-Stack Developer',
+    strongMin: 75,
+    viableMin: 55,
+    rejectBelow: 51,
+    criteria: [
+      { id: 'frontend_stack', label: 'Front-end (React / Next / Vue)', kind: 'keywords', weight: 16, mustHave: true, keywords: ['react', 'react.js', 'next.js', 'nextjs', 'vue', 'vue.js', 'nuxt', 'typescript', 'frontend', 'front-end'], enabled: true },
+      { id: 'backend_stack', label: 'Back-end (Node / Nest / Express)', kind: 'keywords', weight: 16, mustHave: true, keywords: ['node.js', 'nodejs', 'express', 'nestjs', 'nest.js', 'backend', 'back-end', 'api'], enabled: true },
+      { id: 'database', label: 'Database / SQL', kind: 'keywords', weight: 12, keywords: ['postgres', 'postgresql', 'mysql', 'mongodb', 'sql', 'prisma', 'drizzle'], enabled: true },
+      { id: 'fullstack_label', label: 'Full-stack signal', kind: 'keywords', weight: 10, keywords: ['full stack', 'full-stack', 'fullstack', 'end-to-end', 'end to end'], enabled: true },
+      { id: 'git', label: 'Git / GitHub', kind: 'keywords', weight: 6, keywords: ['git', 'github'], enabled: true },
+      { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, enabled: true },
+      { id: 'portfolio', label: 'Portfolio / deployed work', kind: 'portfolio', weight: 8, enabled: true },
+      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 4, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV attached', kind: 'resume_file', weight: 8, enabled: true },
+      { id: 'testing', label: 'Testing', kind: 'keywords', weight: 4, keywords: ['jest', 'vitest', 'cypress', 'playwright', 'testing'], enabled: true },
+      { id: 'experience', label: 'Experience (2+ years / senior)', kind: 'keywords', weight: 6, keywords: ['years of experience', '2 years', '3 years', '4 years', '5 years', 'senior', 'mid-level'], enabled: true },
+      { id: 'soft_skills', label: 'Soft skills (teamwork, ownership, problem-solving)', kind: 'keywords', weight: 10, keywords: ['collaboration', 'teamwork', 'communication', 'ownership', 'problem solving', 'problem-solving', 'initiative', 'agile', 'scrum'], enabled: true },
+      { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 4, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa'], enabled: true },
+      { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 180, enabled: true },
+    ],
+  }
+}
+
 export function defaultDesignerCriteria(): AtsCriteriaProfile {
   return {
     roleProfile: 'designer',
@@ -463,6 +489,7 @@ function scoreWithCriteria(
 
 export function detectAtsRoleProfile(roleTitle: string): AtsRoleProfile {
   const t = roleTitle.toLowerCase()
+  if (/(full[\s-]?stack|fullstack)/.test(t)) return 'fullstack'
   if (/(front[\s-]?end|react|ui engineer)/.test(t)) return 'frontend'
   if (/(back[\s-]?end|node|nestjs|api engineer)/.test(t)) return 'backend'
   if (/(graphic|designer|visual|brand)/.test(t)) return 'designer'
@@ -479,6 +506,7 @@ export interface AtsRoleDefinition {
 export const ATS_STANDARD_ROLES: AtsRoleDefinition[] = [
   { profile: 'frontend', title: 'Front-End Developer', department: 'Technology & Product' },
   { profile: 'backend', title: 'Back-End Developer', department: 'Technology & Product' },
+  { profile: 'fullstack', title: 'Full-Stack Developer', department: 'Technology & Product' },
   { profile: 'designer', title: 'Graphic Designer', department: 'Creative' },
 ]
 
@@ -490,12 +518,22 @@ export function labelForAtsRoleProfile(profile: AtsRoleProfile): string {
 /**
  * Detect which open role an application belongs to from subject + body/CV text.
  * Prefers explicit "APPLICATION FOR …" subjects from AfriVate job posts.
+ * Full-stack applicants get their own category when they signal both sides (or say full-stack).
  */
 export function detectAtsRoleFromApplication(text: string): AtsRoleProfile {
   const subject = text.match(/^Subject:\s*(.+)$/im)?.[1]?.toLowerCase() ?? ''
-  const head = `${subject}\n${text.slice(0, 4000).toLowerCase()}`
+  const head = `${subject}\n${text.slice(0, 4500).toLowerCase()}`
 
-  // Explicit application-for / role title phrases (highest confidence)
+  // Explicit full-stack (own category)
+  if (
+    /application for\s+(the\s+)?full[\s-]?stack|full[\s-]?stack\s+developer|fullstack\s+developer|applying for\s+(the\s+)?full[\s-]?stack|\bfull[\s-]?stack\b|\bfullstack\b/.test(
+      head,
+    )
+  ) {
+    return 'fullstack'
+  }
+
+  // Explicit single-role application subjects
   if (
     /application for\s+(the\s+)?front|front[\s-]?end\s+developer|frontend\s+developer|react\s+developer|ui\s+engineer|applying for\s+(the\s+)?front/.test(
       head,
@@ -518,15 +556,15 @@ export function detectAtsRoleFromApplication(text: string): AtsRoleProfile {
     return 'designer'
   }
 
-  // Weighted skill signals across a wider window (includes CV extract)
+  // Weighted skill signals (includes CV extract)
   const fe = (
     head.match(
-      /\breact\b|\bnext\.?js\b|\btailwind\b|\bfrontend\b|\bfront-end\b|\btsx\b|\bvite\b|\btypescript\b.*\bui\b|\bui\/ux\b/g,
+      /\breact\b|\bnext\.?js\b|\bvue\.?js\b|\bnuxt\b|\btailwind\b|\bfrontend\b|\bfront-end\b|\btsx\b|\bvite\b/g,
     ) || []
   ).length
   const be = (
     head.match(
-      /\bnestjs\b|\bexpress\b|\bpostgres\b|\bpostgresql\b|\bbackend\b|\bback-end\b|\bnode\.?js\b|\bprisma\b|\brest\s+api\b|\bgraphql\b/g,
+      /\bnestjs\b|\bexpress\b|\bpostgres\b|\bpostgresql\b|\bbackend\b|\bback-end\b|\bnode\.?js\b|\bprisma\b|\brest\s+api\b|\bgraphql\b|\bmongodb\b/g,
     ) || []
   ).length
   const de = (
@@ -535,8 +573,11 @@ export function detectAtsRoleFromApplication(text: string): AtsRoleProfile {
     ) || []
   ).length
 
+  // Both FE + BE skills → Full-Stack category
+  if (fe >= 2 && be >= 2) return 'fullstack'
+  if (fe >= 1 && be >= 1 && (fe + be) >= 3) return 'fullstack'
+
   if (fe === 0 && be === 0 && de === 0) return 'general'
-  // Require a clearer lead so weak keyword noise doesn't mis-route
   const max = Math.max(fe, be, de)
   if (max < 2 && fe === be && be === de) return 'general'
   if (fe >= be && fe >= de) return 'frontend'
@@ -546,6 +587,7 @@ export function detectAtsRoleFromApplication(text: string): AtsRoleProfile {
 
 export function defaultCriteriaForProfile(profile: AtsRoleProfile): AtsCriteriaProfile {
   if (profile === 'backend') return defaultBackendCriteria()
+  if (profile === 'fullstack') return defaultFullstackCriteria()
   if (profile === 'designer') return defaultDesignerCriteria()
   return defaultFrontendCriteria()
 }
