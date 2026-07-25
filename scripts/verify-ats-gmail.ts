@@ -71,12 +71,19 @@ await check('Google client ID validation', () => {
 await check('Gmail query includes lookback + inbox scope', () => {
   const q = defaultGmailAtsQuery()
   assert.match(q, new RegExp(`newer_than:${GMAIL_ATS_LOOKBACK_DAYS}d`))
-  assert.match(q, /in:inbox/i)
+  assert.match(q, /in:anywhere/i)
+  assert.match(q, /-in:trash/i)
+  assert.ok(!/-in:spam/i.test(q), 'spam must be included in the scan')
   assert.match(q, /application|has:attachment/i)
 })
 
 await check('Application gate keeps real apps and drops newsletters', async () => {
-  const { isLikelyJobApplication } = await import('../src/utils/atsApplicationGate.ts')
+  const { isLikelyJobApplication, candidateIsLikelyJobApplication } = await import(
+    '../src/utils/atsApplicationGate.ts'
+  )
+  const { cleanEmailBodyForDisplay, extractAttachmentNamesFromNotes } = await import(
+    '../src/lib/atsEmailHtml.ts'
+  )
   assert.equal(
     isLikelyJobApplication({
       subject: 'APPLICATION FOR FRONT-END DEVELOPER',
@@ -109,6 +116,44 @@ await check('Application gate keeps real apps and drops newsletters', async () =
     }),
     false,
   )
+  assert.equal(
+    candidateIsLikelyJobApplication({
+      notes: `Subject: Your weekly job alert\nFrom: Alerts <noreply@jobs.com>\nHere are openings`,
+      email: 'noreply@jobs.com',
+    }),
+    false,
+  )
+  assert.equal(
+    candidateIsLikelyJobApplication({
+      notes: `Subject: APPLICATION FOR FRONT-END DEVELOPER\nFrom: Ada <ada@gmail.com>\nI am writing to apply.`,
+      attachments: [{ filename: 'Ada_CV.pdf' }],
+    }),
+    true,
+  )
+
+  const messy = `Dear Sir,
+
+I am writing to express my interest in the Frontend Developer position at your company. My name is Ogochukwu Odom.
+
+Yours sincerely,
+
+Ogochukwu Odom
+
+Dear Sir, I am writing to express my interest in the Frontend Developer position at your company. My name is Ogochukwu Odom. Yours sincerely, Ogochukwu Odom +2348067488682
+
+Attachments: Ogochukwu-odom-cv.pdf, ogochukwu-odom-cover.pdf`
+  const cleaned = cleanEmailBodyForDisplay(messy)
+  assert.ok(cleaned.includes('Dear Sir'))
+  assert.ok(cleaned.includes('Frontend Developer'))
+  assert.ok(!/Attachments:/i.test(cleaned))
+  assert.ok(
+    (cleaned.match(/My name is Ogochukwu Odom/gi) || []).length === 1,
+    `expected one name mention, got cleaned:\n${cleaned}`,
+  )
+  assert.deepEqual(extractAttachmentNamesFromNotes(messy), [
+    'Ogochukwu-odom-cv.pdf',
+    'ogochukwu-odom-cover.pdf',
+  ])
 })
 
 await check('URL-safe base64 body decode', () => {
@@ -163,7 +208,7 @@ await check('Parse multipart Gmail message + attachment names', () => {
   assert.equal(parsed.id, 'm1')
   assert.match(parsed.bodyText, /jane@email.com/i)
   assert.match(parsed.bodyText, /React/)
-  assert.match(parsed.bodyText, /Jane_Doe_CV\.pdf/)
+  assert.ok(!/Attachments:/i.test(parsed.bodyText))
   assert.deepEqual(parsed.attachmentNames, ['Jane_Doe_CV.pdf'])
 })
 
@@ -187,8 +232,8 @@ await check('Attachment-only email still produces scorable text', () => {
     },
   })
   assert.match(parsed.bodyText, /APPLICATION FOR FRONT-END/)
-  assert.match(parsed.bodyText, /Sam_Okoro_Resume\.pdf/)
   assert.match(parsed.bodyText, /Please find my CV attached/)
+  assert.deepEqual(parsed.attachmentNames, ['Sam_Okoro_Resume.pdf'])
 })
 
 await check('Strong frontend application ranks strong/viable', () => {

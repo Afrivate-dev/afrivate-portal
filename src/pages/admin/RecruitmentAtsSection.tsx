@@ -30,6 +30,7 @@ import { useHr } from '@/context/HrContext'
 import { useAuth } from '@/context/AuthContext'
 import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
 import { joinApplicationNotes } from '@/lib/atsEmailHtml'
+import { candidateIsLikelyJobApplication } from '@/utils/atsApplicationGate'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   candidateGmailUrl,
@@ -109,6 +110,7 @@ export function RecruitmentAtsSection() {
     addJobRequisition,
     addJobCandidatesBatch,
     updateJobCandidate,
+    removeJobCandidates,
   } = useHr()
 
   const jobIdCacheRef = useRef<Partial<Record<AtsRoleProfile, string>>>({})
@@ -514,6 +516,13 @@ export function RecruitmentAtsSection() {
     void (async () => {
       try {
         const token = await tokenPromise
+
+        setSyncLabel('Removing non-application emails…')
+        const junkIds = jobCandidates
+          .filter((c) => !candidateIsLikelyJobApplication(c))
+          .map((c) => c.id)
+        const { removed: purged } = await removeJobCandidates(junkIds)
+
         setSyncLabel('Connecting to Gmail…')
         const { messages, skippedNonApplications } = await fetchGmailApplications({
           accessToken: token,
@@ -538,6 +547,9 @@ export function RecruitmentAtsSection() {
             }
           }),
         )
+        const purgeNote = purged
+          ? ` · removed ${purged} non-application${purged === 1 ? '' : 's'} from ATS`
+          : ''
         if (added) {
           const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
           const parts = Object.entries(byRole)
@@ -551,17 +563,19 @@ export function RecruitmentAtsSection() {
               (skippedNonApplications
                 ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
+              purgeNote +
               '.',
           )
           const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
           if (preferred) setSelectedRole(preferred)
-        } else if (skipped || skippedNonApplications) {
+        } else if (skipped || skippedNonApplications || purged) {
           notifySuccess(
             `No new applications` +
               (skipped ? ` (${skipped} already imported)` : '') +
               (skippedNonApplications
                 ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
+              purgeNote +
               '.',
           )
         } else notifyError(`No application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
@@ -618,92 +632,100 @@ export function RecruitmentAtsSection() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex flex-wrap items-start justify-between gap-3">
-        <div>
+    <div className="space-y-5 sm:space-y-6">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
+        <div className="min-w-0">
           <h2 className="text-lg font-semibold text-fg">Recruitment</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Review applications by role, see who ranks highest, and open the original email in Gmail.
             Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
           </p>
-          <p className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
-            Google Cloud → Credentials → your OAuth client must include:
-            <br />
-            <span className="font-medium text-fg">Authorized JavaScript origins:</span> https://portal.afrivate.org
-            <br />
-            <span className="font-medium text-fg">Authorized redirect URIs</span> (exact match, copy this):
-            <br />
-            <button
-              type="button"
-              className="mt-1 break-all rounded border border-border bg-surface px-2 py-1 font-mono text-[11px] text-fg hover:border-accent"
-              onClick={() => {
-                const uri = gmailOAuthRedirectUri()
-                void navigator.clipboard?.writeText(uri)
-                notifySuccess('Redirect URI copied. Paste it under Authorized redirect URIs (not JavaScript origins).')
-              }}
-            >
-              {typeof window !== 'undefined' ? gmailOAuthRedirectUri() : 'https://portal.afrivate.org/oauth/gmail-callback'}
-            </button>
-            <br />
-            Allow pop-ups, then Sync and sign in as {HR_MAILBOX}.
-          </p>
+          <details className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+            <summary className="cursor-pointer font-medium text-fg">
+              Google OAuth setup (tap to expand)
+            </summary>
+            <div className="mt-2">
+              Google Cloud → Credentials → your OAuth client must include:
+              <br />
+              <span className="font-medium text-fg">Authorized JavaScript origins:</span> https://portal.afrivate.org
+              <br />
+              <span className="font-medium text-fg">Authorized redirect URIs</span> (exact match, copy this):
+              <br />
+              <button
+                type="button"
+                className="mt-1 max-w-full break-all rounded border border-border bg-surface px-2 py-1 font-mono text-[11px] text-fg hover:border-accent"
+                onClick={() => {
+                  const uri = gmailOAuthRedirectUri()
+                  void navigator.clipboard?.writeText(uri)
+                  notifySuccess('Redirect URI copied. Paste it under Authorized redirect URIs (not JavaScript origins).')
+                }}
+              >
+                {typeof window !== 'undefined' ? gmailOAuthRedirectUri() : 'https://portal.afrivate.org/oauth/gmail-callback'}
+              </button>
+              <br />
+              Allow pop-ups, then Sync and sign in as {HR_MAILBOX}.
+            </div>
+          </details>
         </div>
-        <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
+        <Badge tone="brand" className="self-start">
+          {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+        </Badge>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="-mx-1 flex gap-2 overflow-x-auto px-1 pb-1 scrollbar-thin">
         {ATS_STANDARD_ROLES.map((role) => (
           <button
             key={role.profile}
             type="button"
             onClick={() => setSelectedRole(role.profile)}
-            className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+            className={`shrink-0 rounded-md border px-3 py-2 text-sm transition-colors ${
               selectedRole === role.profile
                 ? 'border-accent bg-accent/10 text-fg font-medium'
                 : 'border-border bg-surface text-muted hover:text-fg'
             }`}
           >
-            {role.title}
+            <span className="sm:hidden">{role.profile === 'frontend' ? 'Front-End' : role.profile === 'backend' ? 'Back-End' : 'Designer'}</span>
+            <span className="hidden sm:inline">{role.title}</span>
             <span className="ml-2 text-xs text-muted">({roleCounts[role.profile]})</span>
           </button>
         ))}
         <button
           type="button"
           onClick={() => setSelectedRole('general')}
-          className={`rounded-md border px-3 py-2 text-sm transition-colors ${
+          className={`shrink-0 rounded-md border px-3 py-2 text-sm transition-colors ${
             selectedRole === 'general'
               ? 'border-accent bg-accent/10 text-fg font-medium'
               : 'border-border bg-surface text-muted hover:text-fg'
           }`}
         >
-          Other roles
+          Other
           <span className="ml-2 text-xs text-muted">({roleCounts.general})</span>
         </button>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-4">
+      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
         <Card padding="md">
           <p className="text-xs text-muted">Candidates</p>
-          <p className="mt-1 text-2xl font-semibold text-fg">{stats.total}</p>
+          <p className="mt-1 text-xl font-semibold text-fg sm:text-2xl">{stats.total}</p>
         </Card>
         <Card padding="md">
           <p className="text-xs text-muted">Worth reviewing</p>
-          <p className="mt-1 text-2xl font-semibold text-accent">{stats.viable}</p>
+          <p className="mt-1 text-xl font-semibold text-accent sm:text-2xl">{stats.viable}</p>
         </Card>
         <Card padding="md">
           <p className="text-xs text-muted">Strong fit</p>
-          <p className="mt-1 text-2xl font-semibold text-fg">{stats.strong}</p>
+          <p className="mt-1 text-xl font-semibold text-fg sm:text-2xl">{stats.strong}</p>
         </Card>
         <Card padding="md">
           <p className="text-xs text-muted">Not a fit</p>
-          <p className="mt-1 text-2xl font-semibold text-fg">{stats.reject}</p>
+          <p className="mt-1 text-xl font-semibold text-fg sm:text-2xl">{stats.reject}</p>
         </Card>
       </div>
 
       <Card padding="md" className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-2">
-          <div className="flex items-center gap-2">
-            <Settings2 className="h-4 w-4 text-accent" />
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <Settings2 className="h-4 w-4 shrink-0 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
               Scoring rules · {labelForAtsRoleProfile(selectedRole === 'general' ? 'frontend' : selectedRole)}
             </h3>
@@ -715,7 +737,7 @@ export function RecruitmentAtsSection() {
             </Button>
             <Button variant="secondary" size="sm" onClick={resetCriteria}>
               <RotateCcw className="h-3.5 w-3.5" />
-              Reset to defaults
+              Reset
             </Button>
             <Button size="sm" loading={savingCriteria} onClick={() => void persistCriteria()} disabled={!criteriaDirty}>
               <Save className="h-3.5 w-3.5" />
@@ -751,14 +773,14 @@ export function RecruitmentAtsSection() {
           options={SOURCE_OPTIONS}
         />
 
-        <div className="flex flex-wrap gap-2">
-          <Button onClick={syncFromGmail} loading={syncing}>
+        <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center">
+          <Button onClick={syncFromGmail} loading={syncing} className="w-full sm:w-auto">
             <Mail className="h-4 w-4" />
             Sync Gmail ({HR_MAILBOX})
           </Button>
-          <p className="self-center text-xs text-muted">
+          <p className="text-xs text-muted sm:self-center">
             {syncLabel ||
-              'Pulls inbox emails, reads CVs, scores each person, and places them under the right role.'}
+              'Scans inbox, labels, and spam for job applications — skips everything else, then scores and files by role.'}
           </p>
         </div>
 
@@ -987,16 +1009,16 @@ function CriteriaEditor({
         />
       </div>
 
-      <div className="overflow-x-auto rounded-md border border-border">
-        <table className="min-w-full text-left text-sm">
+      <div className="-mx-1 overflow-x-auto rounded-md border border-border sm:mx-0">
+        <table className="min-w-[40rem] w-full text-left text-sm">
           <thead className="bg-surface-2 text-xs text-muted">
             <tr>
-              <th className="px-3 py-2 font-medium">On</th>
-              <th className="px-3 py-2 font-medium">What we check</th>
-              <th className="px-3 py-2 font-medium">Points</th>
-              <th className="px-3 py-2 font-medium">Required</th>
-              <th className="px-3 py-2 font-medium">Details</th>
-              <th className="px-3 py-2 font-medium" />
+              <th className="px-2 py-2 font-medium sm:px-3">On</th>
+              <th className="px-2 py-2 font-medium sm:px-3">What we check</th>
+              <th className="px-2 py-2 font-medium sm:px-3">Points</th>
+              <th className="px-2 py-2 font-medium sm:px-3">Required</th>
+              <th className="px-2 py-2 font-medium sm:px-3">Details</th>
+              <th className="px-2 py-2 font-medium sm:px-3" />
             </tr>
           </thead>
           <tbody>
@@ -1036,7 +1058,7 @@ function CriteriaEditor({
                 <td className="px-3 py-2">
                   {c.kind === 'keywords' ? (
                     <input
-                      className="w-full min-w-[12rem] rounded border border-border bg-surface px-2 py-1"
+                    className="w-full min-w-[8rem] rounded border border-border bg-surface px-2 py-1 sm:min-w-[12rem]"
                       value={(c.keywords ?? []).join(', ')}
                       onChange={(e) =>
                         updateCriterion(c.id, {
@@ -1108,29 +1130,29 @@ function CandidateRow({
   const mailUrl = candidateGmailUrl(candidate)
 
   return (
-    <li className="rounded-lg border border-border p-4 transition-colors hover:border-accent/40">
-      <div className="flex flex-wrap items-start justify-between gap-3">
+    <li className="rounded-lg border border-border p-3 transition-colors hover:border-accent/40 sm:p-4">
+      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="muted">#{rank}</Badge>
-            <p className="font-semibold text-fg hover:text-accent">{candidate.name}</p>
+            <p className="break-words font-semibold text-fg hover:text-accent">{candidate.name}</p>
             <Badge tone={recommendationTone(candidate.recommendation)}>
               {recommendationLabel(candidate.recommendation)}
             </Badge>
             <Badge tone="muted">{candidate.score ?? 0}/100</Badge>
             {candidate.source ? <Badge tone="muted">{candidate.source}</Badge> : null}
           </div>
-          <div className="mt-1 flex flex-wrap gap-x-3 gap-y-1 text-sm text-muted">
-            {candidate.email ? <span>{candidate.email}</span> : <span>No email found yet</span>}
+          <div className="mt-1 flex flex-col gap-1 text-sm text-muted sm:flex-row sm:flex-wrap sm:gap-x-3 sm:gap-y-1">
+            {candidate.email ? <span className="break-all">{candidate.email}</span> : <span>No email found yet</span>}
             {candidate.phone ? (
               <span className="inline-flex items-center gap-1">
-                <Phone className="h-3.5 w-3.5" />
+                <Phone className="h-3.5 w-3.5 shrink-0" />
                 {candidate.phone}
               </span>
             ) : null}
             {candidate.location ? (
               <span className="inline-flex items-center gap-1">
-                <MapPin className="h-3.5 w-3.5" />
+                <MapPin className="h-3.5 w-3.5 shrink-0" />
                 {candidate.location}
               </span>
             ) : null}
@@ -1152,7 +1174,7 @@ function CandidateRow({
           ) : null}
           <p className="mt-2 text-xs text-accent">View details →</p>
         </button>
-        <div className="flex flex-col items-end gap-2">
+        <div className="flex w-full flex-row flex-wrap items-center gap-2 sm:w-auto sm:flex-col sm:items-end">
           {mailUrl ? (
             <a
               className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
@@ -1166,7 +1188,7 @@ function CandidateRow({
             </a>
           ) : null}
           <select
-            className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+            className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm sm:flex-none"
             value={candidate.stage}
             onChange={(e) => onUpdate(candidate.id, { stage: e.target.value as CandidateStage })}
             onClick={(e) => e.stopPropagation()}
@@ -1243,19 +1265,19 @@ function CandidateDetailModal({
     >
       <div className="space-y-5">
         <div className="grid gap-3 sm:grid-cols-2">
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted">Email</p>
-            <p className="mt-0.5 text-sm text-fg">{candidate.email || 'Not found in application'}</p>
+            <p className="mt-0.5 break-all text-sm text-fg">{candidate.email || 'Not found in application'}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted">Phone</p>
             <p className="mt-0.5 text-sm text-fg">{candidate.phone || 'Not found'}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted">Location</p>
             <p className="mt-0.5 text-sm text-fg">{candidate.location || 'Not found'}</p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted">Applied</p>
             <p className="mt-0.5 text-sm text-fg">
               {candidate.appliedAt ? fmtDate(candidate.appliedAt) : 'Unknown date'}

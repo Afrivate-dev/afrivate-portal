@@ -108,6 +108,8 @@ export interface HrContextValue {
     rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>,
   ) => Promise<{ added: number; failed: number }>
   updateJobCandidate: (id: string, patch: Partial<JobCandidate>) => void
+  /** Delete candidates by id (used to purge non-application noise). */
+  removeJobCandidates: (ids: string[]) => Promise<{ removed: number }>
 
   exitInterviews: ExitInterview[]
   addExitInterview: (e: Omit<ExitInterview, 'id' | 'createdAt'>) => void

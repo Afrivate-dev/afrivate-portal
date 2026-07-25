@@ -364,6 +364,16 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     setJobCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c)))
   }, [setJobCandidates])
 
+  const removeJobCandidates = useCallback(
+    async (ids: string[]) => {
+      const unique = [...new Set(ids.filter(Boolean))]
+      if (!unique.length) return { removed: 0 }
+      setJobCandidates((prev) => prev.filter((c) => !unique.includes(c.id)))
+      return { removed: unique.length }
+    },
+    [setJobCandidates],
+  )
+
   const addExitInterview = useCallback((e: Omit<HrContextValue['exitInterviews'][0], 'id' | 'createdAt'>) => {
     setExitInterviews((prev) => [...prev, { ...e, id: 'exit_' + uid(), createdAt: new Date().toISOString() }])
   }, [setExitInterviews])
@@ -486,6 +496,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       addJobCandidate,
       addJobCandidatesBatch,
       updateJobCandidate,
+      removeJobCandidates,
       exitInterviews,
       addExitInterview,
       grievances,
@@ -508,7 +519,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       feedbackCycles, feedbackEntries, feedbackTemplates, addFeedbackTemplate, updateFeedbackTemplate, deleteFeedbackTemplate,
       feedbackAssignments, addFeedbackAssignment, removeFeedbackAssignment, openFeedbackCycleFromTemplate,
       createFeedbackCycle, updateFeedbackCycle, submitFeedback,
-      jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, addJobCandidatesBatch, updateJobCandidate,
+      jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, addJobCandidatesBatch, updateJobCandidate, removeJobCandidates,
       exitInterviews, addExitInterview, grievances, submitGrievance, updateGrievance,
       onboardingMilestones, setMilestoneCompleted, seedOnboardingMilestones, quarterlyAwards, addQuarterlyAward,
       getMetrics,
