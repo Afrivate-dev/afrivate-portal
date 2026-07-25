@@ -9,6 +9,7 @@ import {
   isLikelyResumeAttachment,
   type ResumeExtractResult,
 } from './atsResumeExtract'
+import { isLikelyJobApplication } from '../utils/atsApplicationGate'
 
 const CLIENT_ID = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()
 export const HR_MAILBOX = 'afrivatehr@gmail.com'
@@ -110,9 +111,22 @@ export function candidateGmailUrl(candidate: {
   return `https://mail.google.com/mail/?authuser=${auth}#inbox`
 }
 
-/** Default: entire inbox (excl. spam/trash) in the lookback window — attachments scanned per email. */
+/** Prefer application-like mail; JS gate still filters after fetch. */
 export function defaultGmailAtsQuery(days = GMAIL_ATS_LOOKBACK_DAYS): string {
-  return [`in:inbox`, `newer_than:${days}d`, `-in:spam`, `-in:trash`].join(' ')
+  // Gmail OR groups: attachment CVs, explicit application subjects, or common apply phrases.
+  // Keep -in:spam/-in:trash. JS isLikelyJobApplication is the final gate.
+  return [
+    `in:inbox`,
+    `newer_than:${days}d`,
+    `-in:spam`,
+    `-in:trash`,
+    `(`,
+    `has:attachment filename:(pdf OR docx OR doc)`,
+    `OR subject:(application OR applying OR "job application" OR CV OR resume OR "front-end" OR "back-end" OR "graphic designer")`,
+    `OR ("I am applying" OR "I am writing to apply" OR "dear hiring" OR "please find attached")`,
+    `)`,
+    `-subject:(newsletter OR unsubscribe OR "job alert" OR invoice OR receipt OR "password reset")`,
+  ].join(' ')
 }
 
 function loadGsi(): Promise<void> {
@@ -553,7 +567,7 @@ export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMess
   const bodyHtml = extractHtmlFromPayload(msg.payload)
   const attachmentLine =
     attachmentNames.length > 0 ? `\nAttachments: ${attachmentNames.join(', ')}` : ''
-  const bodyText = [`Subject: ${subject}`, `From: ${from}`, '', body, attachmentLine]
+  const bodyText = [`Subject: ${subject}`, `From: ${from}`, date ? `Date: ${date}` : '', '', body, attachmentLine]
     .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
     .join('\n')
     .trim()
@@ -712,7 +726,11 @@ export async function fetchGmailApplications(options?: {
   fetchImpl?: typeof fetch
   extractFn?: typeof extractResumeText
   onProgress?: (info: { done: number; total: number; label: string }) => void
-}): Promise<GmailApplicationMessage[]> {
+}): Promise<{
+  messages: GmailApplicationMessage[]
+  skippedNonApplications: number
+  listed: number
+}> {
   const token = options?.accessToken ?? (await requestGmailAccessToken())
   const query = options?.query ?? defaultGmailAtsQuery()
   const hardCap = options?.hardCap ?? options?.maxResults ?? GMAIL_SYNC_HARD_CAP
@@ -729,6 +747,7 @@ export async function fetchGmailApplications(options?: {
   })
 
   const out: GmailApplicationMessage[] = []
+  let skippedNonApplications = 0
 
   for (let i = 0; i < ids.length; i += 1) {
     const m = ids[i]!
@@ -744,11 +763,25 @@ export async function fetchGmailApplications(options?: {
     if (!msgRes.ok) continue
     const msg = (await msgRes.json()) as GmailApiMessage
     let parsed = parseGmailApiMessage(msg)
+
+    // Gate BEFORE downloading CVs — skip newsletters / receipts / internal noise
+    const likely = isLikelyJobApplication({
+      subject: parsed.subject,
+      from: parsed.from,
+      snippet: parsed.snippet,
+      bodyText: parsed.bodyText,
+      attachmentNames: parsed.attachmentNames,
+    })
+    if (!likely) {
+      skippedNonApplications += 1
+      continue
+    }
+
     if (extractResumes) {
       options?.onProgress?.({
         done: i,
         total: ids.length,
-        label: `Scanning attachments for email ${i + 1} of ${ids.length}…`,
+        label: `Scanning CV for application ${out.length + 1}…`,
       })
       parsed = await enrichMessageWithResumeText(msg, parsed, {
         accessToken: token,
@@ -760,6 +793,10 @@ export async function fetchGmailApplications(options?: {
     out.push(parsed)
   }
 
-  options?.onProgress?.({ done: ids.length, total: ids.length, label: 'Scoring applications…' })
-  return out
+  options?.onProgress?.({
+    done: ids.length,
+    total: ids.length,
+    label: `Ranking ${out.length} application${out.length === 1 ? '' : 's'}…`,
+  })
+  return { messages: out, skippedNonApplications, listed: ids.length }
 }

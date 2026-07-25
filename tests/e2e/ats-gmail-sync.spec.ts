@@ -44,11 +44,12 @@ test.describe('Recruitment ATS sync pipeline (mocked Gmail)', () => {
         return new Response('missing', { status: 404 })
       }
 
-      const messages = await gmail.fetchGmailApplications({
+      const result = await gmail.fetchGmailApplications({
         accessToken: 'fake',
         fetchImpl,
         extractResumes: false,
       })
+      const messages = result.messages
       const scored = scoring.screenApplicationText(messages[0].bodyText, 'frontend')
       return {
         count: messages.length,

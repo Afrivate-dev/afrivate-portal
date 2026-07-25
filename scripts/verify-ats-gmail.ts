@@ -72,6 +72,43 @@ await check('Gmail query includes lookback + inbox scope', () => {
   const q = defaultGmailAtsQuery()
   assert.match(q, new RegExp(`newer_than:${GMAIL_ATS_LOOKBACK_DAYS}d`))
   assert.match(q, /in:inbox/i)
+  assert.match(q, /application|has:attachment/i)
+})
+
+await check('Application gate keeps real apps and drops newsletters', async () => {
+  const { isLikelyJobApplication } = await import('../src/utils/atsApplicationGate.ts')
+  assert.equal(
+    isLikelyJobApplication({
+      subject: 'APPLICATION FOR FRONT-END DEVELOPER',
+      from: 'Ada <ada@gmail.com>',
+      bodyText: 'I am writing to apply for the Front-End role with React.',
+    }),
+    true,
+  )
+  assert.equal(
+    isLikelyJobApplication({
+      subject: 'My CV',
+      from: 'Chioma <chioma@yahoo.com>',
+      attachmentNames: ['Chioma_Resume.pdf'],
+    }),
+    true,
+  )
+  assert.equal(
+    isLikelyJobApplication({
+      subject: 'Your weekly job alert',
+      from: 'Jobberman <noreply@jobberman.com>',
+      bodyText: 'Here are jobs you might like',
+    }),
+    false,
+  )
+  assert.equal(
+    isLikelyJobApplication({
+      subject: 'Afrivate newsletter — March updates',
+      from: 'Team <hello@afrivate.org>',
+      snippet: 'Unsubscribe anytime',
+    }),
+    false,
+  )
 })
 
 await check('URL-safe base64 body decode', () => {
@@ -308,18 +345,18 @@ await check('fetchGmailApplications paginates beyond 50', async () => {
     return new Response('not found', { status: 404 })
   }
 
-  const messages = await fetchGmailApplications({
+  const result = await fetchGmailApplications({
     accessToken: 'test-token',
     fetchImpl,
     extractResumes: false,
   })
   assert.equal(listCalls, 2)
-  assert.equal(messages.length, 2)
-  assert.equal(messages[0]?.id, 'msg1')
-  assert.equal(messages[1]?.id, 'msg2')
-  assert.match(messages[0]?.bodyText ?? '', /mock@example.com/i)
+  assert.equal(result.messages.length, 2)
+  assert.equal(result.messages[0]?.id, 'msg1')
+  assert.equal(result.messages[1]?.id, 'msg2')
+  assert.match(result.messages[0]?.bodyText ?? '', /mock@example.com/i)
 
-  const scored = screenApplicationText(messages[0]!.bodyText, 'frontend')
+  const scored = screenApplicationText(result.messages[0]!.bodyText, 'frontend')
   assert.ok(scored.score >= 40)
   assert.ok(scored.email === 'mock@example.com')
 })

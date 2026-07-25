@@ -12,7 +12,14 @@ function kindLabel(kind: CandidateAttachment['kind']): string {
 }
 
 /** Renders a stored ATS attachment as the original file (PDF / DOCX / image). */
-export function AtsAttachmentPreview({ attachment }: { attachment: CandidateAttachment }) {
+export function AtsAttachmentPreview({
+  attachment,
+  embedded = false,
+}: {
+  attachment: CandidateAttachment
+  /** When true, hide the outer card chrome (used inside reading-pane chips). */
+  embedded?: boolean
+}) {
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
@@ -84,6 +91,37 @@ export function AtsAttachmentPreview({ attachment }: { attachment: CandidateAtta
 
   const kind = detectDocumentPreviewKind(attachment.filename, attachment.filename)
 
+  const previewBody = (
+    <div className={embedded ? 'min-h-[12rem] bg-white' : 'min-h-[16rem] bg-white p-2'}>
+      {loading ? (
+        <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted">
+          <Loader2 className="h-4 w-4 animate-spin" /> Loading file…
+        </div>
+      ) : error ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-2 text-sm text-muted">
+          <FileText className="h-8 w-8" />
+          {error}
+        </div>
+      ) : kind === 'pdf' && url ? (
+        <iframe title={attachment.filename} src={url} className="h-[min(70vh,36rem)] w-full border-0" />
+      ) : kind === 'image' && url ? (
+        <img src={url} alt={attachment.filename} className="mx-auto max-h-[min(70vh,36rem)] max-w-full object-contain" />
+      ) : kind === 'docx' ? (
+        <div ref={docxHost} className="max-h-[min(70vh,36rem)] overflow-auto bg-white p-2 text-black" />
+      ) : url ? (
+        <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm text-muted">
+          <FileText className="h-8 w-8" />
+          Preview not available for this file type.
+          <a href={url} download={attachment.filename} className="text-accent hover:underline">
+            Download {attachment.filename}
+          </a>
+        </div>
+      ) : null}
+    </div>
+  )
+
+  if (embedded) return previewBody
+
   return (
     <div className="overflow-hidden rounded-md border border-border">
       <div className="flex flex-wrap items-center justify-between gap-2 border-b border-border bg-surface-2 px-3 py-2">
@@ -103,32 +141,7 @@ export function AtsAttachmentPreview({ attachment }: { attachment: CandidateAtta
           </a>
         ) : null}
       </div>
-      <div className="min-h-[16rem] bg-white p-2">
-        {loading ? (
-          <div className="flex h-64 items-center justify-center gap-2 text-sm text-muted">
-            <Loader2 className="h-4 w-4 animate-spin" /> Loading file…
-          </div>
-        ) : error ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-2 text-sm text-muted">
-            <FileText className="h-8 w-8" />
-            {error}
-          </div>
-        ) : kind === 'pdf' && url ? (
-          <iframe title={attachment.filename} src={url} className="h-[min(70vh,36rem)] w-full border-0" />
-        ) : kind === 'image' && url ? (
-          <img src={url} alt={attachment.filename} className="mx-auto max-h-[min(70vh,36rem)] max-w-full object-contain" />
-        ) : kind === 'docx' ? (
-          <div ref={docxHost} className="max-h-[min(70vh,36rem)] overflow-auto bg-white p-2 text-black" />
-        ) : url ? (
-          <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm text-muted">
-            <FileText className="h-8 w-8" />
-            Preview not available for this file type.
-            <a href={url} download={attachment.filename} className="text-accent hover:underline">
-              Download {attachment.filename}
-            </a>
-          </div>
-        ) : null}
-      </div>
+      {previewBody}
     </div>
   )
 }
