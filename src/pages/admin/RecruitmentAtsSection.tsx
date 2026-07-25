@@ -16,7 +16,7 @@ import {
   Upload,
   UserCheck,
 } from 'lucide-react'
-import { AtsAttachmentPreview } from '@/components/shared/AtsAttachmentPreview'
+import { AtsEmailReadingPane } from '@/components/shared/AtsEmailReadingPane'
 import { AtsRichText, parseLegacySummaryToRich } from '@/components/shared/AtsRichText'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -29,7 +29,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { useHr } from '@/context/HrContext'
 import { useAuth } from '@/context/AuthContext'
 import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
-import { buildEmailPreviewDocument, joinApplicationNotes, splitApplicationNotes } from '@/lib/atsEmailHtml'
+import { joinApplicationNotes } from '@/lib/atsEmailHtml'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   candidateGmailUrl,
@@ -515,7 +515,7 @@ export function RecruitmentAtsSection() {
       try {
         const token = await tokenPromise
         setSyncLabel('Connecting to Gmail…')
-        const messages = await fetchGmailApplications({
+        const { messages, skippedNonApplications } = await fetchGmailApplications({
           accessToken: token,
           onProgress: ({ label }) => setSyncLabel(label),
         })
@@ -548,12 +548,23 @@ export function RecruitmentAtsSection() {
               (parts ? `: ${parts}` : '') +
               (withCv ? ` (${withCv} with CV scanned)` : '') +
               (failed ? ` · ${failed} failed to save` : '') +
+              (skippedNonApplications
+                ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
+                : '') +
               '.',
           )
           const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
           if (preferred) setSelectedRole(preferred)
-        } else if (skipped) notifySuccess(`Everything is up to date (${skipped} already imported).`)
-        else notifyError(`No emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
+        } else if (skipped || skippedNonApplications) {
+          notifySuccess(
+            `No new applications` +
+              (skipped ? ` (${skipped} already imported)` : '') +
+              (skippedNonApplications
+                ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
+                : '') +
+              '.',
+          )
+        } else notifyError(`No application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
       } catch (err) {
         notifyError(err instanceof Error ? err.message : 'Could not sync from Gmail')
       } finally {
@@ -1197,8 +1208,6 @@ function CandidateDetailModal({
     ([key, pts]) => key !== 'red_flags' && pts > 0,
   )
   const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
-  const { text: applicationText, html: applicationHtml } = splitApplicationNotes(candidate.notes)
-  const emailDoc = applicationHtml ? buildEmailPreviewDocument(applicationHtml) : null
   const summaryBlock =
     parseLegacySummaryToRich(candidate.resumeSummary) ??
     (candidate.resumeSummary ? { paragraphs: [candidate.resumeSummary] } : null)
@@ -1320,42 +1329,10 @@ function CandidateDetailModal({
           </select>
         </div>
 
-        {(candidate.attachments?.length ?? 0) > 0 ? (
-          <div className="space-y-3">
-            <p className="text-xs font-medium text-muted">Resume & cover letter files</p>
-            {candidate.attachments!.map((att) => (
-              <AtsAttachmentPreview key={att.id} attachment={att} />
-            ))}
-          </div>
-        ) : null}
-
-        {emailDoc ? (
-          <div>
-            <p className="text-xs font-medium text-muted">Email message</p>
-            <p className="mt-0.5 text-[11px] text-muted">Shown as it appeared in Gmail.</p>
-            <iframe
-              title={`Application from ${candidate.name}`}
-              sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
-              referrerPolicy="no-referrer"
-              className="mt-2 h-[min(70vh,36rem)] w-full rounded-md border border-border bg-white"
-              srcDoc={emailDoc}
-            />
-          </div>
-        ) : applicationText.replace(/\n---\s*Resume:[\s\S]*$/i, '').trim() ? (
-          <div>
-            <p className="text-xs font-medium text-muted">Email message</p>
-            <p className="mt-0.5 text-[11px] text-muted">
-              {(candidate.attachments?.length ?? 0) > 0
-                ? 'Message text only — resume/cover letter files are shown above.'
-                : 'Plain-text copy (re-sync to load original email layout and files).'}
-            </p>
-            <pre className="mt-2 max-h-[min(50vh,24rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-              {applicationText.replace(/\n---\s*Resume:[\s\S]*$/i, '').trim()}
-            </pre>
-          </div>
-        ) : !(candidate.attachments?.length) ? (
-          <p className="text-sm text-muted">No application content stored. Sync again to pull the email and files.</p>
-        ) : null}
+        <div>
+          <p className="mb-2 text-xs font-medium text-muted">Application email</p>
+          <AtsEmailReadingPane candidate={candidate} />
+        </div>
       </div>
     </Modal>
   )

@@ -493,35 +493,52 @@ export function labelForAtsRoleProfile(profile: AtsRoleProfile): string {
  */
 export function detectAtsRoleFromApplication(text: string): AtsRoleProfile {
   const subject = text.match(/^Subject:\s*(.+)$/im)?.[1]?.toLowerCase() ?? ''
-  const head = `${subject}\n${text.slice(0, 2500).toLowerCase()}`
+  const head = `${subject}\n${text.slice(0, 4000).toLowerCase()}`
 
+  // Explicit application-for / role title phrases (highest confidence)
   if (
-    /application for\s+(the\s+)?front|front[\s-]?end\s+developer|frontend\s+developer|react\s+developer|ui\s+engineer/.test(
+    /application for\s+(the\s+)?front|front[\s-]?end\s+developer|frontend\s+developer|react\s+developer|ui\s+engineer|applying for\s+(the\s+)?front/.test(
       head,
     )
   ) {
     return 'frontend'
   }
   if (
-    /application for\s+(the\s+)?back|back[\s-]?end\s+developer|backend\s+developer|nestjs|node\.?js\s+developer|api\s+engineer/.test(
+    /application for\s+(the\s+)?back|back[\s-]?end\s+developer|backend\s+developer|nestjs|node\.?js\s+developer|api\s+engineer|applying for\s+(the\s+)?back/.test(
       head,
     )
   ) {
     return 'backend'
   }
   if (
-    /application for\s+(the\s+)?graphic|graphic\s+designer|visual\s+designer|brand\s+designer/.test(head)
+    /application for\s+(the\s+)?graphic|graphic\s+designer|visual\s+designer|brand\s+designer|applying for\s+(the\s+)?graphic/.test(
+      head,
+    )
   ) {
     return 'designer'
   }
 
-  const fe = (head.match(/\breact\b|\bnext\.?js\b|\btailwind\b|\bfrontend\b|\bfront-end\b|\btsx\b/g) || []).length
-  const be = (head.match(/\bnestjs\b|\bexpress\b|\bpostgres\b|\bbackend\b|\bback-end\b|\bnode\.?js\b|\bprisma\b/g) || [])
-    .length
-  const de = (head.match(/\bphotoshop\b|\billustrator\b|\bfigma\b|\bbehance\b|\bdribbble\b|\bgraphic\b|\bindesign\b/g) || [])
-    .length
+  // Weighted skill signals across a wider window (includes CV extract)
+  const fe = (
+    head.match(
+      /\breact\b|\bnext\.?js\b|\btailwind\b|\bfrontend\b|\bfront-end\b|\btsx\b|\bvite\b|\btypescript\b.*\bui\b|\bui\/ux\b/g,
+    ) || []
+  ).length
+  const be = (
+    head.match(
+      /\bnestjs\b|\bexpress\b|\bpostgres\b|\bpostgresql\b|\bbackend\b|\bback-end\b|\bnode\.?js\b|\bprisma\b|\brest\s+api\b|\bgraphql\b/g,
+    ) || []
+  ).length
+  const de = (
+    head.match(
+      /\bphotoshop\b|\billustrator\b|\bfigma\b|\bbehance\b|\bdribbble\b|\bgraphic\b|\bindesign\b|\bbrand\s+identity\b|\btypography\b/g,
+    ) || []
+  ).length
 
   if (fe === 0 && be === 0 && de === 0) return 'general'
+  // Require a clearer lead so weak keyword noise doesn't mis-route
+  const max = Math.max(fe, be, de)
+  if (max < 2 && fe === be && be === de) return 'general'
   if (fe >= be && fe >= de) return 'frontend'
   if (be >= fe && be >= de) return 'backend'
   return 'designer'
