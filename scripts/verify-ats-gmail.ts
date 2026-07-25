@@ -553,11 +553,120 @@ await check('Resume attachment text is downloaded, extracted, and scored', async
   assert.ok(enriched.resumeFilesScanned?.includes('Ada_Lovelace_CV.pdf'))
   assert.match(enriched.bodyText, /--- Resume: Ada_Lovelace_CV\.pdf ---/)
   assert.match(enriched.bodyText, /React TypeScript/)
+  assert.ok(
+    (enriched.attachmentFiles?.[0]?.bytes?.byteLength ?? 0) > 0,
+    'without persist callback, deferred bytes must remain for later upload',
+  )
 
   const scored = screenApplicationText(enriched.bodyText, 'frontend')
   assert.ok((scored.breakdown.resume_file ?? 0) > 0, 'resume_file criterion should score')
   assert.ok(scored.matched.some((m) => /resume|cv/i.test(m)))
   assert.ok(scored.score >= 55, `expected stronger score with CV text, got ${scored.score}`)
+})
+
+await check('Upload-before-extract: persist runs first; extract cannot empty stored file', async () => {
+  const { enrichMessageWithResumeText, parseGmailApiMessage } = await import('../src/lib/gmailAtsSync.ts')
+  const { copyArrayBuffer } = await import('../src/lib/atsResumeExtract.ts')
+
+  const payload = Buffer.from('%PDF-1.4 React TypeScript resume bytes', 'utf8')
+  const expectedLen = payload.byteLength
+  const order: string[] = []
+  let persistedFirstByte = -1
+  let persistedLen = -1
+
+  const msg = {
+    id: 'm-detach',
+    threadId: 't',
+    snippet: 'CV attached',
+    payload: {
+      headers: [
+        { name: 'Subject', value: 'APPLICATION FOR FRONT-END DEVELOPER — Ada' },
+        { name: 'From', value: 'Ada <ada@x.com>' },
+      ],
+      parts: [
+        {
+          filename: 'Ada_CV.pdf',
+          mimeType: 'application/pdf',
+          body: { attachmentId: 'att-detach', size: expectedLen },
+        },
+      ],
+    },
+  }
+  const parsed = parseGmailApiMessage(msg)
+  const enriched = await enrichMessageWithResumeText(msg, parsed, {
+    accessToken: 'tok',
+    fetchImpl: async (input) => {
+      if (String(input).includes('/attachments/att-detach')) {
+        const b64 = payload
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '')
+        return new Response(JSON.stringify({ data: b64 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('no', { status: 404 })
+    },
+    persistAttachment: async ({ bytes, filename }) => {
+      order.push('persist')
+      persistedLen = bytes.byteLength
+      persistedFirstByte = new Uint8Array(bytes)[0] ?? -1
+      assert.equal(filename, 'Ada_CV.pdf')
+      assert.equal(bytes.byteLength, expectedLen)
+      assert.equal(persistedFirstByte, '%'.charCodeAt(0))
+      return { path: `ats/user/msg-${filename}`, size: bytes.byteLength }
+    },
+    extractFn: async (data, filename) => {
+      order.push('extract')
+      try {
+        new Uint8Array(data).fill(0)
+      } catch {
+        /* detached */
+      }
+      return { kind: 'pdf', filename, text: 'React TypeScript' }
+    },
+  })
+
+  assert.deepEqual(order, ['persist', 'extract'], 'must upload before extract')
+  assert.equal(persistedLen, expectedLen)
+  assert.equal(persistedFirstByte, '%'.charCodeAt(0))
+  const file = enriched.attachmentFiles?.[0]
+  assert.ok(file?.storagePath?.startsWith('ats/'), 'storagePath set after upload-first')
+  assert.equal(file?.size, expectedLen)
+  assert.equal(file?.bytes, undefined, 'bytes dropped after successful persist')
+  assert.match(enriched.bodyText, /React TypeScript/)
+
+  // Deferred-bytes path still copies safely when persist is omitted
+  const deferred = await enrichMessageWithResumeText(msg, parsed, {
+    accessToken: 'tok',
+    fetchImpl: async (input) => {
+      if (String(input).includes('/attachments/att-detach')) {
+        const b64 = payload
+          .toString('base64')
+          .replace(/\+/g, '-')
+          .replace(/\//g, '_')
+          .replace(/=+$/, '')
+        return new Response(JSON.stringify({ data: b64 }), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }
+      return new Response('no', { status: 404 })
+    },
+    extractFn: async (data, filename) => {
+      new Uint8Array(data).fill(0)
+      return { kind: 'pdf', filename, text: 'x' }
+    },
+  })
+  const stored = deferred.attachmentFiles?.[0]?.bytes
+  assert.ok(stored)
+  assert.equal(stored!.byteLength, expectedLen)
+  assert.equal(new Uint8Array(stored!)[0], '%'.charCodeAt(0))
+  const clone = copyArrayBuffer(stored!)
+  new Uint8Array(clone).fill(1)
+  assert.equal(new Uint8Array(stored!)[0], '%'.charCodeAt(0))
 })
 
 await check('Applications are routed to Front-End / Back-End / Full-Stack / Designer roles', async () => {

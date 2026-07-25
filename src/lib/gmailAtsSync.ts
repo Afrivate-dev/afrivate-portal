@@ -1,9 +1,10 @@
 /**
  * Gmail ATS sync for afrivatehr@gmail.com using Google Identity Services + Gmail API.
- * Downloads and text-extracts CV/resume attachments (PDF, DOCX, images) for scoring.
+ * Pipeline per attachment: download from Gmail → upload to portal storage → extract text for scoring.
  */
 
 import {
+  copyArrayBuffer,
   extractResumeText,
   gmailAttachmentDataToArrayBuffer,
   isLikelyResumeAttachment,
@@ -25,9 +26,24 @@ const MAX_RESUME_ATTACHMENTS_PER_MESSAGE = 4
 export interface GmailSyncedAttachment {
   filename: string
   mimeType: string
-  bytes: ArrayBuffer
   kind: 'resume' | 'cover_letter' | 'other'
+  /** Set when uploaded to portal storage before text extract (preferred). */
+  storagePath?: string
+  size?: number
+  /**
+   * Raw bytes kept only when upload was deferred (tests / no persist callback).
+   * Cleared after a successful upload-first persist so extractors cannot empty storage.
+   */
+  bytes?: ArrayBuffer
 }
+
+/** Upload raw Gmail attachment bytes before any text extraction. */
+export type PersistGmailAttachmentFn = (file: {
+  messageId: string
+  filename: string
+  mimeType: string
+  bytes: ArrayBuffer
+}) => Promise<{ path: string; size: number } | { error: string }>
 
 export interface GmailApplicationMessage {
   id: string
@@ -600,7 +616,11 @@ async function downloadGmailAttachmentData(
   return json.data
 }
 
-/** Download attachments for file preview + extract text for scoring. */
+/**
+ * Download each CV from Gmail, upload the raw bytes first (when persist is provided),
+ * then run text extractors for scoring. Extractors must never run before a durable upload
+ * when persisting — they can detach/clear ArrayBuffers and used to produce 0B files.
+ */
 export async function enrichMessageWithResumeText(
   msg: GmailApiMessage,
   parsed: GmailApplicationMessage,
@@ -608,8 +628,11 @@ export async function enrichMessageWithResumeText(
     accessToken: string
     fetchImpl?: typeof fetch
     extractFn?: typeof extractResumeText
+    /** Upload raw bytes to portal storage before extract (production sync). */
+    persistAttachment?: PersistGmailAttachmentFn
     /** OCR is off by default — too heavy / CSP-blocked during bulk sync. */
     enableOcr?: boolean
+    onAttachmentProgress?: (label: string) => void
   },
 ): Promise<GmailApplicationMessage> {
   const doFetch = options.fetchImpl ?? boundFetch()
@@ -636,14 +659,53 @@ export async function enrichMessageWithResumeText(
         continue
       }
       const buffer = gmailAttachmentDataToArrayBuffer(rawB64)
+      if (!buffer.byteLength) {
+        errors.push(`${ref.filename}: decoded empty attachment`)
+        continue
+      }
+
+      const kind = classifyAtsAttachmentKind(ref.filename)
+      let storagePath: string | undefined
+      let size: number | undefined
+      let deferredBytes: ArrayBuffer | undefined
+
+      // 1) Persist raw Gmail bytes BEFORE any extractor touches the buffer
+      if (options.persistAttachment) {
+        options.onAttachmentProgress?.(`Uploading ${ref.filename}…`)
+        const uploadBytes = copyArrayBuffer(buffer)
+        const uploaded = await options.persistAttachment({
+          messageId: msg.id,
+          filename: ref.filename,
+          mimeType: ref.mimeType,
+          bytes: uploadBytes,
+        })
+        if ('error' in uploaded) {
+          errors.push(`${ref.filename}: ${uploaded.error}`)
+          // Keep bytes so import can retry upload later
+          deferredBytes = copyArrayBuffer(buffer)
+        } else {
+          storagePath = uploaded.path
+          size = uploaded.size
+        }
+      } else {
+        // Tests / offline: defer upload; keep an independent copy for later
+        deferredBytes = copyArrayBuffer(buffer)
+      }
+
       attachmentFiles.push({
         filename: ref.filename,
         mimeType: ref.mimeType,
-        bytes: buffer,
-        kind: classifyAtsAttachmentKind(ref.filename),
+        kind,
+        storagePath,
+        size,
+        bytes: deferredBytes,
       })
 
-      const extracted = await extractFn(buffer, ref.filename, ref.mimeType, { enableOcr })
+      // 2) Extract for scoring — safe to mutate `buffer` now; storage already has the original
+      options.onAttachmentProgress?.(`Reading text from ${ref.filename}…`)
+      const extractBuffer = deferredBytes ? copyArrayBuffer(buffer) : buffer
+      const extracted = await extractFn(extractBuffer, ref.filename, ref.mimeType, { enableOcr })
+
       if (extracted.error && !extracted.text.trim()) {
         errors.push(`${ref.filename}: ${extracted.error}`)
       } else if (!extracted.text.trim()) {
@@ -721,6 +783,8 @@ export async function fetchGmailApplications(options?: {
   extractResumes?: boolean
   /** OCR (Tesseract) — off by default; PDF/DOCX text extract still runs. */
   enableOcr?: boolean
+  /** Upload each CV to portal storage before text extract (recommended in production). */
+  persistAttachment?: PersistGmailAttachmentFn
   /** Injected for tests */
   fetchImpl?: typeof fetch
   extractFn?: typeof extractResumeText
@@ -780,13 +844,22 @@ export async function fetchGmailApplications(options?: {
       options?.onProgress?.({
         done: i,
         total: ids.length,
-        label: `Scanning CV for application ${out.length + 1}…`,
+        label: options.persistAttachment
+          ? `Uploading & scanning CV for application ${out.length + 1}…`
+          : `Scanning CV for application ${out.length + 1}…`,
       })
       parsed = await enrichMessageWithResumeText(msg, parsed, {
         accessToken: token,
         fetchImpl: doFetch,
         extractFn: options?.extractFn,
+        persistAttachment: options?.persistAttachment,
         enableOcr: options?.enableOcr === true,
+        onAttachmentProgress: (label) =>
+          options?.onProgress?.({
+            done: i,
+            total: ids.length,
+            label,
+          }),
       })
     }
     out.push(parsed)

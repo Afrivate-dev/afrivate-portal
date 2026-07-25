@@ -118,7 +118,15 @@ export async function uploadAtsAttachmentBytes(
   const safeName = sanitizeFileName(filename || 'attachment.bin')
   const path = `ats/${safeUser}/${safeKey}-${Date.now()}-${safeName}`
   const type = mimeType || guessMimeFromName(filename) || 'application/octet-stream'
-  const blob = new Blob([bytes], { type })
+  // Copy into a fresh Uint8Array so a detached/transferred ArrayBuffer cannot upload as 0B
+  const payload = new Uint8Array(bytes.byteLength)
+  try {
+    payload.set(new Uint8Array(bytes))
+  } catch {
+    return { error: `Could not read bytes for ${filename} (buffer was cleared during CV scan). Sync again.` }
+  }
+  const blob = new Blob([payload], { type })
+  if (blob.size === 0) return { error: `Refusing to upload empty file: ${filename}` }
   // upsert:false — no UPDATE policy required on storage.objects
   const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, blob, {
     cacheControl: '3600',
@@ -137,7 +145,7 @@ export async function uploadAtsAttachmentBytes(
     }
     return { error: error.message }
   }
-  return { path, size: bytes.byteLength }
+  return { path, size: blob.size }
 }
 
 /** Authenticated download with correct MIME for preview/download. */
@@ -148,12 +156,14 @@ export async function getPortalFileBlobUrl(
 ): Promise<{ url: string; mimeType: string; revoke: () => void } | null> {
   const { data, error } = await client.storage.from(PORTAL_FILES_BUCKET).download(path)
   if (error || !data) return null
+  if (data.size === 0) return null
   const mime =
     (data.type && data.type !== 'application/octet-stream' ? data.type : undefined) ||
     guessMimeFromName(filenameHint || path) ||
     data.type ||
     'application/octet-stream'
   const blob = data.type === mime ? data : new Blob([await data.arrayBuffer()], { type: mime })
+  if (blob.size === 0) return null
   const url = URL.createObjectURL(blob)
   return {
     url,
@@ -172,29 +182,31 @@ export async function downloadPortalFile(
   filename: string,
 ): Promise<{ ok: true } | { error: string }> {
   if (!path) return { error: 'File was not saved. Sync Gmail again.' }
-  const resolved = await getPortalFileBlobUrl(client, path, filename)
-  if (!resolved) {
-    const signed = await getPortalFileSignedUrl(client, path)
-    if (!signed) return { error: 'Could not download this file. Check storage permissions.' }
-    const a = document.createElement('a')
-    a.href = signed
-    a.download = filename
-    a.target = '_blank'
-    a.rel = 'noopener noreferrer'
-    document.body.appendChild(a)
-    a.click()
-    a.remove()
-    return { ok: true }
+  const { data, error } = await client.storage.from(PORTAL_FILES_BUCKET).download(path)
+  if (error || !data) {
+    return { error: 'Could not download this file. Check storage permissions or Sync again.' }
   }
+  if (data.size === 0) {
+    return {
+      error:
+        'Stored CV is empty (0 bytes) — it was corrupted during an earlier sync. Sync Gmail again to re-upload the original file.',
+    }
+  }
+  const mime =
+    (data.type && data.type !== 'application/octet-stream' ? data.type : undefined) ||
+    guessMimeFromName(filename) ||
+    'application/octet-stream'
+  const blob = data.type === mime ? data : new Blob([await data.arrayBuffer()], { type: mime })
+  const url = URL.createObjectURL(blob)
   const a = document.createElement('a')
-  a.href = resolved.url
+  a.href = url
   a.download = filename || 'attachment'
   a.rel = 'noopener'
   document.body.appendChild(a)
   a.click()
   a.remove()
   // Keep blob alive briefly so the browser can finish the download
-  window.setTimeout(resolved.revoke, 60_000)
+  window.setTimeout(() => URL.revokeObjectURL(url), 60_000)
   return { ok: true }
 }
 
@@ -203,15 +215,42 @@ export async function resolvePortalFilePreviewUrl(
   client: SupabaseClient,
   path: string,
   filenameHint?: string,
-): Promise<{ url: string; mimeType?: string; revoke?: () => void } | null> {
-  if (!path) return null
-  const blobUrl = await getPortalFileBlobUrl(client, path, filenameHint)
-  if (blobUrl) {
-    return { url: blobUrl.url, mimeType: blobUrl.mimeType, revoke: blobUrl.revoke }
+): Promise<
+  | { url: string; mimeType?: string; revoke?: () => void; error?: undefined }
+  | { url?: undefined; error: string }
+  | null
+> {
+  if (!path) return { error: 'File was not saved. Sync Gmail again.' }
+  const { data, error } = await client.storage.from(PORTAL_FILES_BUCKET).download(path)
+  if (error || !data) {
+    // Auth/download failed — try signed URL as a last resort
+    const signed = await getPortalFileSignedUrl(client, path)
+    if (!signed) return { error: 'Could not load this file. Sync again or check storage permissions.' }
+    return { url: signed, mimeType: guessMimeFromName(filenameHint || path) }
   }
-  const signed = await getPortalFileSignedUrl(client, path)
-  if (!signed) return null
-  return { url: signed, mimeType: guessMimeFromName(filenameHint || path) }
+  if (data.size === 0) {
+    return {
+      error:
+        'Stored CV is empty (0 bytes). Sync Gmail again to re-upload the original file.',
+    }
+  }
+  const mime =
+    (data.type && data.type !== 'application/octet-stream' ? data.type : undefined) ||
+    guessMimeFromName(filenameHint || path) ||
+    data.type ||
+    'application/octet-stream'
+  const blob = data.type === mime ? data : new Blob([await data.arrayBuffer()], { type: mime })
+  if (blob.size === 0) {
+    return {
+      error: 'Stored CV is empty (0 bytes). Sync Gmail again to re-upload the original file.',
+    }
+  }
+  const url = URL.createObjectURL(blob)
+  return {
+    url,
+    mimeType: mime,
+    revoke: () => URL.revokeObjectURL(url),
+  }
 }
 
 /** Signed URL for inline playback (not forced download). */

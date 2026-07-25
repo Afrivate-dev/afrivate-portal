@@ -91,6 +91,14 @@ export interface ResumeExtractOptions {
   enableOcr?: boolean
 }
 
+/** Independent copy — pdf.js / mammoth may detach the source ArrayBuffer. */
+export function copyArrayBuffer(data: ArrayBuffer): ArrayBuffer {
+  const src = new Uint8Array(data)
+  const out = new Uint8Array(src.byteLength)
+  out.set(src)
+  return out.buffer
+}
+
 async function extractPdfText(
   data: ArrayBuffer,
   enableOcr: boolean,
@@ -102,7 +110,8 @@ async function extractPdfText(
     import.meta.url,
   ).toString()
 
-  const doc = await pdfjs.getDocument({ data: new Uint8Array(data) }).promise
+  // Pass a copy — pdf.js may transfer/detach the underlying buffer
+  const doc = await pdfjs.getDocument({ data: new Uint8Array(copyArrayBuffer(data)) }).promise
   const pages = Math.min(doc.numPages, MAX_PDF_PAGES)
   const chunks: string[] = []
   for (let i = 1; i <= pages; i += 1) {
@@ -195,13 +204,16 @@ export async function extractResumeText(
     }
   }
 
+  // Always extract from a private copy so callers keep intact bytes for storage/download
+  const work = copyArrayBuffer(data)
+
   try {
     if (kind === 'pdf') {
-      const { text, usedOcr } = await extractPdfText(data, enableOcr)
+      const { text, usedOcr } = await extractPdfText(work, enableOcr)
       return { kind, filename, text, usedOcr }
     }
     if (kind === 'docx') {
-      return { kind, filename, text: await extractDocxText(data) }
+      return { kind, filename, text: await extractDocxText(work) }
     }
     if (kind === 'image') {
       if (!enableOcr) {
@@ -212,9 +224,9 @@ export async function extractResumeText(
           error: `Skipped OCR for ${filename} (image CV kept for preview)`,
         }
       }
-      return { kind, filename, text: await extractImageText(data, filename), usedOcr: true }
+      return { kind, filename, text: await extractImageText(work, filename), usedOcr: true }
     }
-    return { kind, filename, text: await extractPlainText(data) }
+    return { kind, filename, text: await extractPlainText(work) }
   } catch (err) {
     return {
       kind,
@@ -232,5 +244,6 @@ export function gmailAttachmentDataToArrayBuffer(data: string): ArrayBuffer {
   const binary = atob(normalized + pad)
   const bytes = new Uint8Array(binary.length)
   for (let i = 0; i < binary.length; i += 1) bytes[i] = binary.charCodeAt(i)
-  return bytes.buffer
+  // Slice to the exact view length (avoids oversized backing-store surprises)
+  return bytes.buffer.slice(bytes.byteOffset, bytes.byteOffset + bytes.byteLength)
 }
