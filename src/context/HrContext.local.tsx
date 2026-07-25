@@ -360,8 +360,9 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     [setJobCandidates],
   )
 
-  const updateJobCandidate = useCallback((id: string, patch: Partial<JobCandidate>) => {
+  const updateJobCandidate = useCallback(async (id: string, patch: Partial<JobCandidate>) => {
     setJobCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c)))
+    return { error: null }
   }, [setJobCandidates])
 
   const removeJobCandidates = useCallback(

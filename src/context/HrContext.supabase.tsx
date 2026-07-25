@@ -40,29 +40,53 @@ function reportHrError(action: string, error: { message: string }): void {
   notifyError(friendlyErrorMessage(action, error.message))
 }
 
-/** After first schema miss, skip optional identity columns so ATS keeps working pre-migration. */
+/** After first schema miss, skip optional columns so ATS keeps working pre-migration. */
 let omitCandidateIdentityColumns = false
+let omitCandidateAttachmentsColumn = false
 
 async function persistJobCandidateInsert(
   client: NonNullable<typeof supabase>,
   row: JobCandidate,
 ): Promise<{ error: { message: string } | null }> {
-  const first = await client.from('portal_job_candidates').insert(
-    jobCandidateToRow(row, { includeIdentity: !omitCandidateIdentityColumns }),
-  )
+  const build = () =>
+    jobCandidateToRow(row, {
+      includeIdentity: !omitCandidateIdentityColumns,
+      includeAttachments: !omitCandidateAttachmentsColumn,
+    })
+
+  const first = await client.from('portal_job_candidates').insert(build())
   if (!first.error) return { error: null }
+
   if (isMissingCandidateColumnError(first.error)) {
-    omitCandidateIdentityColumns = true
-    const retry = await client
-      .from('portal_job_candidates')
-      .insert(stripOptionalCandidateColumns(jobCandidateToRow(row, { includeIdentity: false })))
-    if (!retry.error) {
+    const msg = (first.error.message ?? '').toLowerCase()
+    if (msg.includes('attachments')) {
+      omitCandidateAttachmentsColumn = true
       console.warn(
-        '[hr] portal_job_candidates is missing identity/attachment columns. Run supabase/migrations/20260724_ats_candidate_identity.sql and 20260725_ats_candidate_attachments.sql.',
+        '[hr] portal_job_candidates.attachments missing. Run supabase/migrations/20260725_ats_candidate_attachments.sql',
       )
-      return { error: null }
+    } else {
+      omitCandidateIdentityColumns = true
+      console.warn(
+        '[hr] portal_job_candidates identity columns missing. Run supabase/migrations/20260724_ats_candidate_identity.sql',
+      )
     }
-    return { error: retry.error }
+    const stripped = stripOptionalCandidateColumns(build(), {
+      stripAttachments: omitCandidateAttachmentsColumn,
+    })
+    const retry = await client.from('portal_job_candidates').insert(stripped)
+    if (!retry.error) return { error: null }
+    // Last resort: strip both identity + attachments
+    omitCandidateIdentityColumns = true
+    const last = await client
+      .from('portal_job_candidates')
+      .insert(
+        stripOptionalCandidateColumns(
+          jobCandidateToRow(row, { includeIdentity: false, includeAttachments: false }),
+          { stripAttachments: true },
+        ),
+      )
+    if (!last.error) return { error: null }
+    return { error: last.error }
   }
   return { error: first.error }
 }
@@ -72,19 +96,41 @@ async function persistJobCandidateUpdate(
   id: string,
   patch: Partial<JobCandidate> & { updatedAt: string },
 ): Promise<{ error: { message: string } | null }> {
-  // Patch-only update: never send untouched optional columns (avoids gmail_message_id schema errors).
-  const first = await client
-    .from('portal_job_candidates')
-    .update(jobCandidatePatchToRow(patch, { includeIdentity: !omitCandidateIdentityColumns }))
-    .eq('id', id)
+  const build = () =>
+    jobCandidatePatchToRow(patch, {
+      includeIdentity: !omitCandidateIdentityColumns,
+      includeAttachments: !omitCandidateAttachmentsColumn,
+    })
+
+  const first = await client.from('portal_job_candidates').update(build()).eq('id', id)
   if (!first.error) return { error: null }
+
   if (isMissingCandidateColumnError(first.error)) {
-    omitCandidateIdentityColumns = true
+    const msg = (first.error.message ?? '').toLowerCase()
+    if (msg.includes('attachments')) {
+      omitCandidateAttachmentsColumn = true
+    } else {
+      omitCandidateIdentityColumns = true
+    }
     const retry = await client
       .from('portal_job_candidates')
-      .update(stripOptionalCandidateColumns(jobCandidatePatchToRow(patch, { includeIdentity: false })))
+      .update(
+        stripOptionalCandidateColumns(build(), {
+          stripAttachments: omitCandidateAttachmentsColumn,
+        }),
+      )
       .eq('id', id)
-    if (!retry.error) return { error: null }
+    if (!retry.error) {
+      if (omitCandidateAttachmentsColumn && patch.attachments !== undefined) {
+        return {
+          error: {
+            message:
+              'Attachments column missing in database. Run supabase/migrations/20260725_ats_candidate_attachments.sql',
+          },
+        }
+      }
+      return { error: null }
+    }
     return { error: retry.error }
   }
   return { error: first.error }
@@ -851,13 +897,24 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         for (let i = 0; i < prepared.length; i += chunkSize) {
           const chunk = prepared.slice(i, i + chunkSize)
           const payload = chunk.map((row) =>
-            jobCandidateToRow(row, { includeIdentity: !omitCandidateIdentityColumns }),
+            jobCandidateToRow(row, {
+              includeIdentity: !omitCandidateIdentityColumns,
+              includeAttachments: !omitCandidateAttachmentsColumn,
+            }),
           )
           let { error } = await client.from('portal_job_candidates').insert(payload)
           if (error && isMissingCandidateColumnError(error)) {
-            omitCandidateIdentityColumns = true
+            const msg = (error.message ?? '').toLowerCase()
+            if (msg.includes('attachments')) omitCandidateAttachmentsColumn = true
+            else omitCandidateIdentityColumns = true
             const retryPayload = chunk.map((row) =>
-              stripOptionalCandidateColumns(jobCandidateToRow(row, { includeIdentity: false })),
+              stripOptionalCandidateColumns(
+                jobCandidateToRow(row, {
+                  includeIdentity: !omitCandidateIdentityColumns,
+                  includeAttachments: !omitCandidateAttachmentsColumn,
+                }),
+                { stripAttachments: omitCandidateAttachmentsColumn },
+              ),
             )
             ;({ error } = await client.from('portal_job_candidates').insert(retryPayload))
           }
@@ -893,16 +950,19 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   )
 
   const updateJobCandidate = useCallback(
-    (id: string, patch: Partial<JobCandidate>) => {
+    async (id: string, patch: Partial<JobCandidate>, opts?: { reload?: boolean }) => {
       const updatedAt = new Date().toISOString()
       setJobCandidates((prev) =>
         prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt } : c)),
       )
-      void (async () => {
-        const { error } = await persistJobCandidateUpdate(client, id, { ...patch, updatedAt })
-        if (error) reportHrError('update candidate', error)
-        await reloadHr()
-      })()
+      const { error } = await persistJobCandidateUpdate(client, id, { ...patch, updatedAt })
+      if (error) {
+        reportHrError('update candidate', error)
+        if (opts?.reload !== false) await reloadHr()
+        return { error }
+      }
+      if (opts?.reload !== false) await reloadHr()
+      return { error: null }
     },
     [client, reloadHr],
   )

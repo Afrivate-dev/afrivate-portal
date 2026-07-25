@@ -1,4 +1,5 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
+import { useSearchParams } from 'react-router-dom'
 import {
   Users as UsersIcon,
   Megaphone,
@@ -50,7 +51,7 @@ import { RecruitmentAtsSection } from '@/pages/admin/RecruitmentAtsSection'
 import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
-import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, isAdmin, roleLabel } from '@/utils/helpers'
+import { cn, fmtDate, firstName, relativeTime, uid, weekLabel, canChangeRoles, isAdmin, isHR, roleLabel } from '@/utils/helpers'
 import {
   canPublishMemo,
   pickMemoBodyDocument,
@@ -147,8 +148,61 @@ export function AdminPanelPage() {
 
   const adminUser = canChangeRoles(user)
   const canManageUsers = isAdmin(user) || user?.role === 'hr'
+  /** Recruitment ATS is available to every HR and Admin account. */
+  const canManageRecruitment = isHR(user) || isAdmin(user)
 
-  const [section, setSection] = useState<Section>('approvals')
+  const [searchParams, setSearchParams] = useSearchParams()
+  const sectionFromUrl = searchParams.get('section') as Section | null
+  const [section, setSectionState] = useState<Section>(
+    sectionFromUrl &&
+      [
+        'approvals',
+        'users',
+        'departments',
+        'teams',
+        'announcements',
+        'leave',
+        'onboarding',
+        'checkins',
+        'hr',
+        'recruitment',
+      ].includes(sectionFromUrl)
+      ? sectionFromUrl
+      : 'approvals',
+  )
+
+  const setSection = (next: Section) => {
+    setSectionState(next)
+    setSearchParams(
+      (prev) => {
+        const p = new URLSearchParams(prev)
+        p.set('section', next)
+        return p
+      },
+      { replace: true },
+    )
+  }
+
+  useEffect(() => {
+    if (
+      sectionFromUrl &&
+      sectionFromUrl !== section &&
+      [
+        'approvals',
+        'users',
+        'departments',
+        'teams',
+        'announcements',
+        'leave',
+        'onboarding',
+        'checkins',
+        'hr',
+        'recruitment',
+      ].includes(sectionFromUrl)
+    ) {
+      setSectionState(sectionFromUrl)
+    }
+  }, [sectionFromUrl, section])
 
   // Generic confirm dialog state
   const [confirmState, setConfirmState] = useState<{
@@ -376,15 +430,26 @@ export function AdminPanelPage() {
         ),
         count: pendingUsers.length > 0 ? pendingUsers.length : undefined,
       },
-      {
-        id: 'users',
+    ]
+    // Recruitment first after Approvals so every HR/Admin finds it quickly on mobile
+    if (canManageRecruitment) {
+      tabs.push({
+        id: 'recruitment',
         label: (
           <span className="inline-flex items-center gap-2">
-            <UsersIcon className="h-4 w-4" /> Users
+            <Briefcase className="h-4 w-4" /> Recruitment
           </span>
         ),
-      },
-    ]
+      })
+    }
+    tabs.push({
+      id: 'users',
+      label: (
+        <span className="inline-flex items-center gap-2">
+          <UsersIcon className="h-4 w-4" /> Users
+        </span>
+      ),
+    })
     if (adminUser) {
       tabs.push(
         {
@@ -447,17 +512,9 @@ export function AdminPanelPage() {
           </span>
         ),
       },
-      {
-        id: 'recruitment',
-        label: (
-          <span className="inline-flex items-center gap-2">
-            <Briefcase className="h-4 w-4" /> Recruitment
-          </span>
-        ),
-      },
     )
     return tabs
-  }, [adminUser, pendingLeave.length, pendingUsers.length])
+  }, [adminUser, canManageRecruitment, pendingLeave.length, pendingUsers.length])
 
   const patchUser = (id: string, patch: Partial<User>) => {
     if ('role' in patch && !adminUser) {
@@ -1573,7 +1630,7 @@ export function AdminPanelPage() {
       ) : null}
 
       {section === 'hr' ? <HrDashboardSection metrics={getMetrics()} /> : null}
-      {section === 'recruitment' ? <RecruitmentAtsSection /> : null}
+      {section === 'recruitment' && canManageRecruitment ? <RecruitmentAtsSection /> : null}
 
       {/* Modals */}
 

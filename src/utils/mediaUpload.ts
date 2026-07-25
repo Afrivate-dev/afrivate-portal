@@ -87,8 +87,8 @@ export async function resolveVideoPlaybackUrl(
 
   const blob = await getPortalFileBlobUrl(supabase, path)
   if (blob) {
-    blobUrlCache.set(path, blob)
-    return { url: blob, isBlob: true }
+    blobUrlCache.set(path, blob.url)
+    return { url: blob.url, isBlob: true }
   }
 
   return null
@@ -106,8 +106,8 @@ export async function resolveStorageReference(url: string): Promise<string> {
   }
   const blob = await getPortalFileBlobUrl(supabase, path)
   if (blob) {
-    blobUrlCache.set(path, blob)
-    return blob
+    blobUrlCache.set(path, blob.url)
+    return blob.url
   }
   return url
 }
