@@ -201,21 +201,40 @@ function extractName(raw: string, email?: string): string {
     return titleCaseName(normalizePersonNameCandidate(labeled[1]))
   }
 
-  // 4) Signature after letter closing (never use "Yours sincerely" itself)
+  // 4) Body intros: "My name is …" / "I am …" / "I'm …"
+  const intro = raw.match(
+    /(?:my name is|i am|i'm|this is)\s+([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\b/,
+  )
+  if (intro?.[1] && isPlausiblePersonName(intro[1])) {
+    return titleCaseName(normalizePersonNameCandidate(intro[1]))
+  }
+
+  // 5) Signature after letter closing (never use "Yours sincerely" itself)
   const signature = raw.match(
-    /(?:yours?\s+sincerely|kind\s+regards|best\s+regards|warm\s+regards|respectfully)[,.]?\s*(?:\r?\n)+\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\s*(?:\r?\n|$)/i,
+    /(?:yours?\s+sincerely|kind\s+regards|best\s+regards|warm\s+regards|respectfully|thanks(?:\s+and\s+regards)?)[,.]?\s*(?:\r?\n)+\s*([A-Z][A-Za-z'’.-]+(?:\s+[A-Z][A-Za-z'’.-]+){1,3})\s*(?:\r?\n|$)/i,
   )
   if (signature?.[1] && isPlausiblePersonName(signature[1])) {
     return titleCaseName(normalizePersonNameCandidate(signature[1]))
   }
 
-  // 5) First plausible multi-word line near the top of the body
+  // 6) First lines inside a scanned resume block
+  const resumeSection = raw.match(/---\s*Resume:[^\n]*\n([\s\S]{0,1200})/i)?.[1]
+  if (resumeSection) {
+    for (const line of resumeSection.split(/\r?\n/).map((l) => l.trim()).filter(Boolean).slice(0, 8)) {
+      if (EMAIL_RE.test(line) || /^https?:\/\//i.test(line)) continue
+      if (/^(phone|email|address|skills|experience|education)\b/i.test(line)) continue
+      const cleaned = normalizePersonNameCandidate(line)
+      if (isPlausiblePersonName(cleaned)) return titleCaseName(cleaned)
+    }
+  }
+
+  // 7) First plausible multi-word line near the top of the body
   const lines = raw
     .split(/\r?\n/)
     .map((l) => l.trim())
     .filter(Boolean)
 
-  for (const line of lines.slice(0, 20)) {
+  for (const line of lines.slice(0, 25)) {
     const lower = line.toLowerCase()
     if (lower.startsWith('from:') || lower.startsWith('subject:') || lower.startsWith('to:')) continue
     if (lower.startsWith('--- resume:')) continue
@@ -228,7 +247,7 @@ function extractName(raw: string, email?: string): string {
     if (isPlausiblePersonName(cleaned)) return titleCaseName(cleaned)
   }
 
-  // 6) Fallback from email local-part
+  // 8) Fallback from email local-part
   return nameFromEmailLocal(email) ?? 'Unknown candidate'
 }
 

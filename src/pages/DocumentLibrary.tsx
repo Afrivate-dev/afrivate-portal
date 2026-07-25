@@ -494,6 +494,7 @@ export function DocumentLibraryPage() {
           setEditDocId(null)
         }}
         title={editDocId ? 'Edit document' : 'Upload document'}
+        closeOnBackdrop={false}
         description={
           editDocId
             ? 'Update title, category, access, and policy acknowledgment settings.'

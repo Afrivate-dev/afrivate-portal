@@ -696,6 +696,7 @@ export function AnnouncementsPage() {
         onClose={closeForm}
         title={draft.id ? U.formEditTitle : U.formNewTitle}
         size="lg"
+        closeOnBackdrop={false}
         footer={
           <>
             <Button variant="ghost" type="button" onClick={closeForm}>

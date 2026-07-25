@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useCallback, useMemo, useState } from 'react'
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -190,24 +190,30 @@ export function LeaveRequestsPage() {
     [manageRequests],
   )
 
-  if (!user) return null
-
-  const openForm = () => {
-    setDraft(emptyDraft)
-    setSupportingFile(null)
-    setFormOpen(true)
-  }
-
-  const closeForm = () => {
-    setFormOpen(false)
-    setDraft(emptyDraft)
+  const resetForm = useCallback(() => {
+    setDraft({ ...emptyDraft })
     setSupportingFile(null)
     setSubmitting(false)
-  }
+  }, [])
 
-  const submitForm = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (submitting) return
+  const openForm = useCallback(() => {
+    setFormOpen(true)
+  }, [])
+
+  /** Backdrop / Escape — close without wiping fields so a file-picker glitch does not lose the draft. */
+  const dismissForm = useCallback(() => {
+    setFormOpen(false)
+    setSubmitting(false)
+  }, [])
+
+  const cancelForm = useCallback(() => {
+    setFormOpen(false)
+    resetForm()
+  }, [resetForm])
+
+  const submitForm = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault()
+    if (!user || submitting) return
     if (!draft.startDate || !draft.endDate || !draft.reason.trim()) return
     if (draft.endDate < draft.startDate) return
     const requestedDays = dayCount(draft.startDate, draft.endDate)
@@ -249,8 +255,11 @@ export function LeaveRequestsPage() {
       supportingDocName,
       supportingDocPath,
     })
-    closeForm()
+    setFormOpen(false)
+    resetForm()
   }
+
+  if (!user) return null
 
   const startReview = (r: LeaveRequest, status: 'approved' | 'declined') => {
     setReviewing({ request: r, status })
@@ -477,25 +486,26 @@ export function LeaveRequestsPage() {
       {/* Request modal */}
       <Modal
         open={formOpen}
-        onClose={closeForm}
+        onClose={dismissForm}
         title="Request leave"
         size="lg"
+        closeOnBackdrop={false}
         footer={
           <>
-            <Button variant="ghost" type="button" onClick={closeForm}>
+            <Button variant="ghost" type="button" onClick={cancelForm}>
               Cancel
             </Button>
-            <Button type="button" onClick={submitForm} loading={submitting} disabled={submitting}>
+            <Button type="button" onClick={() => void submitForm()} loading={submitting} disabled={submitting}>
               Submit request
             </Button>
           </>
         }
       >
-        <form className="space-y-4" onSubmit={submitForm}>
+        <div className="space-y-4">
           <Select
             label="Leave type"
             value={draft.type}
-            onChange={(e) => setDraft({ ...draft, type: e.target.value as LeaveType })}
+            onChange={(e) => setDraft((d) => ({ ...d, type: e.target.value as LeaveType }))}
             options={(Object.keys(TYPE_META) as LeaveType[]).map((t) => ({
               value: t,
               label: TYPE_META[t].label,
@@ -507,14 +517,14 @@ export function LeaveRequestsPage() {
               label="Start date"
               required
               value={draft.startDate}
-              onChange={(e) => setDraft({ ...draft, startDate: e.target.value })}
+              onChange={(e) => setDraft((d) => ({ ...d, startDate: e.target.value }))}
             />
             <Input
               type="date"
               label="End date"
               required
               value={draft.endDate}
-              onChange={(e) => setDraft({ ...draft, endDate: e.target.value })}
+              onChange={(e) => setDraft((d) => ({ ...d, endDate: e.target.value }))}
               min={draft.startDate}
             />
           </div>
@@ -541,7 +551,7 @@ export function LeaveRequestsPage() {
             required
             rows={3}
             value={draft.reason}
-            onChange={(e) => setDraft({ ...draft, reason: e.target.value })}
+            onChange={(e) => setDraft((d) => ({ ...d, reason: e.target.value }))}
             placeholder={
               draft.type === 'emergency'
                 ? 'Describe the emergency (e.g. family bereavement, medical crisis, urgent travel)…'
@@ -554,20 +564,41 @@ export function LeaveRequestsPage() {
             </label>
             <input
               type="file"
+              accept="image/*,.pdf,.doc,.docx"
               className="block w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
-              onChange={(e) => setSupportingFile(e.target.files?.[0] ?? null)}
+              onPointerDown={(e) => e.stopPropagation()}
+              onClick={(e) => e.stopPropagation()}
+              onChange={(e) => {
+                const file = e.target.files?.[0] ?? null
+                setSupportingFile(file)
+                if (file) setDraft((d) => ({ ...d, supportingDocName: file.name }))
+              }}
             />
-            {!supportingFile ? (
+            {supportingFile ? (
+              <div className="mt-2 flex items-center justify-between gap-2 rounded-md border border-border bg-surface-2/40 px-3 py-2 text-xs text-fg">
+                <span className="min-w-0 truncate">{supportingFile.name}</span>
+                <button
+                  type="button"
+                  className="shrink-0 text-muted hover:text-fg"
+                  onClick={() => {
+                    setSupportingFile(null)
+                    setDraft((d) => ({ ...d, supportingDocName: '' }))
+                  }}
+                >
+                  Remove
+                </button>
+              </div>
+            ) : (
               <Input
                 className="mt-2"
                 value={draft.supportingDocName}
-                onChange={(e) => setDraft({ ...draft, supportingDocName: e.target.value })}
+                onChange={(e) => setDraft((d) => ({ ...d, supportingDocName: e.target.value }))}
                 placeholder="e.g. medical-cert.pdf"
                 hint="Or attach a file above when storage is configured."
               />
-            ) : null}
+            )}
           </div>
-        </form>
+        </div>
       </Modal>
 
       {/* Review modal */}

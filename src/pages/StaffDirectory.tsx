@@ -516,6 +516,7 @@ export function StaffDirectoryPage() {
         }}
         title={opened ? (editing ? P.editProfile : opened.name) : undefined}
         size="lg"
+        closeOnBackdrop={false}
         footer={
           canEditProfile ? (
             editing ? (

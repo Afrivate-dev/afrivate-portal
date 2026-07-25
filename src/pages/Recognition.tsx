@@ -581,6 +581,7 @@ export function RecognitionPage() {
         title="Give shoutout"
         description="Recognise someone for great work."
         size="lg"
+        closeOnBackdrop={false}
         footer={
           <>
             <Button variant="ghost" type="button" onClick={() => setFormOpen(false)}>
