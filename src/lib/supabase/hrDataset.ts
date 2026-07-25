@@ -281,6 +281,7 @@ export function jobCandidatePatchToRow(
   const includeIdentity = opts?.includeIdentity !== false
   const includeAttachments = opts?.includeAttachments !== false
   const row: Record<string, unknown> = {}
+  if (patch.requisitionId !== undefined) row.requisition_id = patch.requisitionId
   if (patch.name !== undefined) row.name = patch.name
   if (patch.email !== undefined) row.email = patch.email ?? null
   if (patch.stage !== undefined) row.stage = patch.stage

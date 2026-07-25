@@ -30,8 +30,13 @@ import { useHr } from '@/context/HrContext'
 import { useAuth } from '@/context/AuthContext'
 import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
 import { joinApplicationNotes, stripResumeExtractBlocks } from '@/lib/atsEmailHtml'
-import { candidateIsLikelyJobApplication } from '@/utils/atsApplicationGate'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
+import { candidateIsObviousJunk } from '@/utils/atsApplicationGate'
+import {
+  openJobsMatchingAtsProfile,
+  pickCanonicalAtsJob,
+} from '@/utils/atsJobRoles'
+import { uploadAtsAttachmentBytes, probeAtsStorageAccess } from '@/lib/supabase/fileStorage'
 import {
   candidateGmailUrl,
   encodeGmailExternalId,
@@ -46,13 +51,11 @@ import {
 } from '@/lib/gmailAtsSync'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { supabase } from '@/lib/supabase'
-import { uploadAtsAttachmentBytes } from '@/lib/supabase/fileStorage'
 import type { CandidateAttachment, CandidateSource, CandidateStage, JobCandidate } from '@/types/hr'
 import {
   ATS_STANDARD_ROLES,
   defaultCriteriaForProfile,
   detectAtsRoleFromApplication,
-  detectAtsRoleProfile,
   detectSourceFromEmail,
   explainCandidateRankingRich,
   isPlausiblePersonName,
@@ -140,22 +143,24 @@ export function RecruitmentAtsSection() {
   )
 
   const findOpenJobForProfile = (profile: AtsRoleProfile) => {
-    if (profile === 'general') {
-      return (
-        openJobs.find((j) => /unassigned|other/i.test(j.title)) ??
-        openJobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
-      )
-    }
-    const standard = ATS_STANDARD_ROLES.find((r) => r.profile === profile)
-    return (
-      openJobs.find((j) => detectAtsRoleProfile(j.title) === profile) ??
-      openJobs.find((j) => j.title === standard?.title)
-    )
+    const matches = openJobsMatchingAtsProfile(openJobs, profile)
+    return pickCanonicalAtsJob(matches, jobCandidates)
   }
 
   const ensureJobForProfile = async (profile: AtsRoleProfile): Promise<string> => {
     const cached = jobIdCacheRef.current[profile]
-    if (cached) return cached
+    if (cached) {
+      // Cache can point at an empty duplicate — re-check against live jobs
+      const stillOpen = openJobs.some((j) => j.id === cached)
+      if (stillOpen) {
+        const canonical = findOpenJobForProfile(profile)
+        if (canonical && canonical.id !== cached) {
+          jobIdCacheRef.current[profile] = canonical.id
+          return canonical.id
+        }
+        return cached
+      }
+    }
     const existing = findOpenJobForProfile(profile)
     if (existing) {
       jobIdCacheRef.current[profile] = existing.id
@@ -200,42 +205,21 @@ export function RecruitmentAtsSection() {
       designer: 0,
       general: 0,
     }
-    const jobs = jobRequisitions.filter((j) => j.status === 'open')
-    const jobFor = (profile: RoleTab) => {
-      if (profile === 'general') {
-        return (
-          jobs.find((j) => /unassigned|other/i.test(j.title)) ??
-          jobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
-        )
-      }
-      const standard = ATS_STANDARD_ROLES.find((r) => r.profile === profile)
-      return (
-        jobs.find((j) => detectAtsRoleProfile(j.title) === profile) ??
-        jobs.find((j) => j.title === standard?.title)
-      )
-    }
     for (const role of ['frontend', 'backend', 'fullstack', 'designer', 'general'] as const) {
-      const job = jobFor(role)
-      if (!job) continue
-      counts[role] = jobCandidates.filter((c) => c.requisitionId === job.id).length
+      const ids = new Set(openJobsMatchingAtsProfile(jobRequisitions, role).map((j) => j.id))
+      counts[role] = jobCandidates.filter((c) => ids.has(c.requisitionId)).length
     }
     return counts
   }, [jobCandidates, jobRequisitions])
 
-  const resolvedJobId = useMemo(() => {
-    const jobs = jobRequisitions.filter((j) => j.status === 'open')
-    if (selectedRole === 'general') {
-      return (
-        jobs.find((j) => /unassigned|other/i.test(j.title)) ??
-        jobs.find((j) => detectAtsRoleProfile(j.title) === 'general')
-      )?.id ?? ''
-    }
-    const standard = ATS_STANDARD_ROLES.find((r) => r.profile === selectedRole)
-    return (
-      jobs.find((j) => detectAtsRoleProfile(j.title) === selectedRole) ??
-      jobs.find((j) => j.title === standard?.title)
-    )?.id ?? ''
+  const resolvedJobIds = useMemo(() => {
+    return new Set(openJobsMatchingAtsProfile(jobRequisitions, selectedRole).map((j) => j.id))
   }, [jobRequisitions, selectedRole])
+
+  const resolvedJobId = useMemo(() => {
+    const matches = openJobsMatchingAtsProfile(jobRequisitions, selectedRole)
+    return pickCanonicalAtsJob(matches, jobCandidates)?.id ?? ''
+  }, [jobRequisitions, jobCandidates, selectedRole])
 
   const selectedJob = jobRequisitions.find((j) => j.id === resolvedJobId)
   const roleProfile: Exclude<AtsRoleProfile, 'general'> =
@@ -269,10 +253,10 @@ export function RecruitmentAtsSection() {
   }, [roleProfile])
 
   const candidatesForRole = useMemo(() => {
-    if (!resolvedJobId) return []
-    const rows = jobCandidates.filter((c) => c.requisitionId === resolvedJobId)
+    if (!resolvedJobIds.size) return []
+    const rows = jobCandidates.filter((c) => resolvedJobIds.has(c.requisitionId))
     return [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
-  }, [jobCandidates, resolvedJobId])
+  }, [jobCandidates, resolvedJobIds])
 
   const visible = useMemo(() => {
     if (filter === 'top10') return candidatesForRole.slice(0, 10)
@@ -412,13 +396,17 @@ export function RecruitmentAtsSection() {
         if (existing) {
           // Always re-upload CV files on sync when Gmail still has them (fixes empty storagePath / broken paths)
           const hasFiles = (item.attachmentFiles?.length ?? 0) > 0
-          if (hasFiles && existing.id && !existing.id.startsWith('temp_')) {
-            const storedAttachments = await uploadItemAttachments(item)
-            if (storedAttachments.length) {
+          const needsMove = existing.requisitionId !== jobId
+          if ((hasFiles || needsMove) && existing.id && !existing.id.startsWith('temp_')) {
+            const storedAttachments = hasFiles ? await uploadItemAttachments(item) : []
+            if (hasFiles && !storedAttachments.length && item.attachmentFiles?.length) {
+              // uploadItemAttachments already recorded uploadFailures
+            } else {
               const save = await updateJobCandidate(
                 existing.id,
                 {
-                  attachments: storedAttachments,
+                  ...(storedAttachments.length ? { attachments: storedAttachments } : {}),
+                  ...(needsMove ? { requisitionId: jobId } : {}),
                   // Persist the letter only — CV extract stays out of the reading pane
                   notes: joinApplicationNotes(
                     stripResumeExtractBlocks(item.text).slice(0, 80000),
@@ -430,10 +418,13 @@ export function RecruitmentAtsSection() {
                 { reload: false },
               )
               if (save && typeof save === 'object' && save.error) {
-                uploadFailures.push(`Could not save files for ${existing.name}: ${save.error.message}`)
+                uploadFailures.push(`Could not save ${existing.name}: ${save.error.message}`)
               } else {
-                existing.attachments = storedAttachments
-                refreshedAttachments += 1
+                if (storedAttachments.length) {
+                  existing.attachments = storedAttachments
+                  refreshedAttachments += 1
+                }
+                if (needsMove) existing.requisitionId = jobId
               }
             }
           }
@@ -570,18 +561,25 @@ export function RecruitmentAtsSection() {
       try {
         const token = await tokenPromise
 
-        setSyncLabel('Removing non-application emails…')
-        const junkIds = jobCandidates
-          .filter((c) => !candidateIsLikelyJobApplication(c))
-          .map((c) => c.id)
+        setSyncLabel('Removing obvious non-applications…')
+        const junkIds = jobCandidates.filter((c) => candidateIsObviousJunk(c)).map((c) => c.id)
         const { removed: purged } = await removeJobCandidates(junkIds)
 
+        if (supabase && user?.id) {
+          setSyncLabel('Checking file storage…')
+          const probe = await probeAtsStorageAccess(supabase, user.id)
+          if ('error' in probe) {
+            notifyError(probe.error)
+            return
+          }
+        }
+
         setSyncLabel('Connecting to Gmail…')
-        const { messages, skippedNonApplications } = await fetchGmailApplications({
+        const { messages, skippedNonApplications, listed } = await fetchGmailApplications({
           accessToken: token,
           onProgress: ({ label }) => setSyncLabel(label),
         })
-        setSyncLabel('Sorting by role & ranking…')
+        setSyncLabel(`Sorting ${messages.length} applications by role & ranking…`)
         const { added, skipped, byRole, failed, refreshedAttachments, uploadFailures } =
           await importScreened(
           messages.map((m) => {
@@ -602,11 +600,14 @@ export function RecruitmentAtsSection() {
           }),
         )
         const purgeNote = purged
-          ? ` · removed ${purged} non-application${purged === 1 ? '' : 's'} from ATS`
+          ? ` · removed ${purged} junk email${purged === 1 ? '' : 's'}`
           : ''
         const refreshNote = refreshedAttachments
           ? ` · refreshed files on ${refreshedAttachments} existing candidate${refreshedAttachments === 1 ? '' : 's'}`
           : ''
+        const roleParts = Object.entries(byRole)
+          .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
+          .join(', ')
         if (uploadFailures.length) {
           notifyError(
             `CV upload issue (${uploadFailures.length}): ${uploadFailures[0]}${uploadFailures.length > 1 ? '…' : ''}`,
@@ -614,16 +615,14 @@ export function RecruitmentAtsSection() {
         }
         if (added) {
           const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
-          const parts = Object.entries(byRole)
-            .map(([k, n]) => `${n} ${labelForAtsRoleProfile(k as AtsRoleProfile)}`)
-            .join(', ')
           notifySuccess(
-            `Imported ${added} application${added === 1 ? '' : 's'}` +
-              (parts ? `: ${parts}` : '') +
+            `Inbox listed ${listed} · imported ${added} application${added === 1 ? '' : 's'}` +
+              (roleParts ? `: ${roleParts}` : '') +
               (withCv ? ` (${withCv} with CV scanned)` : '') +
               (failed ? ` · ${failed} failed to save` : '') +
+              (skipped ? ` · ${skipped} already in ATS` : '') +
               (skippedNonApplications
-                ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
+                ? ` · skipped ${skippedNonApplications} non-application${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
               purgeNote +
               refreshNote +
@@ -635,16 +634,17 @@ export function RecruitmentAtsSection() {
           if (preferred) setSelectedRole(preferred)
         } else if (skipped || skippedNonApplications || purged || refreshedAttachments) {
           notifySuccess(
-            `No new applications` +
-              (skipped ? ` (${skipped} already imported)` : '') +
+            `Inbox listed ${listed} · ${messages.length} application${messages.length === 1 ? '' : 's'} found` +
+              (skipped ? ` · ${skipped} already in ATS` : '') +
+              (roleParts ? ` · previous imports by role still visible in tabs` : '') +
               (skippedNonApplications
-                ? ` · skipped ${skippedNonApplications} non-application email${skippedNonApplications === 1 ? '' : 's'}`
+                ? ` · skipped ${skippedNonApplications} non-application${skippedNonApplications === 1 ? '' : 's'}`
                 : '') +
               purgeNote +
               refreshNote +
               '.',
           )
-        } else notifyError(`No application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days.`)
+        } else notifyError(`No application emails found in the last ${GMAIL_ATS_LOOKBACK_DAYS} days (listed ${listed}).`)
       } catch (err) {
         notifyError(err instanceof Error ? err.message : 'Could not sync from Gmail')
       } finally {
@@ -978,7 +978,7 @@ export function RecruitmentAtsSection() {
           </div>
         </div>
 
-        {!resolvedJobId ? (
+        {!resolvedJobIds.size ? (
           <EmptyState
             icon={Briefcase}
             title="No role set up yet"
