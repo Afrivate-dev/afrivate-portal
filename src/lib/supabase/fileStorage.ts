@@ -40,17 +40,21 @@ export async function uploadPortalFile(
   return { path, sizeLabel: formatFileSize(file.size) }
 }
 
-/** Upload a Gmail ATS attachment (bytes) into portal-files/ats/… */
+/** Upload a Gmail ATS attachment (bytes) into portal-files/ats/{userId}/… */
 export async function uploadAtsAttachmentBytes(
   client: SupabaseClient,
+  userId: string,
   messageKey: string,
   filename: string,
   bytes: ArrayBuffer,
   mimeType?: string,
 ): Promise<{ path: string; size: number } | { error: string }> {
-  const safeKey = sanitizeFileName(messageKey || 'msg')
+  if (!userId) return { error: 'Sign in again to upload CV files.' }
+  const safeUser = sanitizeFileName(userId)
+  const safeKey = sanitizeFileName(messageKey || 'msg').slice(0, 80)
   const safeName = sanitizeFileName(filename || 'attachment.bin')
-  const path = `ats/${safeKey}/${Date.now()}-${safeName}`
+  // Path must be ats/{auth.uid()}/… for storage RLS
+  const path = `ats/${safeUser}/${safeKey}-${Date.now()}-${safeName}`
   const type = mimeType || guessMimeFromName(filename) || 'application/octet-stream'
   const blob = new Blob([bytes], { type })
   const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, blob, {

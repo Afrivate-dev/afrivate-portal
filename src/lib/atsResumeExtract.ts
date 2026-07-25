@@ -86,7 +86,15 @@ export function isLikelyResumeAttachment(filename: string, mimeType?: string): b
   return looksLikeResumeName(filename)
 }
 
-async function extractPdfText(data: ArrayBuffer): Promise<{ text: string; usedOcr: boolean }> {
+export interface ResumeExtractOptions {
+  /** OCR is heavy and often blocked by CSP — off by default for Gmail sync. */
+  enableOcr?: boolean
+}
+
+async function extractPdfText(
+  data: ArrayBuffer,
+  enableOcr: boolean,
+): Promise<{ text: string; usedOcr: boolean }> {
   const pdfjs = await import('pdfjs-dist')
   // Vite-friendly worker
   pdfjs.GlobalWorkerOptions.workerSrc = new URL(
@@ -106,7 +114,7 @@ async function extractPdfText(data: ArrayBuffer): Promise<{ text: string; usedOc
     chunks.push(pageText)
   }
   const text = normalizeExtracted(chunks.join('\n'))
-  if (text.length >= 80) return { text, usedOcr: false }
+  if (text.length >= 80 || !enableOcr) return { text, usedOcr: false }
 
   // Scanned PDF: OCR first page as image fallback
   try {
@@ -166,7 +174,9 @@ export async function extractResumeText(
   data: ArrayBuffer,
   filename: string,
   mimeType?: string,
+  options?: ResumeExtractOptions,
 ): Promise<ResumeExtractResult> {
+  const enableOcr = options?.enableOcr === true
   const kind = classifyResumeFile(filename, mimeType)
   if (data.byteLength > MAX_BYTES) {
     return {
@@ -187,13 +197,21 @@ export async function extractResumeText(
 
   try {
     if (kind === 'pdf') {
-      const { text, usedOcr } = await extractPdfText(data)
+      const { text, usedOcr } = await extractPdfText(data, enableOcr)
       return { kind, filename, text, usedOcr }
     }
     if (kind === 'docx') {
       return { kind, filename, text: await extractDocxText(data) }
     }
     if (kind === 'image') {
+      if (!enableOcr) {
+        return {
+          kind,
+          filename,
+          text: '',
+          error: `Skipped OCR for ${filename} (image CV kept for preview)`,
+        }
+      }
       return { kind, filename, text: await extractImageText(data, filename), usedOcr: true }
     }
     return { kind, filename, text: await extractPlainText(data) }

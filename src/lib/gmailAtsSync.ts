@@ -595,10 +595,13 @@ export async function enrichMessageWithResumeText(
     accessToken: string
     fetchImpl?: typeof fetch
     extractFn?: typeof extractResumeText
+    /** OCR is off by default — too heavy / CSP-blocked during bulk sync. */
+    enableOcr?: boolean
   },
 ): Promise<GmailApplicationMessage> {
   const doFetch = options.fetchImpl ?? boundFetch()
   const extractFn = options.extractFn ?? extractResumeText
+  const enableOcr = options.enableOcr === true
   // Prefer resume-like files, but still keep any returned refs for preview
   const refs = collectResumeAttachmentRefs(msg.payload, true)
   if (!refs.length) return parsed
@@ -627,7 +630,7 @@ export async function enrichMessageWithResumeText(
         kind: classifyAtsAttachmentKind(ref.filename),
       })
 
-      const extracted = await extractFn(buffer, ref.filename, ref.mimeType)
+      const extracted = await extractFn(buffer, ref.filename, ref.mimeType, { enableOcr })
       if (extracted.error && !extracted.text.trim()) {
         errors.push(`${ref.filename}: ${extracted.error}`)
       } else if (!extracted.text.trim()) {
@@ -703,6 +706,8 @@ export async function fetchGmailApplications(options?: {
   hardCap?: number
   /** When false, skip CV download/OCR (faster tests). Default true. */
   extractResumes?: boolean
+  /** OCR (Tesseract) — off by default; PDF/DOCX text extract still runs. */
+  enableOcr?: boolean
   /** Injected for tests */
   fetchImpl?: typeof fetch
   extractFn?: typeof extractResumeText
@@ -749,6 +754,7 @@ export async function fetchGmailApplications(options?: {
         accessToken: token,
         fetchImpl: doFetch,
         extractFn: options?.extractFn,
+        enableOcr: options?.enableOcr === true,
       })
     }
     out.push(parsed)

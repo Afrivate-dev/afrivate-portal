@@ -1,10 +1,10 @@
 /**
  * Supabase HR data — loads portal HR tables from migration 20260704_hr_operations.sql.
  */
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
-import { useHrPortalRealtime } from '@/hooks/usePortalRealtime'
+import { useHrPortalRealtime, pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
 import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrContextShared'
 import {
   DEFAULT_FEEDBACK_TEMPLATES,
@@ -128,78 +128,91 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     enpsScore: number | null
   } | null>(null)
 
+  const reloadInFlightRef = useRef<Promise<void> | null>(null)
+
   const reloadHr = useCallback(async () => {
-    if (!user) {
-      setPulseSurveys([])
-      setPulseResponses([])
-      setLearningAssignments([])
-      setLearningSubmissions([])
-      setDocumentAcknowledgments([])
-      setOkrs([])
-      setOneOnOneLogs([])
-      setIdps([])
-      setFeedbackCycles([])
-      setFeedbackEntries([])
-      setFeedbackTemplates(DEFAULT_FEEDBACK_TEMPLATES)
-      setFeedbackAssignments([])
-      setJobRequisitions([])
-      setJobCandidates([])
-      setExitInterviews([])
-      setGrievances([])
-      setOnboardingMilestones([])
-      setQuarterlyAwards([])
-      setTeamPulseAggregates(null)
-      setHrStatus('ready')
-      return
-    }
-    setHrStatus('loading')
-    try {
-      const d = await fetchHrDataset(client)
-      setPulseSurveys(d.pulseSurveys)
-      setPulseResponses(d.pulseResponses)
-      setLearningAssignments(d.learningAssignments)
-      setLearningSubmissions(d.learningSubmissions)
-      setDocumentAcknowledgments(d.documentAcknowledgments)
-      setOkrs(d.okrs)
-      setOneOnOneLogs(d.oneOnOneLogs)
-      setIdps(d.idps)
-      setFeedbackCycles(d.feedbackCycles)
-      setFeedbackEntries(d.feedbackEntries)
-      setFeedbackAssignments(d.feedbackAssignments)
-      try {
-        const templates = await fetchFeedbackTemplates(client)
-        setFeedbackTemplates(templates.length ? templates : DEFAULT_FEEDBACK_TEMPLATES)
-      } catch (e) {
-        console.warn('[hr] feedback templates', e instanceof Error ? e.message : e)
+    if (reloadInFlightRef.current) return reloadInFlightRef.current
+
+    const run = (async () => {
+      if (!user) {
+        setPulseSurveys([])
+        setPulseResponses([])
+        setLearningAssignments([])
+        setLearningSubmissions([])
+        setDocumentAcknowledgments([])
+        setOkrs([])
+        setOneOnOneLogs([])
+        setIdps([])
+        setFeedbackCycles([])
+        setFeedbackEntries([])
         setFeedbackTemplates(DEFAULT_FEEDBACK_TEMPLATES)
-      }
-      setJobRequisitions(d.jobRequisitions)
-      setJobCandidates(d.jobCandidates)
-      setExitInterviews(d.exitInterviews)
-      setGrievances(d.grievances)
-      setOnboardingMilestones(d.onboardingMilestones)
-      setQuarterlyAwards(d.quarterlyAwards)
-      if (user && isLead(user) && !isHR(user)) {
-        const { data: agg, error: aggErr } = await client.rpc('hr_pulse_aggregates', {
-          p_team_scope: true,
-        })
-        if (aggErr) {
-          console.warn('[hr] team pulse aggregates', aggErr.message)
-          setTeamPulseAggregates(null)
-        } else {
-          const row = agg as { engagement_score?: number | null; enps_score?: number | null } | null
-          setTeamPulseAggregates({
-            engagementScore: row?.engagement_score ?? null,
-            enpsScore: row?.enps_score ?? null,
-          })
-        }
-      } else {
+        setFeedbackAssignments([])
+        setJobRequisitions([])
+        setJobCandidates([])
+        setExitInterviews([])
+        setGrievances([])
+        setOnboardingMilestones([])
+        setQuarterlyAwards([])
         setTeamPulseAggregates(null)
+        setHrStatus('ready')
+        return
       }
-    } catch (e) {
-      reportHrError('load HR data', e instanceof Error ? e : { message: String(e) })
+      setHrStatus('loading')
+      try {
+        const d = await fetchHrDataset(client)
+        setPulseSurveys(d.pulseSurveys)
+        setPulseResponses(d.pulseResponses)
+        setLearningAssignments(d.learningAssignments)
+        setLearningSubmissions(d.learningSubmissions)
+        setDocumentAcknowledgments(d.documentAcknowledgments)
+        setOkrs(d.okrs)
+        setOneOnOneLogs(d.oneOnOneLogs)
+        setIdps(d.idps)
+        setFeedbackCycles(d.feedbackCycles)
+        setFeedbackEntries(d.feedbackEntries)
+        setFeedbackAssignments(d.feedbackAssignments)
+        try {
+          const templates = await fetchFeedbackTemplates(client)
+          setFeedbackTemplates(templates.length ? templates : DEFAULT_FEEDBACK_TEMPLATES)
+        } catch (e) {
+          console.warn('[hr] feedback templates', e instanceof Error ? e.message : e)
+          setFeedbackTemplates(DEFAULT_FEEDBACK_TEMPLATES)
+        }
+        setJobRequisitions(d.jobRequisitions)
+        setJobCandidates(d.jobCandidates)
+        setExitInterviews(d.exitInterviews)
+        setGrievances(d.grievances)
+        setOnboardingMilestones(d.onboardingMilestones)
+        setQuarterlyAwards(d.quarterlyAwards)
+        if (user && isLead(user) && !isHR(user)) {
+          const { data: agg, error: aggErr } = await client.rpc('hr_pulse_aggregates', {
+            p_team_scope: true,
+          })
+          if (aggErr) {
+            console.warn('[hr] team pulse aggregates', aggErr.message)
+            setTeamPulseAggregates(null)
+          } else {
+            const row = agg as { engagement_score?: number | null; enps_score?: number | null } | null
+            setTeamPulseAggregates({
+              engagementScore: row?.engagement_score ?? null,
+              enpsScore: row?.enps_score ?? null,
+            })
+          }
+        } else {
+          setTeamPulseAggregates(null)
+        }
+      } catch (e) {
+        reportHrError('load HR data', e instanceof Error ? e : { message: String(e) })
+      } finally {
+        setHrStatus('ready')
+      }
+    })()
+
+    reloadInFlightRef.current = run
+    try {
+      await run
     } finally {
-      setHrStatus('ready')
+      if (reloadInFlightRef.current === run) reloadInFlightRef.current = null
     }
   }, [client, user])
 
@@ -748,7 +761,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   )
 
   const addJobRequisition = useCallback(
-    (r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
+    async (r: Omit<JobRequisition, 'id' | 'createdAt'>, opts?: { reload?: boolean }) => {
       const row: JobRequisition = {
         ...r,
         id: 'job_' + uid(),
@@ -756,19 +769,21 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         createdById: user?.id,
       }
       setJobRequisitions((prev) => [row, ...prev])
-      void (async () => {
-        const { error } = await client.from('portal_job_requisitions').insert({
-          id: row.id,
-          title: row.title,
-          department: row.department,
-          status: row.status,
-          description: row.description ?? null,
-          created_by: user?.id ?? null,
-          created_at: row.createdAt,
-        })
-        if (error) reportHrError('add job requisition', error)
-        await reloadHr()
-      })()
+      const { error } = await client.from('portal_job_requisitions').insert({
+        id: row.id,
+        title: row.title,
+        department: row.department,
+        status: row.status,
+        description: row.description ?? null,
+        created_by: user?.id ?? null,
+        created_at: row.createdAt,
+      })
+      if (error) {
+        setJobRequisitions((prev) => prev.filter((j) => j.id !== row.id))
+        reportHrError('add job requisition', error)
+        throw new Error(error.message)
+      }
+      if (opts?.reload !== false) await reloadHr()
       return row.id
     },
     [client, reloadHr, user?.id],
@@ -798,7 +813,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   )
 
   const addJobCandidate = useCallback(
-    (c: Omit<JobCandidate, 'id' | 'updatedAt'>) => {
+    (c: Omit<JobCandidate, 'id' | 'updatedAt'>, opts?: { reload?: boolean }) => {
       const now = new Date().toISOString()
       const row: JobCandidate = {
         ...c,
@@ -810,8 +825,69 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       void (async () => {
         const { error } = await persistJobCandidateInsert(client, row)
         if (error) reportHrError('add candidate', error)
-        await reloadHr()
+        if (opts?.reload !== false) await reloadHr()
       })()
+    },
+    [client, reloadHr],
+  )
+
+  const addJobCandidatesBatch = useCallback(
+    async (rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>) => {
+      if (!rows.length) return { added: 0, failed: 0 }
+      pauseHrRealtime()
+      const now = new Date().toISOString()
+      const prepared: JobCandidate[] = rows.map((c) => ({
+        ...c,
+        id: 'cand_' + uid(),
+        appliedAt: c.appliedAt ?? now,
+        updatedAt: now,
+      }))
+      setJobCandidates((prev) => [...prepared, ...prev])
+
+      let added = 0
+      let failed = 0
+      const chunkSize = 20
+      try {
+        for (let i = 0; i < prepared.length; i += chunkSize) {
+          const chunk = prepared.slice(i, i + chunkSize)
+          const payload = chunk.map((row) =>
+            jobCandidateToRow(row, { includeIdentity: !omitCandidateIdentityColumns }),
+          )
+          let { error } = await client.from('portal_job_candidates').insert(payload)
+          if (error && isMissingCandidateColumnError(error)) {
+            omitCandidateIdentityColumns = true
+            const retryPayload = chunk.map((row) =>
+              stripOptionalCandidateColumns(jobCandidateToRow(row, { includeIdentity: false })),
+            )
+            ;({ error } = await client.from('portal_job_candidates').insert(retryPayload))
+          }
+          if (error) {
+            // Fall back to one-by-one so one bad row does not drop the whole chunk
+            for (const row of chunk) {
+              const one = await persistJobCandidateInsert(client, row)
+              if (one.error) {
+                failed += 1
+                setJobCandidates((prev) => prev.filter((c) => c.id !== row.id))
+                console.warn('[hr] add candidate', one.error.message)
+              } else {
+                added += 1
+              }
+            }
+          } else {
+            added += chunk.length
+          }
+        }
+      } finally {
+        resumeHrRealtime()
+        await reloadHr()
+      }
+      if (failed) {
+        reportHrError(
+          'import candidates',
+          { message: `${failed} of ${prepared.length} candidates could not be saved` },
+        )
+      }
+      return { added, failed }
     },
     [client, reloadHr],
   )
@@ -1058,6 +1134,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       addJobRequisition,
       updateJobRequisition,
       addJobCandidate,
+      addJobCandidatesBatch,
       updateJobCandidate,
       exitInterviews,
       addExitInterview,
@@ -1114,6 +1191,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       addJobRequisition,
       updateJobRequisition,
       addJobCandidate,
+      addJobCandidatesBatch,
       updateJobCandidate,
       exitInterviews,
       addExitInterview,
