@@ -23,13 +23,13 @@ interface TabBarProps<T extends string> {
 const variantStyles: Record<TabBarVariant, { list: string; btn: string; active: string; idle: string }> = {
   underline: {
     list: 'border-b border-border gap-0',
-    btn: 'relative shrink-0 px-3 py-2.5 text-sm font-medium sm:px-4',
+    btn: 'relative shrink-0 px-2.5 py-2.5 text-sm font-medium sm:px-4',
     active: 'text-accent',
     idle: 'text-muted hover:text-fg',
   },
   pill: {
     list: 'gap-1 rounded-lg bg-surface-2/50 p-1',
-    btn: 'relative shrink-0 rounded-md px-3 py-2 text-sm font-medium sm:px-4',
+    btn: 'relative shrink-0 rounded-md px-2.5 py-2 text-sm font-medium sm:px-4',
     active: 'bg-accent text-white shadow-sm',
     idle: 'text-muted hover:bg-surface-2 hover:text-fg',
   },

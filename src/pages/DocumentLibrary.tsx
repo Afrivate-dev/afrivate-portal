@@ -458,7 +458,7 @@ export function DocumentLibraryPage() {
                       e.stopPropagation()
                       void openDocument(d)
                     }}
-                    className="mt-3 inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg hover:bg-surface-2 ring-focus"
+                    className="mt-3 inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg hover:bg-surface-2 ring-focus"
                   >
                     {d.filePath ? 'Preview' : 'View details'}
                   </button>

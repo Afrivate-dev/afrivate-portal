@@ -196,7 +196,7 @@
   }
 
   .av-fullcalendar .fc-toolbar-title {
-    @apply font-heading text-base font-semibold text-fg;
+    @apply max-w-full text-center font-heading text-sm font-semibold text-fg sm:text-base;
   }
 
   .av-fullcalendar .fc-event {

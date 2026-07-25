@@ -45,7 +45,7 @@ export function InstagramFeedCard({
       <div className="flex flex-wrap items-center gap-3 px-4 py-3">{header}</div>
       {media ? <div className="min-w-0 max-w-full overflow-hidden">{media}</div> : null}
       {actions ? (
-        <div className="flex items-center gap-1 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
+        <div className="flex flex-wrap items-center gap-1 px-4 py-2.5" onClick={(e) => e.stopPropagation()}>
           {actions}
         </div>
       ) : null}

@@ -45,8 +45,8 @@ export function ComposerDraftsPanel({
                 <p className="truncate text-sm font-medium text-fg">{d.label}</p>
                 <p className="text-[11px] text-muted">Updated {relativeTime(d.updatedAt)}</p>
               </div>
-              <div className="flex shrink-0 gap-2">
-                <Button size="sm" variant="secondary" type="button" onClick={() => onResume(d)}>
+              <div className="flex w-full flex-wrap gap-2 sm:w-auto sm:shrink-0">
+                <Button size="sm" variant="secondary" type="button" className="flex-1 sm:flex-none" onClick={() => onResume(d)}>
                   <FilePenLine className="h-3.5 w-3.5" /> Resume
                 </Button>
                 <Button

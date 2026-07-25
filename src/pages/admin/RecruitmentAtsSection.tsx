@@ -1127,7 +1127,7 @@ function CriteriaEditor({
         />
       </div>
 
-      <div className="-mx-1 overflow-x-auto rounded-md border border-border sm:mx-0">
+      <div className="hidden -mx-1 overflow-x-auto rounded-md border border-border sm:mx-0 md:block">
         <table className="min-w-[40rem] w-full text-left text-sm">
           <thead className="bg-surface-2 text-xs text-muted">
             <tr>
@@ -1216,11 +1216,85 @@ function CriteriaEditor({
         </table>
       </div>
 
-      <div className="flex flex-wrap gap-2">
-        <Button variant="secondary" size="sm" onClick={addCriterion}>
+      <ul className="space-y-3 md:hidden">
+        {profile.criteria.map((c) => (
+          <li key={c.id} className="space-y-3 rounded-md border border-border p-3">
+            <div className="flex items-start justify-between gap-2">
+              <label className="flex items-center gap-2 text-sm font-medium text-fg">
+                <input
+                  type="checkbox"
+                  checked={c.enabled !== false}
+                  onChange={(e) => updateCriterion(c.id, { enabled: e.target.checked })}
+                />
+                Enabled
+              </label>
+              <button
+                type="button"
+                className="text-xs text-muted hover:text-danger"
+                onClick={() => removeCriterion(c.id)}
+              >
+                Remove
+              </button>
+            </div>
+            <Input
+              label="What we check"
+              value={c.label}
+              onChange={(e) => updateCriterion(c.id, { label: e.target.value })}
+              hint={criterionKindHint(c.kind)}
+            />
+            <div className="grid grid-cols-2 gap-3">
+              <Input
+                label="Points"
+                type="number"
+                value={String(c.weight)}
+                onChange={(e) => updateCriterion(c.id, { weight: Number(e.target.value) || 0 })}
+              />
+              <label className="flex items-end gap-2 pb-2 text-sm text-fg">
+                <input
+                  type="checkbox"
+                  checked={!!c.mustHave}
+                  onChange={(e) => updateCriterion(c.id, { mustHave: e.target.checked })}
+                />
+                Required for Strong
+              </label>
+            </div>
+            {c.kind === 'keywords' ? (
+              <Input
+                label="Keywords"
+                value={(c.keywords ?? []).join(', ')}
+                onChange={(e) =>
+                  updateCriterion(c.id, {
+                    keywords: e.target.value
+                      .split(',')
+                      .map((s) => s.trim())
+                      .filter(Boolean),
+                  })
+                }
+                placeholder="react, next.js"
+              />
+            ) : c.kind === 'min_length' ? (
+              <Input
+                label="Minimum length"
+                type="number"
+                value={String(c.minLength ?? 180)}
+                onChange={(e) => updateCriterion(c.id, { minLength: Number(e.target.value) || 0 })}
+              />
+            ) : (
+              <p className="text-xs text-muted">
+                {c.kind === 'resume_file'
+                  ? 'Points when CV text is read from PDF, Word, or image'
+                  : 'Detected automatically from the application'}
+              </p>
+            )}
+          </li>
+        ))}
+      </ul>
+
+      <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap">
+        <Button variant="secondary" size="sm" className="w-full sm:w-auto" onClick={addCriterion}>
           Add check
         </Button>
-        <Button variant="ghost" size="sm" onClick={onRescore}>
+        <Button variant="ghost" size="sm" className="w-full sm:w-auto" onClick={onRescore}>
           Refresh scores & names
         </Button>
       </div>

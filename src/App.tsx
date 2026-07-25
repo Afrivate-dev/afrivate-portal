@@ -161,7 +161,7 @@ function StorageFullBanner({ onDismiss }: { onDismiss: () => void }) {
   return (
     <div
       role="alert"
-      className="fixed bottom-4 left-1/2 z-50 flex w-full max-w-md -translate-x-1/2 items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm shadow-lg"
+      className="fixed bottom-4 left-4 right-4 z-50 flex w-auto max-w-md items-center justify-between gap-3 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-sm shadow-lg sm:left-1/2 sm:right-auto sm:w-full sm:-translate-x-1/2"
     >
       <span className="text-danger">
         Your browser storage is full — some data may not be saved. Try clearing old notes or
