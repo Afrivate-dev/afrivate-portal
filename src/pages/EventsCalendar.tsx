@@ -401,18 +401,19 @@ export function EventsCalendarPage() {
         <Card padding="md" className="max-w-full overflow-hidden">
           <div className={cn('av-fullcalendar av-scroll-x text-sm', canManage && 'av-fullcalendar--interactive')}>
             <FullCalendar
+              key={isMobile ? 'mobile-list' : 'desktop-month'}
               ref={calendarRef}
               plugins={[dayGridPlugin, timeGridPlugin, listPlugin, interactionPlugin]}
-              initialView="dayGridMonth"
+              initialView={isMobile ? 'listWeek' : 'dayGridMonth'}
               headerToolbar={{
-                left: 'prev,next today',
+                left: isMobile ? 'prev,next' : 'prev,next today',
                 center: 'title',
                 right: isMobile ? 'dayGridMonth,listWeek' : 'dayGridMonth,timeGridWeek,timeGridDay,listWeek',
               }}
               events={fcEvents}
               height="auto"
               contentHeight="auto"
-              aspectRatio={1.55}
+              aspectRatio={isMobile ? 1.15 : 1.55}
               dayMaxEvents={5}
               moreLinkClick="popover"
               navLinks
@@ -492,7 +493,7 @@ export function EventsCalendarPage() {
       {view === 'google' && googleEmbed ? (
         <Card padding="md">
           <p className="mb-3 text-sm text-muted">{W.googleTabIntro}</p>
-          <div className="aspect-[4/3] max-h-[70dvh] w-full min-h-0 overflow-hidden rounded-md border border-border bg-surface">
+          <div className="aspect-[4/3] max-h-[55dvh] w-full min-h-0 overflow-hidden rounded-md border border-border bg-surface sm:max-h-[70dvh]">
             <iframe
               title={W.google}
               src={googleEmbed}

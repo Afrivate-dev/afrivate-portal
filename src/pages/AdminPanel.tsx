@@ -1438,6 +1438,7 @@ export function AdminPanelPage() {
         <div className="space-y-6">
           <div className="flex justify-end">
             <Button
+              className="w-full sm:w-auto"
               onClick={() =>
                 setVideoDraft({
                   title: '',
@@ -1452,7 +1453,7 @@ export function AdminPanelPage() {
               <Plus className="h-4 w-4" /> Add video
             </Button>
           </div>
-          <Card padding="none" className="av-scroll-x">
+          <Card padding="none" className="hidden av-scroll-x lg:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase text-muted">
                 <tr>
@@ -1498,12 +1499,46 @@ export function AdminPanelPage() {
               </tbody>
             </table>
           </Card>
+          <ul className="divide-y divide-border overflow-hidden rounded-md border border-border lg:hidden">
+            {[...onboardingVideos]
+              .sort((a, b) => a.order - b.order)
+              .map((v) => (
+                <li key={v.id} className="space-y-2 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-fg">{v.title}</p>
+                    <p className="text-xs text-muted">
+                      {v.section} · {v.duration || '—'} · order {v.order}
+                    </p>
+                  </div>
+                  <div className="av-action-row">
+                    <Button size="sm" variant="secondary" onClick={() => setVideoDraft({ ...v })}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-danger"
+                      onClick={() =>
+                        setConfirmState({
+                          title: 'Remove video',
+                          message: 'Remove this video? Watching progress for this video will be cleared.',
+                          onConfirm: () => deleteOnboardingVideo(v.id),
+                        })
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              ))}
+          </ul>
 
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <h3 className="text-sm font-semibold text-fg">Checklist items</h3>
             <Button
               size="sm"
               variant="outline"
+              className="w-full sm:w-auto"
               onClick={() =>
                 setChecklistDraft({
                   label: '',
@@ -1515,7 +1550,7 @@ export function AdminPanelPage() {
               <Plus className="h-4 w-4" /> Add item
             </Button>
           </div>
-          <Card padding="none" className="av-scroll-x">
+          <Card padding="none" className="hidden av-scroll-x lg:block">
             <table className="w-full min-w-[640px] text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase text-muted">
                 <tr>
@@ -1555,6 +1590,39 @@ export function AdminPanelPage() {
               </tbody>
             </table>
           </Card>
+          <ul className="divide-y divide-border overflow-hidden rounded-md border border-border lg:hidden">
+            {[...onboardingChecklist]
+              .sort((a, b) => a.order - b.order)
+              .map((c) => (
+                <li key={c.id} className="space-y-2 p-4">
+                  <div>
+                    <p className="text-sm font-semibold text-fg">{c.label}</p>
+                    <p className="break-all text-xs text-muted">
+                      {c.link ?? 'No link'} · order {c.order}
+                    </p>
+                  </div>
+                  <div className="av-action-row">
+                    <Button size="sm" variant="secondary" onClick={() => setChecklistDraft({ ...c })}>
+                      Edit
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-danger"
+                      onClick={() =>
+                        setConfirmState({
+                          title: 'Delete checklist item',
+                          message: 'Delete this checklist item? Staff completion records for it will be removed.',
+                          onConfirm: () => deleteOnboardingChecklistItem(c.id),
+                        })
+                      }
+                    >
+                      Delete
+                    </Button>
+                  </div>
+                </li>
+              ))}
+          </ul>
         </div>
       ) : null}
 

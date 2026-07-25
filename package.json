@@ -14,6 +14,7 @@
     "test:e2e": "playwright test",
     "test:e2e:ui": "playwright test --ui",
     "test:e2e:full": "playwright test -c playwright.mock.config.ts",
+    "test:e2e:responsive": "playwright test -c playwright.mock.config.ts --project=mobile-responsive --project=tablet-responsive",
     "test:ats": "npx tsx --tsconfig tsconfig.app.json scripts/verify-ats-gmail.ts",
     "test:ats:full": "npx tsx --tsconfig tsconfig.app.json scripts/verify-ats-gmail.ts && npx tsx --tsconfig tsconfig.app.json scripts/verify-ats-functionality.ts"
   },

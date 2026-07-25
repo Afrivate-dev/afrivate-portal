@@ -1018,11 +1018,11 @@ function RequestsList({
                     </Button>
                   ) : null}
                   {onApprove && onDecline && r.status === 'pending' ? (
-                    <div className="flex items-center gap-1.5">
-                      <Button size="sm" variant="primary" onClick={() => onApprove(r)}>
+                    <div className="flex w-full flex-wrap items-center gap-1.5 sm:w-auto">
+                      <Button size="sm" variant="primary" className="flex-1 sm:flex-none" onClick={() => onApprove(r)}>
                         <Check className="h-3.5 w-3.5" /> Approve
                       </Button>
-                      <Button size="sm" variant="outline" onClick={() => onDecline(r)}>
+                      <Button size="sm" variant="outline" className="flex-1 sm:flex-none" onClick={() => onDecline(r)}>
                         <X className="h-3.5 w-3.5" /> Decline
                       </Button>
                     </div>
@@ -1146,17 +1146,17 @@ function LeaveCalendar({
                       <li
                         key={r.id}
                         className={cn(
-                          'flex items-center gap-2 rounded px-2 py-1 text-xs',
+                          'flex flex-wrap items-center gap-2 rounded px-2 py-1 text-xs',
                           r.status === 'pending' && 'opacity-60',
                         )}
                         style={{ background: `${TYPE_META[r.type].color}20`, color: TYPE_META[r.type].color }}
                       >
                         <span
-                          className="h-2 w-2 rounded-full"
+                          className="h-2 w-2 shrink-0 rounded-full"
                           style={{ background: TYPE_META[r.type].color }}
                         />
-                        <span className="font-medium">{u.name}</span>
-                        <span className="ml-auto">{TYPE_META[r.type].label}</span>
+                        <span className="min-w-0 flex-1 truncate font-medium">{u.name}</span>
+                        <span className="shrink-0">{TYPE_META[r.type].label}</span>
                       </li>
                     )
                   })}

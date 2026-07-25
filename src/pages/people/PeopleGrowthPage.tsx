@@ -232,12 +232,14 @@ export function PeopleGrowthPage() {
               <div className="space-y-2">
                 <p className="text-xs font-medium text-muted">Key results</p>
                 {krDrafts.map((kr, i) => (
-                  <div key={i} className="flex gap-2">
-                    <Input
-                      value={kr}
-                      onChange={(e) => setKrDrafts((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
-                      placeholder={`Key result ${i + 1}`}
-                    />
+                  <div key={i} className="flex min-w-0 gap-2">
+                    <div className="min-w-0 flex-1">
+                      <Input
+                        value={kr}
+                        onChange={(e) => setKrDrafts((prev) => prev.map((v, j) => (j === i ? e.target.value : v)))}
+                        placeholder={`Key result ${i + 1}`}
+                      />
+                    </div>
                     {krDrafts.length > 1 ? (
                       <Button type="button" size="sm" variant="ghost" aria-label="Remove key result" onClick={() => setKrDrafts((prev) => prev.filter((_, j) => j !== i))}>
                         <X className="h-4 w-4" />
@@ -254,8 +256,8 @@ export function PeopleGrowthPage() {
           </Card>
           {myOkrs.map((o) => (
             <Card key={o.id} padding="md">
-              <div className="flex items-start justify-between gap-2">
-                <div className="flex-1">
+              <div className="flex flex-col gap-2 sm:flex-row sm:items-start sm:justify-between">
+                <div className="min-w-0 flex-1">
                   <Badge tone="info">{o.quarter}</Badge>
                   <p className="mt-2 font-medium text-fg">{o.objective}</p>
                   <ul className="mt-3 space-y-3 text-sm">
@@ -275,7 +277,7 @@ export function PeopleGrowthPage() {
                     ))}
                   </ul>
                 </div>
-                <Button size="sm" variant="ghost" onClick={() => deleteOkr(o.id)}>Remove</Button>
+                <Button size="sm" variant="ghost" className="w-full sm:w-auto" onClick={() => deleteOkr(o.id)}>Remove</Button>
               </div>
             </Card>
           ))}
@@ -382,13 +384,13 @@ export function PeopleGrowthPage() {
           {openCycle ? (
             <>
               <Card padding="md">
-                <div className="mb-3 flex items-center justify-between gap-2">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare className="h-4 w-4 text-accent" />
-                    <h3 className="text-sm font-semibold text-fg">{openCycle.title}</h3>
+                <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                  <div className="flex min-w-0 items-center gap-2">
+                    <MessageSquare className="h-4 w-4 shrink-0 text-accent" />
+                    <h3 className="min-w-0 truncate text-sm font-semibold text-fg">{openCycle.title}</h3>
                   </div>
                   {isHR(user) ? (
-                    <Button size="sm" variant="secondary" onClick={() => updateFeedbackCycle(openCycle.id, { status: 'closed' })}>
+                    <Button size="sm" variant="secondary" className="w-full sm:w-auto" onClick={() => updateFeedbackCycle(openCycle.id, { status: 'closed' })}>
                       Close cycle
                     </Button>
                   ) : null}
@@ -405,10 +407,10 @@ export function PeopleGrowthPage() {
                             setActiveFeedbackKey(task.key)
                             setFeedbackAnswers({})
                           }}
-                          className="flex w-full items-center justify-between rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-surface-2 ring-focus"
+                          className="flex w-full flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2 text-left text-sm hover:bg-surface-2 ring-focus"
                         >
-                          <span className="font-medium text-fg">{task.subjectName}</span>
-                          <Badge tone="info">{RELATIONSHIP_LABELS[task.relationship]}</Badge>
+                          <span className="min-w-0 flex-1 truncate font-medium text-fg">{task.subjectName}</span>
+                          <Badge tone="info" className="shrink-0">{RELATIONSHIP_LABELS[task.relationship]}</Badge>
                         </button>
                       </li>
                     ))}

@@ -144,7 +144,7 @@ function RecognitionCommentThread({
           })}
         </ul>
       )}
-      <div className="flex gap-2 border-t border-border pt-3">
+      <div className="flex flex-col gap-2 border-t border-border pt-3 sm:flex-row">
         <Textarea
           label=""
           rows={1}
@@ -152,13 +152,14 @@ function RecognitionCommentThread({
           onChange={(e) => setDraft(e.target.value)}
           placeholder="Add a comment…"
           aria-label="Add a comment"
+          className="min-w-0 flex-1"
         />
         <Button
           type="button"
           size="sm"
           disabled={!draft.trim()}
           onClick={send}
-          className="shrink-0 self-end"
+          className="w-full shrink-0 self-end sm:w-auto"
         >
           Post
         </Button>

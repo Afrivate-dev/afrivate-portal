@@ -835,7 +835,7 @@ export function StaffDirectoryPage() {
                     <button
                       type="button"
                       onClick={() => void copyEmail(opened)}
-                      className="inline-flex items-center justify-center gap-2 rounded-md border border-border bg-surface-2 px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-3 sm:flex-initial ring-focus"
+                      className="inline-flex w-full items-center justify-center gap-2 rounded-md border border-border bg-surface-2 px-4 py-2.5 text-sm font-medium text-fg transition-colors hover:bg-surface-3 sm:w-auto sm:flex-initial ring-focus"
                     >
                       {copiedUserId === opened.id ? (
                         <Check className="h-4 w-4 text-success" />

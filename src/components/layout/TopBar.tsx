@@ -145,6 +145,14 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
               <div className="border-b border-border p-3">
                 <div className="text-sm font-semibold text-fg">{firstName(user.name)}</div>
                 <div className="truncate text-xs text-muted">{user.email}</div>
+                <div className="mt-3 md:hidden">
+                  <Select
+                    aria-label="Your availability"
+                    value={myAvailability}
+                    onChange={(e) => setMyAvailability(e.target.value as UserAvailability)}
+                    options={AVAILABILITY_OPTIONS}
+                  />
+                </div>
               </div>
               <ul className="py-1">
                 <li>
