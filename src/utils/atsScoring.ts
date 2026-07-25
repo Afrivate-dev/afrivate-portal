@@ -543,17 +543,34 @@ export function screenApplicationText(
     location,
   ].filter(Boolean)
 
-  const summaryParts = [
-    identityBits.length ? `Applicant: ${identityBits.join(' · ')}.` : '',
+  const fitLine =
     scored.recommendation === 'strong'
-      ? 'Strong match for the role.'
+      ? 'Strong fit for this role.'
       : scored.recommendation === 'viable'
-        ? 'Viable candidate worth reviewing.'
+        ? 'Worth reviewing for this role.'
         : scored.recommendation === 'weak'
-          ? 'Weak match; review only if short on options.'
-          : 'Likely reject based on missing core requirements.',
-    scored.matched.length ? `Matched: ${scored.matched.join(', ')}.` : '',
-    scored.missing.length ? `Missing: ${scored.missing.join(', ')}.` : '',
+          ? 'Weaker fit — only shortlist if you need more options.'
+          : 'Not a good match based on your required checks.'
+
+  const strengths =
+    scored.matched.length === 0
+      ? ''
+      : scored.matched.length <= 5
+        ? `Looks good on: ${scored.matched.join(', ')}.`
+        : `Looks good on: ${scored.matched.slice(0, 5).join(', ')}, and ${scored.matched.length - 5} more.`
+
+  const gaps =
+    scored.missing.length === 0
+      ? 'No major required items missing.'
+      : scored.missing.length === 1
+        ? `Still needs: ${scored.missing[0]}.`
+        : `Still needs: ${scored.missing.join('; ')}.`
+
+  const summaryParts = [
+    identityBits.length ? `${identityBits.join(' · ')}.` : '',
+    fitLine,
+    strengths,
+    gaps,
   ]
 
   return {

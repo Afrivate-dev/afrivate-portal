@@ -118,6 +118,7 @@ export function AdminPanelPage() {
     deleteAnnouncement,
     leaveRequests,
     reviewLeave,
+    deleteLeave,
     onboardingVideos,
     onboardingChecklist,
     addOnboardingVideo,
@@ -1269,10 +1270,76 @@ export function AdminPanelPage() {
                         >
                           <X className="h-3.5 w-3.5" /> Decline
                         </Button>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Delete leave request"
+                          onClick={() =>
+                            void confirm({
+                              title: confirms.deleteLeaveTitle,
+                              message: confirms.deleteLeave,
+                              confirmLabel: 'Delete',
+                              destructive: true,
+                            }).then((ok) => {
+                              if (ok) deleteLeave(l.id)
+                            })
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" />
+                        </Button>
                       </div>
                     </li>
                   )
                 })}
+              </ul>
+            )}
+          </Card>
+
+          <Card padding="md">
+            <h3 className="mb-3 text-sm font-semibold text-fg">All leave requests</h3>
+            {leaveRequests.length === 0 ? (
+              <p className="text-sm text-muted">No leave requests yet.</p>
+            ) : (
+              <ul className="space-y-2">
+                {[...leaveRequests]
+                  .sort((a, b) => (a.submittedAt > b.submittedAt ? -1 : 1))
+                  .map((l) => {
+                    const u = users.find((x) => x.id === l.userId)
+                    return (
+                      <li
+                        key={l.id}
+                        className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border bg-surface-2/30 p-3"
+                      >
+                        <div>
+                          <p className="text-sm font-medium text-fg">
+                            {u?.name ?? 'Unknown'} · {LEAVE_TYPE[l.type]} ·{' '}
+                            <span className="capitalize text-muted">{l.status}</span>
+                          </p>
+                          <p className="text-xs text-muted">
+                            {fmtDate(l.startDate)} → {fmtDate(l.endDate)} ·{' '}
+                            {dayCountLeave(l.startDate, l.endDate)} days
+                          </p>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="ghost"
+                          aria-label="Delete leave request"
+                          onClick={() =>
+                            void confirm({
+                              title: confirms.deleteLeaveTitle,
+                              message: confirms.deleteLeave,
+                              confirmLabel: 'Delete',
+                              destructive: true,
+                            }).then((ok) => {
+                              if (ok) deleteLeave(l.id)
+                            })
+                          }
+                        >
+                          <Trash2 className="h-3.5 w-3.5" /> Delete
+                        </Button>
+                      </li>
+                    )
+                  })}
               </ul>
             )}
           </Card>

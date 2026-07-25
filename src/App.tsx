@@ -80,6 +80,9 @@ const PrivacyNoticePage = lazy(() =>
 const AccountSecurityPage = lazy(() =>
   import('@/pages/AccountSecurity').then((m) => ({ default: m.AccountSecurityPage })),
 )
+const OAuthGmailCallbackPage = lazy(() =>
+  import('@/pages/OAuthGmailCallback').then((m) => ({ default: m.OAuthGmailCallbackPage })),
+)
 const RevivalLaunchChecklistPage = lazy(() =>
   import('@/pages/RevivalLaunchChecklistPage').then((m) => ({
     default: m.RevivalLaunchChecklistPage,
@@ -112,6 +115,9 @@ function AuthRedirectHandler() {
     const code = params.get('code')
     const hash = window.location.hash
     const path = window.location.pathname
+
+    // Do not intercept the Gmail ATS OAuth callback popup.
+    if (path.startsWith('/oauth/')) return
 
     if (code && (path === '/' || path === '/login')) {
       const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
@@ -190,6 +196,9 @@ export default function App() {
               <ToastHost />
               <ErrorBoundary>
                 <Routes>
+                    {/* Public OAuth callback for Gmail ATS Sync (popup) */}
+                    <Route path="/oauth/gmail-callback" element={<OAuthGmailCallbackPage />} />
+
                     {/* Auth pages — login, signup, password reset */}
                     <Route element={<AuthLayout />}>
                       <Route element={<AuthGuestGuard />}>

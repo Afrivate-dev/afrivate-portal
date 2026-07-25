@@ -83,6 +83,8 @@ export const confirms = {
   approveLeaveTitle: 'Approve request',
   declineLeave: 'Decline this time-off request?',
   declineLeaveTitle: 'Decline request',
+  deleteLeave: 'Delete this leave request permanently? The requester will no longer see it.',
+  deleteLeaveTitle: 'Delete leave request',
   submitCheckIn: 'Send your weekly update to the team?',
   submitCheckInTitle: 'Send update',
   sendRecognition: 'Send this shout-out to the team feed?',

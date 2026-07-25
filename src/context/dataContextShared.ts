@@ -62,6 +62,7 @@ export interface DataContextValue {
     note?: string,
     approvedDays?: number,
   ) => void
+  deleteLeave: (id: string) => void
   addLeaveComment: (leaveId: string, body: string) => void
 
   onboardingVideos: OnboardingVideo[]

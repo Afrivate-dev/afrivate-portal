@@ -421,6 +421,14 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [leaveRequests, setLeaveRequests, setInbox, users],
   )
 
+  const deleteLeave: DataContextValue['deleteLeave'] = useCallback(
+    (id) => {
+      setLeaveRequests((prev) => prev.filter((l) => l.id !== id))
+      setLeaveComments((prev) => prev.filter((c) => c.leaveId !== id))
+    },
+    [setLeaveRequests, setLeaveComments],
+  )
+
   const addLeaveComment: DataContextValue['addLeaveComment'] = useCallback(
     (leaveId, body) => {
       if (!body.trim() || !authUser) return
@@ -1010,6 +1018,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       leaveComments,
       submitLeave,
       reviewLeave,
+      deleteLeave,
       addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
@@ -1094,7 +1103,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       tasks, createTask, updateTask, deleteTask,
       checkIns, submitCheckIn, updateCheckIn,
       announcements, createAnnouncement, updateAnnouncement, deleteAnnouncement, markAnnouncementRead, markAllAnnouncementsRead,
-      leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment,
+      leaveRequests, leaveComments, submitLeave, reviewLeave, deleteLeave, addLeaveComment,
       onboardingVideos, onboardingChecklist, onboardingProgress,
       toggleVideoWatched, toggleChecklistItem,
       addOnboardingVideo, updateOnboardingVideo, deleteOnboardingVideo,

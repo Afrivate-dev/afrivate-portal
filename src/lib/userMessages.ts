@@ -27,6 +27,7 @@ const ACTION_LABELS: Record<string, string> = {
   'mark all announcements read': 'mark all updates as read',
   'submit leave request': 'send your time-off request',
   'review leave request': 'update this time-off request',
+  'delete leave request': 'delete this time-off request',
   'save onboarding progress': 'save your progress',
   'upload document': 'upload this file',
   'delete document': 'remove this file',
