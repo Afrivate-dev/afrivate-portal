@@ -511,7 +511,7 @@ await check('Resume attachment text is downloaded, extracted, and scored', async
   assert.ok(scored.score >= 55, `expected stronger score with CV text, got ${scored.score}`)
 })
 
-await check('Applications are routed to Front-End / Back-End / Designer roles', async () => {
+await check('Applications are routed to Front-End / Back-End / Full-Stack / Designer roles', async () => {
   const { detectAtsRoleFromApplication, labelForAtsRoleProfile, ATS_STANDARD_ROLES } = await import(
     '../src/utils/atsScoring.ts'
   )
@@ -530,10 +530,23 @@ await check('Applications are routed to Front-End / Back-End / Designer roles', 
   )
   assert.equal(
     detectAtsRoleFromApplication(
+      'Subject: Full-Stack Developer application\nI build React and NestJS apps with PostgreSQL end to end.',
+    ),
+    'fullstack',
+  )
+  assert.equal(
+    detectAtsRoleFromApplication(
+      'Subject: Software role\nReact Next.js Vue frontend and Node.js Express PostgreSQL backend APIs',
+    ),
+    'fullstack',
+  )
+  assert.equal(
+    detectAtsRoleFromApplication(
       'Subject: APPLICATION FOR GRAPHIC DESIGNER — Pat\nPhotoshop Illustrator Figma',
     ),
     'designer',
   )
+  assert.equal(labelForAtsRoleProfile('fullstack'), 'Full-Stack Developer')
   assert.equal(labelForAtsRoleProfile('frontend'), 'Front-End Developer')
 })
 

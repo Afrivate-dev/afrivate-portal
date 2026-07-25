@@ -1,7 +1,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Download, FileText, Loader2, Paperclip } from 'lucide-react'
 import { AtsAttachmentPreview } from '@/components/shared/AtsAttachmentPreview'
-import { formatFileSize, getPortalFileBlobUrl, getPortalFileSignedUrl } from '@/lib/supabase/fileStorage'
+import { formatFileSize, resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
 import { supabase } from '@/lib/supabase'
 import {
   buildEmailPreviewDocument,
@@ -59,22 +59,22 @@ function AttachmentChip({
   const [url, setUrl] = useState<string | null>(null)
 
   useEffect(() => {
-    let revoked: string | null = null
     let cancelled = false
+    let revoke: (() => void) | undefined
     void (async () => {
       if (!supabase || !attachment.storagePath) return
-      const signed = await getPortalFileSignedUrl(supabase, attachment.storagePath)
-      const blobUrl = signed ? null : await getPortalFileBlobUrl(supabase, attachment.storagePath)
+      const resolved = await resolvePortalFilePreviewUrl(supabase, attachment.storagePath)
       if (cancelled) {
-        if (blobUrl) URL.revokeObjectURL(blobUrl)
+        resolved?.revoke?.()
         return
       }
-      if (blobUrl) revoked = blobUrl
-      setUrl(signed || blobUrl)
+      if (!resolved) return
+      revoke = resolved.revoke
+      setUrl(resolved.url)
     })()
     return () => {
       cancelled = true
-      if (revoked) URL.revokeObjectURL(revoked)
+      revoke?.()
     }
   }, [attachment.storagePath])
 
@@ -131,7 +131,7 @@ function AttachmentChip({
               )}
             </button>
           ) : (
-            <span className="text-[11px] text-[#5f6368]">Re-sync to load this file</span>
+            <span className="text-[11px] text-[#5f6368]">File not saved yet — Sync Gmail again</span>
           )}
           {!url && canPreview ? (
             <span className="inline-flex items-center gap-1 px-1 text-xs text-[#5f6368]">

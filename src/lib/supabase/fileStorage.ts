@@ -40,6 +40,21 @@ export async function uploadPortalFile(
   return { path, sizeLabel: formatFileSize(file.size) }
 }
 
+/** Prefer a blob URL for inline preview (signed URLs often fail in PDF iframes). */
+export async function resolvePortalFilePreviewUrl(
+  client: SupabaseClient,
+  path: string,
+): Promise<{ url: string; revoke?: () => void } | null> {
+  if (!path) return null
+  const blobUrl = await getPortalFileBlobUrl(client, path)
+  if (blobUrl) {
+    return { url: blobUrl, revoke: () => URL.revokeObjectURL(blobUrl) }
+  }
+  const signed = await getPortalFileSignedUrl(client, path)
+  if (!signed) return null
+  return { url: signed }
+}
+
 /** Upload a Gmail ATS attachment (bytes) into portal-files/ats/{userId}/… */
 export async function uploadAtsAttachmentBytes(
   client: SupabaseClient,
@@ -49,22 +64,31 @@ export async function uploadAtsAttachmentBytes(
   bytes: ArrayBuffer,
   mimeType?: string,
 ): Promise<{ path: string; size: number } | { error: string }> {
-  if (!userId) return { error: 'Sign in again to upload CV files.' }
-  const safeUser = sanitizeFileName(userId)
+  // Prefer the live auth uid so storage RLS (folder[2] = auth.uid()) always matches
+  const { data: authData } = await client.auth.getUser()
+  const uid = authData.user?.id || userId
+  if (!uid) return { error: 'Sign in again to upload CV files.' }
+
+  const safeUser = uid // keep UUID intact — do not strip hyphens
   const safeKey = sanitizeFileName(messageKey || 'msg').slice(0, 80)
   const safeName = sanitizeFileName(filename || 'attachment.bin')
-  // Path must be ats/{auth.uid()}/… for storage RLS
   const path = `ats/${safeUser}/${safeKey}-${Date.now()}-${safeName}`
   const type = mimeType || guessMimeFromName(filename) || 'application/octet-stream'
   const blob = new Blob([bytes], { type })
   const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, blob, {
     cacheControl: '3600',
-    upsert: false,
+    upsert: true,
     contentType: type,
   })
   if (error) {
     if (error.message.toLowerCase().includes('bucket') || error.message.includes('404')) {
       return { error: 'File storage is not set up yet. Run the latest database migration.' }
+    }
+    if (/row-level security|policy/i.test(error.message)) {
+      return {
+        error:
+          'Storage blocked by security policy. Run supabase/migrations/20260725_ats_storage_policies.sql and 20260725_ats_storage_read_fix.sql',
+      }
     }
     return { error: error.message }
   }
