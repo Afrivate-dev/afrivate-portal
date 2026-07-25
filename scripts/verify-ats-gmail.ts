@@ -229,6 +229,29 @@ I want a job please.`
   assert.ok(result.recommendation === 'weak' || result.recommendation === 'reject')
 })
 
+await check('Not a fit is score-only (missing must-have does not reject high scores)', () => {
+  const criteria = defaultCriteriaForProfile('frontend')
+  const raw = `Subject: APPLICATION FOR FRONT-END DEVELOPER
+From: Chioma Okeke <chioma@example.com>
+
+Dear Afrivate hiring team,
+I am writing to apply for the Front-End Developer role. I build TypeScript apps with Vite, Tailwind, HTML, CSS, and Git/GitHub.
+GitHub: https://github.com/chioma
+Portfolio: https://chioma.vercel.app
+I use Jest and Testing Library. Cover letter included here with my experience.
+I am collaborative, take ownership, and enjoy problem-solving with cross-functional teams.
+--- Resume: chioma.docx ---
+Curriculum Vitae. Remote Nigeria. 3 years of experience.`
+  const result = screenApplicationText(raw, 'frontend', criteria)
+  assert.ok(result.score >= 51, `expected score >= 51, got ${result.score}`)
+  assert.notEqual(
+    result.recommendation,
+    'reject',
+    `missing React must-have must not force Not a fit when score is ${result.score}`,
+  )
+  assert.ok(result.missing.some((m) => /react/i.test(m)), 'expected React in missing must-haves')
+})
+
 await check('Batch split and source detection', () => {
   const batch = splitApplicationBatch(
     `Subject: A\n\nReact developer cover letter with enough text here to pass the filter length requirement for split.\n\n---\n\nSubject: B\n\nAnother application with React TypeScript and more than forty characters of content.`,
@@ -340,9 +363,13 @@ await check('Resume attachment text is downloaded, extracted, and scored', async
 
   assert.equal(classifyResumeFile('Ada_CV.pdf'), 'pdf')
   assert.equal(classifyResumeFile('Ada.docx'), 'docx')
+  assert.equal(classifyResumeFile('Ada.doc', 'application/msword'), 'docx')
+  assert.equal(classifyResumeFile('cv.bin', 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'), 'docx')
   assert.equal(classifyResumeFile('scan.png'), 'image')
   assert.equal(isLikelyResumeAttachment('photo.png', 'image/png'), true)
   assert.equal(isLikelyResumeAttachment('Ada_CV.pdf'), true)
+  assert.equal(isLikelyResumeAttachment('resume.docx'), true)
+  assert.equal(isLikelyResumeAttachment('file.bin', 'application/msword'), true)
 
   const msg = {
     id: 'm-cv',

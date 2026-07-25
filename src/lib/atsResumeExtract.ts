@@ -33,8 +33,18 @@ export function classifyResumeFile(filename: string, mimeType?: string): ResumeE
   const name = filename.toLowerCase()
   const mime = (mimeType || '').toLowerCase()
   if (name.endsWith('.pdf') || mime.includes('pdf')) return 'pdf'
-  if (name.endsWith('.docx') || mime.includes('wordprocessingml') || mime.includes('officedocument.word'))
+  // .docx and legacy .doc / Word MIME types (Gmail often sends wordprocessingml without a clear name)
+  if (
+    name.endsWith('.docx') ||
+    name.endsWith('.doc') ||
+    mime.includes('wordprocessingml') ||
+    mime.includes('officedocument.word') ||
+    mime.includes('msword') ||
+    mime === 'application/vnd.ms-word' ||
+    mime === 'application/msword'
+  ) {
     return 'docx'
+  }
   if (
     name.endsWith('.png') ||
     name.endsWith('.jpg') ||
@@ -54,17 +64,24 @@ export function classifyResumeFile(filename: string, mimeType?: string): ResumeE
   ) {
     return 'text'
   }
-  // Legacy .doc is not reliably parseable in-browser
   return 'unsupported'
 }
 
 function looksLikeResumeName(filename: string): boolean {
-  return /cv|resume|curriculum|vitae|application|cover.?letter/i.test(filename) || /\.(pdf|docx|png|jpe?g|webp)$/i.test(filename)
+  return (
+    /cv|resume|curriculum|vitae|application|cover.?letter|biodata/i.test(filename) ||
+    /\.(pdf|docx?|png|jpe?g|webp)$/i.test(filename)
+  )
 }
 
 export function isLikelyResumeAttachment(filename: string, mimeType?: string): boolean {
   const kind = classifyResumeFile(filename, mimeType)
-  if (kind === 'unsupported') return false
+  if (kind === 'unsupported') {
+    // Gmail sometimes omits extension but still sends a Word/PDF MIME type we missed above
+    const mime = (mimeType || '').toLowerCase()
+    if (mime.includes('pdf') || mime.includes('word') || mime.includes('officedocument')) return true
+    return false
+  }
   if (kind === 'pdf' || kind === 'docx' || kind === 'image') return true
   return looksLikeResumeName(filename)
 }

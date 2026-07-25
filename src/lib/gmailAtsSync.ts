@@ -21,6 +21,13 @@ export const GMAIL_LIST_PAGE_SIZE = 500
 export const GMAIL_SYNC_HARD_CAP = 2000
 const MAX_RESUME_ATTACHMENTS_PER_MESSAGE = 4
 
+export interface GmailSyncedAttachment {
+  filename: string
+  mimeType: string
+  bytes: ArrayBuffer
+  kind: 'resume' | 'cover_letter' | 'other'
+}
+
 export interface GmailApplicationMessage {
   id: string
   threadId: string
@@ -32,9 +39,18 @@ export interface GmailApplicationMessage {
   /** Original HTML body when the email included one (for Gmail-like preview). */
   bodyHtml?: string
   attachmentNames?: string[]
+  /** Original attachment bytes for file preview (not just extracted text). */
+  attachmentFiles?: GmailSyncedAttachment[]
   /** Filenames whose text was successfully extracted into bodyText. */
   resumeFilesScanned?: string[]
   resumeExtractErrors?: string[]
+}
+
+export function classifyAtsAttachmentKind(filename: string): 'resume' | 'cover_letter' | 'other' {
+  const n = filename.toLowerCase()
+  if (/(cover|letter|motivation|application.?letter)/i.test(n)) return 'cover_letter'
+  if (/(resume|cv|curriculum)/i.test(n)) return 'resume'
+  return 'other'
 }
 
 /** Parse `gmail:messageId` or `gmail:threadId:messageId`. */
@@ -141,6 +157,13 @@ export function isGmailAtsConfigured(): boolean {
   return isValidGoogleClientId(CLIENT_ID)
 }
 
+export function gmailOAuthRedirectUri(): string {
+  const fromEnv = import.meta.env?.VITE_GOOGLE_OAUTH_REDIRECT_URI?.trim()
+  if (fromEnv) return fromEnv.replace(/\/$/, '')
+  // Must match Authorized redirect URIs in Google Cloud exactly (no trailing slash).
+  return `${window.location.origin}/oauth/gmail-callback`
+}
+
 function describeOAuthError(error?: string): string {
   const code = (error || '').toLowerCase()
   if (code.includes('popup_closed') || code.includes('access_denied') || code.includes('cancelled')) {
@@ -167,15 +190,10 @@ function describeOAuthError(error?: string): string {
   return error || 'Gmail authorization failed'
 }
 
-/** postMessage type used by /oauth/gmail-callback → Sync opener */
+/** Channel / storage keys for COOP-safe OAuth handoff (popup ↔ opener). */
 export const GMAIL_OAUTH_MESSAGE_TYPE = 'afrivate-gmail-oauth'
-
-export function gmailOAuthRedirectUri(): string {
-  const fromEnv = import.meta.env?.VITE_GOOGLE_OAUTH_REDIRECT_URI?.trim()
-  if (fromEnv) return fromEnv.replace(/\/$/, '')
-  // Must match Authorized redirect URIs in Google Cloud exactly (no trailing slash).
-  return `${window.location.origin}/oauth/gmail-callback`
-}
+export const GMAIL_OAUTH_CHANNEL = 'afrivate-gmail-oauth'
+export const GMAIL_OAUTH_STORAGE_KEY = 'afrivate.gmail.oauth.result'
 
 let gsiLoadPromise: Promise<void> | null = null
 
@@ -195,10 +213,22 @@ export function isGmailAtsReady(): boolean {
   return isGmailAtsConfigured()
 }
 
+/** Always call fetch as a window method — unbound `fetch` throws Illegal invocation. */
+export function boundFetch(): typeof fetch {
+  return ((input: RequestInfo | URL, init?: RequestInit) =>
+    window.fetch(input, init)) as typeof fetch
+}
+
+type OAuthPayload = {
+  type?: string
+  accessToken?: string
+  error?: string
+}
+
 /**
  * Request a Gmail access token from a Sync button click.
- * Opens our own pop-up immediately (preserves the user gesture), then completes
- * Google's OAuth implicit flow — avoids GIS TokenClient "illegal invocation" issues.
+ * Opens a pop-up, then receives the token via BroadcastChannel/localStorage
+ * (safe under Cross-Origin-Opener-Policy — never polls popup.closed).
  */
 export function requestGmailAccessTokenFromGesture(): Promise<string> {
   if (!CLIENT_ID) {
@@ -214,6 +244,12 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
         'VITE_GOOGLE_CLIENT_ID looks malformed. It should look like 123-abc.apps.googleusercontent.com (suffix only once).',
       ),
     )
+  }
+
+  try {
+    localStorage.removeItem(GMAIL_OAUTH_STORAGE_KEY)
+  } catch {
+    /* ignore */
   }
 
   const popup = window.open(
@@ -241,11 +277,6 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
   try {
     popup.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
   } catch (e) {
-    try {
-      popup.close()
-    } catch {
-      /* ignore */
-    }
     return Promise.reject(
       e instanceof Error
         ? new Error(describeOAuthError(e.message))
@@ -255,53 +286,84 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
 
   return new Promise((resolve, reject) => {
     let settled = false
+    let channel: BroadcastChannel | null = null
+
+    const cleanup = () => {
+      window.clearTimeout(timeout)
+      window.clearInterval(storagePoll)
+      window.removeEventListener('message', onMessage)
+      window.removeEventListener('storage', onStorage)
+      try {
+        channel?.close()
+      } catch {
+        /* ignore */
+      }
+      channel = null
+    }
 
     const finish = (fn: () => void) => {
       if (settled) return
       settled = true
-      window.clearTimeout(timeout)
-      window.clearInterval(poll)
-      window.removeEventListener('message', onMessage)
+      cleanup()
       fn()
     }
 
-    const timeout = window.setTimeout(() => {
-      finish(() => {
-        try {
-          popup.close()
-        } catch {
-          /* ignore */
-        }
-        reject(new Error('Google sign-in timed out. Click Sync and try again.'))
-      })
-    }, 5 * 60 * 1000)
-
-    const poll = window.setInterval(() => {
-      if (popup.closed) {
-        finish(() => reject(new Error(describeOAuthError('cancelled'))))
+    const accept = (data: OAuthPayload | null | undefined) => {
+      if (!data || data.type !== GMAIL_OAUTH_MESSAGE_TYPE) return
+      if (data.accessToken) {
+        finish(() => {
+          try {
+            localStorage.removeItem(GMAIL_OAUTH_STORAGE_KEY)
+          } catch {
+            /* ignore */
+          }
+          resolve(data.accessToken!)
+        })
+        return
       }
-    }, 700)
+      if (data.error) {
+        finish(() => reject(new Error(describeOAuthError(data.error))))
+      }
+    }
 
     const onMessage = (event: MessageEvent) => {
       if (event.origin !== window.location.origin) return
-      const data = event.data as { type?: string; accessToken?: string; error?: string } | null
-      if (!data || data.type !== GMAIL_OAUTH_MESSAGE_TYPE) return
-
-      finish(() => {
-        try {
-          popup.close()
-        } catch {
-          /* ignore */
-        }
-        if (data.accessToken) {
-          resolve(data.accessToken)
-          return
-        }
-        reject(new Error(describeOAuthError(data.error)))
-      })
+      accept(event.data as OAuthPayload)
     }
 
+    const onStorage = (event: StorageEvent) => {
+      if (event.key !== GMAIL_OAUTH_STORAGE_KEY || !event.newValue) return
+      try {
+        accept(JSON.parse(event.newValue) as OAuthPayload)
+      } catch {
+        /* ignore */
+      }
+    }
+
+    const timeout = window.setTimeout(() => {
+      finish(() => reject(new Error('Google sign-in timed out. Click Sync and try again.')))
+    }, 5 * 60 * 1000)
+
+    // Same-window localStorage poll (storage events do not fire in the opener that wrote nothing)
+    const storagePoll = window.setInterval(() => {
+      try {
+        const raw = localStorage.getItem(GMAIL_OAUTH_STORAGE_KEY)
+        if (!raw) return
+        accept(JSON.parse(raw) as OAuthPayload)
+      } catch {
+        /* ignore */
+      }
+    }, 400)
+
     window.addEventListener('message', onMessage)
+    window.addEventListener('storage', onStorage)
+
+    try {
+      channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL)
+      channel.onmessage = (event) => accept(event.data as OAuthPayload)
+    } catch {
+      /* BroadcastChannel unavailable */
+    }
   })
 }
 
@@ -378,17 +440,24 @@ export function collectResumeAttachmentRefs(
   const out: GmailAttachmentRef[] = []
   const walk = (part?: GmailApiPart) => {
     if (!part) return
-    const filename = part.filename?.trim()
-    if (filename) {
-      const mimeType = part.mimeType || 'application/octet-stream'
+    const mimeType = part.mimeType || 'application/octet-stream'
+    const filename =
+      part.filename?.trim() ||
+      (mimeType.includes('pdf')
+        ? 'attachment.pdf'
+        : mimeType.includes('word') || mimeType.includes('officedocument')
+          ? 'attachment.docx'
+          : '')
+    if (filename || part.body?.attachmentId) {
+      const name = filename || 'attachment.bin'
       const candidate = {
-        filename,
+        filename: name,
         mimeType,
         attachmentId: part.body?.attachmentId,
         inlineData: part.body?.data,
         size: part.body?.size,
       }
-      if (!resumeOnly || isLikelyResumeAttachment(filename, mimeType)) {
+      if (!resumeOnly || isLikelyResumeAttachment(name, mimeType)) {
         out.push(candidate)
       }
     }
@@ -399,7 +468,7 @@ export function collectResumeAttachmentRefs(
   const rank = (name: string) => {
     const n = name.toLowerCase()
     if (n.endsWith('.pdf')) return 0
-    if (n.endsWith('.docx')) return 1
+    if (n.endsWith('.docx') || n.endsWith('.doc')) return 1
     if (n.endsWith('.txt') || n.endsWith('.rtf') || n.endsWith('.md')) return 2
     return 3
   }
@@ -466,8 +535,11 @@ function headerValue(
 }
 
 export function formatResumeExtractBlock(extracted: ResumeExtractResult): string {
-  if (!extracted.text.trim()) return ''
-  return [`--- Resume: ${extracted.filename} ---`, extracted.text.trim()].join('\n')
+  // Always emit the marker so resume_file scoring works even when Word/PDF text is empty
+  // (legacy .doc, scanned pages, or mammoth failures). File bytes are still stored for preview.
+  const header = `--- Resume: ${extracted.filename} ---`
+  const body = extracted.text.trim()
+  return body ? `${header}\n${body}` : header
 }
 
 /** Build the text blob used for ATS scoring from a Gmail API message (body only; resumes added later). */
@@ -515,7 +587,7 @@ async function downloadGmailAttachmentData(
   return json.data
 }
 
-/** Download + extract text from CV attachments and append to bodyText for scoring. */
+/** Download attachments for file preview + extract text for scoring. */
 export async function enrichMessageWithResumeText(
   msg: GmailApiMessage,
   parsed: GmailApplicationMessage,
@@ -525,14 +597,16 @@ export async function enrichMessageWithResumeText(
     extractFn?: typeof extractResumeText
   },
 ): Promise<GmailApplicationMessage> {
-  const doFetch = options.fetchImpl ?? fetch
+  const doFetch = options.fetchImpl ?? boundFetch()
   const extractFn = options.extractFn ?? extractResumeText
+  // Prefer resume-like files, but still keep any returned refs for preview
   const refs = collectResumeAttachmentRefs(msg.payload, true)
   if (!refs.length) return parsed
 
   const blocks: string[] = []
   const scanned: string[] = []
   const errors: string[] = []
+  const attachmentFiles: GmailSyncedAttachment[] = []
 
   for (const ref of refs) {
     try {
@@ -546,15 +620,20 @@ export async function enrichMessageWithResumeText(
         continue
       }
       const buffer = gmailAttachmentDataToArrayBuffer(rawB64)
+      attachmentFiles.push({
+        filename: ref.filename,
+        mimeType: ref.mimeType,
+        bytes: buffer,
+        kind: classifyAtsAttachmentKind(ref.filename),
+      })
+
       const extracted = await extractFn(buffer, ref.filename, ref.mimeType)
-      if (extracted.error && !extracted.text) {
+      if (extracted.error && !extracted.text.trim()) {
         errors.push(`${ref.filename}: ${extracted.error}`)
-        continue
+      } else if (!extracted.text.trim()) {
+        errors.push(`${ref.filename}: no readable text (file kept for preview)`)
       }
-      if (!extracted.text.trim()) {
-        errors.push(`${ref.filename}: no readable text`)
-        continue
-      }
+      // Keep resume marker + any extracted text so DOCX/PDF still count toward scoring
       blocks.push(formatResumeExtractBlock(extracted))
       scanned.push(ref.filename)
     } catch (err) {
@@ -562,14 +641,11 @@ export async function enrichMessageWithResumeText(
     }
   }
 
-  if (!blocks.length) {
-    return { ...parsed, resumeExtractErrors: errors.length ? errors : undefined }
-  }
-
   return {
     ...parsed,
-    bodyText: [parsed.bodyText, '', ...blocks].join('\n').trim(),
-    resumeFilesScanned: scanned,
+    bodyText: blocks.length ? [parsed.bodyText, '', ...blocks].join('\n').trim() : parsed.bodyText,
+    attachmentFiles: attachmentFiles.length ? attachmentFiles : undefined,
+    resumeFilesScanned: scanned.length ? scanned : undefined,
     resumeExtractErrors: errors.length ? errors : undefined,
   }
 }
@@ -635,7 +711,7 @@ export async function fetchGmailApplications(options?: {
   const token = options?.accessToken ?? (await requestGmailAccessToken())
   const query = options?.query ?? defaultGmailAtsQuery()
   const hardCap = options?.hardCap ?? options?.maxResults ?? GMAIL_SYNC_HARD_CAP
-  const doFetch = options?.fetchImpl ?? fetch
+  const doFetch = options?.fetchImpl ?? boundFetch()
   const extractResumes = options?.extractResumes !== false
 
   const ids = await listAllGmailMessageIds({

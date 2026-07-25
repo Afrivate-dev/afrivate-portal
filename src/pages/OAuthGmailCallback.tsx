@@ -1,9 +1,13 @@
 import { useEffect, useState } from 'react'
-import { GMAIL_OAUTH_MESSAGE_TYPE } from '@/lib/gmailAtsSync'
+import {
+  GMAIL_OAUTH_CHANNEL,
+  GMAIL_OAUTH_MESSAGE_TYPE,
+  GMAIL_OAUTH_STORAGE_KEY,
+} from '@/lib/gmailAtsSync'
 
 /**
- * Popup landing page for Gmail OAuth (implicit token in the URL hash).
- * Posts the token back to the opener and closes itself.
+ * Popup landing page for Gmail OAuth.
+ * Uses BroadcastChannel + localStorage so Cross-Origin-Opener-Policy cannot break Sync.
  */
 export function OAuthGmailCallbackPage() {
   const [status, setStatus] = useState('Finishing Google sign-in…')
@@ -19,38 +23,52 @@ export function OAuthGmailCallbackPage() {
       query.get('error') ||
       undefined
 
-    if (window.opener && !window.opener.closed) {
-      window.opener.postMessage(
-        {
-          type: GMAIL_OAUTH_MESSAGE_TYPE,
-          accessToken,
-          error,
-        },
-        window.location.origin,
-      )
-      setStatus(error ? 'Sign-in failed. You can close this window.' : 'Signed in. Closing…')
-      window.setTimeout(() => {
-        try {
-          window.close()
-        } catch {
-          /* ignore */
-        }
-      }, 400)
-      return
+    const payload = {
+      type: GMAIL_OAUTH_MESSAGE_TYPE,
+      accessToken,
+      error,
+      at: Date.now(),
     }
 
-    setStatus(
-      error
-        ? `Sign-in failed: ${error}`
-        : accessToken
-          ? 'Signed in. You can close this tab and return to Recruitment.'
-          : 'No sign-in result found. Close this tab and try Sync again.',
-    )
+    try {
+      localStorage.setItem(GMAIL_OAUTH_STORAGE_KEY, JSON.stringify(payload))
+    } catch {
+      /* ignore quota */
+    }
+
+    try {
+      const channel = new BroadcastChannel(GMAIL_OAUTH_CHANNEL)
+      channel.postMessage(payload)
+      channel.close()
+    } catch {
+      /* BroadcastChannel unavailable */
+    }
+
+    // Best-effort for older browsers / when opener is still available
+    try {
+      if (window.opener) {
+        window.opener.postMessage(payload, window.location.origin)
+      }
+    } catch {
+      /* COOP may block opener */
+    }
+
+    setStatus(error ? 'Sign-in failed. You can close this window.' : 'Signed in. You can close this window.')
+    window.setTimeout(() => {
+      try {
+        window.close()
+      } catch {
+        /* ignore */
+      }
+    }, 500)
   }, [])
 
   return (
     <main className="flex min-h-screen items-center justify-center bg-surface px-4 text-center">
-      <p className="text-sm text-muted">{status}</p>
+      <div className="space-y-2">
+        <p className="text-sm text-muted">{status}</p>
+        <p className="text-xs text-muted">If this window stays open, close it and return to Recruitment.</p>
+      </div>
     </main>
   )
 }
