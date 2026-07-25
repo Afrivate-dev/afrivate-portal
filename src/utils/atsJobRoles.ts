@@ -41,7 +41,6 @@ export function pickCanonicalAtsJob(
 
 export function candidateIdsForAtsProfile(
   jobs: JobRequisition[],
-  candidates: JobCandidate[],
   profile: AtsRoleProfile,
 ): Set<string> {
   return new Set(openJobsMatchingAtsProfile(jobs, profile).map((j) => j.id))
