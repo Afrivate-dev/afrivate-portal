@@ -111,6 +111,7 @@ export function RecruitmentAtsSection() {
     addJobCandidatesBatch,
     updateJobCandidate,
     removeJobCandidates,
+    reloadHr,
   } = useHr()
 
   const jobIdCacheRef = useRef<Partial<Record<AtsRoleProfile, string>>>({})
@@ -353,6 +354,7 @@ export function RecruitmentAtsSection() {
 
       const existingAll = [...jobCandidates]
       let refreshedAttachments = 0
+      const uploadFailures: string[] = []
 
       const uploadItemAttachments = async (
         item: (typeof items)[number],
@@ -371,6 +373,7 @@ export function RecruitmentAtsSection() {
           )
           if ('error' in uploaded) {
             console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
+            uploadFailures.push(`${file.filename}: ${uploaded.error}`)
             continue
           }
           stored.push({
@@ -395,9 +398,11 @@ export function RecruitmentAtsSection() {
 
         const result = screenApplicationText(item.text, scoringProfile, roleCriteria)
         const emailKey = result.email?.toLowerCase()
+        // Prefer Gmail message identity across roles so CV backfill still runs after rematch
         const existing = existingAll.find(
           (c) =>
             (item.externalId && c.externalId === item.externalId) ||
+            (item.gmailMessageId && c.gmailMessageId === item.gmailMessageId) ||
             (emailKey && c.email?.toLowerCase() === emailKey && c.requisitionId === jobId) ||
             (!emailKey &&
               !item.externalId &&
@@ -405,25 +410,30 @@ export function RecruitmentAtsSection() {
               c.name.toLowerCase() === result.name.toLowerCase()),
         )
         if (existing) {
-          // Re-sync: backfill missing CV files instead of skipping forever
-          const needsFiles =
-            (item.attachmentFiles?.length ?? 0) > 0 &&
-            (!(existing.attachments?.length) ||
-              existing.attachments.some((a) => !a.storagePath))
-          if (needsFiles && existing.id && !existing.id.startsWith('temp_')) {
+          // Always re-upload CV files on sync when Gmail still has them (fixes empty storagePath / broken paths)
+          const hasFiles = (item.attachmentFiles?.length ?? 0) > 0
+          if (hasFiles && existing.id && !existing.id.startsWith('temp_')) {
             const storedAttachments = await uploadItemAttachments(item)
             if (storedAttachments.length) {
-              updateJobCandidate(existing.id, {
-                attachments: storedAttachments,
-                notes: joinApplicationNotes(
-                  item.text.slice(0, 80000),
-                  item.html?.slice(0, 200000),
-                ),
-                gmailThreadId: item.gmailThreadId ?? existing.gmailThreadId,
-                gmailMessageId: item.gmailMessageId ?? existing.gmailMessageId,
-              })
-              existing.attachments = storedAttachments
-              refreshedAttachments += 1
+              const save = await updateJobCandidate(
+                existing.id,
+                {
+                  attachments: storedAttachments,
+                  notes: joinApplicationNotes(
+                    item.text.slice(0, 80000),
+                    item.html?.slice(0, 200000),
+                  ),
+                  gmailThreadId: item.gmailThreadId ?? existing.gmailThreadId,
+                  gmailMessageId: item.gmailMessageId ?? existing.gmailMessageId,
+                },
+                { reload: false },
+              )
+              if (save && typeof save === 'object' && save.error) {
+                uploadFailures.push(`Could not save files for ${existing.name}: ${save.error.message}`)
+              } else {
+                existing.attachments = storedAttachments
+                refreshedAttachments += 1
+              }
             }
           }
           skipped += 1
@@ -496,7 +506,11 @@ export function RecruitmentAtsSection() {
       if (failed && !added) {
         // Batch already reported; keep skipped count accurate
       }
-      return { added, skipped, byRole, failed, refreshedAttachments }
+      // Batch insert reloads when there are rows; attachment-only refresh must reload too
+      if (refreshedAttachments > 0 && toInsert.length === 0) {
+        await reloadHr()
+      }
+      return { added, skipped, byRole, failed, refreshedAttachments, uploadFailures }
     } finally {
       resumeHrRealtime()
     }
@@ -564,7 +578,8 @@ export function RecruitmentAtsSection() {
           onProgress: ({ label }) => setSyncLabel(label),
         })
         setSyncLabel('Sorting by role & ranking…')
-        const { added, skipped, byRole, failed, refreshedAttachments } = await importScreened(
+        const { added, skipped, byRole, failed, refreshedAttachments, uploadFailures } =
+          await importScreened(
           messages.map((m) => {
             const parsed = m.date ? Date.parse(m.date) : NaN
             const resumeNote = m.resumeFilesScanned?.length
@@ -588,6 +603,11 @@ export function RecruitmentAtsSection() {
         const refreshNote = refreshedAttachments
           ? ` · refreshed files on ${refreshedAttachments} existing candidate${refreshedAttachments === 1 ? '' : 's'}`
           : ''
+        if (uploadFailures.length) {
+          notifyError(
+            `CV upload issue (${uploadFailures.length}): ${uploadFailures[0]}${uploadFailures.length > 1 ? '…' : ''}`,
+          )
+        }
         if (added) {
           const withCv = messages.filter((m) => (m.resumeFilesScanned?.length ?? 0) > 0).length
           const parts = Object.entries(byRole)
@@ -679,8 +699,8 @@ export function RecruitmentAtsSection() {
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-fg">Recruitment</h2>
           <p className="mt-1 max-w-2xl text-sm text-muted">
-            Review applications by role, see who ranks highest, and open the original email in Gmail.
-            Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
+            Shared for all HR and Admin accounts. Sync from {HR_MAILBOX}, rank candidates, and open
+            resumes / cover letters with Preview, Open, or Download on any device.
           </p>
           <details className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
             <summary className="cursor-pointer font-medium text-fg">

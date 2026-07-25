@@ -1,7 +1,8 @@
 import { useEffect, useRef, useState } from 'react'
-import { Download, FileText, Loader2 } from 'lucide-react'
+import { Download, ExternalLink, FileText, Loader2 } from 'lucide-react'
 import { supabase } from '@/lib/supabase'
-import { resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
+import { downloadPortalFile, resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
+import { notifyError, notifySuccess } from '@/lib/notify'
 import type { CandidateAttachment } from '@/types/hr'
 import { detectDocumentPreviewKind } from '@/utils/documentPreview'
 
@@ -9,6 +10,11 @@ function kindLabel(kind: CandidateAttachment['kind']): string {
   if (kind === 'cover_letter') return 'Cover letter'
   if (kind === 'resume') return 'Resume / CV'
   return 'Attachment'
+}
+
+function isMobileLike(): boolean {
+  if (typeof navigator === 'undefined') return false
+  return /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || window.matchMedia('(max-width: 768px)').matches
 }
 
 /** Renders a stored ATS attachment as the original file (PDF / DOCX / image). */
@@ -23,6 +29,7 @@ export function AtsAttachmentPreview({
   const [url, setUrl] = useState<string | null>(null)
   const [error, setError] = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [downloading, setDownloading] = useState(false)
   const docxHost = useRef<HTMLDivElement>(null)
   const revokeRef = useRef<(() => void) | undefined>(undefined)
 
@@ -45,13 +52,17 @@ export function AtsAttachmentPreview({
         setLoading(false)
         return
       }
-      const resolved = await resolvePortalFilePreviewUrl(supabase, attachment.storagePath)
+      const resolved = await resolvePortalFilePreviewUrl(
+        supabase,
+        attachment.storagePath,
+        attachment.filename,
+      )
       if (cancelled) {
         resolved?.revoke?.()
         return
       }
       if (!resolved) {
-        setError('Could not load this file. Sync again or check storage permissions.')
+        setError('Could not load this file. Sync again or run the ATS storage SQL migration.')
         setLoading(false)
         return
       }
@@ -65,7 +76,7 @@ export function AtsAttachmentPreview({
       revokeRef.current?.()
       revokeRef.current = undefined
     }
-  }, [attachment.storagePath])
+  }, [attachment.storagePath, attachment.filename])
 
   useEffect(() => {
     if (!url || !docxHost.current) return
@@ -96,6 +107,46 @@ export function AtsAttachmentPreview({
   }, [url, attachment.filename])
 
   const kind = detectDocumentPreviewKind(attachment.filename, attachment.filename)
+  const mobile = isMobileLike()
+
+  const handleDownload = async () => {
+    if (!supabase || !attachment.storagePath) return
+    setDownloading(true)
+    const result = await downloadPortalFile(supabase, attachment.storagePath, attachment.filename)
+    setDownloading(false)
+    if ('error' in result) notifyError(result.error)
+    else notifySuccess(`Downloading ${attachment.filename}`)
+  }
+
+  const handleOpen = () => {
+    if (!url) return
+    window.open(url, '_blank', 'noopener,noreferrer')
+  }
+
+  const actions = (
+    <div className="flex flex-wrap items-center gap-2">
+      {url ? (
+        <button
+          type="button"
+          onClick={handleOpen}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-fg hover:bg-surface-2"
+        >
+          <ExternalLink className="h-3.5 w-3.5" /> Open
+        </button>
+      ) : null}
+      {attachment.storagePath ? (
+        <button
+          type="button"
+          onClick={() => void handleDownload()}
+          disabled={downloading}
+          className="inline-flex items-center gap-1 rounded-md border border-border bg-surface px-2.5 py-1.5 text-xs text-accent hover:bg-surface-2 disabled:opacity-60"
+        >
+          {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+          Download
+        </button>
+      ) : null}
+    </div>
+  )
 
   const previewBody = (
     <div className={embedded ? 'min-h-[12rem] bg-white' : 'min-h-[16rem] bg-white p-2'}>
@@ -104,12 +155,28 @@ export function AtsAttachmentPreview({
           <Loader2 className="h-4 w-4 animate-spin" /> Loading file…
         </div>
       ) : error ? (
-        <div className="flex h-64 flex-col items-center justify-center gap-2 px-3 text-center text-sm text-muted">
+        <div className="flex h-64 flex-col items-center justify-center gap-3 px-3 text-center text-sm text-muted">
           <FileText className="h-8 w-8" />
-          {error}
+          <p>{error}</p>
+          {attachment.storagePath ? actions : null}
         </div>
       ) : kind === 'pdf' && url ? (
-        <iframe title={attachment.filename} src={url} className="h-[min(70vh,36rem)] w-full border-0" />
+        mobile ? (
+          <div className="flex h-64 flex-col items-center justify-center gap-3 px-3 text-center text-sm text-muted">
+            <FileText className="h-8 w-8" />
+            <p>PDF preview works best in a new tab on phones.</p>
+            {actions}
+          </div>
+        ) : (
+          <object
+            data={url}
+            type="application/pdf"
+            title={attachment.filename}
+            className="h-[min(70vh,36rem)] w-full border-0"
+          >
+            <iframe title={attachment.filename} src={url} className="h-[min(70vh,36rem)] w-full border-0" />
+          </object>
+        )
       ) : kind === 'image' && url ? (
         <img src={url} alt={attachment.filename} className="mx-auto max-h-[min(70vh,36rem)] max-w-full object-contain" />
       ) : kind === 'docx' ? (
@@ -118,15 +185,20 @@ export function AtsAttachmentPreview({
         <div className="flex h-64 flex-col items-center justify-center gap-3 text-sm text-muted">
           <FileText className="h-8 w-8" />
           Preview not available for this file type.
-          <a href={url} download={attachment.filename} className="text-accent hover:underline">
-            Download {attachment.filename}
-          </a>
+          {actions}
         </div>
       ) : null}
     </div>
   )
 
-  if (embedded) return previewBody
+  if (embedded) {
+    return (
+      <div className="space-y-2">
+        <div className="flex justify-end px-1">{actions}</div>
+        {previewBody}
+      </div>
+    )
+  }
 
   return (
     <div className="overflow-hidden rounded-md border border-border">
@@ -135,17 +207,7 @@ export function AtsAttachmentPreview({
           <p className="text-xs font-medium text-muted">{kindLabel(attachment.kind)}</p>
           <p className="truncate text-sm text-fg">{attachment.filename}</p>
         </div>
-        {url ? (
-          <a
-            href={url}
-            download={attachment.filename}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-          >
-            <Download className="h-3.5 w-3.5" /> Download
-          </a>
-        ) : null}
+        {actions}
       </div>
       {previewBody}
     </div>

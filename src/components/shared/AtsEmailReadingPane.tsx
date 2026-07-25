@@ -1,7 +1,8 @@
 import { useEffect, useMemo, useState } from 'react'
 import { ChevronDown, ChevronUp, Download, FileText, Loader2, Paperclip } from 'lucide-react'
 import { AtsAttachmentPreview } from '@/components/shared/AtsAttachmentPreview'
-import { formatFileSize, resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
+import { formatFileSize, downloadPortalFile, resolvePortalFilePreviewUrl } from '@/lib/supabase/fileStorage'
+import { notifyError } from '@/lib/notify'
 import { supabase } from '@/lib/supabase'
 import {
   buildEmailPreviewDocument,
@@ -57,18 +58,28 @@ function AttachmentChip({
   onToggle: () => void
 }) {
   const [url, setUrl] = useState<string | null>(null)
+  const [downloading, setDownloading] = useState(false)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     let cancelled = false
     let revoke: (() => void) | undefined
     void (async () => {
       if (!supabase || !attachment.storagePath) return
-      const resolved = await resolvePortalFilePreviewUrl(supabase, attachment.storagePath)
+      setLoadError(false)
+      const resolved = await resolvePortalFilePreviewUrl(
+        supabase,
+        attachment.storagePath,
+        attachment.filename,
+      )
       if (cancelled) {
         resolved?.revoke?.()
         return
       }
-      if (!resolved) return
+      if (!resolved) {
+        setLoadError(true)
+        return
+      }
       revoke = resolved.revoke
       setUrl(resolved.url)
     })()
@@ -76,7 +87,7 @@ function AttachmentChip({
       cancelled = true
       revoke?.()
     }
-  }, [attachment.storagePath])
+  }, [attachment.storagePath, attachment.filename])
 
   const kind =
     attachment.kind === 'cover_letter'
@@ -85,6 +96,14 @@ function AttachmentChip({
         ? 'Resume / CV'
         : 'Attachment'
   const canPreview = Boolean(attachment.storagePath)
+
+  const handleDownload = async () => {
+    if (!supabase || !attachment.storagePath) return
+    setDownloading(true)
+    const result = await downloadPortalFile(supabase, attachment.storagePath, attachment.filename)
+    setDownloading(false)
+    if ('error' in result) notifyError(result.error)
+  }
 
   return (
     <div className="overflow-hidden rounded-lg border border-[#dadce0] bg-white">
@@ -102,16 +121,25 @@ function AttachmentChip({
           </div>
         </div>
         <div className="flex flex-wrap items-center gap-2 sm:justify-end">
+          {canPreview ? (
+            <button
+              type="button"
+              onClick={() => void handleDownload()}
+              disabled={downloading}
+              className="inline-flex items-center gap-1 rounded-md border border-[#dadce0] px-2.5 py-1.5 text-xs text-[#202124] hover:bg-[#f1f3f4] disabled:opacity-60"
+            >
+              {downloading ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Download className="h-3.5 w-3.5" />}
+              Download
+            </button>
+          ) : null}
           {url ? (
             <a
               href={url}
-              download={attachment.filename}
               target="_blank"
               rel="noopener noreferrer"
               className="inline-flex items-center gap-1 rounded-md border border-[#dadce0] px-2.5 py-1.5 text-xs text-[#202124] hover:bg-[#f1f3f4]"
             >
-              <Download className="h-3.5 w-3.5" />
-              Download
+              Open
             </a>
           ) : null}
           {canPreview ? (
@@ -133,10 +161,13 @@ function AttachmentChip({
           ) : (
             <span className="text-[11px] text-[#5f6368]">File not saved yet — Sync Gmail again</span>
           )}
-          {!url && canPreview ? (
+          {canPreview && !url && !loadError ? (
             <span className="inline-flex items-center gap-1 px-1 text-xs text-[#5f6368]">
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             </span>
+          ) : null}
+          {loadError ? (
+            <span className="text-[11px] text-red-600">Could not load — try Download or re-sync</span>
           ) : null}
         </div>
       </div>

@@ -235,8 +235,12 @@ export function encodeGmailExternalId(threadId: string, messageId: string): stri
  * Identity/Gmail columns are optional — omitted when `includeIdentity` is false
  * so refresh/sync still works before migrations are applied.
  */
-export function jobCandidateToRow(c: JobCandidate, opts?: { includeIdentity?: boolean }) {
+export function jobCandidateToRow(
+  c: JobCandidate,
+  opts?: { includeIdentity?: boolean; includeAttachments?: boolean },
+) {
   const includeIdentity = opts?.includeIdentity !== false
+  const includeAttachments = opts?.includeAttachments !== false
   const row: Record<string, unknown> = {
     id: c.id,
     requisition_id: c.requisitionId,
@@ -255,7 +259,9 @@ export function jobCandidateToRow(c: JobCandidate, opts?: { includeIdentity?: bo
     external_id: c.externalId ?? null,
     applied_at: c.appliedAt ?? null,
     updated_at: c.updatedAt,
-    attachments: c.attachments ?? [],
+  }
+  if (includeAttachments) {
+    row.attachments = c.attachments ?? []
   }
   if (includeIdentity) {
     row.phone = c.phone ?? null
@@ -270,9 +276,10 @@ export function jobCandidateToRow(c: JobCandidate, opts?: { includeIdentity?: bo
 /** Only the fields present in a patch — avoids writing missing DB columns on rescore. */
 export function jobCandidatePatchToRow(
   patch: Partial<JobCandidate> & { updatedAt?: string },
-  opts?: { includeIdentity?: boolean },
+  opts?: { includeIdentity?: boolean; includeAttachments?: boolean },
 ): Record<string, unknown> {
   const includeIdentity = opts?.includeIdentity !== false
+  const includeAttachments = opts?.includeAttachments !== false
   const row: Record<string, unknown> = {}
   if (patch.name !== undefined) row.name = patch.name
   if (patch.email !== undefined) row.email = patch.email ?? null
@@ -289,7 +296,9 @@ export function jobCandidatePatchToRow(
   if (patch.externalId !== undefined) row.external_id = patch.externalId ?? null
   if (patch.appliedAt !== undefined) row.applied_at = patch.appliedAt ?? null
   if (patch.updatedAt !== undefined) row.updated_at = patch.updatedAt
-  if (patch.attachments !== undefined) row.attachments = patch.attachments ?? []
+  if (includeAttachments && patch.attachments !== undefined) {
+    row.attachments = patch.attachments ?? []
+  }
   if (includeIdentity) {
     if (patch.phone !== undefined) row.phone = patch.phone ?? null
     if (patch.linkedinUrl !== undefined) row.linkedin_url = patch.linkedinUrl ?? null
@@ -298,6 +307,13 @@ export function jobCandidatePatchToRow(
     if (patch.gmailMessageId !== undefined) row.gmail_message_id = patch.gmailMessageId ?? null
   }
   return row
+}
+
+export function isMissingAttachmentsColumnError(
+  error: { message?: string } | null | undefined,
+): boolean {
+  const msg = (error?.message ?? '').toLowerCase()
+  return msg.includes('attachments') && (msg.includes('column') || msg.includes('schema cache') || msg.includes('could not find'))
 }
 
 export function isMissingCandidateColumnError(error: { message?: string } | null | undefined): boolean {
@@ -313,15 +329,18 @@ export function isMissingCandidateColumnError(error: { message?: string } | null
   )
 }
 
-/** Drop optional ATS columns for older schemas. */
-export function stripOptionalCandidateColumns(row: Record<string, unknown>): Record<string, unknown> {
+/** Drop optional identity columns. Never strips attachments unless asked. */
+export function stripOptionalCandidateColumns(
+  row: Record<string, unknown>,
+  opts?: { stripAttachments?: boolean },
+): Record<string, unknown> {
   const next = { ...row }
   delete next.phone
   delete next.linkedin_url
   delete next.location
   delete next.gmail_thread_id
   delete next.gmail_message_id
-  delete next.attachments
+  if (opts?.stripAttachments) delete next.attachments
   return next
 }
 

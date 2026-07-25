@@ -107,7 +107,11 @@ export interface HrContextValue {
   addJobCandidatesBatch: (
     rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>,
   ) => Promise<{ added: number; failed: number }>
-  updateJobCandidate: (id: string, patch: Partial<JobCandidate>) => void
+  updateJobCandidate: (
+    id: string,
+    patch: Partial<JobCandidate>,
+    opts?: { reload?: boolean },
+  ) => void | Promise<{ error: { message: string } | null }>
   /** Delete candidates by id (used to purge non-application noise). */
   removeJobCandidates: (ids: string[]) => Promise<{ removed: number }>
 
