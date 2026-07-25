@@ -327,7 +327,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     [feedbackTemplates, users, teams, departments, setFeedbackCycles, setFeedbackAssignments],
   )
 
-  const addJobRequisition = useCallback((r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
+  const addJobRequisition = useCallback(async (r: Omit<JobRequisition, 'id' | 'createdAt'>) => {
     const id = 'job_' + uid()
     setJobRequisitions((prev) => [...prev, { ...r, id, createdAt: new Date().toISOString() }])
     return id
@@ -344,6 +344,21 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       { ...c, id: 'cand_' + uid(), appliedAt: c.appliedAt ?? now, updatedAt: now },
     ])
   }, [setJobCandidates])
+
+  const addJobCandidatesBatch = useCallback(
+    async (rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>) => {
+      const now = new Date().toISOString()
+      const prepared = rows.map((c) => ({
+        ...c,
+        id: 'cand_' + uid(),
+        appliedAt: c.appliedAt ?? now,
+        updatedAt: now,
+      }))
+      setJobCandidates((prev) => [...prev, ...prepared])
+      return { added: prepared.length, failed: 0 }
+    },
+    [setJobCandidates],
+  )
 
   const updateJobCandidate = useCallback((id: string, patch: Partial<JobCandidate>) => {
     setJobCandidates((prev) => prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt: new Date().toISOString() } : c)))
@@ -469,6 +484,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       addJobRequisition,
       updateJobRequisition,
       addJobCandidate,
+      addJobCandidatesBatch,
       updateJobCandidate,
       exitInterviews,
       addExitInterview,
@@ -492,7 +508,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       feedbackCycles, feedbackEntries, feedbackTemplates, addFeedbackTemplate, updateFeedbackTemplate, deleteFeedbackTemplate,
       feedbackAssignments, addFeedbackAssignment, removeFeedbackAssignment, openFeedbackCycleFromTemplate,
       createFeedbackCycle, updateFeedbackCycle, submitFeedback,
-      jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, updateJobCandidate,
+      jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, addJobCandidatesBatch, updateJobCandidate,
       exitInterviews, addExitInterview, grievances, submitGrievance, updateGrievance,
       onboardingMilestones, setMilestoneCompleted, seedOnboardingMilestones, quarterlyAwards, addQuarterlyAward,
       getMetrics,

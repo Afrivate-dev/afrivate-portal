@@ -3,6 +3,21 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { isSupabaseDataEnabled } from '@/lib/dataMode'
 import { supabase } from '@/lib/supabase'
 
+/** When > 0, HR realtime reloads are skipped (bulk ATS sync). */
+let hrRealtimePauseDepth = 0
+
+export function pauseHrRealtime(): void {
+  hrRealtimePauseDepth += 1
+}
+
+export function resumeHrRealtime(): void {
+  hrRealtimePauseDepth = Math.max(0, hrRealtimePauseDepth - 1)
+}
+
+export function isHrRealtimePaused(): boolean {
+  return hrRealtimePauseDepth > 0
+}
+
 export const PORTAL_CONFIG_LIVE_TABLES = [
   'portal_task_categories',
   'portal_document_categories',
@@ -62,8 +77,10 @@ export function usePortalRealtime(
 
     let timer: ReturnType<typeof setTimeout> | null = null
     const scheduleReload = () => {
+      if (channelKey === 'hr' && isHrRealtimePaused()) return
       if (timer) clearTimeout(timer)
       timer = setTimeout(() => {
+        if (channelKey === 'hr' && isHrRealtimePaused()) return
         void reload()
       }, 400)
     }

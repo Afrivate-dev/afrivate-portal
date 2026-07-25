@@ -97,9 +97,16 @@ export interface HrContextValue {
 
   jobRequisitions: JobRequisition[]
   jobCandidates: JobCandidate[]
-  addJobRequisition: (r: Omit<JobRequisition, 'id' | 'createdAt'>) => string
+  addJobRequisition: (
+    r: Omit<JobRequisition, 'id' | 'createdAt'>,
+    opts?: { reload?: boolean },
+  ) => Promise<string>
   updateJobRequisition: (id: string, patch: Partial<JobRequisition>) => void
-  addJobCandidate: (c: Omit<JobCandidate, 'id' | 'updatedAt'>) => void
+  addJobCandidate: (c: Omit<JobCandidate, 'id' | 'updatedAt'>, opts?: { reload?: boolean }) => void
+  /** Bulk insert for Gmail sync — one DB round-trip pattern + single HR reload. */
+  addJobCandidatesBatch: (
+    rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>,
+  ) => Promise<{ added: number; failed: number }>
   updateJobCandidate: (id: string, patch: Partial<JobCandidate>) => void
 
   exitInterviews: ExitInterview[]

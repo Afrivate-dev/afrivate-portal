@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Briefcase,
   ExternalLink,
@@ -27,6 +27,8 @@ import { Modal } from '@/components/ui/Modal'
 import { Select } from '@/components/ui/Select'
 import { Textarea } from '@/components/ui/Textarea'
 import { useHr } from '@/context/HrContext'
+import { useAuth } from '@/context/AuthContext'
+import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
 import { buildEmailPreviewDocument, joinApplicationNotes, splitApplicationNotes } from '@/lib/atsEmailHtml'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
@@ -100,13 +102,16 @@ function newCriterionId() {
 }
 
 export function RecruitmentAtsSection() {
+  const { user } = useAuth()
   const {
     jobRequisitions,
     jobCandidates,
     addJobRequisition,
-    addJobCandidate,
+    addJobCandidatesBatch,
     updateJobCandidate,
   } = useHr()
+
+  const jobIdCacheRef = useRef<Partial<Record<AtsRoleProfile, string>>>({})
 
   const openJobs = useMemo(
     () => jobRequisitions.filter((j) => j.status === 'open'),
@@ -145,27 +150,42 @@ export function RecruitmentAtsSection() {
     )
   }
 
-  const ensureJobForProfile = (profile: AtsRoleProfile): string => {
+  const ensureJobForProfile = async (profile: AtsRoleProfile): Promise<string> => {
+    const cached = jobIdCacheRef.current[profile]
+    if (cached) return cached
     const existing = findOpenJobForProfile(profile)
-    if (existing) return existing.id
+    if (existing) {
+      jobIdCacheRef.current[profile] = existing.id
+      return existing.id
+    }
     if (profile === 'general') {
-      return addJobRequisition({
-        title: UNASSIGNED_ROLE.title,
-        department: UNASSIGNED_ROLE.department,
-        status: 'open',
-      })
+      const id = await addJobRequisition(
+        {
+          title: UNASSIGNED_ROLE.title,
+          department: UNASSIGNED_ROLE.department,
+          status: 'open',
+        },
+        { reload: false },
+      )
+      jobIdCacheRef.current[profile] = id
+      return id
     }
     const def = ATS_STANDARD_ROLES.find((r) => r.profile === profile)!
-    return addJobRequisition({
-      title: def.title,
-      department: def.department,
-      status: 'open',
-    })
+    const id = await addJobRequisition(
+      {
+        title: def.title,
+        department: def.department,
+        status: 'open',
+      },
+      { reload: false },
+    )
+    jobIdCacheRef.current[profile] = id
+    return id
   }
 
-  const ensureStandardRoles = () => {
+  const ensureStandardRoles = async () => {
     for (const role of ATS_STANDARD_ROLES) {
-      ensureJobForProfile(role.profile)
+      await ensureJobForProfile(role.profile)
     }
   }
 
@@ -213,7 +233,9 @@ export function RecruitmentAtsSection() {
     selectedRole === 'general' ? 'frontend' : selectedRole
 
   useEffect(() => {
-    ensureStandardRoles()
+    void ensureStandardRoles().catch((err) => {
+      console.warn('[ats] ensure roles', err instanceof Error ? err.message : err)
+    })
     // Create missing standard role sections when ATS opens / jobs change
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [openJobs.length])
@@ -300,137 +322,147 @@ export function RecruitmentAtsSection() {
       forceProfile?: AtsRoleProfile
     }>,
   ) => {
-    ensureStandardRoles()
-
-    let added = 0
+    pauseHrRealtime()
     let skipped = 0
     const byRole: Partial<Record<AtsRoleProfile, number>> = {}
+    const toInsert: Array<Omit<JobCandidate, 'id' | 'updatedAt'>> = []
 
-    const criteriaCache: Partial<Record<Exclude<AtsRoleProfile, 'general'>, AtsCriteriaProfile>> = {
-      frontend: selectedRole === 'frontend' ? criteria : undefined,
-      backend: selectedRole === 'backend' ? criteria : undefined,
-      designer: selectedRole === 'designer' ? criteria : undefined,
-    }
+    try {
+      await ensureStandardRoles()
 
-    for (const profile of ['frontend', 'backend', 'designer'] as const) {
-      if (!criteriaCache[profile]) {
-        criteriaCache[profile] = await loadAtsCriteria(profile)
-      }
-    }
-
-    const existingAll = [...jobCandidates]
-
-    for (const item of items) {
-      const detected = item.forceProfile ?? detectAtsRoleFromApplication(item.text)
-      const profile = detected === 'general' ? 'general' : detected
-      const scoringProfile: Exclude<AtsRoleProfile, 'general'> =
-        profile === 'general' ? 'frontend' : profile
-      const jobId = ensureJobForProfile(profile)
-      const roleCriteria = criteriaCache[scoringProfile] ?? defaultCriteriaForProfile(scoringProfile)
-
-      const result = screenApplicationText(item.text, scoringProfile, roleCriteria)
-      const emailKey = result.email?.toLowerCase()
-      const duplicate = existingAll.some(
-        (c) =>
-          (item.externalId && c.externalId === item.externalId) ||
-          (emailKey && c.email?.toLowerCase() === emailKey && c.requisitionId === jobId) ||
-          (!emailKey &&
-            !item.externalId &&
-            c.requisitionId === jobId &&
-            c.name.toLowerCase() === result.name.toLowerCase()),
-      )
-      if (duplicate) {
-        skipped += 1
-        continue
+      const criteriaCache: Partial<Record<Exclude<AtsRoleProfile, 'general'>, AtsCriteriaProfile>> = {
+        frontend: selectedRole === 'frontend' ? criteria : undefined,
+        backend: selectedRole === 'backend' ? criteria : undefined,
+        designer: selectedRole === 'designer' ? criteria : undefined,
       }
 
-      const storedAttachments: CandidateAttachment[] = []
-      if (supabase && item.attachmentFiles?.length) {
-        const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
-        for (const file of item.attachmentFiles) {
-          const uploaded = await uploadAtsAttachmentBytes(
-            supabase,
-            key,
-            file.filename,
-            file.bytes,
-            file.mimeType,
-          )
-          if ('error' in uploaded) {
-            console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
-            continue
-          }
-          storedAttachments.push({
-            id: `att_${uid()}`,
-            filename: file.filename,
-            mimeType: file.mimeType,
-            storagePath: uploaded.path,
-            kind: file.kind,
-            size: uploaded.size,
-          })
+      for (const profile of ['frontend', 'backend', 'designer'] as const) {
+        if (!criteriaCache[profile]) {
+          criteriaCache[profile] = await loadAtsCriteria(profile)
         }
       }
 
-      // Ensure resume criterion can pass when a DOCX/PDF was stored even if text extract was thin
-      let scoringText = item.text
-      if (
-        (item.attachmentFiles?.length || storedAttachments.length) &&
-        !/---\s*resume:/i.test(scoringText)
-      ) {
-        const names = [
-          ...(item.attachmentFiles ?? []).map((f) => f.filename),
-          ...storedAttachments.map((f) => f.filename),
-        ]
-          .filter(Boolean)
-          .join(', ')
-        scoringText += `\n\n--- Resume: ${names || 'attachment'} ---`
+      const existingAll = [...jobCandidates]
+
+      for (const item of items) {
+        const detected = item.forceProfile ?? detectAtsRoleFromApplication(item.text)
+        const profile = detected === 'general' ? 'general' : detected
+        const scoringProfile: Exclude<AtsRoleProfile, 'general'> =
+          profile === 'general' ? 'frontend' : profile
+        const jobId = await ensureJobForProfile(profile)
+        const roleCriteria = criteriaCache[scoringProfile] ?? defaultCriteriaForProfile(scoringProfile)
+
+        const result = screenApplicationText(item.text, scoringProfile, roleCriteria)
+        const emailKey = result.email?.toLowerCase()
+        const duplicate = existingAll.some(
+          (c) =>
+            (item.externalId && c.externalId === item.externalId) ||
+            (emailKey && c.email?.toLowerCase() === emailKey && c.requisitionId === jobId) ||
+            (!emailKey &&
+              !item.externalId &&
+              c.requisitionId === jobId &&
+              c.name.toLowerCase() === result.name.toLowerCase()),
+        )
+        if (duplicate) {
+          skipped += 1
+          continue
+        }
+
+        const storedAttachments: CandidateAttachment[] = []
+        if (supabase && user?.id && item.attachmentFiles?.length) {
+          const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
+          for (const file of item.attachmentFiles) {
+            const uploaded = await uploadAtsAttachmentBytes(
+              supabase,
+              user.id,
+              key,
+              file.filename,
+              file.bytes,
+              file.mimeType,
+            )
+            if ('error' in uploaded) {
+              console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
+              continue
+            }
+            storedAttachments.push({
+              id: `att_${uid()}`,
+              filename: file.filename,
+              mimeType: file.mimeType,
+              storagePath: uploaded.path,
+              kind: file.kind,
+              size: uploaded.size,
+            })
+          }
+        }
+
+        // Ensure resume criterion can pass when a DOCX/PDF was stored even if text extract was thin
+        let scoringText = item.text
+        if (
+          (item.attachmentFiles?.length || storedAttachments.length) &&
+          !/---\s*resume:/i.test(scoringText)
+        ) {
+          const names = [
+            ...(item.attachmentFiles ?? []).map((f) => f.filename),
+            ...storedAttachments.map((f) => f.filename),
+          ]
+            .filter(Boolean)
+            .join(', ')
+          scoringText += `\n\n--- Resume: ${names || 'attachment'} ---`
+        }
+        const scored =
+          scoringText === item.text
+            ? result
+            : screenApplicationText(scoringText, scoringProfile, roleCriteria)
+
+        const row: Omit<JobCandidate, 'id' | 'updatedAt'> = {
+          requisitionId: jobId,
+          name: scored.name,
+          email: scored.email,
+          phone: scored.phone,
+          linkedinUrl: scored.linkedinUrl,
+          location: scored.location,
+          stage:
+            scored.recommendation === 'reject'
+              ? 'rejected'
+              : scored.recommendation === 'weak'
+                ? 'applied'
+                : 'screen',
+          source: item.source as CandidateSource,
+          githubUrl: scored.githubUrl,
+          portfolioUrl: scored.portfolioUrl,
+          coverLetter: scored.coverLetter || storedAttachments.some((a) => a.kind === 'cover_letter'),
+          score: scored.score,
+          recommendation: scored.recommendation,
+          scoreBreakdown: scored.breakdown as Record<string, number>,
+          resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${scored.summary}`,
+          notes: joinApplicationNotes(scoringText.slice(0, 80000), item.html?.slice(0, 200000)),
+          attachments: storedAttachments.length ? storedAttachments : undefined,
+          externalId: item.externalId,
+          gmailThreadId: item.gmailThreadId,
+          gmailMessageId: item.gmailMessageId,
+          appliedAt: item.appliedAt ?? new Date().toISOString(),
+        }
+        toInsert.push(row)
+        existingAll.push({
+          id: `temp_${toInsert.length}`,
+          requisitionId: jobId,
+          name: scored.name,
+          email: scored.email,
+          externalId: item.externalId,
+          stage: 'screen',
+          updatedAt: new Date().toISOString(),
+        })
+        byRole[profile] = (byRole[profile] ?? 0) + 1
       }
-      const scored =
-        scoringText === item.text
-          ? result
-          : screenApplicationText(scoringText, scoringProfile, roleCriteria)
 
-      addJobCandidate({
-        requisitionId: jobId,
-        name: scored.name,
-        email: scored.email,
-        phone: scored.phone,
-        linkedinUrl: scored.linkedinUrl,
-        location: scored.location,
-        stage:
-          scored.recommendation === 'reject'
-            ? 'rejected'
-            : scored.recommendation === 'weak'
-              ? 'applied'
-              : 'screen',
-        source: item.source as CandidateSource,
-        githubUrl: scored.githubUrl,
-        portfolioUrl: scored.portfolioUrl,
-        coverLetter: scored.coverLetter || storedAttachments.some((a) => a.kind === 'cover_letter'),
-        score: scored.score,
-        recommendation: scored.recommendation,
-        scoreBreakdown: scored.breakdown as Record<string, number>,
-        resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${scored.summary}`,
-        notes: joinApplicationNotes(scoringText.slice(0, 80000), item.html?.slice(0, 200000)),
-        attachments: storedAttachments.length ? storedAttachments : undefined,
-        externalId: item.externalId,
-        gmailThreadId: item.gmailThreadId,
-        gmailMessageId: item.gmailMessageId,
-        appliedAt: item.appliedAt ?? new Date().toISOString(),
-      })
-      existingAll.push({
-        id: `temp_${added}`,
-        requisitionId: jobId,
-        name: scored.name,
-        email: scored.email,
-        externalId: item.externalId,
-        stage: 'screen',
-        updatedAt: new Date().toISOString(),
-      })
-      added += 1
-      byRole[profile] = (byRole[profile] ?? 0) + 1
+      const { added, failed } = await addJobCandidatesBatch(toInsert)
+      if (failed && !added) {
+        // Batch already reported; keep skipped count accurate
+      }
+      return { added, skipped, byRole, failed }
+    } finally {
+      resumeHrRealtime()
     }
-
-    return { added, skipped, byRole }
   }
 
   const screenAndSave = async () => {
@@ -477,7 +509,7 @@ export function RecruitmentAtsSection() {
 
     setSyncing(true)
     setSyncLabel('Waiting for Google permission…')
-    ensureStandardRoles()
+    void ensureStandardRoles().catch(() => undefined)
 
     void (async () => {
       try {
@@ -488,7 +520,7 @@ export function RecruitmentAtsSection() {
           onProgress: ({ label }) => setSyncLabel(label),
         })
         setSyncLabel('Sorting by role & ranking…')
-        const { added, skipped, byRole } = await importScreened(
+        const { added, skipped, byRole, failed } = await importScreened(
           messages.map((m) => {
             const parsed = m.date ? Date.parse(m.date) : NaN
             const resumeNote = m.resumeFilesScanned?.length
@@ -514,7 +546,9 @@ export function RecruitmentAtsSection() {
           notifySuccess(
             `Imported ${added} application${added === 1 ? '' : 's'}` +
               (parts ? `: ${parts}` : '') +
-              (withCv ? ` (${withCv} with CV scanned).` : '.'),
+              (withCv ? ` (${withCv} with CV scanned)` : '') +
+              (failed ? ` · ${failed} failed to save` : '') +
+              '.',
           )
           const preferred = (['frontend', 'backend', 'designer'] as const).find((p) => (byRole[p] ?? 0) > 0)
           if (preferred) setSelectedRole(preferred)
