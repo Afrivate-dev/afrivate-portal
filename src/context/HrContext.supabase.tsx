@@ -907,6 +907,34 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     [client, reloadHr],
   )
 
+  const removeJobCandidates = useCallback(
+    async (ids: string[]) => {
+      const unique = [...new Set(ids.filter(Boolean))]
+      if (!unique.length) return { removed: 0 }
+      pauseHrRealtime()
+      setJobCandidates((prev) => prev.filter((c) => !unique.includes(c.id)))
+      try {
+        const chunkSize = 50
+        let removed = 0
+        for (let i = 0; i < unique.length; i += chunkSize) {
+          const chunk = unique.slice(i, i + chunkSize)
+          const { error } = await client.from('portal_job_candidates').delete().in('id', chunk)
+          if (error) {
+            reportHrError('remove candidates', error)
+            await reloadHr()
+            return { removed }
+          }
+          removed += chunk.length
+        }
+        return { removed }
+      } finally {
+        resumeHrRealtime()
+        await reloadHr()
+      }
+    },
+    [client, reloadHr],
+  )
+
   const addExitInterview = useCallback(
     (e: Omit<HrContextValue['exitInterviews'][0], 'id' | 'createdAt'>) => {
       const row = { ...e, id: 'exit_' + uid(), createdAt: new Date().toISOString() }
@@ -1136,6 +1164,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       addJobCandidate,
       addJobCandidatesBatch,
       updateJobCandidate,
+      removeJobCandidates,
       exitInterviews,
       addExitInterview,
       grievances,
@@ -1193,6 +1222,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       addJobCandidate,
       addJobCandidatesBatch,
       updateJobCandidate,
+      removeJobCandidates,
       exitInterviews,
       addExitInterview,
       grievances,

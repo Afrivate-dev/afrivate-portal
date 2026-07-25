@@ -111,15 +111,13 @@ export function candidateGmailUrl(candidate: {
   return `https://mail.google.com/mail/?authuser=${auth}#inbox`
 }
 
-/** Prefer application-like mail; JS gate still filters after fetch. */
+/** Search All Mail + labels + Spam (not Trash). JS gate still filters non-applications. */
 export function defaultGmailAtsQuery(days = GMAIL_ATS_LOOKBACK_DAYS): string {
-  // Gmail OR groups: attachment CVs, explicit application subjects, or common apply phrases.
-  // Keep -in:spam/-in:trash. JS isLikelyJobApplication is the final gate.
+  // in:anywhere covers inbox, custom labels, and spam. Trash stays excluded.
   return [
-    `in:inbox`,
-    `newer_than:${days}d`,
-    `-in:spam`,
+    `in:anywhere`,
     `-in:trash`,
+    `newer_than:${days}d`,
     `(`,
     `has:attachment filename:(pdf OR docx OR doc)`,
     `OR subject:(application OR applying OR "job application" OR CV OR resume OR "front-end" OR "back-end" OR "graphic designer")`,
@@ -515,7 +513,10 @@ export function extractTextFromPayload(payload?: GmailApiPart): string {
     part.parts?.forEach(walk)
   }
   walk(payload)
-  return [...plain, ...htmlAsText].join('\n\n').trim()
+  // Prefer the real text/plain part — joining plain + stripped HTML duplicates the letter
+  const plainJoined = plain.join('\n\n').trim()
+  if (plainJoined) return plainJoined
+  return htmlAsText.join('\n\n').trim()
 }
 
 /** Prefer the richest HTML part for Gmail-like preview (does not strip markup). */
@@ -565,9 +566,7 @@ export function parseGmailApiMessage(msg: GmailApiMessage): GmailApplicationMess
   const attachmentNames = collectAttachmentNames(msg.payload)
   const body = extractTextFromPayload(msg.payload) || msg.snippet || ''
   const bodyHtml = extractHtmlFromPayload(msg.payload)
-  const attachmentLine =
-    attachmentNames.length > 0 ? `\nAttachments: ${attachmentNames.join(', ')}` : ''
-  const bodyText = [`Subject: ${subject}`, `From: ${from}`, date ? `Date: ${date}` : '', '', body, attachmentLine]
+  const bodyText = [`Subject: ${subject}`, `From: ${from}`, date ? `Date: ${date}` : '', '', body]
     .filter((line, i, arr) => !(line === '' && arr[i - 1] === ''))
     .join('\n')
     .trim()

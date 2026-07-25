@@ -94,3 +94,35 @@ export function explainApplicationGate(signals: AtsApplicationSignals): string {
   if (isBulkOrSystemSender(signals.from ?? '')) return 'rejected_sender'
   return 'no_application_signals'
 }
+
+/** Build gate signals from a stored ATS candidate (notes + attachments). */
+export function signalsFromCandidateNotes(
+  notes?: string | null,
+  opts?: { email?: string; attachmentNames?: string[]; hasResumeFiles?: boolean },
+): AtsApplicationSignals {
+  const text = (notes ?? '').split('<<<AFRIVATE_EMAIL_HTML>>>')[0] ?? ''
+  const subject = text.match(/^Subject:\s*(.+)$/im)?.[1]?.trim()
+  const from = text.match(/^From:\s*(.+)$/im)?.[1]?.trim() || opts?.email
+  return {
+    subject,
+    from,
+    bodyText: text,
+    attachmentNames: opts?.attachmentNames,
+    hasResumeFiles: opts?.hasResumeFiles,
+  }
+}
+
+export function candidateIsLikelyJobApplication(input: {
+  notes?: string | null
+  email?: string
+  attachments?: Array<{ filename: string }>
+}): boolean {
+  return isLikelyJobApplication(
+    signalsFromCandidateNotes(input.notes, {
+      email: input.email,
+      attachmentNames: input.attachments?.map((a) => a.filename),
+      hasResumeFiles: (input.attachments?.length ?? 0) > 0,
+    }),
+  )
+}
+
