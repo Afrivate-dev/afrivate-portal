@@ -33,7 +33,6 @@ import {
   GMAIL_ATS_LOOKBACK_DAYS,
   HR_MAILBOX,
   isGmailAtsConfigured,
-  isGmailAtsReady,
   preloadGmailAts,
   requestGmailAccessTokenFromGesture,
 } from '@/lib/gmailAtsSync'
@@ -357,7 +356,7 @@ export function RecruitmentAtsSection() {
         recommendation: result.recommendation,
         scoreBreakdown: result.breakdown as Record<string, number>,
         resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${result.summary}`,
-        notes: item.text.slice(0, 12000),
+        notes: item.text.slice(0, 80000),
         externalId: item.externalId,
         gmailThreadId: item.gmailThreadId,
         gmailMessageId: item.gmailMessageId,
@@ -411,13 +410,8 @@ export function RecruitmentAtsSection() {
       notifyError(`Gmail sync is not set up yet. Ask an admin to add the Google Client ID for ${HR_MAILBOX}.`)
       return
     }
-    if (!isGmailAtsReady()) {
-      void preloadGmailAts()
-      notifyError('Google sign-in is still loading. Wait a moment, then try Sync again.')
-      return
-    }
 
-    // CRITICAL: start OAuth synchronously from the click (no await before this).
+    // CRITICAL: open the OAuth pop-up synchronously from this click (no await before this).
     let tokenPromise: Promise<string>
     try {
       tokenPromise = requestGmailAccessTokenFromGesture()
@@ -531,10 +525,14 @@ export function RecruitmentAtsSection() {
             Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
           </p>
           <p className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
-            If Sync or Refresh mentions a missing <code className="text-fg">gmail_message_id</code> column,
-            run <code className="text-fg">supabase/migrations/20260724_ats_candidate_identity.sql</code> in the
-            Supabase SQL Editor, then refresh this page. Also confirm your live site URL is listed under
-            Google Cloud → Credentials → Authorized JavaScript origins (for the Sync popup).
+            For Sync to work, Google Cloud → your OAuth client needs both:
+            <br />
+            1) Authorized JavaScript origins: your live site URL (and localhost if testing)
+            <br />
+            2) Authorized redirect URIs:{' '}
+            <code className="text-fg">{typeof window !== 'undefined' ? `${window.location.origin}/oauth/gmail-callback` : '/oauth/gmail-callback'}</code>
+            <br />
+            Allow pop-ups for this site, then sign in as {HR_MAILBOX}.
           </p>
         </div>
         <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
@@ -1089,16 +1087,13 @@ function CandidateDetailModal({
     ([key, pts]) => key !== 'red_flags' && pts > 0,
   )
   const labelFor = (id: string) => criteria.criteria.find((c) => c.id === id)?.label ?? id
-  const applicationPreview = (candidate.notes ?? '')
-    .replace(/\n---\s*Resume:[\s\S]*$/i, '')
-    .trim()
-    .slice(0, 1200)
+  const applicationText = (candidate.notes ?? '').trim()
 
   return (
     <Modal
       open
       onClose={onClose}
-      size="lg"
+      size="xl"
       title={candidate.name}
       description={
         rank > 0
@@ -1155,7 +1150,7 @@ function CandidateDetailModal({
         {candidate.resumeSummary ? (
           <div>
             <p className="text-xs font-medium text-muted">Summary</p>
-            <p className="mt-1 text-sm text-fg">{candidate.resumeSummary}</p>
+            <p className="mt-1 text-sm leading-relaxed text-fg">{candidate.resumeSummary}</p>
           </div>
         ) : null}
 
@@ -1211,16 +1206,18 @@ function CandidateDetailModal({
           </select>
         </div>
 
-        {applicationPreview ? (
+        {applicationText ? (
           <div>
-            <p className="text-xs font-medium text-muted">Application excerpt</p>
-            <pre className="mt-1 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-              {applicationPreview}
-              {(candidate.notes?.length ?? 0) > 1200 ? '…' : ''}
+            <p className="text-xs font-medium text-muted">Full application</p>
+            <p className="mt-0.5 text-[11px] text-muted">
+              Cover letter, email body, and any scanned CV text saved from Sync.
+            </p>
+            <pre className="mt-2 max-h-[min(70vh,36rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+              {applicationText}
             </pre>
           </div>
         ) : (
-          <p className="text-sm text-muted">No application text stored for this candidate.</p>
+          <p className="text-sm text-muted">No application text stored for this candidate. Sync again to pull the full email.</p>
         )}
       </div>
     </Modal>

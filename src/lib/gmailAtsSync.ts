@@ -141,28 +141,40 @@ export function isGmailAtsConfigured(): boolean {
 
 function describeOAuthError(error?: string): string {
   const code = (error || '').toLowerCase()
-  if (code.includes('popup_closed') || code.includes('access_denied')) {
+  if (code.includes('popup_closed') || code.includes('access_denied') || code.includes('cancelled')) {
     return 'Google sign-in was cancelled. Try again and allow Gmail access for afrivatehr@gmail.com.'
   }
-  if (code.includes('idpiframe_initialization_failed') || code.includes('origin')) {
-    return 'This site origin is not allowed for the Google Client ID. Add your Vercel URL under Authorized JavaScript origins in Google Cloud Console.'
+  if (code.includes('redirect_uri') || code.includes('redirect uri')) {
+    const uri =
+      typeof window !== 'undefined' ? `${window.location.origin}/oauth/gmail-callback` : '/oauth/gmail-callback'
+    return `Add this Redirect URI in Google Cloud Console → Credentials → your OAuth client: ${uri}`
+  }
+  if (
+    code.includes('idpiframe_initialization_failed') ||
+    code.includes('origin') ||
+    code.includes('javascript origin')
+  ) {
+    return 'This site origin is not allowed for the Google Client ID. Add your live URL under Authorized JavaScript origins in Google Cloud Console.'
   }
   if (code.includes('invalid_client') || code.includes('unauthorized_client')) {
     return 'Invalid Google Client ID. Check VITE_GOOGLE_CLIENT_ID on Vercel (suffix .apps.googleusercontent.com only once), then redeploy.'
   }
   if (code.includes('illegal') || code.includes('invocation')) {
-    return 'Google blocked the sign-in popup. Allow popups for this site, wait for Sync to finish loading, then click Sync again.'
+    return 'Google blocked the sign-in window. Allow pop-ups for this site, then click Sync again.'
   }
   return error || 'Gmail authorization failed'
 }
 
-type TokenClient = {
-  requestAccessToken: (opts?: { prompt?: string }) => void
+/** postMessage type used by /oauth/gmail-callback → Sync opener */
+export const GMAIL_OAUTH_MESSAGE_TYPE = 'afrivate-gmail-oauth'
+
+export function gmailOAuthRedirectUri(): string {
+  return `${window.location.origin}/oauth/gmail-callback`
 }
 
 let gsiLoadPromise: Promise<void> | null = null
 
-/** Warm up GSI on ATS page load so Sync can open the Google popup from the click gesture. */
+/** Optional warm-up (kept for compatibility). Sync uses an owned OAuth pop-up instead of GIS TokenClient. */
 export function preloadGmailAts(): Promise<void> {
   if (!CLIENT_ID) return Promise.resolve()
   if (!gsiLoadPromise) {
@@ -175,12 +187,13 @@ export function preloadGmailAts(): Promise<void> {
 }
 
 export function isGmailAtsReady(): boolean {
-  return Boolean(window.google?.accounts?.oauth2)
+  return isGmailAtsConfigured()
 }
 
 /**
- * Request a Gmail token. Must be called directly from a click handler with no prior await,
- * or browsers/Google will throw "illegal invocation" / block the popup.
+ * Request a Gmail access token from a Sync button click.
+ * Opens our own pop-up immediately (preserves the user gesture), then completes
+ * Google's OAuth implicit flow — avoids GIS TokenClient "illegal invocation" issues.
  */
 export function requestGmailAccessTokenFromGesture(): Promise<string> {
   if (!CLIENT_ID) {
@@ -197,83 +210,101 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
       ),
     )
   }
-  const oauth2 = window.google?.accounts?.oauth2
-  if (!oauth2) {
+
+  const popup = window.open(
+    'about:blank',
+    'afrivate_gmail_oauth',
+    'popup=yes,width=520,height=720,menubar=no,toolbar=no,status=no',
+  )
+  if (!popup) {
     return Promise.reject(
-      new Error('Google sign-in is still loading. Wait a moment, then click Sync again.'),
+      new Error('Pop-up blocked. Allow pop-ups for this site, then click Sync again.'),
+    )
+  }
+
+  const redirectUri = gmailOAuthRedirectUri()
+  const params = new URLSearchParams({
+    client_id: CLIENT_ID,
+    redirect_uri: redirectUri,
+    response_type: 'token',
+    scope: GMAIL_SCOPE,
+    include_granted_scopes: 'true',
+    prompt: 'select_account consent',
+    login_hint: HR_MAILBOX,
+  })
+
+  try {
+    popup.location.href = `https://accounts.google.com/o/oauth2/v2/auth?${params.toString()}`
+  } catch (e) {
+    try {
+      popup.close()
+    } catch {
+      /* ignore */
+    }
+    return Promise.reject(
+      e instanceof Error
+        ? new Error(describeOAuthError(e.message))
+        : new Error('Could not open Google sign-in.'),
     )
   }
 
   return new Promise((resolve, reject) => {
     let settled = false
-    let attemptedConsent = false
 
-    const finishOk = (token: string) => {
+    const finish = (fn: () => void) => {
       if (settled) return
       settled = true
-      resolve(token)
-    }
-    const finishErr = (err: Error) => {
-      if (settled) return
-      settled = true
-      reject(err)
+      window.clearTimeout(timeout)
+      window.clearInterval(poll)
+      window.removeEventListener('message', onMessage)
+      fn()
     }
 
-    let client: TokenClient
-    try {
-      // Create a fresh client inside the click stack (avoids stale/unbound requestAccessToken).
-      client = oauth2.initTokenClient({
-        client_id: CLIENT_ID,
-        scope: GMAIL_SCOPE,
-        hint: HR_MAILBOX,
-        callback: (resp: { access_token?: string; error?: string }) => {
-          if (resp.access_token) {
-            finishOk(resp.access_token)
-            return
-          }
-          if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
-            attemptedConsent = true
-            try {
-              client.requestAccessToken.bind(client)({ prompt: 'consent' })
-            } catch (e) {
-              finishErr(
-                e instanceof Error
-                  ? new Error(describeOAuthError(e.message))
-                  : new Error(describeOAuthError(resp.error)),
-              )
-            }
-            return
-          }
-          finishErr(new Error(describeOAuthError(resp.error)))
-        },
-        error_callback: (err: { type?: string; message?: string }) => {
-          finishErr(new Error(describeOAuthError(err?.message || err?.type)))
-        },
+    const timeout = window.setTimeout(() => {
+      finish(() => {
+        try {
+          popup.close()
+        } catch {
+          /* ignore */
+        }
+        reject(new Error('Google sign-in timed out. Click Sync and try again.'))
       })
-    } catch (e) {
-      finishErr(
-        e instanceof Error
-          ? new Error(describeOAuthError(e.message))
-          : new Error('Could not start Google sign-in. Check Authorized JavaScript origins for this site.'),
-      )
-      return
+    }, 5 * 60 * 1000)
+
+    const poll = window.setInterval(() => {
+      if (popup.closed) {
+        finish(() => reject(new Error(describeOAuthError('cancelled'))))
+      }
+    }, 700)
+
+    const onMessage = (event: MessageEvent) => {
+      if (event.origin !== window.location.origin) return
+      const data = event.data as { type?: string; accessToken?: string; error?: string } | null
+      if (!data || data.type !== GMAIL_OAUTH_MESSAGE_TYPE) return
+
+      finish(() => {
+        try {
+          popup.close()
+        } catch {
+          /* ignore */
+        }
+        if (data.accessToken) {
+          resolve(data.accessToken)
+          return
+        }
+        reject(new Error(describeOAuthError(data.error)))
+      })
     }
 
-    try {
-      // Bind so Google's internal call does not throw Illegal invocation on Window/TokenClient.
-      client.requestAccessToken.bind(client)({ prompt: 'consent' })
-    } catch (e) {
-      const msg = e instanceof Error ? e.message : String(e)
-      finishErr(new Error(describeOAuthError(msg)))
-    }
+    window.addEventListener('message', onMessage)
   })
 }
 
-/** @deprecated Prefer preloadGmailAts + requestGmailAccessTokenFromGesture from Sync click. */
+/** @deprecated Prefer requestGmailAccessTokenFromGesture from Sync click. */
 export async function requestGmailAccessToken(): Promise<string> {
-  await preloadGmailAts()
   return requestGmailAccessTokenFromGesture()
 }
+
 
 /** Exported for tests — Gmail API uses URL-safe base64. */
 export function decodeBodyData(data?: string): string {

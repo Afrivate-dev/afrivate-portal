@@ -13,6 +13,7 @@ import {
   CheckCircle2,
   XCircle,
   Clock,
+  Trash2,
 } from 'lucide-react'
 import {
   addMonths,
@@ -120,9 +121,10 @@ function dayCount(startISO: string, endISO: string) {
 export function LeaveRequestsPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
-  const { users, teams, departments, leaveRequests, leaveComments, submitLeave, reviewLeave, addLeaveComment } = useData()
+  const { users, teams, departments, leaveRequests, leaveComments, submitLeave, reviewLeave, deleteLeave, addLeaveComment } = useData()
 
   const canManage = isLead(user) || managesPeople(user, teams, departments)
+  const canDeleteLeave = isHR(user)
   const [tab, setTab] = useState<Tab>('my')
   const [formOpen, setFormOpen] = useState(false)
   const [submitting, setSubmitting] = useState(false)
@@ -292,6 +294,18 @@ export function LeaveRequestsPage() {
     setApprovedDays('')
   }
 
+  const confirmDeleteLeave = async (r: LeaveRequest) => {
+    const ok = await confirm({
+      title: confirms.deleteLeaveTitle,
+      message: confirms.deleteLeave,
+      confirmLabel: 'Delete',
+      destructive: true,
+    })
+    if (!ok) return
+    deleteLeave(r.id)
+    if (detailRequest?.id === r.id) setDetailRequest(null)
+  }
+
   return (
     <div className="space-y-6">
       <PageHeader
@@ -435,6 +449,7 @@ export function LeaveRequestsPage() {
             onViewConversation={setDetailRequest}
             onApprove={(r) => startReview(r, 'approved')}
             onDecline={(r) => startReview(r, 'declined')}
+            onDelete={canDeleteLeave ? (r) => void confirmDeleteLeave(r) : undefined}
           />
         )
       ) : null}
@@ -684,16 +699,27 @@ export function LeaveRequestsPage() {
         title="Leave request"
         size="lg"
         footer={
-          <Button
-            variant="ghost"
-            type="button"
-            onClick={() => {
-              setDetailRequest(null)
-              setDetailReply('')
-            }}
-          >
-            Close
-          </Button>
+          <>
+            {canDeleteLeave && detailRequest ? (
+              <Button
+                variant="danger"
+                type="button"
+                onClick={() => void confirmDeleteLeave(detailRequest)}
+              >
+                <Trash2 className="h-3.5 w-3.5" /> Delete
+              </Button>
+            ) : null}
+            <Button
+              variant="ghost"
+              type="button"
+              onClick={() => {
+                setDetailRequest(null)
+                setDetailReply('')
+              }}
+            >
+              Close
+            </Button>
+          </>
         }
       >
         {detailRequest ? (
@@ -827,6 +853,7 @@ function RequestsList({
   onViewConversation,
   onApprove,
   onDecline,
+  onDelete,
 }: {
   requests: LeaveRequest[]
   users: User[]
@@ -838,6 +865,7 @@ function RequestsList({
   onViewConversation?: (r: LeaveRequest) => void
   onApprove?: (r: LeaveRequest) => void
   onDecline?: (r: LeaveRequest) => void
+  onDelete?: (r: LeaveRequest) => void
 }) {
   return (
     <Card padding="none" className="overflow-hidden">
@@ -913,6 +941,11 @@ function RequestsList({
                         <X className="h-3.5 w-3.5" /> Decline
                       </Button>
                     </div>
+                  ) : null}
+                  {onDelete ? (
+                    <Button size="sm" variant="ghost" onClick={() => onDelete(r)} aria-label="Delete leave request">
+                      <Trash2 className="h-3.5 w-3.5" /> Delete
+                    </Button>
                   ) : null}
                 </div>
               </div>

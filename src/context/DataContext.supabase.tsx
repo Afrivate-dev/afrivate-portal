@@ -797,6 +797,19 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     [client, leaveRequests, reloadData, sendInboxNotifications, user, users],
   )
 
+  const deleteLeave: DataContextValue['deleteLeave'] = useCallback(
+    (id) => {
+      setLeaveRequests((prev) => prev.filter((l) => l.id !== id))
+      setLeaveComments((prev) => prev.filter((c) => c.leaveId !== id))
+      void (async () => {
+        const { error } = await client.from('portal_leave_requests').delete().eq('id', id)
+        if (error) reportDataError('delete leave request', error)
+        await reloadData()
+      })()
+    },
+    [client, reloadData],
+  )
+
   const addLeaveComment: DataContextValue['addLeaveComment'] = useCallback(
     (leaveId, body) => {
       if (!user || !body.trim()) return
@@ -1529,6 +1542,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       leaveComments,
       submitLeave,
       reviewLeave,
+      deleteLeave,
       addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
@@ -1725,6 +1739,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       leaveComments,
       submitLeave,
       reviewLeave,
+      deleteLeave,
       addLeaveComment,
       onboardingVideos,
       onboardingChecklist,
