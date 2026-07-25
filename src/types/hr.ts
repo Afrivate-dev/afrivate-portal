@@ -204,12 +204,23 @@ export interface JobCandidate {
   resumeSummary?: string
   scoreBreakdown?: Record<string, number>
   recommendation?: CandidateRecommendation
+  /** Stored application files (resume / cover letter) for file preview. */
+  attachments?: CandidateAttachment[]
   /** Gmail message id or Indeed application id for sync dedupe. */
   externalId?: string
   gmailThreadId?: string
   gmailMessageId?: string
   appliedAt?: string
   updatedAt: string
+}
+
+export interface CandidateAttachment {
+  id: string
+  filename: string
+  mimeType: string
+  storagePath: string
+  kind: 'resume' | 'cover_letter' | 'other'
+  size?: number
 }
 
 export interface ExitInterview {

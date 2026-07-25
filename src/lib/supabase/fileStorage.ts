@@ -15,7 +15,7 @@ export function formatFileSize(bytes: number): string {
 /** Upload a file to portal storage. Returns storage path or null on failure. */
 export async function uploadPortalFile(
   client: SupabaseClient,
-  folder: 'documents' | 'leave' | 'avatars' | 'media',
+  folder: 'documents' | 'leave' | 'avatars' | 'media' | 'ats',
   file: File,
   userId: string,
 ): Promise<{ path: string; sizeLabel: string } | { error: string }> {
@@ -38,6 +38,33 @@ export async function uploadPortalFile(
   }
 
   return { path, sizeLabel: formatFileSize(file.size) }
+}
+
+/** Upload a Gmail ATS attachment (bytes) into portal-files/ats/… */
+export async function uploadAtsAttachmentBytes(
+  client: SupabaseClient,
+  messageKey: string,
+  filename: string,
+  bytes: ArrayBuffer,
+  mimeType?: string,
+): Promise<{ path: string; size: number } | { error: string }> {
+  const safeKey = sanitizeFileName(messageKey || 'msg')
+  const safeName = sanitizeFileName(filename || 'attachment.bin')
+  const path = `ats/${safeKey}/${Date.now()}-${safeName}`
+  const type = mimeType || guessMimeFromName(filename) || 'application/octet-stream'
+  const blob = new Blob([bytes], { type })
+  const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, blob, {
+    cacheControl: '3600',
+    upsert: false,
+    contentType: type,
+  })
+  if (error) {
+    if (error.message.toLowerCase().includes('bucket') || error.message.includes('404')) {
+      return { error: 'File storage is not set up yet. Run the latest database migration.' }
+    }
+    return { error: error.message }
+  }
+  return { path, size: bytes.byteLength }
 }
 
 function guessMimeFromName(name: string): string | undefined {

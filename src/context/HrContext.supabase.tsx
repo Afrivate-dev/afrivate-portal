@@ -11,7 +11,7 @@ import {
   fetchFeedbackTemplates,
   insertFeedbackTemplate,
 } from '@/lib/feedbackConfig'
-import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow } from '@/lib/supabase/hrDataset'
+import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow, stripOptionalCandidateColumns } from '@/lib/supabase/hrDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { supabase } from '@/lib/supabase'
@@ -55,10 +55,10 @@ async function persistJobCandidateInsert(
     omitCandidateIdentityColumns = true
     const retry = await client
       .from('portal_job_candidates')
-      .insert(jobCandidateToRow(row, { includeIdentity: false }))
+      .insert(stripOptionalCandidateColumns(jobCandidateToRow(row, { includeIdentity: false })))
     if (!retry.error) {
       console.warn(
-        '[hr] portal_job_candidates is missing identity columns. Run supabase/migrations/20260724_ats_candidate_identity.sql in the Supabase SQL Editor.',
+        '[hr] portal_job_candidates is missing identity/attachment columns. Run supabase/migrations/20260724_ats_candidate_identity.sql and 20260725_ats_candidate_attachments.sql.',
       )
       return { error: null }
     }
@@ -82,7 +82,7 @@ async function persistJobCandidateUpdate(
     omitCandidateIdentityColumns = true
     const retry = await client
       .from('portal_job_candidates')
-      .update(jobCandidatePatchToRow(patch, { includeIdentity: false }))
+      .update(stripOptionalCandidateColumns(jobCandidatePatchToRow(patch, { includeIdentity: false })))
       .eq('id', id)
     if (!retry.error) return { error: null }
     return { error: retry.error }

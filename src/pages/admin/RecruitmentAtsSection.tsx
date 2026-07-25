@@ -16,6 +16,7 @@ import {
   Upload,
   UserCheck,
 } from 'lucide-react'
+import { AtsAttachmentPreview } from '@/components/shared/AtsAttachmentPreview'
 import { AtsRichText, parseLegacySummaryToRich } from '@/components/shared/AtsRichText'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
@@ -38,9 +39,12 @@ import {
   isGmailAtsConfigured,
   preloadGmailAts,
   requestGmailAccessTokenFromGesture,
+  type GmailSyncedAttachment,
 } from '@/lib/gmailAtsSync'
 import { notifyError, notifySuccess } from '@/lib/notify'
-import type { CandidateSource, CandidateStage, JobCandidate } from '@/types/hr'
+import { supabase } from '@/lib/supabase'
+import { uploadAtsAttachmentBytes } from '@/lib/supabase/fileStorage'
+import type { CandidateAttachment, CandidateSource, CandidateStage, JobCandidate } from '@/types/hr'
 import {
   ATS_STANDARD_ROLES,
   defaultCriteriaForProfile,
@@ -60,7 +64,7 @@ import {
   type AtsRoleProfile,
   type AtsSource,
 } from '@/utils/atsScoring'
-import { fmtDate } from '@/utils/helpers'
+import { fmtDate, uid } from '@/utils/helpers'
 
 function criterionKindHint(kind: AtsCriterion['kind']): string {
   if (kind === 'keywords') return 'Looks for these words in the application'
@@ -286,6 +290,7 @@ export function RecruitmentAtsSection() {
     items: Array<{
       text: string
       html?: string
+      attachmentFiles?: GmailSyncedAttachment[]
       source: AtsSource
       externalId?: string
       appliedAt?: string
@@ -339,28 +344,74 @@ export function RecruitmentAtsSection() {
         continue
       }
 
+      const storedAttachments: CandidateAttachment[] = []
+      if (supabase && item.attachmentFiles?.length) {
+        const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
+        for (const file of item.attachmentFiles) {
+          const uploaded = await uploadAtsAttachmentBytes(
+            supabase,
+            key,
+            file.filename,
+            file.bytes,
+            file.mimeType,
+          )
+          if ('error' in uploaded) {
+            console.warn('[ats] attachment upload failed', file.filename, uploaded.error)
+            continue
+          }
+          storedAttachments.push({
+            id: `att_${uid()}`,
+            filename: file.filename,
+            mimeType: file.mimeType,
+            storagePath: uploaded.path,
+            kind: file.kind,
+            size: uploaded.size,
+          })
+        }
+      }
+
+      // Ensure resume criterion can pass when a DOCX/PDF was stored even if text extract was thin
+      let scoringText = item.text
+      if (
+        (item.attachmentFiles?.length || storedAttachments.length) &&
+        !/---\s*resume:/i.test(scoringText)
+      ) {
+        const names = [
+          ...(item.attachmentFiles ?? []).map((f) => f.filename),
+          ...storedAttachments.map((f) => f.filename),
+        ]
+          .filter(Boolean)
+          .join(', ')
+        scoringText += `\n\n--- Resume: ${names || 'attachment'} ---`
+      }
+      const scored =
+        scoringText === item.text
+          ? result
+          : screenApplicationText(scoringText, scoringProfile, roleCriteria)
+
       addJobCandidate({
         requisitionId: jobId,
-        name: result.name,
-        email: result.email,
-        phone: result.phone,
-        linkedinUrl: result.linkedinUrl,
-        location: result.location,
+        name: scored.name,
+        email: scored.email,
+        phone: scored.phone,
+        linkedinUrl: scored.linkedinUrl,
+        location: scored.location,
         stage:
-          result.recommendation === 'reject'
+          scored.recommendation === 'reject'
             ? 'rejected'
-            : result.recommendation === 'weak'
+            : scored.recommendation === 'weak'
               ? 'applied'
               : 'screen',
         source: item.source as CandidateSource,
-        githubUrl: result.githubUrl,
-        portfolioUrl: result.portfolioUrl,
-        coverLetter: result.coverLetter,
-        score: result.score,
-        recommendation: result.recommendation,
-        scoreBreakdown: result.breakdown as Record<string, number>,
-        resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${result.summary}`,
-        notes: joinApplicationNotes(item.text.slice(0, 80000), item.html?.slice(0, 200000)),
+        githubUrl: scored.githubUrl,
+        portfolioUrl: scored.portfolioUrl,
+        coverLetter: scored.coverLetter || storedAttachments.some((a) => a.kind === 'cover_letter'),
+        score: scored.score,
+        recommendation: scored.recommendation,
+        scoreBreakdown: scored.breakdown as Record<string, number>,
+        resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${scored.summary}`,
+        notes: joinApplicationNotes(scoringText.slice(0, 80000), item.html?.slice(0, 200000)),
+        attachments: storedAttachments.length ? storedAttachments : undefined,
         externalId: item.externalId,
         gmailThreadId: item.gmailThreadId,
         gmailMessageId: item.gmailMessageId,
@@ -369,8 +420,8 @@ export function RecruitmentAtsSection() {
       existingAll.push({
         id: `temp_${added}`,
         requisitionId: jobId,
-        name: result.name,
-        email: result.email,
+        name: scored.name,
+        email: scored.email,
         externalId: item.externalId,
         stage: 'screen',
         updatedAt: new Date().toISOString(),
@@ -446,6 +497,7 @@ export function RecruitmentAtsSection() {
             return {
               text: `${m.bodyText}${resumeNote}`,
               html: m.bodyHtml,
+              attachmentFiles: m.attachmentFiles,
               source: detectSourceFromEmail(m.from, m.subject),
               externalId: encodeGmailExternalId(m.threadId, m.id),
               gmailThreadId: m.threadId,
@@ -863,7 +915,10 @@ function CriteriaEditor({
   return (
     <div className="space-y-4">
       <p className="text-xs text-muted">
-        Set score thresholds and what each application is checked for. After editing, refresh scores to update names and rankings.
+        Set score thresholds and what each application is checked for. After editing, save rules then refresh
+        scores. <strong className="font-medium text-fg">Required</strong> only blocks Strong fit — it never
+        forces Not a fit. Not a fit is score-only (below the threshold). If rankings look wrong, use Reset to
+        defaults then Refresh scores &amp; names.
       </p>
       <div className="grid gap-3 sm:grid-cols-3">
         <Input
@@ -883,6 +938,7 @@ function CriteriaEditor({
           type="number"
           value={String(profile.rejectBelow)}
           onChange={(e) => onChange({ ...profile, rejectBelow: Number(e.target.value) || 0 })}
+          hint="Only scores strictly below this become Not a fit"
         />
       </div>
 
@@ -929,6 +985,7 @@ function CriteriaEditor({
                     type="checkbox"
                     checked={!!c.mustHave}
                     onChange={(e) => updateCriterion(c.id, { mustHave: e.target.checked })}
+                    title="Required for Strong fit only — missing does not mark Not a fit"
                   />
                 </td>
                 <td className="px-3 py-2">
@@ -1229,10 +1286,19 @@ function CandidateDetailModal({
           </select>
         </div>
 
+        {(candidate.attachments?.length ?? 0) > 0 ? (
+          <div className="space-y-3">
+            <p className="text-xs font-medium text-muted">Resume & cover letter files</p>
+            {candidate.attachments!.map((att) => (
+              <AtsAttachmentPreview key={att.id} attachment={att} />
+            ))}
+          </div>
+        ) : null}
+
         {emailDoc ? (
           <div>
-            <p className="text-xs font-medium text-muted">Full application</p>
-            <p className="mt-0.5 text-[11px] text-muted">Shown as it appeared in the email.</p>
+            <p className="text-xs font-medium text-muted">Email message</p>
+            <p className="mt-0.5 text-[11px] text-muted">Shown as it appeared in Gmail.</p>
             <iframe
               title={`Application from ${candidate.name}`}
               sandbox="allow-popups allow-popups-to-escape-sandbox allow-same-origin"
@@ -1240,28 +1306,22 @@ function CandidateDetailModal({
               className="mt-2 h-[min(70vh,36rem)] w-full rounded-md border border-border bg-white"
               srcDoc={emailDoc}
             />
-            {/---\s*Resume:/i.test(applicationText) ? (
-              <details className="mt-3">
-                <summary className="cursor-pointer text-xs font-medium text-muted">Scanned CV text</summary>
-                <pre className="mt-2 max-h-48 overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-                  {applicationText.split(/---\s*Resume:/i).slice(1).join('--- Resume:').trim() || applicationText}
-                </pre>
-              </details>
-            ) : null}
           </div>
-        ) : applicationText ? (
+        ) : applicationText.replace(/\n---\s*Resume:[\s\S]*$/i, '').trim() ? (
           <div>
-            <p className="text-xs font-medium text-muted">Full application</p>
+            <p className="text-xs font-medium text-muted">Email message</p>
             <p className="mt-0.5 text-[11px] text-muted">
-              Plain-text copy (re-sync to load the original email layout when available).
+              {(candidate.attachments?.length ?? 0) > 0
+                ? 'Message text only — resume/cover letter files are shown above.'
+                : 'Plain-text copy (re-sync to load original email layout and files).'}
             </p>
-            <pre className="mt-2 max-h-[min(70vh,36rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
-              {applicationText}
+            <pre className="mt-2 max-h-[min(50vh,24rem)] overflow-auto whitespace-pre-wrap rounded-md border border-border bg-surface-2 p-3 text-xs leading-relaxed text-fg">
+              {applicationText.replace(/\n---\s*Resume:[\s\S]*$/i, '').trim()}
             </pre>
           </div>
-        ) : (
-          <p className="text-sm text-muted">No application text stored for this candidate. Sync again to pull the full email.</p>
-        )}
+        ) : !(candidate.attachments?.length) ? (
+          <p className="text-sm text-muted">No application content stored. Sync again to pull the email and files.</p>
+        ) : null}
       </div>
     </Modal>
   )

@@ -27,7 +27,7 @@ function rowToProfile(r: Record<string, unknown>): AtsCriteriaProfile {
     label: String(r.label ?? r.role_profile),
     strongMin: Number(r.strong_min ?? 75),
     viableMin: Number(r.viable_min ?? 55),
-    rejectBelow: Number(r.reject_below ?? 40),
+    rejectBelow: Number(r.reject_below ?? 51),
     criteria: Array.isArray(r.criteria) ? (r.criteria as AtsCriterion[]) : [],
     updatedAt: r.updated_at ? String(r.updated_at) : undefined,
   }

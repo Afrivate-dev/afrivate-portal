@@ -20,7 +20,7 @@ export interface AtsCriterion {
   weight: number
   /** For keywords: match any of these (case-insensitive). */
   keywords?: string[]
-  /** Treat as required; missing ones lower the recommendation. */
+  /** Required for Strong fit only. Missing must-haves never force "Not a fit". */
   mustHave?: boolean
   /** For min_length: minimum characters of application text. */
   minLength?: number
@@ -264,22 +264,22 @@ export function defaultFrontendCriteria(): AtsCriteriaProfile {
     label: 'Front-End Developer',
     strongMin: 75,
     viableMin: 55,
-    rejectBelow: 40,
+    rejectBelow: 51,
     criteria: [
-      { id: 'react', label: 'React', kind: 'keywords', weight: 20, mustHave: true, keywords: ['react', 'react.js', 'reactjs', 'next.js', 'nextjs'], enabled: true },
+      { id: 'react', label: 'React', kind: 'keywords', weight: 18, mustHave: true, keywords: ['react', 'react.js', 'reactjs', 'next.js', 'nextjs'], enabled: true },
       { id: 'typescript', label: 'TypeScript', kind: 'keywords', weight: 12, keywords: ['typescript', ' ts ', '.tsx'], enabled: true },
       { id: 'javascript', label: 'JavaScript', kind: 'keywords', weight: 6, keywords: ['javascript', 'es6', 'es2015', 'vanilla js'], enabled: true },
       { id: 'html_css', label: 'HTML / CSS / Responsive', kind: 'keywords', weight: 7, keywords: ['html', 'css', 'tailwind', 'sass', 'scss', 'responsive'], enabled: true },
-      { id: 'git', label: 'Git / GitHub', kind: 'keywords', weight: 10, mustHave: true, keywords: ['git', 'github', 'pull request', 'version control'], enabled: true },
-      { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, mustHave: true, enabled: true },
-      { id: 'portfolio', label: 'Portfolio / deployed work', kind: 'portfolio', weight: 10, mustHave: true, enabled: true },
-      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 6, mustHave: true, enabled: true },
-      { id: 'resume_file', label: 'Resume/CV scanned', kind: 'resume_file', weight: 10, mustHave: true, enabled: true },
+      { id: 'git', label: 'Git / GitHub', kind: 'keywords', weight: 8, keywords: ['git', 'github', 'pull request', 'version control'], enabled: true },
+      { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, enabled: true },
+      { id: 'portfolio', label: 'Portfolio / deployed work', kind: 'portfolio', weight: 10, enabled: true },
+      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 5, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV attached', kind: 'resume_file', weight: 8, enabled: true },
       { id: 'testing', label: 'Testing', kind: 'keywords', weight: 5, keywords: ['jest', 'vitest', 'testing library', 'playwright', 'cypress', 'unit test'], enabled: true },
-      { id: 'tooling', label: 'Modern tooling', kind: 'keywords', weight: 6, keywords: ['vite', 'webpack', 'react router', 'tanstack', 'zustand', 'redux', 'figma', 'pwa'], enabled: true },
-      { id: 'experience', label: 'Experience signals (2+ years / senior)', kind: 'keywords', weight: 8, keywords: ['years of experience', '2 years', '3 years', '4 years', '5 years', 'senior', 'mid-level', 'yoe'], enabled: true },
-      { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 5, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa', 'west africa', 'gmt+1', 'wat'], enabled: true },
-      { id: 'communication', label: 'Communication / teamwork', kind: 'keywords', weight: 4, keywords: ['collaboration', 'team', 'communication', 'stakeholder', 'agile', 'scrum'], enabled: true },
+      { id: 'tooling', label: 'Modern tooling', kind: 'keywords', weight: 5, keywords: ['vite', 'webpack', 'react router', 'tanstack', 'zustand', 'redux', 'figma', 'pwa'], enabled: true },
+      { id: 'experience', label: 'Experience (2+ years / senior)', kind: 'keywords', weight: 8, keywords: ['years of experience', '2 years', '3 years', '4 years', '5 years', 'senior', 'mid-level', 'yoe'], enabled: true },
+      { id: 'soft_skills', label: 'Soft skills (teamwork, ownership, problem-solving)', kind: 'keywords', weight: 12, keywords: ['collaboration', 'collaborated', 'teamwork', 'team player', 'cross-functional', 'cross functional', 'communication', 'communicated', 'stakeholder', 'problem solving', 'problem-solving', 'ownership', 'initiative', 'took initiative', 'leadership', 'led a', 'mentoring', 'mentored', 'adaptable', 'adaptability', 'self-motivated', 'self motivated', 'critical thinking', 'attention to detail', 'agile', 'scrum', 'pair programming', 'worked with', 'delivered on time', 'deadline', 'proactive'], enabled: true },
+      { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 4, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa', 'west africa', 'gmt+1', 'wat'], enabled: true },
       { id: 'accessibility', label: 'Accessibility / quality', kind: 'keywords', weight: 3, keywords: ['accessibility', 'a11y', 'wcag', 'performance', 'seo'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 180, enabled: true },
     ],
@@ -292,20 +292,21 @@ export function defaultBackendCriteria(): AtsCriteriaProfile {
     label: 'Back-End Developer',
     strongMin: 75,
     viableMin: 55,
-    rejectBelow: 40,
+    rejectBelow: 51,
     criteria: [
-      { id: 'node', label: 'Node.js / NestJS / Express', kind: 'keywords', weight: 20, mustHave: true, keywords: ['node.js', 'nodejs', 'node js', 'express', 'fastify', 'nestjs', 'nest.js'], enabled: true },
+      { id: 'node', label: 'Node.js / NestJS / Express', kind: 'keywords', weight: 18, mustHave: true, keywords: ['node.js', 'nodejs', 'node js', 'express', 'fastify', 'nestjs', 'nest.js'], enabled: true },
       { id: 'typescript', label: 'TypeScript', kind: 'keywords', weight: 10, keywords: ['typescript', ' ts '], enabled: true },
-      { id: 'postgres', label: 'PostgreSQL / SQL', kind: 'keywords', weight: 14, mustHave: true, keywords: ['postgres', 'postgresql', 'sql', 'prisma', 'drizzle', 'typeorm'], enabled: true },
-      { id: 'git', label: 'Git / GitHub', kind: 'keywords', weight: 10, mustHave: true, keywords: ['git', 'github'], enabled: true },
+      { id: 'postgres', label: 'PostgreSQL / SQL', kind: 'keywords', weight: 12, mustHave: true, keywords: ['postgres', 'postgresql', 'sql', 'prisma', 'drizzle', 'typeorm'], enabled: true },
+      { id: 'git', label: 'Git / GitHub', kind: 'keywords', weight: 8, keywords: ['git', 'github'], enabled: true },
       { id: 'api', label: 'API / Auth', kind: 'keywords', weight: 10, keywords: ['api', 'rest', 'graphql', 'endpoint', 'auth', 'jwt', 'oauth'], enabled: true },
-      { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, mustHave: true, enabled: true },
+      { id: 'github_url', label: 'GitHub profile/link', kind: 'github', weight: 8, enabled: true },
       { id: 'portfolio', label: 'Portfolio / repo evidence', kind: 'portfolio', weight: 6, enabled: true },
-      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 6, mustHave: true, enabled: true },
-      { id: 'resume_file', label: 'Resume/CV scanned', kind: 'resume_file', weight: 10, mustHave: true, enabled: true },
+      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 5, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV attached', kind: 'resume_file', weight: 8, enabled: true },
       { id: 'testing', label: 'Testing / API docs', kind: 'keywords', weight: 5, keywords: ['jest', 'vitest', 'integration test', 'swagger', 'openapi'], enabled: true },
-      { id: 'experience', label: 'Experience signals (2+ years / senior)', kind: 'keywords', weight: 8, keywords: ['years of experience', '2 years', '3 years', '4 years', '5 years', 'senior', 'mid-level'], enabled: true },
-      { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 5, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa', 'west africa'], enabled: true },
+      { id: 'experience', label: 'Experience (2+ years / senior)', kind: 'keywords', weight: 8, keywords: ['years of experience', '2 years', '3 years', '4 years', '5 years', 'senior', 'mid-level'], enabled: true },
+      { id: 'soft_skills', label: 'Soft skills (teamwork, ownership, problem-solving)', kind: 'keywords', weight: 12, keywords: ['collaboration', 'collaborated', 'teamwork', 'team player', 'cross-functional', 'cross functional', 'communication', 'communicated', 'stakeholder', 'problem solving', 'problem-solving', 'ownership', 'initiative', 'took initiative', 'leadership', 'led a', 'mentoring', 'mentored', 'adaptable', 'adaptability', 'self-motivated', 'self motivated', 'critical thinking', 'attention to detail', 'agile', 'scrum', 'pair programming', 'worked with', 'delivered on time', 'deadline', 'proactive'], enabled: true },
+      { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 4, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa', 'west africa'], enabled: true },
       { id: 'cloud', label: 'Cloud / DevOps basics', kind: 'keywords', weight: 4, keywords: ['docker', 'aws', 'gcp', 'azure', 'ci/cd', 'linux'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 180, enabled: true },
     ],
@@ -318,14 +319,14 @@ export function defaultDesignerCriteria(): AtsCriteriaProfile {
     label: 'Graphic Designer',
     strongMin: 75,
     viableMin: 55,
-    rejectBelow: 40,
+    rejectBelow: 51,
     criteria: [
-      { id: 'tools', label: 'Photoshop / Illustrator / Figma', kind: 'keywords', weight: 24, mustHave: true, keywords: ['photoshop', 'illustrator', 'figma', 'indesign', 'adobe'], enabled: true },
-      { id: 'branding', label: 'Brand / layout / campaigns', kind: 'keywords', weight: 16, keywords: ['brand', 'typography', 'layout', 'visual identity', 'campaign', 'social media'], enabled: true },
-      { id: 'portfolio', label: 'Portfolio', kind: 'portfolio', weight: 20, mustHave: true, enabled: true },
-      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 8, mustHave: true, enabled: true },
-      { id: 'resume_file', label: 'Resume/CV / portfolio PDF scanned', kind: 'resume_file', weight: 12, mustHave: true, enabled: true },
-      { id: 'collaboration', label: 'Briefs / feedback / deadlines', kind: 'keywords', weight: 6, keywords: ['brief', 'feedback', 'collaboration', 'deadline'], enabled: true },
+      { id: 'tools', label: 'Photoshop / Illustrator / Figma', kind: 'keywords', weight: 22, mustHave: true, keywords: ['photoshop', 'illustrator', 'figma', 'indesign', 'adobe'], enabled: true },
+      { id: 'branding', label: 'Brand / layout / campaigns', kind: 'keywords', weight: 14, keywords: ['brand', 'typography', 'layout', 'visual identity', 'campaign', 'social media'], enabled: true },
+      { id: 'portfolio', label: 'Portfolio', kind: 'portfolio', weight: 18, mustHave: true, enabled: true },
+      { id: 'cover_letter', label: 'Cover letter', kind: 'cover_letter', weight: 5, enabled: true },
+      { id: 'resume_file', label: 'Resume/CV / portfolio file attached', kind: 'resume_file', weight: 8, enabled: true },
+      { id: 'soft_skills', label: 'Soft skills (collaboration, feedback, deadlines)', kind: 'keywords', weight: 12, keywords: ['brief', 'feedback', 'collaboration', 'collaborated', 'deadline', 'delivered on time', 'communication', 'communicated', 'teamwork', 'team player', 'client', 'stakeholder', 'ownership', 'initiative', 'took initiative', 'attention to detail', 'creative', 'revision', 'brand guidelines', 'presented', 'proactive'], enabled: true },
       { id: 'experience', label: 'Experience signals', kind: 'keywords', weight: 6, keywords: ['years of experience', '2 years', '3 years', 'senior', 'campaigns'], enabled: true },
       { id: 'remote_africa', label: 'Remote / Africa / Nigeria fit', kind: 'keywords', weight: 4, keywords: ['remote', 'nigeria', 'lagos', 'abuja', 'africa'], enabled: true },
       { id: 'substance', label: 'Application substance', kind: 'min_length', weight: 0, minLength: 160, enabled: true },
@@ -373,7 +374,9 @@ function recommend(
   missingMustHaves: string[],
   profile: AtsCriteriaProfile,
 ): AtsRecommendation {
-  if (missingMustHaves.length >= 2 || score < profile.rejectBelow) return 'reject'
+  // "Not a fit" is score-only — Required checks must not force reject on high scores.
+  if (score < profile.rejectBelow) return 'reject'
+  // Strong fit requires the score bar and every Required check
   if (score >= profile.strongMin && missingMustHaves.length === 0) return 'strong'
   if (score >= profile.viableMin) return 'viable'
   return 'weak'
@@ -400,11 +403,17 @@ function scoreWithCriteria(
 
     if (c.kind === 'keywords') {
       const terms = c.keywords ?? []
-      hit = includesAny(text, terms)
-      // Partial credit for multiple keyword hits on heavier criteria
       const hits = terms.reduce((n, t) => (text.includes(t.toLowerCase()) ? n + 1 : n), 0)
-      points = hit ? c.weight : 0
-      if (hit && c.weight >= 12 && hits >= 2) points = c.weight
+      hit = hits > 0
+      // Soft skills & broad keyword lists: partial credit so one buzzword ≠ full points
+      if (!hit) {
+        points = 0
+      } else if (c.id === 'soft_skills' || (terms.length >= 6 && c.weight >= 8)) {
+        const ratio = hits >= 3 ? 1 : hits === 2 ? 0.7 : 0.45
+        points = Math.round(c.weight * ratio)
+      } else {
+        points = c.weight
+      }
     } else if (c.kind === 'github') {
       hit = !!urls.githubUrl || includesAny(text, ['github.com/'])
       points = hit ? c.weight : 0

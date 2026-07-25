@@ -203,6 +203,9 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
     gmailMessageId:
       (r.gmail_message_id ? String(r.gmail_message_id) : undefined) ||
       parseGmailExternalId(r.external_id ? String(r.external_id) : undefined).messageId,
+    attachments: Array.isArray(r.attachments)
+      ? (r.attachments as JobCandidate['attachments'])
+      : undefined,
     appliedAt: r.applied_at ? String(r.applied_at) : undefined,
     updatedAt: String(r.updated_at),
   }
@@ -252,6 +255,7 @@ export function jobCandidateToRow(c: JobCandidate, opts?: { includeIdentity?: bo
     external_id: c.externalId ?? null,
     applied_at: c.appliedAt ?? null,
     updated_at: c.updatedAt,
+    attachments: c.attachments ?? [],
   }
   if (includeIdentity) {
     row.phone = c.phone ?? null
@@ -285,6 +289,7 @@ export function jobCandidatePatchToRow(
   if (patch.externalId !== undefined) row.external_id = patch.externalId ?? null
   if (patch.appliedAt !== undefined) row.applied_at = patch.appliedAt ?? null
   if (patch.updatedAt !== undefined) row.updated_at = patch.updatedAt
+  if (patch.attachments !== undefined) row.attachments = patch.attachments ?? []
   if (includeIdentity) {
     if (patch.phone !== undefined) row.phone = patch.phone ?? null
     if (patch.linkedinUrl !== undefined) row.linkedin_url = patch.linkedinUrl ?? null
@@ -302,9 +307,22 @@ export function isMissingCandidateColumnError(error: { message?: string } | null
     msg.includes('could not find') ||
     msg.includes('gmail_message_id') ||
     msg.includes('gmail_thread_id') ||
+    msg.includes('attachments') ||
     msg.includes('linkedin_url') ||
     (msg.includes('column') && (msg.includes('phone') || msg.includes('location')))
   )
+}
+
+/** Drop optional ATS columns for older schemas. */
+export function stripOptionalCandidateColumns(row: Record<string, unknown>): Record<string, unknown> {
+  const next = { ...row }
+  delete next.phone
+  delete next.linkedin_url
+  delete next.location
+  delete next.gmail_thread_id
+  delete next.gmail_message_id
+  delete next.attachments
+  return next
 }
 
 export function rowToExitInterview(r: Record<string, unknown>): ExitInterview {
