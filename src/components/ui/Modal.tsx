@@ -33,9 +33,9 @@ function isFileInput(target: EventTarget | null): target is HTMLInputElement {
 }
 
 /** Residual ghost-click window after a native file picker returns (esp. iOS/Android). */
-const FILE_PICKER_RESIDUAL_MS = 1200
+const FILE_PICKER_RESIDUAL_MS = 1500
 /** Soft upper bound while the native picker is open (cancel may not fire `change`). */
-const FILE_PICKER_MAX_MS = 120_000
+const FILE_PICKER_MAX_MS = 180_000
 
 export function Modal({
   open,
@@ -75,7 +75,6 @@ export function Modal({
     filePickerArmed.current = true
     armSuppress(FILE_PICKER_MAX_MS)
     if (clearPickerTimer.current) clearTimeout(clearPickerTimer.current)
-    // Safety: if the user cancels and `change` never fires (common on iOS), unlock later.
     clearPickerTimer.current = setTimeout(() => clearFilePickerArm(), FILE_PICKER_MAX_MS)
   }
 
@@ -112,25 +111,17 @@ export function Modal({
     window.addEventListener('blur', onWindowBlur)
     window.addEventListener('focus', onWindowFocus)
     document.addEventListener('visibilitychange', onVisibility)
+    // overflow only — avoid position:fixed on body; that remounts/reloads pages on
+    // iOS when returning from the camera/photo picker.
+    const prevOverflow = document.body.style.overflow
     document.body.style.overflow = 'hidden'
-    // iOS Safari: overflow hidden alone often fails — lock position too.
-    const prevPosition = document.body.style.position
-    const prevTop = document.body.style.top
-    const scrollY = window.scrollY
-    document.body.style.position = 'fixed'
-    document.body.style.top = `-${scrollY}px`
-    document.body.style.width = '100%'
 
     return () => {
       document.removeEventListener('keydown', onKey)
       window.removeEventListener('blur', onWindowBlur)
       window.removeEventListener('focus', onWindowFocus)
       document.removeEventListener('visibilitychange', onVisibility)
-      document.body.style.overflow = ''
-      document.body.style.position = prevPosition
-      document.body.style.top = prevTop
-      document.body.style.width = ''
-      window.scrollTo(0, scrollY)
+      document.body.style.overflow = prevOverflow
       if (clearPickerTimer.current) {
         clearTimeout(clearPickerTimer.current)
         clearPickerTimer.current = null
@@ -139,7 +130,6 @@ export function Modal({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [open, closeOnEscape])
 
-  // Capture file-input activation inside the panel (desktop + mobile).
   useEffect(() => {
     if (!open) return
     const root = panelRef.current
@@ -152,7 +142,6 @@ export function Modal({
       if (isFileInput(e.target)) clearFilePickerArm()
     }
 
-    // pointerdown/touchstart/click: mobile cameras & document pickers arm on different events.
     root.addEventListener('pointerdown', onActivate, true)
     root.addEventListener('touchstart', onActivate, true)
     root.addEventListener('click', onActivate, true)

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useState } from 'react'
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -114,6 +114,46 @@ const emptyDraft: RequestDraft = {
   supportingDocName: '',
 }
 
+const LEAVE_DRAFT_KEY = 'av-leave-request-draft'
+
+/** Survives React remounts within the same tab (File objects cannot go in sessionStorage). */
+let leaveDraftFileHold: File | null = null
+
+type PersistedLeaveDraft = {
+  open: boolean
+  draft: RequestDraft
+}
+
+function readPersistedLeaveDraft(): PersistedLeaveDraft | null {
+  try {
+    const raw = sessionStorage.getItem(LEAVE_DRAFT_KEY)
+    if (!raw) return null
+    const parsed = JSON.parse(raw) as PersistedLeaveDraft
+    if (!parsed?.draft || typeof parsed.open !== 'boolean') return null
+    return parsed
+  } catch {
+    return null
+  }
+}
+
+function writePersistedLeaveDraft(open: boolean, draft: RequestDraft, file: File | null) {
+  leaveDraftFileHold = file
+  try {
+    sessionStorage.setItem(LEAVE_DRAFT_KEY, JSON.stringify({ open, draft }))
+  } catch {
+    /* private mode / quota */
+  }
+}
+
+function clearPersistedLeaveDraft() {
+  leaveDraftFileHold = null
+  try {
+    sessionStorage.removeItem(LEAVE_DRAFT_KEY)
+  } catch {
+    /* ignore */
+  }
+}
+
 function dayCount(startISO: string, endISO: string) {
   return differenceInCalendarDays(parseISO(endISO), parseISO(startISO)) + 1
 }
@@ -126,10 +166,13 @@ export function LeaveRequestsPage() {
   const canManage = isLead(user) || managesPeople(user, teams, departments)
   const canDeleteLeave = isHR(user)
   const [tab, setTab] = useState<Tab>('my')
-  const [formOpen, setFormOpen] = useState(false)
+  const persisted = useMemo(() => readPersistedLeaveDraft(), [])
+  const [formOpen, setFormOpen] = useState(() => persisted?.open ?? false)
   const [submitting, setSubmitting] = useState(false)
-  const [draft, setDraft] = useState<RequestDraft>(emptyDraft)
-  const [supportingFile, setSupportingFile] = useState<File | null>(null)
+  const [draft, setDraft] = useState<RequestDraft>(() =>
+    persisted?.draft ? { ...emptyDraft, ...persisted.draft } : { ...emptyDraft },
+  )
+  const [supportingFile, setSupportingFile] = useState<File | null>(() => leaveDraftFileHold)
   const [reviewing, setReviewing] = useState<{ request: LeaveRequest; status: 'approved' | 'declined' } | null>(null)
   const [reviewNote, setReviewNote] = useState('')
   const [approvedDays, setApprovedDays] = useState('')
@@ -192,10 +235,15 @@ export function LeaveRequestsPage() {
     [manageRequests],
   )
 
+  useEffect(() => {
+    writePersistedLeaveDraft(formOpen, draft, supportingFile)
+  }, [formOpen, draft, supportingFile])
+
   const resetForm = useCallback(() => {
     setDraft({ ...emptyDraft })
     setSupportingFile(null)
     setSubmitting(false)
+    clearPersistedLeaveDraft()
   }, [])
 
   const openForm = useCallback(() => {
@@ -602,6 +650,18 @@ export function LeaveRequestsPage() {
                 >
                   Remove
                 </button>
+              </div>
+            ) : draft.supportingDocName ? (
+              <div className="mt-2 space-y-2">
+                <p className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-xs text-fg">
+                  Please re-attach <strong>{draft.supportingDocName}</strong> — the file needs to be
+                  selected again after the page was interrupted.
+                </p>
+                <Input
+                  value={draft.supportingDocName}
+                  onChange={(e) => setDraft((d) => ({ ...d, supportingDocName: e.target.value }))}
+                  placeholder="e.g. medical-cert.pdf"
+                />
               </div>
             ) : (
               <Input

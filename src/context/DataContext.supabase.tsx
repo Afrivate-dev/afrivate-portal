@@ -114,9 +114,12 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   const [dataStatus, setDataStatus] = useState<'ready' | 'loading' | 'error'>('loading')
   const [dataError, setDataError] = useState<string | null>(null)
   const hasLoadedOnceRef = useRef(false)
+  const userId = user?.id
 
   const reloadData = useCallback(async () => {
-    if (!user) {
+    if (!userId) {
+      // Keep portal data mounted across transient auth blips (mobile file pickers).
+      // Explicit logout clears `userId` permanently and we wipe then.
       hasLoadedOnceRef.current = false
       setUsers([])
       setTasks([])
@@ -259,7 +262,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setDataStatus('error')
       setDataError(e instanceof Error ? e.message : 'Failed to load data')
     }
-  }, [client, user])
+  }, [client, userId])
 
   useEffect(() => {
     const id = requestAnimationFrame(() => {

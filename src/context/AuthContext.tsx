@@ -257,14 +257,29 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       if (!result.user) return null
       // On profile read failure, session metadata defaults active:false. Keep the last
       // confirmed active/role so a blip does not bounce approved users to pending.
+      let next = result.user
       if (result.profileLoadFailed && prev && prev.id === result.user.id) {
-        return {
+        next = {
           ...result.user,
           active: prev.active,
           role: prev.role,
         }
       }
-      return result.user
+      // Keep the same object when nothing meaningful changed — avoids remounting the
+      // whole portal (data reload) when mobile returns from a file/camera picker.
+      if (
+        prev &&
+        prev.id === next.id &&
+        prev.active === next.active &&
+        prev.role === next.role &&
+        prev.email === next.email &&
+        prev.name === next.name &&
+        prev.department === next.department &&
+        prev.jobTitle === next.jobTitle
+      ) {
+        return prev
+      }
+      return next
     })
     setProfileLoadFailed(result.profileLoadFailed)
     setProfileError(result.profileError)
@@ -291,7 +306,24 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       })
     }
 
-    const { data: sub } = sb.auth.onAuthStateChange((_event, session) => {
+    const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
+      // Mobile file/camera pickers often fire auth noise with a null session.
+      // Only clear the user on a real sign-out — never on transient refresh races.
+      if (event === 'SIGNED_OUT') {
+        setTimeout(() => {
+          if (cancelled) return
+          setSupabaseUser(null)
+          setProfileLoadFailed(false)
+          setProfileError(null)
+          setAuthReady(true)
+        }, 0)
+        return
+      }
+      if (!session) {
+        // Ignore null session for TOKEN_REFRESHED / INITIAL_SESSION races, etc.
+        if (event === 'INITIAL_SESSION') setAuthReady(true)
+        return
+      }
       // Defer to avoid Supabase auth deadlocks when calling back into the client.
       setTimeout(() => syncFromSession(session), 0)
     })
