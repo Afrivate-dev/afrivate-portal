@@ -1,4 +1,4 @@
-import { forwardRef, type InputHTMLAttributes } from 'react'
+import { forwardRef, useId, type InputHTMLAttributes } from 'react'
 import { cn } from '@/utils/helpers'
 
 interface InputProps extends InputHTMLAttributes<HTMLInputElement> {
@@ -15,7 +15,8 @@ export const Input = forwardRef<HTMLInputElement, InputProps>(function Input(
   { className, label, hint, error, leadingIcon, trailingNode, id, ...rest },
   ref,
 ) {
-  const inputId = id ?? rest.name
+  const autoId = useId()
+  const inputId = id ?? rest.name ?? (label ? autoId : undefined)
   return (
     <div className="w-full">
       {label ? (

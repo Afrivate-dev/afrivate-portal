@@ -194,10 +194,25 @@ export function AtsEmailReadingPane({ candidate }: { candidate: JobCandidate }) 
   const cleanedBody = useMemo(() => cleanEmailBodyForDisplay(headers.body), [headers.body])
 
   const displayAttachments = useMemo(() => {
-    if (candidate.attachments?.length) return candidate.attachments
-    // Older imports only stored filenames in notes — show chips so the UI isn't a raw text list
-    const names = extractAttachmentNamesFromNotes(text)
-    return names.map(
+    const stored = candidate.attachments?.filter((a) => a.filename) ?? []
+    const named = extractAttachmentNamesFromNotes(text)
+    // Prefer real uploaded files; fill gaps with name-only chips from notes/CV markers
+    if (stored.length) {
+      const have = new Set(stored.map((a) => a.filename.toLowerCase()))
+      const extras = named
+        .filter((n) => !have.has(n.toLowerCase()))
+        .map(
+          (filename, i): CandidateAttachment => ({
+            id: `name_only_${i}_${filename}`,
+            filename,
+            mimeType: 'application/octet-stream',
+            storagePath: '',
+            kind: guessAttachmentKind(filename),
+          }),
+        )
+      return [...stored, ...extras]
+    }
+    return named.map(
       (filename, i): CandidateAttachment => ({
         id: `name_only_${i}_${filename}`,
         filename,
@@ -208,9 +223,12 @@ export function AtsEmailReadingPane({ candidate }: { candidate: JobCandidate }) 
     )
   }, [candidate.attachments, text])
 
-  const [expandedId, setExpandedId] = useState<string | null>(
-    () => displayAttachments.find((a) => a.storagePath)?.id ?? null,
-  )
+  const [expandedId, setExpandedId] = useState<string | null>(null)
+
+  useEffect(() => {
+    const firstPreviewable = displayAttachments.find((a) => a.storagePath)
+    setExpandedId(firstPreviewable?.id ?? null)
+  }, [candidate.id, displayAttachments])
 
   const emailDoc = useMemo(() => {
     const richHtml = html?.trim()

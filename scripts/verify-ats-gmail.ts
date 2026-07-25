@@ -156,6 +156,33 @@ Attachments: Ogochukwu-odom-cv.pdf, ogochukwu-odom-cover.pdf`
   ])
 })
 
+await check('Reading pane strips full CV extract dumps (not just Attachments: lines)', async () => {
+  const { cleanEmailBodyForDisplay, extractAttachmentNamesFromNotes, stripResumeExtractBlocks } =
+    await import('../src/lib/atsEmailHtml.ts')
+
+  const withCvDump = `Dear Afrivate team,
+I am writing to apply for the Front-End Developer role with React and TypeScript.
+
+Yours sincerely,
+Kenneth Ajah
+
+--- Resume: Kenneth Ajah FrontendCv.pdf ---
+Kenneth, Ukpai Ajah I am a proactive, smart and impact-driven software engineer with 3 years of development experience. Role and Achievements Built with React. EDUCATION University of Nigeria Nsukka. Technologies JavaScript React Next js.`
+
+  const cleaned = cleanEmailBodyForDisplay(withCvDump)
+  assert.match(cleaned, /Dear Afrivate team/)
+  assert.match(cleaned, /Kenneth Ajah/)
+  assert.ok(!/---\s*Resume:/i.test(cleaned), `resume marker leaked:\n${cleaned}`)
+  assert.ok(!/Role and Achievements/i.test(cleaned), `CV dump leaked:\n${cleaned}`)
+  assert.ok(!/University of Nigeria/i.test(cleaned), `education dump leaked:\n${cleaned}`)
+  assert.deepEqual(extractAttachmentNamesFromNotes(withCvDump), ['Kenneth Ajah FrontendCv.pdf'])
+
+  const onlyCv = `--- Resume: Kenneth Ajah FrontendCv.pdf ---
+Kenneth, Ukpai Ajah I am a proactive software engineer with 3 years of development experience.`
+  assert.equal(stripResumeExtractBlocks(onlyCv), '')
+  assert.equal(cleanEmailBodyForDisplay(onlyCv), '')
+})
+
 await check('URL-safe base64 body decode', () => {
   const text = 'Hello React portfolio'
   const b64 = Buffer.from(text, 'utf8')

@@ -19,26 +19,30 @@ export function AtsRichText({ block, className }: { block: AtsRichBlock; classNa
 
   return (
     <div className={className ?? 'space-y-2 text-sm leading-relaxed text-fg'}>
-      {block.headline ? <p className="font-medium text-fg">{block.headline}</p> : null}
+      {block.headline ? <p className="break-words font-medium text-fg">{block.headline}</p> : null}
       {block.paragraphs?.map((p) => (
-        <p key={p} className="text-fg/90">
+        <p key={p} className="break-words text-fg/90">
           {p}
         </p>
       ))}
       {block.bullets && block.bullets.length > 0 ? (
-        <ul className="list-disc space-y-1 pl-5 text-fg/90">
+        <ul className="list-disc space-y-1 pl-4 text-fg/90 sm:pl-5">
           {block.bullets.map((b) => (
-            <li key={b}>{b}</li>
+            <li key={b} className="break-words">
+              {b}
+            </li>
           ))}
         </ul>
       ) : null}
       {block.sections?.map((section) =>
         section.bullets.length ? (
-          <div key={section.title} className="space-y-1">
+          <div key={section.title} className="min-w-0 space-y-1">
             <p className="text-xs font-medium text-muted">{section.title}</p>
-            <ul className="list-disc space-y-1 pl-5 text-fg/90">
+            <ul className="list-disc space-y-1 pl-4 text-fg/90 sm:pl-5">
               {section.bullets.map((b) => (
-                <li key={b}>{b}</li>
+                <li key={b} className="break-words">
+                  {b}
+                </li>
               ))}
             </ul>
           </div>

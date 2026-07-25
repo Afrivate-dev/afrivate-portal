@@ -30,14 +30,37 @@ function normalizeWhitespace(value: string): string {
   return value.toLowerCase().replace(/\s+/g, ' ').trim()
 }
 
-/** Pull attachment filenames listed as "Attachments: a.pdf, b.docx" in stored notes. */
+/**
+ * Remove ATS CV extract dumps (`--- Resume: file.pdf --- …`) and scan markers.
+ * Used for the reading pane and when persisting notes (scoring keeps the extracts separately).
+ */
+export function stripResumeExtractBlocks(text: string): string {
+  return text
+    .replace(/---\s*Resume:\s*[^\n]*---\s*[\s\S]*?(?=(?:---\s*Resume:)|$)/gi, '')
+    .replace(/\[ATS scanned CV:[^\]]*\]/gi, '')
+    .replace(/^Attachments:\s*.+$/gim, '')
+    .replace(/\n{3,}/g, '\n\n')
+    .trim()
+}
+
+/** Filenames from `--- Resume: Name.pdf ---` markers (and legacy Attachments: lines). */
 export function extractAttachmentNamesFromNotes(text: string): string[] {
   const names = new Set<string>()
+  for (const match of text.matchAll(/---\s*Resume:\s*([^\n]+?)\s*---/gi)) {
+    const name = (match[1] ?? '').trim()
+    if (name) names.add(name)
+  }
   for (const match of text.matchAll(/^Attachments:\s*(.+)$/gim)) {
     const line = match[1] ?? ''
     for (const part of line.split(/[,;]/)) {
       const name = part.trim()
       if (name && /\.[a-z0-9]{2,5}$/i.test(name)) names.add(name)
+    }
+  }
+  for (const match of text.matchAll(/\[ATS scanned CV:\s*([^\]]+)\]/gi)) {
+    for (const part of (match[1] ?? '').split(/[,;]/)) {
+      const name = part.trim()
+      if (name) names.add(name)
     }
   }
   return [...names]
@@ -50,12 +73,8 @@ export function extractAttachmentNamesFromNotes(text: string): string[] {
  * - drop duplicated plain+collapsed copies of the same letter
  */
 export function cleanEmailBodyForDisplay(body: string): string {
-  const t = body
-    .replace(/\n---\s*Resume:[\s\S]*?(?=\n---\s*Resume:|$)/gi, '')
-    .replace(/^Attachments:\s*.+$/gim, '')
-    .replace(/\[ATS scanned CV:[^\]]*\]/gi, '')
-    .replace(/\n{3,}/g, '\n\n')
-    .trim()
+  const t = stripResumeExtractBlocks(body)
+  if (!t) return ''
 
   const parts = t
     .split(/\n{2,}/)
@@ -65,6 +84,16 @@ export function cleanEmailBodyForDisplay(body: string): string {
 
   const kept: string[] = []
   for (const p of parts) {
+    // Drop leftover CV-looking blobs (no letter structure, starts mid-resume)
+    if (
+      !/^(dear|hi|hello|good\s+(morning|afternoon|day)|subject:|from:)/i.test(p) &&
+      p.length > 400 &&
+      /(years of (development )?experience|role and achievements|technologies\s*used|curriculum vitae|b\.?\s*sc|education)/i.test(
+        p,
+      )
+    ) {
+      continue
+    }
     const isLongSingleLine = !p.includes('\n') && p.length >= 80
     if (isLongSingleLine && kept.length > 0) {
       const prevNorm = normalizeWhitespace(kept.join(' '))
