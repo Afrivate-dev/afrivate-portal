@@ -29,7 +29,7 @@ import { Textarea } from '@/components/ui/Textarea'
 import { useHr } from '@/context/HrContext'
 import { useAuth } from '@/context/AuthContext'
 import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
-import { joinApplicationNotes } from '@/lib/atsEmailHtml'
+import { joinApplicationNotes, stripResumeExtractBlocks } from '@/lib/atsEmailHtml'
 import { candidateIsLikelyJobApplication } from '@/utils/atsApplicationGate'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
@@ -419,8 +419,9 @@ export function RecruitmentAtsSection() {
                 existing.id,
                 {
                   attachments: storedAttachments,
+                  // Persist the letter only — CV extract stays out of the reading pane
                   notes: joinApplicationNotes(
-                    item.text.slice(0, 80000),
+                    stripResumeExtractBlocks(item.text).slice(0, 80000),
                     item.html?.slice(0, 200000),
                   ),
                   gmailThreadId: item.gmailThreadId ?? existing.gmailThreadId,
@@ -482,7 +483,10 @@ export function RecruitmentAtsSection() {
           recommendation: scored.recommendation,
           scoreBreakdown: scored.breakdown as Record<string, number>,
           resumeSummary: `[${labelForAtsRoleProfile(profile)}] ${scored.summary}`,
-          notes: joinApplicationNotes(scoringText.slice(0, 80000), item.html?.slice(0, 200000)),
+          notes: joinApplicationNotes(
+            stripResumeExtractBlocks(scoringText).slice(0, 80000),
+            item.html?.slice(0, 200000),
+          ),
           attachments: storedAttachments.length ? storedAttachments : undefined,
           externalId: item.externalId,
           gmailThreadId: item.gmailThreadId,
@@ -694,7 +698,7 @@ export function RecruitmentAtsSection() {
   }
 
   return (
-    <div className="space-y-5 sm:space-y-6">
+    <div className="min-w-0 max-w-full space-y-5 overflow-x-clip sm:space-y-6">
       <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
         <div className="min-w-0">
           <h2 className="text-lg font-semibold text-fg">Recruitment</h2>
@@ -875,22 +879,25 @@ export function RecruitmentAtsSection() {
       </Card>
 
       {topTen.length > 0 ? (
-        <Card padding="md" className="space-y-3">
-          <div className="flex flex-wrap items-center gap-2">
-            <Trophy className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">
-              Top 10 · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
-            </h3>
-            <Badge tone="brand">Highest scores</Badge>
-            <p className="w-full text-xs text-muted sm:w-auto sm:ml-auto">Click a name to see details and open Gmail</p>
+        <Card padding="md" className="min-w-0 space-y-3 overflow-hidden">
+          <div className="flex min-w-0 flex-col gap-1.5 sm:flex-row sm:flex-wrap sm:items-center sm:gap-2">
+            <div className="flex min-w-0 flex-wrap items-center gap-2">
+              <Trophy className="h-4 w-4 shrink-0 text-accent" />
+              <h3 className="min-w-0 break-words text-sm font-semibold text-fg">
+                Top 10 · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+              </h3>
+              <Badge tone="brand">Highest scores</Badge>
+            </div>
+            <p className="text-xs text-muted sm:ml-auto">Tap a name for details &amp; Gmail</p>
           </div>
-          <ol className="space-y-2">
+          <ol className="min-w-0 space-y-2">
             {topTen.map((c, i) => {
               const rank = i + 1
               const reason = explainCandidateRankingRich(c, rank, topTen, criteria)
               const mailUrl = candidateGmailUrl(c)
+              const contact = [c.email, c.phone, c.location].filter(Boolean).join(' · ')
               return (
-                <li key={c.id}>
+                <li key={c.id} className="min-w-0">
                   <div
                     role="button"
                     tabIndex={0}
@@ -901,37 +908,43 @@ export function RecruitmentAtsSection() {
                         setSelectedCandidateId(c.id)
                       }
                     }}
-                    className="flex w-full cursor-pointer flex-wrap items-start justify-between gap-2 rounded-md border border-border px-3 py-2 text-left transition-colors hover:border-accent/50 hover:bg-surface-2"
+                    className="flex min-w-0 w-full max-w-full cursor-pointer flex-col gap-2 overflow-hidden rounded-md border border-border px-3 py-2.5 text-left transition-colors hover:border-accent/50 hover:bg-surface-2 sm:px-3.5"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="font-medium text-fg">
-                        <span className="mr-2 text-muted">#{rank}</span>
-                        {c.name}
-                      </p>
-                      <p className="truncate text-xs text-muted">
-                        {[c.email, c.phone, c.location].filter(Boolean).join(' · ') ||
-                          'Contact details will appear here after sync'}
-                      </p>
-                      <AtsRichText block={reason} className="mt-2 space-y-1.5 text-xs leading-relaxed text-fg/90" />
+                    <div className="flex min-w-0 items-start gap-2">
+                      <span className="mt-0.5 shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-xs font-semibold text-muted">
+                        #{rank}
+                      </span>
+                      <div className="min-w-0 flex-1 overflow-hidden">
+                        <p className="break-words font-medium leading-snug text-fg">{c.name}</p>
+                        <p className="mt-0.5 break-all text-xs text-muted">
+                          {contact || 'Contact details will appear here after sync'}
+                        </p>
+                      </div>
+                      <div className="flex shrink-0 flex-col items-end gap-1">
+                        <Badge tone="muted" className="whitespace-nowrap">
+                          {c.score ?? 0}/100
+                        </Badge>
+                        <Badge tone={recommendationTone(c.recommendation)} className="max-w-[7.5rem] truncate">
+                          {recommendationLabel(c.recommendation)}
+                        </Badge>
+                      </div>
                     </div>
-                    <div className="flex flex-wrap items-center gap-2">
-                      <Badge tone={recommendationTone(c.recommendation)}>
-                        {recommendationLabel(c.recommendation)}
-                      </Badge>
-                      <Badge tone="muted">{c.score ?? 0}/100</Badge>
-                      {mailUrl ? (
-                        <a
-                          className="inline-flex items-center gap-1 text-xs text-accent hover:underline"
-                          href={mailUrl}
-                          target="_blank"
-                          rel="noreferrer"
-                          onClick={(e) => e.stopPropagation()}
-                        >
-                          <ExternalLink className="h-3.5 w-3.5" />
-                          Open in Gmail
-                        </a>
-                      ) : null}
-                    </div>
+                    <AtsRichText
+                      block={reason}
+                      className="min-w-0 space-y-1.5 overflow-hidden text-xs leading-relaxed text-fg/90"
+                    />
+                    {mailUrl ? (
+                      <a
+                        className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-border bg-surface px-2.5 py-2 text-xs font-medium text-accent hover:bg-surface-2 sm:w-auto sm:justify-start sm:border-0 sm:bg-transparent sm:px-0 sm:py-0 sm:hover:bg-transparent sm:hover:underline"
+                        href={mailUrl}
+                        target="_blank"
+                        rel="noreferrer"
+                        onClick={(e) => e.stopPropagation()}
+                      >
+                        <ExternalLink className="h-3.5 w-3.5" />
+                        Open in Gmail
+                      </a>
+                    ) : null}
                   </div>
                 </li>
               )
@@ -940,18 +953,18 @@ export function RecruitmentAtsSection() {
         </Card>
       ) : null}
 
-      <Card padding="md" className="space-y-4">
-        <div className="flex flex-wrap items-center justify-between gap-3">
-          <div className="flex items-center gap-2">
-            <UserCheck className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">
-              All candidates · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+      <Card padding="md" className="min-w-0 space-y-4 overflow-hidden">
+        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <div className="flex min-w-0 items-center gap-2">
+            <UserCheck className="h-4 w-4 shrink-0 text-accent" />
+            <h3 className="min-w-0 break-words text-sm font-semibold text-fg">
+              Ranked candidates · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
             </h3>
           </div>
-          <div className="flex items-center gap-2">
-            <Filter className="h-4 w-4 text-muted" />
+          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+            <Filter className="h-4 w-4 shrink-0 text-muted" />
             <select
-              className="rounded-md border border-border bg-surface px-2 py-1.5 text-sm"
+              className="min-w-0 w-full flex-1 rounded-md border border-border bg-surface px-2 py-2 text-sm sm:w-auto sm:flex-none sm:py-1.5"
               value={filter}
               onChange={(e) => setFilter(e.target.value as FilterMode)}
             >
@@ -978,7 +991,7 @@ export function RecruitmentAtsSection() {
             description="Sync Gmail, paste an application into this role, or change the filter above."
           />
         ) : (
-          <ul className="space-y-3">
+          <ul className="min-w-0 space-y-3">
             {visible.map((c, index) => (
               <CandidateRow
                 key={c.id}
@@ -1200,54 +1213,83 @@ function CandidateRow({
   const mailUrl = candidateGmailUrl(candidate)
 
   return (
-    <li className="rounded-lg border border-border p-3 transition-colors hover:border-accent/40 sm:p-4">
-      <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-start sm:justify-between">
-        <button type="button" onClick={onOpen} className="min-w-0 flex-1 text-left">
-          <div className="flex flex-wrap items-center gap-2">
-            <Badge tone="muted">#{rank}</Badge>
-            <p className="break-words font-semibold text-fg hover:text-accent">{candidate.name}</p>
-            <Badge tone={recommendationTone(candidate.recommendation)}>
-              {recommendationLabel(candidate.recommendation)}
+    <li className="min-w-0 max-w-full overflow-hidden rounded-lg border border-border p-3 transition-colors hover:border-accent/40 sm:p-4">
+      <div className="flex min-w-0 flex-col gap-3">
+        <button type="button" onClick={onOpen} className="min-w-0 w-full max-w-full overflow-hidden text-left">
+          <div className="flex min-w-0 items-start gap-2">
+            <Badge tone="muted" className="mt-0.5 shrink-0">
+              #{rank}
             </Badge>
-            <Badge tone="muted">{candidate.score ?? 0}/100</Badge>
-            {candidate.source ? <Badge tone="muted">{candidate.source}</Badge> : null}
+            <div className="min-w-0 flex-1 overflow-hidden">
+              <p className="break-words font-semibold leading-snug text-fg hover:text-accent">{candidate.name}</p>
+              <div className="mt-1.5 flex flex-wrap gap-1.5">
+                <Badge tone={recommendationTone(candidate.recommendation)} className="max-w-full">
+                  <span className="truncate">{recommendationLabel(candidate.recommendation)}</span>
+                </Badge>
+                <Badge tone="muted" className="shrink-0 whitespace-nowrap">
+                  {candidate.score ?? 0}/100
+                </Badge>
+                {candidate.source ? (
+                  <Badge tone="muted" className="max-w-[8rem] truncate">
+                    {candidate.source}
+                  </Badge>
+                ) : null}
+              </div>
+            </div>
           </div>
-          <div className="mt-1 flex flex-col gap-1 text-sm text-muted sm:flex-row sm:flex-wrap sm:gap-x-3 sm:gap-y-1">
-            {candidate.email ? <span className="break-all">{candidate.email}</span> : <span>No email found yet</span>}
+
+          <div className="mt-2 flex min-w-0 flex-col gap-1 text-sm text-muted">
+            {candidate.email ? (
+              <span className="break-all">{candidate.email}</span>
+            ) : (
+              <span>No email found yet</span>
+            )}
             {candidate.phone ? (
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex min-w-0 items-center gap-1 break-all">
                 <Phone className="h-3.5 w-3.5 shrink-0" />
                 {candidate.phone}
               </span>
             ) : null}
             {candidate.location ? (
-              <span className="inline-flex items-center gap-1">
+              <span className="inline-flex min-w-0 items-center gap-1 break-words">
                 <MapPin className="h-3.5 w-3.5 shrink-0" />
                 {candidate.location}
               </span>
             ) : null}
           </div>
+
           {candidate.resumeSummary ? (
             <AtsRichText
-              block={parseLegacySummaryToRich(candidate.resumeSummary) ?? { paragraphs: [candidate.resumeSummary] }}
-              className="mt-2 space-y-1.5 text-sm text-fg"
+              block={
+                parseLegacySummaryToRich(candidate.resumeSummary) ?? {
+                  paragraphs: [candidate.resumeSummary],
+                }
+              }
+              className="mt-2 min-w-0 space-y-1.5 overflow-hidden text-sm text-fg"
             />
           ) : null}
+
           {breakdownEntries.length > 0 ? (
-            <div className="mt-2 flex flex-wrap gap-1.5">
-              {breakdownEntries.map(([id, pts]) => (
-                <Badge key={id} tone="muted">
-                  {labelFor(id)} +{pts}
+            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
+              {breakdownEntries.slice(0, 6).map(([id, pts]) => (
+                <Badge key={id} tone="muted" className="max-w-full">
+                  <span className="truncate">
+                    {labelFor(id)} +{pts}
+                  </span>
                 </Badge>
               ))}
+              {breakdownEntries.length > 6 ? (
+                <Badge tone="muted">+{breakdownEntries.length - 6} more</Badge>
+              ) : null}
             </div>
           ) : null}
           <p className="mt-2 text-xs text-accent">View details →</p>
         </button>
-        <div className="flex w-full flex-row flex-wrap items-center gap-2 sm:w-auto sm:flex-col sm:items-end">
+
+        <div className="flex min-w-0 flex-col gap-2 border-t border-border pt-3 sm:flex-row sm:flex-wrap sm:items-center">
           {mailUrl ? (
             <a
-              className="inline-flex items-center gap-1 text-sm text-accent hover:underline"
+              className="inline-flex w-full items-center justify-center gap-1 rounded-md border border-border px-2.5 py-2 text-sm text-accent hover:bg-surface-2 sm:w-auto sm:justify-start"
               href={mailUrl}
               target="_blank"
               rel="noreferrer"
@@ -1258,7 +1300,7 @@ function CandidateRow({
             </a>
           ) : null}
           <select
-            className="min-w-0 flex-1 rounded-md border border-border bg-surface px-2 py-1.5 text-sm sm:flex-none"
+            className="min-w-0 w-full rounded-md border border-border bg-surface px-2 py-2 text-sm sm:ml-auto sm:w-auto sm:py-1.5"
             value={candidate.stage}
             onChange={(e) => onUpdate(candidate.id, { stage: e.target.value as CandidateStage })}
             onClick={(e) => e.stopPropagation()}
@@ -1356,26 +1398,34 @@ function CandidateDetailModal({
         </div>
 
         {reason ? (
-          <div>
+          <div className="min-w-0 overflow-hidden">
             <p className="text-xs font-medium text-muted">Why this ranking</p>
-            <AtsRichText block={reason} className="mt-1 space-y-2 text-sm leading-relaxed text-fg" />
+            <AtsRichText
+              block={reason}
+              className="mt-1 min-w-0 space-y-2 overflow-hidden text-sm leading-relaxed text-fg"
+            />
           </div>
         ) : null}
 
         {summaryBlock ? (
-          <div>
+          <div className="min-w-0 overflow-hidden">
             <p className="text-xs font-medium text-muted">Summary</p>
-            <AtsRichText block={summaryBlock} className="mt-1 space-y-2 text-sm leading-relaxed text-fg" />
+            <AtsRichText
+              block={summaryBlock}
+              className="mt-1 min-w-0 space-y-2 overflow-hidden text-sm leading-relaxed text-fg"
+            />
           </div>
         ) : null}
 
         {breakdownEntries.length > 0 ? (
-          <div>
+          <div className="min-w-0">
             <p className="text-xs font-medium text-muted">Score breakdown</p>
-            <div className="mt-2 flex flex-wrap gap-1.5">
+            <div className="mt-2 flex min-w-0 flex-wrap gap-1.5">
               {breakdownEntries.map(([id, pts]) => (
-                <Badge key={id} tone="muted">
-                  {labelFor(id)} +{pts}
+                <Badge key={id} tone="muted" className="max-w-full">
+                  <span className="truncate">
+                    {labelFor(id)} +{pts}
+                  </span>
                 </Badge>
               ))}
             </div>
