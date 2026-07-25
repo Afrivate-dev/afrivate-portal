@@ -384,7 +384,7 @@ await check('Gmail sync downloads attachment bytes for preview storage', async (
   })
 
   assert.ok(enriched.attachmentFiles?.length === 2, `expected 2 files, got ${enriched.attachmentFiles?.length}`)
-  assert.ok((enriched.attachmentFiles?.[0]?.bytes.byteLength ?? 0) > 0)
+  assert.ok((enriched.attachmentFiles?.[0]?.bytes?.byteLength ?? 0) > 0)
   assert.equal(enriched.attachmentFiles?.[0]?.kind, 'resume')
   assert.equal(enriched.attachmentFiles?.[1]?.kind, 'cover_letter')
   assert.ok(enriched.resumeFilesScanned?.includes('Ada_Resume.pdf'))
@@ -396,7 +396,7 @@ await check('Gmail sync downloads attachment bytes for preview storage', async (
     mimeType: f.mimeType,
     storagePath: `ats/22222222-2222-2222-2222-222222222222/msg_att-${f.filename}`,
     kind: f.kind,
-    size: f.bytes.byteLength,
+    size: f.bytes?.byteLength ?? f.size ?? 0,
   }))
   const candidateRow = jobCandidateToRow({
     ...sampleCandidate({ attachments: stored }),
@@ -490,7 +490,27 @@ await check('fetchGmailApplications skips non-apps and enriches real apps with f
   assert.equal(result.messages.length, 1)
   assert.equal(result.skippedNonApplications, 1)
   assert.ok(result.messages[0]?.attachmentFiles?.length === 1)
-  assert.ok((result.messages[0]?.attachmentFiles?.[0]?.bytes.byteLength ?? 0) > 0)
+  assert.ok((result.messages[0]?.attachmentFiles?.[0]?.bytes?.byteLength ?? 0) > 0)
+
+  // Upload-first path: persist before extract, storagePath set, bytes dropped
+  const order: string[] = []
+  const withPersist = await fetchGmailApplications({
+    accessToken: 'tok',
+    fetchImpl,
+    extractResumes: true,
+    extractFn: async () => {
+      order.push('extract')
+      return { text: 'React', error: undefined }
+    },
+    persistAttachment: async ({ bytes, filename }) => {
+      order.push('persist')
+      assert.ok(bytes.byteLength > 0)
+      return { path: `ats/u/${filename}`, size: bytes.byteLength }
+    },
+  })
+  assert.deepEqual(order, ['persist', 'extract'])
+  assert.equal(withPersist.messages[0]?.attachmentFiles?.[0]?.storagePath, 'ats/u/Ada_CV.pdf')
+  assert.equal(withPersist.messages[0]?.attachmentFiles?.[0]?.bytes, undefined)
   assert.equal(encodeGmailExternalId('t1', 'app1'), 'gmail:t1:app1')
 })
 
@@ -535,6 +555,11 @@ await check('Recruitment sync awaits attachment save and reports upload failures
   assert.match(src, /await updateJobCandidate/)
   assert.match(src, /refreshedAttachments/)
   assert.match(src, /uploadAtsAttachmentBytes/)
+  assert.match(src, /persistAttachment/)
+  assert.match(src, /BEFORE text extract/)
+  const gmail = readFileSync(resolve('src/lib/gmailAtsSync.ts'), 'utf8')
+  assert.match(gmail, /persistAttachment/)
+  assert.match(gmail, /BEFORE any extractor/)
 })
 
 await check('Candidate update persistence never strips attachments on identity miss', () => {

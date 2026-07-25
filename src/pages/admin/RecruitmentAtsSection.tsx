@@ -344,9 +344,29 @@ export function RecruitmentAtsSection() {
         item: (typeof items)[number],
       ): Promise<CandidateAttachment[]> => {
         const stored: CandidateAttachment[] = []
-        if (!supabase || !user?.id || !item.attachmentFiles?.length) return stored
+        if (!item.attachmentFiles?.length) return stored
         const key = item.gmailMessageId || item.externalId || `manual_${Date.now()}`
         for (const file of item.attachmentFiles) {
+          // Prefer paths already uploaded during Gmail sync (upload-before-extract)
+          if (file.storagePath && (file.size ?? 1) > 0) {
+            stored.push({
+              id: `att_${uid()}`,
+              filename: file.filename,
+              mimeType: file.mimeType,
+              storagePath: file.storagePath,
+              kind: file.kind,
+              size: file.size,
+            })
+            continue
+          }
+          if (!supabase || !user?.id) {
+            uploadFailures.push(`${file.filename}: sign in required to upload CV`)
+            continue
+          }
+          if (!file.bytes?.byteLength) {
+            uploadFailures.push(`${file.filename}: no file bytes (re-sync Gmail)`)
+            continue
+          }
           const uploaded = await uploadAtsAttachmentBytes(
             supabase,
             user.id,
@@ -575,9 +595,24 @@ export function RecruitmentAtsSection() {
         }
 
         setSyncLabel('Connecting to Gmail…')
+        const storageClient = supabase
+        const storageUserId = user?.id
         const { messages, skippedNonApplications, listed } = await fetchGmailApplications({
           accessToken: token,
           onProgress: ({ label }) => setSyncLabel(label),
+          // Upload raw Gmail bytes to Storage BEFORE text extract (prevents 0B CVs)
+          persistAttachment:
+            storageClient && storageUserId
+              ? async ({ messageId, filename, mimeType, bytes }) =>
+                  uploadAtsAttachmentBytes(
+                    storageClient,
+                    storageUserId,
+                    messageId,
+                    filename,
+                    bytes,
+                    mimeType,
+                  )
+              : undefined,
         })
         setSyncLabel(`Sorting ${messages.length} applications by role & ranking…`)
         const { added, skipped, byRole, failed, refreshedAttachments, uploadFailures } =

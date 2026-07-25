@@ -58,11 +58,14 @@ export function AtsAttachmentPreview({
         attachment.filename,
       )
       if (cancelled) {
-        resolved?.revoke?.()
+        if (resolved && 'revoke' in resolved) resolved.revoke?.()
         return
       }
-      if (!resolved) {
-        setError('Could not load this file. Sync again or run the ATS storage SQL migration.')
+      if (!resolved?.url) {
+        setError(
+          (resolved && 'error' in resolved && resolved.error) ||
+            'Could not load this file. Sync again or run the ATS storage SQL migration.',
+        )
         setLoading(false)
         return
       }

@@ -144,7 +144,7 @@ test.describe('Recruitment ATS sync pipeline (mocked Gmail)', () => {
         mimeType: f.mimeType,
         storagePath: 'ats/33333333-3333-3333-3333-333333333333/' + f.filename,
         kind: f.kind,
-        size: f.bytes.byteLength,
+        size: f.bytes?.byteLength ?? f.size ?? 0,
       }))
       const row = hr.jobCandidateToRow({
         id: 'c1',

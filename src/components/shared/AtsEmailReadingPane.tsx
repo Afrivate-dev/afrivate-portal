@@ -73,10 +73,10 @@ function AttachmentChip({
         attachment.filename,
       )
       if (cancelled) {
-        resolved?.revoke?.()
+        if (resolved && 'revoke' in resolved) resolved.revoke?.()
         return
       }
-      if (!resolved) {
+      if (!resolved?.url) {
         setLoadError(true)
         return
       }
@@ -95,10 +95,13 @@ function AttachmentChip({
       : attachment.kind === 'resume'
         ? 'Resume / CV'
         : 'Attachment'
-  const canPreview = Boolean(attachment.storagePath)
+  const canPreview = Boolean(attachment.storagePath?.trim())
 
   const handleDownload = async () => {
-    if (!supabase || !attachment.storagePath) return
+    if (!supabase || !attachment.storagePath) {
+      notifyError('File was not saved. Sync Gmail again.')
+      return
+    }
     setDownloading(true)
     const result = await downloadPortalFile(supabase, attachment.storagePath, attachment.filename)
     setDownloading(false)
@@ -116,7 +119,7 @@ function AttachmentChip({
             </p>
             <p className="text-[11px] text-[#5f6368]">
               {kind}
-              {attachment.size ? ` · ${formatFileSize(attachment.size)}` : ''}
+              {attachment.size && attachment.size > 0 ? ` · ${formatFileSize(attachment.size)}` : ''}
             </p>
           </div>
         </div>
