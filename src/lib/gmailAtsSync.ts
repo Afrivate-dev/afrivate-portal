@@ -11,7 +11,7 @@ import {
 } from './atsResumeExtract'
 
 const CLIENT_ID = import.meta.env?.VITE_GOOGLE_CLIENT_ID?.trim()
-const HR_MAILBOX = 'afrivatehr@gmail.com'
+export const HR_MAILBOX = 'afrivatehr@gmail.com'
 const GMAIL_SCOPE = 'https://www.googleapis.com/auth/gmail.readonly'
 /** How far back Sync searches (keep in sync with UI copy). */
 export const GMAIL_ATS_LOOKBACK_DAYS = 90
@@ -35,29 +35,61 @@ export interface GmailApplicationMessage {
   resumeExtractErrors?: string[]
 }
 
-/** Open the original Gmail thread (or message) for the HR mailbox. */
+/** Parse `gmail:messageId` or `gmail:threadId:messageId`. */
+export function parseGmailExternalId(externalId?: string | null): {
+  threadId?: string
+  messageId?: string
+} {
+  if (!externalId || !externalId.startsWith('gmail:')) return {}
+  const rest = externalId.slice('gmail:'.length).trim()
+  if (!rest) return {}
+  const parts = rest.split(':').filter(Boolean)
+  if (parts.length >= 2) return { threadId: parts[0], messageId: parts[1] }
+  return { messageId: parts[0] }
+}
+
+export function encodeGmailExternalId(threadId: string, messageId: string): string {
+  return `gmail:${threadId}:${messageId}`
+}
+
+/** Open the original Gmail thread (or message) for the HR mailbox — never mailto. */
 export function gmailThreadUrl(
   threadId: string,
   mailbox = HR_MAILBOX,
   messageId?: string,
 ): string {
   const auth = encodeURIComponent(mailbox)
-  // Prefer thread view; fall back to message id when thread is missing
   const target = threadId || messageId
-  if (!target) return `https://mail.google.com/mail/?authuser=${auth}#inbox`
-  return `https://mail.google.com/mail/?authuser=${auth}#all/${target}`
+  if (!target) return `https://mail.google.com/mail/u/${auth}/#inbox`
+  // `#all/<id>` opens the thread/message in Gmail for the signed-in HR mailbox
+  return `https://mail.google.com/mail/?authuser=${auth}#all/${encodeURIComponent(target)}`
 }
 
+/**
+ * Deep-link to the candidate's application in Gmail (HR inbox).
+ * Prefers thread/message ids; falls back to a Gmail search — never opens mailto compose.
+ */
 export function candidateGmailUrl(candidate: {
   gmailThreadId?: string
   gmailMessageId?: string
+  externalId?: string
   email?: string
+  name?: string
 }): string | null {
-  if (candidate.gmailThreadId || candidate.gmailMessageId) {
-    return gmailThreadUrl(candidate.gmailThreadId || '', HR_MAILBOX, candidate.gmailMessageId)
+  const fromExternal = parseGmailExternalId(candidate.externalId)
+  const threadId = candidate.gmailThreadId || fromExternal.threadId || ''
+  const messageId = candidate.gmailMessageId || fromExternal.messageId || ''
+  if (threadId || messageId) {
+    return gmailThreadUrl(threadId, HR_MAILBOX, messageId)
   }
-  if (candidate.email) return `mailto:${candidate.email}`
-  return null
+  const auth = encodeURIComponent(HR_MAILBOX)
+  if (candidate.email) {
+    return `https://mail.google.com/mail/?authuser=${auth}#search/${encodeURIComponent(candidate.email)}`
+  }
+  if (candidate.name && candidate.name !== 'Unknown candidate') {
+    return `https://mail.google.com/mail/?authuser=${auth}#search/${encodeURIComponent(candidate.name)}`
+  }
+  return `https://mail.google.com/mail/?authuser=${auth}#inbox`
 }
 
 /** Default: entire inbox (excl. spam/trash) in the lookback window — attachments scanned per email. */
@@ -113,13 +145,13 @@ function describeOAuthError(error?: string): string {
     return 'Google sign-in was cancelled. Try again and allow Gmail access for afrivatehr@gmail.com.'
   }
   if (code.includes('idpiframe_initialization_failed') || code.includes('origin')) {
-    return 'This site origin is not allowed for the Google Client ID. Add it under Authorized JavaScript origins in Google Cloud.'
+    return 'This site origin is not allowed for the Google Client ID. Add your Vercel URL under Authorized JavaScript origins in Google Cloud Console.'
   }
   if (code.includes('invalid_client') || code.includes('unauthorized_client')) {
-    return 'Invalid Google Client ID. Check VITE_GOOGLE_CLIENT_ID (it should end with .apps.googleusercontent.com once).'
+    return 'Invalid Google Client ID. Check VITE_GOOGLE_CLIENT_ID on Vercel (suffix .apps.googleusercontent.com only once), then redeploy.'
   }
   if (code.includes('illegal') || code.includes('invocation')) {
-    return 'Google sign-in must start from the Sync button click. Wait a second for Google to load, then click Sync again.'
+    return 'Google blocked the sign-in popup. Allow popups for this site, wait for Sync to finish loading, then click Sync again.'
   }
   return error || 'Gmail authorization failed'
 }
@@ -129,46 +161,21 @@ type TokenClient = {
 }
 
 let gsiLoadPromise: Promise<void> | null = null
-let cachedTokenClient: TokenClient | null = null
-let tokenRequestHandler:
-  | ((resp: { access_token?: string; error?: string }) => void)
-  | null = null
-
-function ensureTokenClient(): TokenClient {
-  if (cachedTokenClient) return cachedTokenClient
-  const oauth2 = window.google?.accounts?.oauth2
-  if (!oauth2 || !CLIENT_ID) {
-    throw new Error('Google Identity Services did not load. Refresh and try again.')
-  }
-  cachedTokenClient = oauth2.initTokenClient({
-    client_id: CLIENT_ID,
-    scope: GMAIL_SCOPE,
-    hint: HR_MAILBOX,
-    callback: (resp) => {
-      tokenRequestHandler?.(resp)
-    },
-  })
-  return cachedTokenClient
-}
 
 /** Warm up GSI on ATS page load so Sync can open the Google popup from the click gesture. */
 export function preloadGmailAts(): Promise<void> {
   if (!CLIENT_ID) return Promise.resolve()
   if (!gsiLoadPromise) {
-    gsiLoadPromise = loadGsi()
-      .then(() => {
-        ensureTokenClient()
-      })
-      .catch((err) => {
-        gsiLoadPromise = null
-        throw err
-      })
+    gsiLoadPromise = loadGsi().catch((err) => {
+      gsiLoadPromise = null
+      throw err
+    })
   }
   return gsiLoadPromise
 }
 
 export function isGmailAtsReady(): boolean {
-  return Boolean(window.google?.accounts?.oauth2 && cachedTokenClient)
+  return Boolean(window.google?.accounts?.oauth2)
 }
 
 /**
@@ -179,7 +186,7 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
   if (!CLIENT_ID) {
     return Promise.reject(
       new Error(
-        'Google Client ID is not configured. Add VITE_GOOGLE_CLIENT_ID and enable Gmail API for afrivatehr@gmail.com.',
+        'Google Client ID is not configured. Add VITE_GOOGLE_CLIENT_ID on Vercel and enable Gmail API for afrivatehr@gmail.com.',
       ),
     )
   }
@@ -190,31 +197,75 @@ export function requestGmailAccessTokenFromGesture(): Promise<string> {
       ),
     )
   }
-  if (!window.google?.accounts?.oauth2) {
+  const oauth2 = window.google?.accounts?.oauth2
+  if (!oauth2) {
     return Promise.reject(
       new Error('Google sign-in is still loading. Wait a moment, then click Sync again.'),
     )
   }
 
   return new Promise((resolve, reject) => {
+    let settled = false
     let attemptedConsent = false
-    const client = ensureTokenClient()
-    tokenRequestHandler = (resp) => {
-      if (resp.access_token) {
-        tokenRequestHandler = null
-        resolve(resp.access_token)
-        return
-      }
-      if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
-        attemptedConsent = true
-        client.requestAccessToken({ prompt: 'consent' })
-        return
-      }
-      tokenRequestHandler = null
-      reject(new Error(describeOAuthError(resp.error)))
+
+    const finishOk = (token: string) => {
+      if (settled) return
+      settled = true
+      resolve(token)
     }
-    // Must run synchronously inside the user-gesture call stack
-    client.requestAccessToken({ prompt: 'consent' })
+    const finishErr = (err: Error) => {
+      if (settled) return
+      settled = true
+      reject(err)
+    }
+
+    let client: TokenClient
+    try {
+      // Create a fresh client inside the click stack (avoids stale/unbound requestAccessToken).
+      client = oauth2.initTokenClient({
+        client_id: CLIENT_ID,
+        scope: GMAIL_SCOPE,
+        hint: HR_MAILBOX,
+        callback: (resp: { access_token?: string; error?: string }) => {
+          if (resp.access_token) {
+            finishOk(resp.access_token)
+            return
+          }
+          if (!attemptedConsent && resp.error && /interaction|consent|popup|login/i.test(resp.error)) {
+            attemptedConsent = true
+            try {
+              client.requestAccessToken.bind(client)({ prompt: 'consent' })
+            } catch (e) {
+              finishErr(
+                e instanceof Error
+                  ? new Error(describeOAuthError(e.message))
+                  : new Error(describeOAuthError(resp.error)),
+              )
+            }
+            return
+          }
+          finishErr(new Error(describeOAuthError(resp.error)))
+        },
+        error_callback: (err: { type?: string; message?: string }) => {
+          finishErr(new Error(describeOAuthError(err?.message || err?.type)))
+        },
+      })
+    } catch (e) {
+      finishErr(
+        e instanceof Error
+          ? new Error(describeOAuthError(e.message))
+          : new Error('Could not start Google sign-in. Check Authorized JavaScript origins for this site.'),
+      )
+      return
+    }
+
+    try {
+      // Bind so Google's internal call does not throw Illegal invocation on Window/TokenClient.
+      client.requestAccessToken.bind(client)({ prompt: 'consent' })
+    } catch (e) {
+      const msg = e instanceof Error ? e.message : String(e)
+      finishErr(new Error(describeOAuthError(msg)))
+    }
   })
 }
 
@@ -569,5 +620,3 @@ export async function fetchGmailApplications(options?: {
   options?.onProgress?.({ done: ids.length, total: ids.length, label: 'Scoring applications…' })
   return out
 }
-
-export { HR_MAILBOX }

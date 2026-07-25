@@ -29,6 +29,7 @@ declare global {
             scope: string
             hint?: string
             callback: (resp: { access_token?: string; error?: string }) => void
+            error_callback?: (err: { type?: string; message?: string }) => void
           }) => { requestAccessToken: (opts?: { prompt?: string }) => void }
         }
       }

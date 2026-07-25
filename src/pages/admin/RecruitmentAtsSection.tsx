@@ -28,6 +28,7 @@ import { useHr } from '@/context/HrContext'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import {
   candidateGmailUrl,
+  encodeGmailExternalId,
   fetchGmailApplications,
   GMAIL_ATS_LOOKBACK_DAYS,
   HR_MAILBOX,
@@ -447,7 +448,7 @@ export function RecruitmentAtsSection() {
             return {
               text: `${m.bodyText}${resumeNote}`,
               source: detectSourceFromEmail(m.from, m.subject),
-              externalId: `gmail:${m.id}`,
+              externalId: encodeGmailExternalId(m.threadId, m.id),
               gmailThreadId: m.threadId,
               gmailMessageId: m.id,
               appliedAt: Number.isFinite(parsed) ? new Date(parsed).toISOString() : undefined,
@@ -493,12 +494,10 @@ export function RecruitmentAtsSection() {
           : isPlausiblePersonName(c.name)
             ? c.name
             : 'Unknown candidate'
+      // Only score/identity fields — never rewrite Gmail ids (avoids missing-column DB errors).
       updateJobCandidate(c.id, {
         name: nextName,
         email: result.email ?? c.email,
-        phone: result.phone ?? c.phone,
-        linkedinUrl: result.linkedinUrl ?? c.linkedinUrl,
-        location: result.location ?? c.location,
         score: result.score,
         recommendation: result.recommendation,
         scoreBreakdown: result.breakdown as Record<string, number>,
@@ -530,6 +529,12 @@ export function RecruitmentAtsSection() {
           <p className="mt-1 max-w-2xl text-sm text-muted">
             Review applications by role, see who ranks highest, and open the original email in Gmail.
             Sync pulls from {HR_MAILBOX} and sorts each person into Front-End, Back-End, or Graphic Designer.
+          </p>
+          <p className="mt-2 max-w-2xl rounded-md border border-border bg-surface-2 px-3 py-2 text-xs text-muted">
+            If Sync or Refresh mentions a missing <code className="text-fg">gmail_message_id</code> column,
+            run <code className="text-fg">supabase/migrations/20260724_ats_candidate_identity.sql</code> in the
+            Supabase SQL Editor, then refresh this page. Also confirm your live site URL is listed under
+            Google Cloud → Credentials → Authorized JavaScript origins (for the Sync popup).
           </p>
         </div>
         <Badge tone="brand">{selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}</Badge>
@@ -1113,15 +1118,6 @@ function CandidateDetailModal({
             >
               <ExternalLink className="h-4 w-4" />
               Open in Gmail
-            </Button>
-          ) : candidate.email ? (
-            <Button
-              onClick={() => {
-                window.open(`mailto:${candidate.email}`, '_blank', 'noopener,noreferrer')
-              }}
-            >
-              <Mail className="h-4 w-4" />
-              Email candidate
             </Button>
           ) : null}
         </>

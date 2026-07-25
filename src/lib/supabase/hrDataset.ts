@@ -197,22 +197,48 @@ export function rowToJobCandidate(r: Record<string, unknown>): JobCandidate {
       ? (String(r.recommendation) as JobCandidate['recommendation'])
       : undefined,
     externalId: r.external_id ? String(r.external_id) : undefined,
-    gmailThreadId: r.gmail_thread_id ? String(r.gmail_thread_id) : undefined,
-    gmailMessageId: r.gmail_message_id ? String(r.gmail_message_id) : undefined,
+    gmailThreadId:
+      (r.gmail_thread_id ? String(r.gmail_thread_id) : undefined) ||
+      parseGmailExternalId(r.external_id ? String(r.external_id) : undefined).threadId,
+    gmailMessageId:
+      (r.gmail_message_id ? String(r.gmail_message_id) : undefined) ||
+      parseGmailExternalId(r.external_id ? String(r.external_id) : undefined).messageId,
     appliedAt: r.applied_at ? String(r.applied_at) : undefined,
     updatedAt: String(r.updated_at),
   }
 }
 
-export function jobCandidateToRow(c: JobCandidate) {
-  return {
+/** Parse `gmail:messageId` or `gmail:threadId:messageId` from external_id. */
+export function parseGmailExternalId(externalId?: string | null): {
+  threadId?: string
+  messageId?: string
+} {
+  if (!externalId || !externalId.startsWith('gmail:')) return {}
+  const rest = externalId.slice('gmail:'.length).trim()
+  if (!rest) return {}
+  const parts = rest.split(':').filter(Boolean)
+  if (parts.length >= 2) {
+    return { threadId: parts[0], messageId: parts[1] }
+  }
+  return { messageId: parts[0] }
+}
+
+export function encodeGmailExternalId(threadId: string, messageId: string): string {
+  return `gmail:${threadId}:${messageId}`
+}
+
+/**
+ * Core candidate columns that exist on older schemas.
+ * Identity/Gmail columns are optional — omitted when `includeIdentity` is false
+ * so refresh/sync still works before migrations are applied.
+ */
+export function jobCandidateToRow(c: JobCandidate, opts?: { includeIdentity?: boolean }) {
+  const includeIdentity = opts?.includeIdentity !== false
+  const row: Record<string, unknown> = {
     id: c.id,
     requisition_id: c.requisitionId,
     name: c.name,
     email: c.email ?? null,
-    phone: c.phone ?? null,
-    linkedin_url: c.linkedinUrl ?? null,
-    location: c.location ?? null,
     stage: c.stage,
     notes: c.notes ?? null,
     score: c.score ?? null,
@@ -224,11 +250,61 @@ export function jobCandidateToRow(c: JobCandidate) {
     score_breakdown: c.scoreBreakdown ?? {},
     recommendation: c.recommendation ?? null,
     external_id: c.externalId ?? null,
-    gmail_thread_id: c.gmailThreadId ?? null,
-    gmail_message_id: c.gmailMessageId ?? null,
     applied_at: c.appliedAt ?? null,
     updated_at: c.updatedAt,
   }
+  if (includeIdentity) {
+    row.phone = c.phone ?? null
+    row.linkedin_url = c.linkedinUrl ?? null
+    row.location = c.location ?? null
+    row.gmail_thread_id = c.gmailThreadId ?? null
+    row.gmail_message_id = c.gmailMessageId ?? null
+  }
+  return row
+}
+
+/** Only the fields present in a patch — avoids writing missing DB columns on rescore. */
+export function jobCandidatePatchToRow(
+  patch: Partial<JobCandidate> & { updatedAt?: string },
+  opts?: { includeIdentity?: boolean },
+): Record<string, unknown> {
+  const includeIdentity = opts?.includeIdentity !== false
+  const row: Record<string, unknown> = {}
+  if (patch.name !== undefined) row.name = patch.name
+  if (patch.email !== undefined) row.email = patch.email ?? null
+  if (patch.stage !== undefined) row.stage = patch.stage
+  if (patch.notes !== undefined) row.notes = patch.notes ?? null
+  if (patch.score !== undefined) row.score = patch.score ?? null
+  if (patch.source !== undefined) row.source = patch.source ?? null
+  if (patch.githubUrl !== undefined) row.github_url = patch.githubUrl ?? null
+  if (patch.portfolioUrl !== undefined) row.portfolio_url = patch.portfolioUrl ?? null
+  if (patch.coverLetter !== undefined) row.cover_letter = patch.coverLetter ?? false
+  if (patch.resumeSummary !== undefined) row.resume_summary = patch.resumeSummary ?? null
+  if (patch.scoreBreakdown !== undefined) row.score_breakdown = patch.scoreBreakdown ?? {}
+  if (patch.recommendation !== undefined) row.recommendation = patch.recommendation ?? null
+  if (patch.externalId !== undefined) row.external_id = patch.externalId ?? null
+  if (patch.appliedAt !== undefined) row.applied_at = patch.appliedAt ?? null
+  if (patch.updatedAt !== undefined) row.updated_at = patch.updatedAt
+  if (includeIdentity) {
+    if (patch.phone !== undefined) row.phone = patch.phone ?? null
+    if (patch.linkedinUrl !== undefined) row.linkedin_url = patch.linkedinUrl ?? null
+    if (patch.location !== undefined) row.location = patch.location ?? null
+    if (patch.gmailThreadId !== undefined) row.gmail_thread_id = patch.gmailThreadId ?? null
+    if (patch.gmailMessageId !== undefined) row.gmail_message_id = patch.gmailMessageId ?? null
+  }
+  return row
+}
+
+export function isMissingCandidateColumnError(error: { message?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? '').toLowerCase()
+  return (
+    msg.includes('schema cache') ||
+    msg.includes('could not find') ||
+    msg.includes('gmail_message_id') ||
+    msg.includes('gmail_thread_id') ||
+    msg.includes('linkedin_url') ||
+    (msg.includes('column') && (msg.includes('phone') || msg.includes('location')))
+  )
 }
 
 export function rowToExitInterview(r: Record<string, unknown>): ExitInterview {

@@ -11,7 +11,7 @@ import {
   fetchFeedbackTemplates,
   insertFeedbackTemplate,
 } from '@/lib/feedbackConfig'
-import { fetchHrDataset, jobCandidateToRow } from '@/lib/supabase/hrDataset'
+import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow } from '@/lib/supabase/hrDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { supabase } from '@/lib/supabase'
@@ -38,6 +38,56 @@ import type {
 function reportHrError(action: string, error: { message: string }): void {
   console.warn(`[hr] ${action}`, error.message)
   notifyError(friendlyErrorMessage(action, error.message))
+}
+
+/** After first schema miss, skip optional identity columns so ATS keeps working pre-migration. */
+let omitCandidateIdentityColumns = false
+
+async function persistJobCandidateInsert(
+  client: NonNullable<typeof supabase>,
+  row: JobCandidate,
+): Promise<{ error: { message: string } | null }> {
+  const first = await client.from('portal_job_candidates').insert(
+    jobCandidateToRow(row, { includeIdentity: !omitCandidateIdentityColumns }),
+  )
+  if (!first.error) return { error: null }
+  if (isMissingCandidateColumnError(first.error)) {
+    omitCandidateIdentityColumns = true
+    const retry = await client
+      .from('portal_job_candidates')
+      .insert(jobCandidateToRow(row, { includeIdentity: false }))
+    if (!retry.error) {
+      console.warn(
+        '[hr] portal_job_candidates is missing identity columns. Run supabase/migrations/20260724_ats_candidate_identity.sql in the Supabase SQL Editor.',
+      )
+      return { error: null }
+    }
+    return { error: retry.error }
+  }
+  return { error: first.error }
+}
+
+async function persistJobCandidateUpdate(
+  client: NonNullable<typeof supabase>,
+  id: string,
+  patch: Partial<JobCandidate> & { updatedAt: string },
+): Promise<{ error: { message: string } | null }> {
+  // Patch-only update: never send untouched optional columns (avoids gmail_message_id schema errors).
+  const first = await client
+    .from('portal_job_candidates')
+    .update(jobCandidatePatchToRow(patch, { includeIdentity: !omitCandidateIdentityColumns }))
+    .eq('id', id)
+  if (!first.error) return { error: null }
+  if (isMissingCandidateColumnError(first.error)) {
+    omitCandidateIdentityColumns = true
+    const retry = await client
+      .from('portal_job_candidates')
+      .update(jobCandidatePatchToRow(patch, { includeIdentity: false }))
+      .eq('id', id)
+    if (!retry.error) return { error: null }
+    return { error: retry.error }
+  }
+  return { error: first.error }
 }
 
 const DEFAULT_MILESTONES = (userId: string): OnboardingMilestone[] => [
@@ -758,7 +808,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       }
       setJobCandidates((prev) => [row, ...prev])
       void (async () => {
-        const { error } = await client.from('portal_job_candidates').insert(jobCandidateToRow(row))
+        const { error } = await persistJobCandidateInsert(client, row)
         if (error) reportHrError('add candidate', error)
         await reloadHr()
       })()
@@ -773,18 +823,12 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         prev.map((c) => (c.id === id ? { ...c, ...patch, updatedAt } : c)),
       )
       void (async () => {
-        const cur = jobCandidates.find((c) => c.id === id)
-        if (!cur) return
-        const next = { ...cur, ...patch, updatedAt }
-        const { error } = await client
-          .from('portal_job_candidates')
-          .update(jobCandidateToRow(next))
-          .eq('id', id)
+        const { error } = await persistJobCandidateUpdate(client, id, { ...patch, updatedAt })
         if (error) reportHrError('update candidate', error)
         await reloadHr()
       })()
     },
-    [client, jobCandidates, reloadHr],
+    [client, reloadHr],
   )
 
   const addExitInterview = useCallback(

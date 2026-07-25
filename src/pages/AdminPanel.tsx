@@ -1783,6 +1783,7 @@ export function AdminPanelPage() {
         open={!!annDraft}
         onClose={() => setAnnDraft(null)}
         title={annDraft?.id ? 'Edit announcement' : 'Announcement'}
+        closeOnBackdrop={false}
         footer={
           <>
             <Button variant="ghost" onClick={() => setAnnDraft(null)}>

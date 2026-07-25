@@ -88,9 +88,13 @@ await check('Candidate Gmail / mailto links', () => {
   const thread = candidateGmailUrl({ gmailThreadId: 'thread123', gmailMessageId: 'msg456' })
   assert.ok(thread?.includes('mail.google.com'))
   assert.ok(thread?.includes('thread123') || thread?.includes('msg456'))
-  const mailto = candidateGmailUrl({ email: 'ada@example.com' })
-  assert.equal(mailto, 'mailto:ada@example.com')
-  assert.equal(candidateGmailUrl({}), null)
+  assert.ok(!thread?.startsWith('mailto:'))
+  const fromExternal = candidateGmailUrl({ externalId: 'gmail:thr9:msg9' })
+  assert.ok(fromExternal?.includes('thr9') || fromExternal?.includes('msg9'))
+  const search = candidateGmailUrl({ email: 'ada@example.com' })
+  assert.ok(search?.includes('mail.google.com'))
+  assert.ok(search?.includes('search'))
+  assert.ok(!search?.startsWith('mailto:'))
 })
 
 await check('Parse multipart Gmail message + attachment names', () => {
@@ -200,6 +204,20 @@ JavaScript`
   const junk = screenApplicationText(junkSubject, 'frontend')
   assert.notEqual(junk.name.toLowerCase(), 'javascript')
   assert.notEqual(junk.name.toLowerCase(), 'yours sincerely')
+})
+
+await check('Extracts full name from application body', () => {
+  const body = `Subject: APPLICATION FOR FRONT-END DEVELOPER
+From: noreply@board.com
+
+Dear Afrivate hiring team,
+My name is Funke Balogun and I am applying for the Front-End Developer role.
+I build React and TypeScript apps.
+
+Kind regards,
+Funke Balogun`
+  const result = screenApplicationText(body, 'frontend')
+  assert.equal(result.name, 'Funke Balogun')
 })
 
 await check('Weak application ranks weak/reject', () => {
