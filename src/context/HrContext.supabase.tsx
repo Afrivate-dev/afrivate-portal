@@ -40,30 +40,58 @@ function reportHrError(action: string, error: { message: string }): void {
   notifyError(friendlyErrorMessage(action, error.message))
 }
 
-/** After first schema miss, skip optional columns so ATS keeps working pre-migration. */
+/** After first schema miss, skip optional identity columns so ATS keeps working pre-migration.
+ *  Attachments are NEVER silently dropped when the row has files — that caused "File not saved". */
 let omitCandidateIdentityColumns = false
 let omitCandidateAttachmentsColumn = false
+
+const ATTACHMENTS_MIGRATION_HINT =
+  'Database is missing portal_job_candidates.attachments. Run supabase/migrations/20260726_ats_attachments_admin_fix.sql in the Supabase SQL Editor, then Sync again.'
+
+function isUniqueExternalIdError(error: { message?: string } | null | undefined): boolean {
+  const msg = (error?.message ?? '').toLowerCase()
+  return (
+    (msg.includes('external_id') || msg.includes('portal_job_candidates_external_id')) &&
+    (msg.includes('duplicate') || msg.includes('unique') || msg.includes('conflict'))
+  )
+}
 
 async function persistJobCandidateInsert(
   client: NonNullable<typeof supabase>,
   row: JobCandidate,
 ): Promise<{ error: { message: string } | null }> {
+  const hasAttachments = (row.attachments?.length ?? 0) > 0
   const build = () =>
     jobCandidateToRow(row, {
       includeIdentity: !omitCandidateIdentityColumns,
-      includeAttachments: !omitCandidateAttachmentsColumn,
+      includeAttachments: !omitCandidateAttachmentsColumn || hasAttachments,
     })
 
   const first = await client.from('portal_job_candidates').insert(build())
   if (!first.error) return { error: null }
 
+  // Already imported under this Gmail id — update in place instead of failing the batch
+  if (isUniqueExternalIdError(first.error) && row.externalId) {
+    const { data: existing, error: findErr } = await client
+      .from('portal_job_candidates')
+      .select('id')
+      .eq('external_id', row.externalId)
+      .maybeSingle()
+    if (!findErr && existing?.id) {
+      return persistJobCandidateUpdate(client, String(existing.id), {
+        ...row,
+        updatedAt: row.updatedAt || new Date().toISOString(),
+      })
+    }
+  }
+
   if (isMissingCandidateColumnError(first.error)) {
     const msg = (first.error.message ?? '').toLowerCase()
     if (msg.includes('attachments')) {
+      if (hasAttachments) {
+        return { error: { message: ATTACHMENTS_MIGRATION_HINT } }
+      }
       omitCandidateAttachmentsColumn = true
-      console.warn(
-        '[hr] portal_job_candidates.attachments missing. Run supabase/migrations/20260725_ats_candidate_attachments.sql',
-      )
     } else {
       omitCandidateIdentityColumns = true
       console.warn(
@@ -71,21 +99,37 @@ async function persistJobCandidateInsert(
       )
     }
     const stripped = stripOptionalCandidateColumns(build(), {
-      stripAttachments: omitCandidateAttachmentsColumn,
+      stripAttachments: omitCandidateAttachmentsColumn && !hasAttachments,
     })
     const retry = await client.from('portal_job_candidates').insert(stripped)
     if (!retry.error) return { error: null }
-    // Last resort: strip both identity + attachments
+    if (isUniqueExternalIdError(retry.error) && row.externalId) {
+      const { data: existing } = await client
+        .from('portal_job_candidates')
+        .select('id')
+        .eq('external_id', row.externalId)
+        .maybeSingle()
+      if (existing?.id) {
+        return persistJobCandidateUpdate(client, String(existing.id), {
+          ...row,
+          updatedAt: row.updatedAt || new Date().toISOString(),
+        })
+      }
+    }
+    // Last resort without attachments only when there were none to save
     omitCandidateIdentityColumns = true
     const last = await client
       .from('portal_job_candidates')
       .insert(
         stripOptionalCandidateColumns(
-          jobCandidateToRow(row, { includeIdentity: false, includeAttachments: false }),
-          { stripAttachments: true },
+          jobCandidateToRow(row, { includeIdentity: false, includeAttachments: hasAttachments }),
+          { stripAttachments: !hasAttachments },
         ),
       )
     if (!last.error) return { error: null }
+    if (hasAttachments && (last.error.message ?? '').toLowerCase().includes('attachments')) {
+      return { error: { message: ATTACHMENTS_MIGRATION_HINT } }
+    }
     return { error: last.error }
   }
   return { error: first.error }
@@ -96,10 +140,11 @@ async function persistJobCandidateUpdate(
   id: string,
   patch: Partial<JobCandidate> & { updatedAt: string },
 ): Promise<{ error: { message: string } | null }> {
+  const hasAttachments = patch.attachments !== undefined && (patch.attachments?.length ?? 0) > 0
   const build = () =>
     jobCandidatePatchToRow(patch, {
       includeIdentity: !omitCandidateIdentityColumns,
-      includeAttachments: !omitCandidateAttachmentsColumn,
+      includeAttachments: !omitCandidateAttachmentsColumn || hasAttachments,
     })
 
   const first = await client.from('portal_job_candidates').update(build()).eq('id', id)
@@ -108,6 +153,9 @@ async function persistJobCandidateUpdate(
   if (isMissingCandidateColumnError(first.error)) {
     const msg = (first.error.message ?? '').toLowerCase()
     if (msg.includes('attachments')) {
+      if (hasAttachments) {
+        return { error: { message: ATTACHMENTS_MIGRATION_HINT } }
+      }
       omitCandidateAttachmentsColumn = true
     } else {
       omitCandidateIdentityColumns = true
@@ -116,21 +164,11 @@ async function persistJobCandidateUpdate(
       .from('portal_job_candidates')
       .update(
         stripOptionalCandidateColumns(build(), {
-          stripAttachments: omitCandidateAttachmentsColumn,
+          stripAttachments: omitCandidateAttachmentsColumn && !hasAttachments,
         }),
       )
       .eq('id', id)
-    if (!retry.error) {
-      if (omitCandidateAttachmentsColumn && patch.attachments !== undefined) {
-        return {
-          error: {
-            message:
-              'Attachments column missing in database. Run supabase/migrations/20260725_ats_candidate_attachments.sql',
-          },
-        }
-      }
-      return { error: null }
-    }
+    if (!retry.error) return { error: null }
     return { error: retry.error }
   }
   return { error: first.error }
@@ -905,21 +943,35 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           let { error } = await client.from('portal_job_candidates').insert(payload)
           if (error && isMissingCandidateColumnError(error)) {
             const msg = (error.message ?? '').toLowerCase()
+            const chunkHasFiles = chunk.some((r) => (r.attachments?.length ?? 0) > 0)
+            if (msg.includes('attachments') && chunkHasFiles) {
+              reportHrError('import candidates', {
+                message:
+                  'Database is missing portal_job_candidates.attachments. Run supabase/migrations/20260726_ats_attachments_admin_fix.sql',
+              })
+              failed += chunk.length
+              setJobCandidates((prev) => prev.filter((c) => !chunk.some((r) => r.id === c.id)))
+              continue
+            }
             if (msg.includes('attachments')) omitCandidateAttachmentsColumn = true
             else omitCandidateIdentityColumns = true
             const retryPayload = chunk.map((row) =>
               stripOptionalCandidateColumns(
                 jobCandidateToRow(row, {
                   includeIdentity: !omitCandidateIdentityColumns,
-                  includeAttachments: !omitCandidateAttachmentsColumn,
+                  includeAttachments: !omitCandidateAttachmentsColumn || (row.attachments?.length ?? 0) > 0,
                 }),
-                { stripAttachments: omitCandidateAttachmentsColumn },
+                {
+                  stripAttachments:
+                    omitCandidateAttachmentsColumn && (row.attachments?.length ?? 0) === 0,
+                },
               ),
             )
             ;({ error } = await client.from('portal_job_candidates').insert(retryPayload))
           }
           if (error) {
             // Fall back to one-by-one so one bad row does not drop the whole chunk
+            // (also upserts on duplicate external_id)
             for (const row of chunk) {
               const one = await persistJobCandidateInsert(client, row)
               if (one.error) {

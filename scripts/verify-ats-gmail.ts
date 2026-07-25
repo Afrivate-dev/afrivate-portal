@@ -130,6 +130,28 @@ await check('Application gate keeps real apps and drops newsletters', async () =
     }),
     true,
   )
+  // Gmail imports must never be treated as junk after CV text is stripped from notes
+  assert.equal(
+    candidateIsLikelyJobApplication({
+      notes: `Subject: APPLICATION FOR FRONT-END\nFrom: Ken <k@x.com>\nPlease find my CV.`,
+      externalId: 'gmail:t1:m1',
+    }),
+    true,
+  )
+  const { candidateIsObviousJunk } = await import('../src/utils/atsApplicationGate.ts')
+  assert.equal(
+    candidateIsObviousJunk({
+      notes: `Subject: APPLICATION FOR FRONT-END\nFrom: Ken <k@x.com>`,
+      externalId: 'gmail:t1:m1',
+    }),
+    false,
+  )
+  assert.equal(
+    candidateIsObviousJunk({
+      notes: `Subject: Your weekly job alert\nFrom: Alerts <noreply@jobs.com>`,
+    }),
+    true,
+  )
 
   const messy = `Dear Sir,
 

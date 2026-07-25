@@ -95,6 +95,8 @@ export function explainApplicationGate(signals: AtsApplicationSignals): string {
   return 'no_application_signals'
 }
 
+import { extractAttachmentNamesFromNotes } from '@/lib/atsEmailHtml'
+
 /** Build gate signals from a stored ATS candidate (notes + attachments). */
 export function signalsFromCandidateNotes(
   notes?: string | null,
@@ -116,13 +118,39 @@ export function candidateIsLikelyJobApplication(input: {
   notes?: string | null
   email?: string
   attachments?: Array<{ filename: string }>
+  recommendation?: string | null
+  score?: number | null
+  externalId?: string | null
 }): boolean {
+  const fromNotes = extractAttachmentNamesFromNotes(input.notes ?? '')
+  const fromFiles = (input.attachments ?? []).map((a) => a.filename).filter(Boolean)
+  const names = [...new Set([...fromFiles, ...fromNotes])]
+  // Already scored / imported Gmail apps are never treated as junk for purge
+  if (input.externalId?.startsWith('gmail:')) return true
+  if (input.recommendation && input.recommendation !== 'reject') return true
+  if ((input.score ?? -1) >= 0 && input.recommendation) return true
   return isLikelyJobApplication(
     signalsFromCandidateNotes(input.notes, {
       email: input.email,
-      attachmentNames: input.attachments?.map((a) => a.filename),
-      hasResumeFiles: (input.attachments?.length ?? 0) > 0,
+      attachmentNames: names,
+      hasResumeFiles: names.length > 0,
     }),
   )
+}
+
+/** True only for obvious non-applications safe to auto-remove (newsletters / receipts). */
+export function candidateIsObviousJunk(input: {
+  notes?: string | null
+  email?: string
+  externalId?: string | null
+}): boolean {
+  // Never auto-delete Gmail-synced imports — re-gate at fetch time instead
+  if (input.externalId?.startsWith('gmail:')) return false
+  const text = (input.notes ?? '').split('<<<AFRIVATE_EMAIL_HTML>>>')[0] ?? ''
+  const subject = text.match(/^Subject:\s*(.+)$/im)?.[1]?.trim() ?? ''
+  const from = text.match(/^From:\s*(.+)$/im)?.[1]?.trim() || input.email || ''
+  if (REJECT_SUBJECT.test(subject)) return true
+  if (isBulkOrSystemSender(from) && !isBoardApplicationMail(from, subject)) return true
+  return false
 }
 

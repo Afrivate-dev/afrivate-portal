@@ -69,6 +69,35 @@ export async function uploadPortalFile(
   return { path, sizeLabel: formatFileSize(file.size) }
 }
 
+/** Upload a tiny probe object to verify ATS storage RLS before a long sync. */
+export async function probeAtsStorageAccess(
+  client: SupabaseClient,
+  userId: string,
+): Promise<{ ok: true } | { error: string }> {
+  const { data: authData } = await client.auth.getUser()
+  const uid = authData.user?.id || userId
+  if (!uid) return { error: 'Sign in again to upload CV files.' }
+  const path = `ats/${uid}/probe-${Date.now()}.txt`
+  const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, new Blob(['ok']), {
+    contentType: 'text/plain',
+    upsert: false,
+  })
+  if (error) {
+    if (/row-level security|policy/i.test(error.message)) {
+      return {
+        error:
+          'Storage blocked by security policy. Run supabase/migrations/20260726_ats_attachments_admin_fix.sql in the SQL Editor, then Sync again.',
+      }
+    }
+    if (error.message.toLowerCase().includes('bucket') || error.message.includes('404')) {
+      return { error: 'File storage bucket is not set up. Run the latest database migration.' }
+    }
+    return { error: error.message }
+  }
+  await client.storage.from(PORTAL_FILES_BUCKET).remove([path])
+  return { ok: true }
+}
+
 /** Upload a Gmail ATS attachment (bytes) into portal-files/ats/{userId}/… */
 export async function uploadAtsAttachmentBytes(
   client: SupabaseClient,

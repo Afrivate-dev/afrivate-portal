@@ -92,6 +92,46 @@ function sampleCandidate(overrides: Partial<JobCandidate> = {}): JobCandidate {
 
 console.log('ATS functionality suite\n')
 
+await check('Duplicate role jobs aggregate candidates onto the tab with the most people', async () => {
+  const { openJobsMatchingAtsProfile, pickCanonicalAtsJob } = await import('../src/utils/atsJobRoles.ts')
+  const jobs = [
+    {
+      id: 'job_new_empty',
+      title: 'Front-End Developer',
+      department: 'Tech',
+      status: 'open' as const,
+      createdAt: '2026-07-25T00:00:00.000Z',
+    },
+    {
+      id: 'job_old_full',
+      title: 'Front-End Developer',
+      department: 'Tech',
+      status: 'open' as const,
+      createdAt: '2026-07-01T00:00:00.000Z',
+    },
+  ]
+  const candidates = Array.from({ length: 83 }, (_, i) => ({
+    id: `c${i}`,
+    requisitionId: 'job_old_full',
+    name: `Person ${i}`,
+    stage: 'applied' as const,
+    updatedAt: '2026-07-25T00:00:00.000Z',
+  }))
+  candidates.push({
+    id: 'c_new',
+    requisitionId: 'job_new_empty',
+    name: 'Only One',
+    stage: 'applied',
+    updatedAt: '2026-07-25T00:00:00.000Z',
+  })
+  const matches = openJobsMatchingAtsProfile(jobs, 'frontend')
+  assert.equal(matches.length, 2)
+  const canonical = pickCanonicalAtsJob(matches, candidates)
+  assert.equal(canonical?.id, 'job_old_full')
+  const ids = new Set(matches.map((j) => j.id))
+  assert.equal(candidates.filter((c) => ids.has(c.requisitionId)).length, 84)
+})
+
 await check('HR and Admin roles can access recruitment (isHR includes both)', () => {
   assert.equal(isHR('hr'), true)
   assert.equal(isHR('admin'), true)
