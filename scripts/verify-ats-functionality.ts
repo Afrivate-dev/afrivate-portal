@@ -569,6 +569,238 @@ await check('Candidate update persistence never strips attachments on identity m
   assert.ok(!src.includes('stripOptionalCandidateColumns(jobCandidateToRow(row, { includeIdentity: false }))'))
 })
 
+await check('Recruitment UI wires candidate search helpers', () => {
+  const src = readFileSync(resolve('src/pages/admin/RecruitmentAtsSection.tsx'), 'utf8')
+  assert.match(src, /filterVisibleCandidates/)
+  assert.match(src, /filterTopTenCandidates/)
+  assert.match(src, /candidateSearch/)
+  assert.match(src, /Search name, email, phone, keyword/)
+  assert.match(src, /No candidates match your search/)
+  assert.match(src, /Clear search/)
+})
+
+await check('Candidate search matches name, email, phone, and keywords (case-insensitive)', async () => {
+  const {
+    candidateMatchesSearch,
+  } = await import('../src/utils/atsCandidateSearch.ts')
+
+  const ada: JobCandidate = {
+    id: '1',
+    requisitionId: 'fe',
+    name: 'Ada Lovelace',
+    email: 'ada@Afrivate.com',
+    phone: '+234 801 234 5678',
+    location: 'Lagos, Nigeria',
+    linkedinUrl: 'https://linkedin.com/in/ada',
+    githubUrl: 'https://github.com/ada-lovelace',
+    portfolioUrl: 'https://ada.dev',
+    resumeSummary: 'React TypeScript front-end engineer',
+    notes: 'Subject: APPLICATION FOR FRONT-END\nStrong NestJS mention in cover letter',
+    source: 'gmail',
+    stage: 'screen',
+    score: 88,
+    recommendation: 'strong',
+    updatedAt: new Date().toISOString(),
+    attachments: [
+      {
+        id: 'a1',
+        filename: 'Ada_Lovelace_CV.pdf',
+        mimeType: 'application/pdf',
+        storagePath: 'ats/u/Ada_Lovelace_CV.pdf',
+        kind: 'resume',
+      },
+    ],
+  }
+
+  assert.equal(candidateMatchesSearch(ada, ''), true)
+  assert.equal(candidateMatchesSearch(ada, '   '), true)
+  assert.equal(candidateMatchesSearch(ada, 'ada lovelace'), true)
+  assert.equal(candidateMatchesSearch(ada, 'ADA'), true)
+  assert.equal(candidateMatchesSearch(ada, 'ada@afrivate.com'), true)
+  assert.equal(candidateMatchesSearch(ada, '801 234'), true)
+  assert.equal(candidateMatchesSearch(ada, 'lagos'), true)
+  assert.equal(candidateMatchesSearch(ada, 'typescript'), true)
+  assert.equal(candidateMatchesSearch(ada, 'nestjs'), true)
+  assert.equal(candidateMatchesSearch(ada, 'github.com/ada'), true)
+  assert.equal(candidateMatchesSearch(ada, 'ada.dev'), true)
+  assert.equal(candidateMatchesSearch(ada, 'linkedin.com/in/ada'), true)
+  assert.equal(candidateMatchesSearch(ada, 'Ada_Lovelace_CV'), true)
+  assert.equal(candidateMatchesSearch(ada, 'gmail'), true)
+  assert.equal(candidateMatchesSearch(ada, 'nobody-here'), false)
+  assert.equal(candidateMatchesSearch(ada, 'python django'), false)
+})
+
+await check('Search returns ALL role candidates including outside Top 10; ignores recommendation filter', async () => {
+  const {
+    filterVisibleCandidates,
+    filterTopTenCandidates,
+  } = await import('../src/utils/atsCandidateSearch.ts')
+
+  const make = (
+    i: number,
+    overrides: Partial<JobCandidate> = {},
+  ): JobCandidate => ({
+    id: `c${i}`,
+    requisitionId: 'fe',
+    name: `Candidate ${i}`,
+    email: `c${i}@example.com`,
+    stage: 'screen',
+    score: 100 - i,
+    recommendation: i <= 3 ? 'strong' : i <= 8 ? 'viable' : i <= 12 ? 'weak' : 'reject',
+    updatedAt: new Date().toISOString(),
+    ...overrides,
+  })
+
+  // 15 scored candidates — ranks 1..15
+  const role = Array.from({ length: 15 }, (_, i) => make(i + 1))
+  // Plant searchable people: #2 (in Top 10) and #14 (outside Top 10, reject)
+  role[1] = make(2, {
+    name: 'Grace Hopper',
+    email: 'grace@navy.mil',
+    phone: '555-0199',
+    recommendation: 'strong',
+    score: 98,
+  })
+  role[13] = make(14, {
+    name: 'Grace Lee',
+    email: 'glee@example.com',
+    phone: '555-0144',
+    notes: 'keyword: kubernetes',
+    recommendation: 'reject',
+    score: 20,
+  })
+
+  // Blank search + top10 → only first 10
+  const topOnly = filterVisibleCandidates(role, {
+    search: '',
+    filter: 'top10',
+    viableMin: 60,
+  })
+  assert.equal(topOnly.length, 10)
+  assert.ok(topOnly.every((c, i) => c.id === role[i]!.id))
+
+  // Search "grace" with filter still on top10 / strong — must find BOTH (all matches)
+  for (const filter of ['top10', 'strong', 'viable', 'reject', 'all'] as const) {
+    const hits = filterVisibleCandidates(role, {
+      search: 'grace',
+      filter,
+      viableMin: 60,
+    })
+    assert.equal(
+      hits.length,
+      2,
+      `expected 2 grace hits with filter=${filter}, got ${hits.length}`,
+    )
+    assert.ok(hits.some((c) => c.id === 'c2'), 'Top 10 Grace Hopper must be included')
+    assert.ok(hits.some((c) => c.id === 'c14'), 'Outside Top 10 Grace Lee must be included')
+  }
+
+  // Email / phone / keyword searches
+  assert.equal(
+    filterVisibleCandidates(role, { search: 'grace@navy.mil', filter: 'top10', viableMin: 60 }).map(
+      (c) => c.id,
+    ).join(','),
+    'c2',
+  )
+  assert.equal(
+    filterVisibleCandidates(role, { search: '555-0144', filter: 'reject', viableMin: 60 }).map(
+      (c) => c.id,
+    ).join(','),
+    'c14',
+  )
+  assert.equal(
+    filterVisibleCandidates(role, { search: 'kubernetes', filter: 'strong', viableMin: 60 }).map(
+      (c) => c.id,
+    ).join(','),
+    'c14',
+  )
+
+  // Top 10 card: blank → 10; search grace → only Hopper among true top 10
+  assert.equal(filterTopTenCandidates(role, '').length, 10)
+  const topHits = filterTopTenCandidates(role, 'grace')
+  assert.equal(topHits.length, 1)
+  assert.equal(topHits[0]?.id, 'c2')
+  assert.equal(filterTopTenCandidates(role, 'kubernetes').length, 0, 'c14 is not in Top 10 card')
+  assert.equal(filterTopTenCandidates(role, 'zzz-none').length, 0)
+})
+
+await check('Whitespace-only search behaves like empty (Top 10 / filters apply)', async () => {
+  const { filterVisibleCandidates } = await import('../src/utils/atsCandidateSearch.ts')
+  const role: JobCandidate[] = Array.from({ length: 12 }, (_, i) => ({
+    id: `n${i}`,
+    requisitionId: 'fe',
+    name: `Person ${i}`,
+    stage: 'screen' as const,
+    score: 90 - i,
+    recommendation: (i < 2 ? 'strong' : i < 5 ? 'viable' : 'weak') as JobCandidate['recommendation'],
+    updatedAt: new Date().toISOString(),
+  }))
+
+  const spaced = filterVisibleCandidates(role, {
+    search: '  \t  ',
+    filter: 'top10',
+    viableMin: 70,
+  })
+  assert.equal(spaced.length, 10)
+
+  const strongOnly = filterVisibleCandidates(role, {
+    search: '',
+    filter: 'strong',
+    viableMin: 70,
+  })
+  assert.equal(strongOnly.length, 2)
+  assert.ok(strongOnly.every((c) => c.recommendation === 'strong'))
+})
+
+await check('Viable filter without search uses score threshold; search still overrides it', async () => {
+  const { filterVisibleCandidates, passesRecommendationFilter } =
+    await import('../src/utils/atsCandidateSearch.ts')
+
+  const mid: JobCandidate = {
+    id: 'mid',
+    requisitionId: 'fe',
+    name: 'Mid Scorer',
+    email: 'mid@x.com',
+    stage: 'screen',
+    score: 65,
+    recommendation: 'weak',
+    updatedAt: new Date().toISOString(),
+  }
+  assert.equal(passesRecommendationFilter(mid, 'viable', 60), true)
+  assert.equal(passesRecommendationFilter(mid, 'viable', 70), false)
+  assert.equal(passesRecommendationFilter(mid, 'weak', 60), true)
+  assert.equal(passesRecommendationFilter(mid, 'strong', 60), false)
+
+  const role = [
+    {
+      id: 's',
+      requisitionId: 'fe',
+      name: 'Strong One',
+      stage: 'screen' as const,
+      score: 90,
+      recommendation: 'strong' as const,
+      updatedAt: new Date().toISOString(),
+    },
+    mid,
+  ]
+
+  assert.equal(
+    filterVisibleCandidates(role, { search: '', filter: 'viable', viableMin: 60 }).length,
+    2,
+  )
+  assert.equal(
+    filterVisibleCandidates(role, { search: '', filter: 'viable', viableMin: 70 }).length,
+    1,
+  )
+  // Searching "mid" with viableMin 70 + filter viable still returns mid (search ignores filter)
+  assert.deepEqual(
+    filterVisibleCandidates(role, { search: 'mid@x.com', filter: 'viable', viableMin: 70 }).map(
+      (c) => c.id,
+    ),
+    ['mid'],
+  )
+})
+
 console.log('')
 if (failed) {
   console.error(`${failed} check(s) failed`)
