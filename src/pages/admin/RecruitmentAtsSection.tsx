@@ -10,11 +10,13 @@ import {
   Phone,
   RotateCcw,
   Save,
+  Search,
   Settings2,
   Sparkles,
   Trophy,
   Upload,
   UserCheck,
+  X,
 } from 'lucide-react'
 import { AtsEmailReadingPane } from '@/components/shared/AtsEmailReadingPane'
 import { AtsRichText, parseLegacySummaryToRich } from '@/components/shared/AtsRichText'
@@ -32,6 +34,10 @@ import { pauseHrRealtime, resumeHrRealtime } from '@/hooks/usePortalRealtime'
 import { joinApplicationNotes, stripResumeExtractBlocks } from '@/lib/atsEmailHtml'
 import { loadAtsCriteria, saveAtsCriteria } from '@/lib/atsCriteriaStore'
 import { candidateIsObviousJunk } from '@/utils/atsApplicationGate'
+import {
+  filterTopTenCandidates,
+  filterVisibleCandidates,
+} from '@/utils/atsCandidateSearch'
 import {
   openJobsMatchingAtsProfile,
   pickCanonicalAtsJob,
@@ -128,6 +134,7 @@ export function RecruitmentAtsSection() {
   const [source, setSource] = useState<AtsSource>('gmail')
   const [paste, setPaste] = useState('')
   const [filter, setFilter] = useState<FilterMode>('top10')
+  const [candidateSearch, setCandidateSearch] = useState('')
   const [busy, setBusy] = useState(false)
   const [syncing, setSyncing] = useState(false)
   const [syncLabel, setSyncLabel] = useState('')
@@ -258,19 +265,22 @@ export function RecruitmentAtsSection() {
     return [...rows].sort((a, b) => (b.score ?? -1) - (a.score ?? -1))
   }, [jobCandidates, resolvedJobIds])
 
-  const visible = useMemo(() => {
-    if (filter === 'top10') return candidatesForRole.slice(0, 10)
-    return candidatesForRole.filter((c) => {
-      if (filter === 'all') return true
-      if (filter === 'viable') {
-        if (c.recommendation === 'strong' || c.recommendation === 'viable') return true
-        return (c.score ?? 0) >= criteria.viableMin
-      }
-      return c.recommendation === filter
-    })
-  }, [candidatesForRole, filter, criteria.viableMin])
+  const searchActive = candidateSearch.trim().length > 0
 
-  const topTen = useMemo(() => candidatesForRole.slice(0, 10), [candidatesForRole])
+  const visible = useMemo(
+    () =>
+      filterVisibleCandidates(candidatesForRole, {
+        search: candidateSearch,
+        filter,
+        viableMin: criteria.viableMin,
+      }),
+    [candidatesForRole, filter, criteria.viableMin, candidateSearch],
+  )
+
+  const topTen = useMemo(
+    () => filterTopTenCandidates(candidatesForRole, candidateSearch),
+    [candidatesForRole, candidateSearch],
+  )
 
   const stats = useMemo(() => {
     const total = candidatesForRole.length
@@ -921,14 +931,14 @@ export function RecruitmentAtsSection() {
               <h3 className="min-w-0 break-words text-sm font-semibold text-fg">
                 Top 10 · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
               </h3>
-              <Badge tone="brand">Highest scores</Badge>
+              <Badge tone="brand">{searchActive ? 'Matches in Top 10' : 'Highest scores'}</Badge>
             </div>
             <p className="text-xs text-muted sm:ml-auto">Tap a name for details &amp; Gmail</p>
           </div>
           <ol className="min-w-0 space-y-2">
-            {topTen.map((c, i) => {
-              const rank = i + 1
-              const reason = explainCandidateRankingRich(c, rank, topTen, criteria)
+            {topTen.map((c) => {
+              const rank = candidatesForRole.findIndex((x) => x.id === c.id) + 1
+              const reason = explainCandidateRankingRich(c, rank, candidatesForRole.slice(0, 10), criteria)
               const mailUrl = candidateGmailUrl(c)
               const contact = [c.email, c.phone, c.location].filter(Boolean).join(' · ')
               return (
@@ -947,7 +957,7 @@ export function RecruitmentAtsSection() {
                   >
                     <div className="flex min-w-0 items-start gap-2">
                       <span className="mt-0.5 shrink-0 rounded bg-surface-2 px-1.5 py-0.5 text-xs font-semibold text-muted">
-                        #{rank}
+                        #{rank || '—'}
                       </span>
                       <div className="min-w-0 flex-1 overflow-hidden">
                         <p className="break-words font-medium leading-snug text-fg">{c.name}</p>
@@ -989,28 +999,51 @@ export function RecruitmentAtsSection() {
       ) : null}
 
       <Card padding="md" className="min-w-0 space-y-4 overflow-hidden">
-        <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
-            <UserCheck className="h-4 w-4 shrink-0 text-accent" />
-            <h3 className="min-w-0 break-words text-sm font-semibold text-fg">
-              Ranked candidates · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
-            </h3>
+        <div className="flex min-w-0 flex-col gap-3">
+          <div className="flex min-w-0 flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+            <div className="flex min-w-0 items-center gap-2">
+              <UserCheck className="h-4 w-4 shrink-0 text-accent" />
+              <h3 className="min-w-0 break-words text-sm font-semibold text-fg">
+                Ranked candidates · {selectedJob?.title ?? labelForAtsRoleProfile(selectedRole)}
+              </h3>
+            </div>
+            <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
+              <Filter className="h-4 w-4 shrink-0 text-muted" />
+              <select
+                className="min-w-0 w-full flex-1 rounded-md border border-border bg-surface px-2 py-2 text-sm sm:w-auto sm:flex-none sm:py-1.5"
+                value={filter}
+                onChange={(e) => setFilter(e.target.value as FilterMode)}
+              >
+                <option value="top10">Top 10</option>
+                <option value="viable">Worth reviewing</option>
+                <option value="strong">Strong fit only</option>
+                <option value="all">Everyone</option>
+                <option value="weak">Weak fit</option>
+                <option value="reject">Not a fit</option>
+              </select>
+            </div>
           </div>
-          <div className="flex w-full min-w-0 items-center gap-2 sm:w-auto">
-            <Filter className="h-4 w-4 shrink-0 text-muted" />
-            <select
-              className="min-w-0 w-full flex-1 rounded-md border border-border bg-surface px-2 py-2 text-sm sm:w-auto sm:flex-none sm:py-1.5"
-              value={filter}
-              onChange={(e) => setFilter(e.target.value as FilterMode)}
-            >
-              <option value="top10">Top 10</option>
-              <option value="viable">Worth reviewing</option>
-              <option value="strong">Strong fit only</option>
-              <option value="all">Everyone</option>
-              <option value="weak">Weak fit</option>
-              <option value="reject">Not a fit</option>
-            </select>
-          </div>
+          <Input
+            type="search"
+            value={candidateSearch}
+            onChange={(e) => setCandidateSearch(e.target.value)}
+            placeholder="Search name, email, phone, keyword…"
+            aria-label="Search candidates"
+            leadingIcon={<Search className="h-4 w-4" />}
+            trailingNode={
+              searchActive ? (
+                <button
+                  type="button"
+                  onClick={() => setCandidateSearch('')}
+                  className="rounded p-0.5 text-muted hover:bg-surface-2 hover:text-fg"
+                  aria-label="Clear search"
+                >
+                  <X className="h-4 w-4" />
+                </button>
+              ) : null
+            }
+            className="h-10 min-h-[40px]"
+          />
         </div>
 
         {!resolvedJobIds.size ? (
@@ -1021,16 +1054,20 @@ export function RecruitmentAtsSection() {
           />
         ) : visible.length === 0 ? (
           <EmptyState
-            icon={Briefcase}
-            title="No candidates in this view"
-            description="Sync Gmail, paste an application into this role, or change the filter above."
+            icon={searchActive ? Search : Briefcase}
+            title={searchActive ? 'No candidates match your search' : 'No candidates in this view'}
+            description={
+              searchActive
+                ? 'Try another name, email, phone, or keyword — or clear the search.'
+                : 'Sync Gmail, paste an application into this role, or change the filter above.'
+            }
           />
         ) : (
           <ul className="min-w-0 space-y-3">
-            {visible.map((c, index) => (
+            {visible.map((c) => (
               <CandidateRow
                 key={c.id}
-                rank={filter === 'top10' ? index + 1 : candidatesForRole.findIndex((x) => x.id === c.id) + 1}
+                rank={candidatesForRole.findIndex((x) => x.id === c.id) + 1}
                 candidate={c}
                 criteria={criteria}
                 onOpen={() => setSelectedCandidateId(c.id)}
