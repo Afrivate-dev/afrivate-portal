@@ -24,7 +24,11 @@ const KNOWLEDGE = `Portal = system of record. Slack = official messaging (acknow
 const AVA_RESPONSE_SCHEMA = {
   type: 'object',
   properties: {
-    reply: { type: 'string', description: 'Professional answer with numbered steps when explaining procedures.' },
+    reply: {
+      type: 'string',
+      description:
+        'Professional answer. Use markdown **bold**, numbered/bulleted lists for steps. The Portal UI renders this.',
+    },
     citations: {
       type: 'array',
       items: { type: 'string' },
