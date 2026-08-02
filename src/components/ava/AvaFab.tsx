@@ -1,6 +1,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link } from 'react-router-dom'
-import { Bot, Send, Sparkles, X } from 'lucide-react'
+import { Link, useLocation } from 'react-router-dom'
+import { Send, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
@@ -13,6 +13,8 @@ import { managedReportIds } from '@/utils/hrMetrics'
 import { cn, isHR, isLead, uid, weekLabel } from '@/utils/helpers'
 import { Button } from '@/components/ui/Button'
 import { usersAwaitingApproval } from '@/context/dataContextShared'
+import { AvaAvatar, AvaTypingBubble } from '@/components/ava/AvaAvatar'
+import { AvaMarkdown } from '@/components/ava/AvaMarkdown'
 
 type UiMessage = AvaChatMessage & {
   id: string
@@ -20,6 +22,42 @@ type UiMessage = AvaChatMessage & {
   links?: AvaResponse['links']
   suggestedActions?: AvaSuggestedAction[]
   source?: AvaResponse['source']
+}
+
+const CLOSE_MS = 260
+const NUDGE_DWELL_MS = 90_000
+const NUDGE_IDLE_MS = 35_000
+const NUDGE_LONG_DWELL_MS = 150_000
+const NUDGE_SNOOZE_MS = 30 * 60_000
+const NUDGE_STORAGE_KEY = 'ava-nudge-snooze-until'
+
+function nudgeSnoozed(): boolean {
+  try {
+    const until = Number(sessionStorage.getItem(NUDGE_STORAGE_KEY) || 0)
+    return Number.isFinite(until) && until > Date.now()
+  } catch {
+    return false
+  }
+}
+
+function snoozeNudge() {
+  try {
+    sessionStorage.setItem(NUDGE_STORAGE_KEY, String(Date.now() + NUDGE_SNOOZE_MS))
+  } catch {
+    /* ignore */
+  }
+}
+
+function pageLabel(pathname: string): string {
+  if (pathname.startsWith('/people/leave')) return 'Time Off'
+  if (pathname.startsWith('/people/check-ins') || pathname.startsWith('/check-ins'))
+    return 'Weekly Check-ins'
+  if (pathname.startsWith('/tasks')) return 'Tasks'
+  if (pathname.startsWith('/admin')) return 'Admin'
+  if (pathname.startsWith('/people')) return 'People'
+  if (pathname.startsWith('/learning')) return 'Learning'
+  if (pathname.startsWith('/resources')) return 'Resources'
+  return 'this page'
 }
 
 function mondayIso(d = new Date()) {
@@ -33,6 +71,7 @@ function mondayIso(d = new Date()) {
 export function AvaFab() {
   const enabled = isAvaEnabled()
   const { user } = useAuth()
+  const location = useLocation()
   const {
     users,
     teams,
@@ -44,9 +83,11 @@ export function AvaFab() {
     submitCheckIn,
   } = useData()
   const hr = useHr()
-  const [open, setOpen] = useState(false)
+  const [mounted, setMounted] = useState(false)
+  const [panelIn, setPanelIn] = useState(false)
   const [input, setInput] = useState('')
   const [busy, setBusy] = useState(false)
+  const [nudgeOpen, setNudgeOpen] = useState(false)
   const [messages, setMessages] = useState<UiMessage[]>([
     {
       id: 'welcome',
@@ -58,11 +99,121 @@ export function AvaFab() {
   const [pendingAction, setPendingAction] = useState<AvaSuggestedAction | null>(null)
   const [actionNote, setActionNote] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
+  const closeTimer = useRef<number | null>(null)
+  const inputRef = useRef<HTMLTextAreaElement>(null)
+  const routeEnteredAt = useRef(Date.now())
+  const lastActivityAt = useRef(Date.now())
+  const nudgeShownForRoute = useRef<string | null>(null)
+
+  const openPanel = useCallback(() => {
+    if (closeTimer.current) {
+      window.clearTimeout(closeTimer.current)
+      closeTimer.current = null
+    }
+    setNudgeOpen(false)
+    setMounted(true)
+    requestAnimationFrame(() => {
+      requestAnimationFrame(() => setPanelIn(true))
+    })
+  }, [])
+
+  const closePanel = useCallback(() => {
+    setPanelIn(false)
+    closeTimer.current = window.setTimeout(() => {
+      setMounted(false)
+      closeTimer.current = null
+    }, CLOSE_MS)
+  }, [])
+
+  const dismissNudge = useCallback(() => {
+    setNudgeOpen(false)
+    snoozeNudge()
+  }, [])
+
+  const askFromNudge = useCallback(() => {
+    const label = pageLabel(location.pathname)
+    setNudgeOpen(false)
+    snoozeNudge()
+    openPanel()
+    window.setTimeout(() => {
+      setInput(`I'm a bit stuck on ${label}. Can you help me with what I should do next?`)
+    }, 340)
+  }, [location.pathname, openPanel])
 
   useEffect(() => {
-    if (!open) return
+    return () => {
+      if (closeTimer.current) window.clearTimeout(closeTimer.current)
+    }
+  }, [])
+
+  useEffect(() => {
+    routeEnteredAt.current = Date.now()
+    lastActivityAt.current = Date.now()
+    setNudgeOpen(false)
+  }, [location.pathname])
+
+  useEffect(() => {
+    if (!enabled || !user || mounted) return
+    const mark = () => {
+      lastActivityAt.current = Date.now()
+    }
+    const opts = { passive: true } as const
+    window.addEventListener('pointerdown', mark, opts)
+    window.addEventListener('keydown', mark, opts)
+    window.addEventListener('scroll', mark, opts)
+    window.addEventListener('mousemove', mark, opts)
+    return () => {
+      window.removeEventListener('pointerdown', mark)
+      window.removeEventListener('keydown', mark)
+      window.removeEventListener('scroll', mark)
+      window.removeEventListener('mousemove', mark)
+    }
+  }, [enabled, user, mounted])
+
+  useEffect(() => {
+    if (!enabled || !user) return
+    const tick = () => {
+      if (mounted || nudgeSnoozed()) {
+        setNudgeOpen(false)
+        return
+      }
+      const path = location.pathname
+      if (path.startsWith('/login') || path.startsWith('/auth') || path.startsWith('/invite')) {
+        setNudgeOpen(false)
+        return
+      }
+      const dwell = Date.now() - routeEnteredAt.current
+      const idle = Date.now() - lastActivityAt.current
+      const stuck =
+        dwell >= NUDGE_LONG_DWELL_MS || (dwell >= NUDGE_DWELL_MS && idle >= NUDGE_IDLE_MS)
+      if (stuck && nudgeShownForRoute.current !== path) {
+        nudgeShownForRoute.current = path
+        setNudgeOpen(true)
+      }
+    }
+    const id = window.setInterval(tick, 4000)
+    return () => window.clearInterval(id)
+  }, [enabled, user, mounted, location.pathname])
+
+  useEffect(() => {
+    if (!panelIn) return
+    const t = window.setTimeout(() => inputRef.current?.focus(), 320)
+    return () => window.clearTimeout(t)
+  }, [panelIn])
+
+  useEffect(() => {
+    if (!mounted) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') closePanel()
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [mounted, closePanel])
+
+  useEffect(() => {
+    if (!mounted) return
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages, open, pendingAction])
+  }, [messages, mounted, pendingAction, busy])
 
   const context = useMemo(() => {
     if (!user) return null
@@ -176,79 +327,168 @@ export function AvaFab() {
 
   if (!enabled || !user) return null
 
+  const showFab = !mounted
+  const nudgeLabel = pageLabel(location.pathname)
+
   return (
     <>
+      {showFab && nudgeOpen ? (
+        <div
+          className={cn(
+            'fixed z-40 w-[min(calc(100vw-2rem),300px)]',
+            'bottom-[calc(8.25rem+env(safe-area-inset-bottom))] right-4 lg:bottom-[5.5rem] lg:right-6',
+            'animate-ava-msg-in motion-reduce:animate-none',
+          )}
+          role="status"
+          aria-live="polite"
+        >
+          <div className="relative rounded-2xl border border-brand/25 bg-surface p-3.5 shadow-elevated">
+            <div className="absolute -bottom-1.5 right-8 h-3 w-3 rotate-45 border-b border-r border-brand/25 bg-surface" />
+            <div className="flex items-start gap-2.5">
+              <AvaAvatar size="sm" thinking />
+              <div className="min-w-0 flex-1">
+                <p className="font-heading text-xs font-semibold text-fg">Need a hand?</p>
+                <p className="mt-1 text-[12px] leading-snug text-muted">
+                  Still on {nudgeLabel}? Ask AVA if you are unsure or stuck on something.
+                </p>
+                <div className="mt-2.5 flex flex-wrap gap-2">
+                  <Button size="sm" onClick={askFromNudge}>
+                    Ask AVA
+                  </Button>
+                  <Button size="sm" variant="ghost" onClick={dismissNudge}>
+                    Not now
+                  </Button>
+                </div>
+              </div>
+              <button
+                type="button"
+                onClick={dismissNudge}
+                className="rounded-full p-1 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
+                aria-label="Dismiss AVA tip"
+              >
+                <X className="h-3.5 w-3.5" />
+              </button>
+            </div>
+          </div>
+        </div>
+      ) : null}
+
       <button
         type="button"
         aria-label="Open AVA"
-        onClick={() => setOpen(true)}
+        onClick={openPanel}
         className={cn(
-          'fixed z-40 flex items-center gap-2 rounded-full bg-accent px-4 py-3 text-sm font-semibold text-white shadow-lg ring-focus',
+          'group fixed z-40 flex items-center gap-2.5 rounded-full pl-2 pr-4 py-2',
+          'bg-gradient-to-br from-brand-400 via-brand-500 to-brand-700 text-white',
+          'shadow-elevated animate-ava-fab-pulse ring-focus',
+          'transition-all duration-300 ease-spring hover:scale-[1.03] active:scale-[0.98]',
           'bottom-[calc(4.75rem+env(safe-area-inset-bottom))] right-4 lg:bottom-6 lg:right-6',
-          open && 'pointer-events-none opacity-0',
+          'motion-reduce:animate-none motion-reduce:transition-none',
+          !showFab && 'pointer-events-none translate-y-3 scale-90 opacity-0',
         )}
       >
-        <Sparkles className="h-4 w-4" aria-hidden />
-        AVA
+        <AvaAvatar size="sm" className="shadow-none ring-0" thinking={nudgeOpen} />
+        <span className="font-heading text-sm font-semibold tracking-wide">AVA</span>
       </button>
 
-      {open ? (
+      {mounted ? (
         <div
-          className="fixed inset-0 z-50 flex items-end justify-end sm:items-stretch"
+          className="fixed inset-0 z-50 flex items-end justify-end sm:items-end sm:justify-end"
           role="dialog"
           aria-modal="true"
           aria-label="AVA — AfriVate Virtual Assistant"
         >
           <button
             type="button"
-            className="absolute inset-0 bg-black/30"
+            className={cn(
+              'absolute inset-0 bg-ink-950/45 backdrop-blur-[2px] motion-reduce:backdrop-blur-none',
+              panelIn ? 'animate-ava-backdrop-in' : 'animate-ava-backdrop-out',
+              'motion-reduce:animate-none',
+            )}
             aria-label="Close AVA"
-            onClick={() => setOpen(false)}
+            onClick={closePanel}
           />
-          <div className="relative flex h-[min(92vh,720px)] w-full flex-col border border-border bg-surface shadow-xl sm:m-4 sm:h-auto sm:max-h-[min(90vh,720px)] sm:w-[420px] sm:rounded-xl">
-            <header className="flex items-start justify-between gap-3 border-b border-border px-4 py-3">
-              <div className="flex items-start gap-3">
-                <div className="mt-0.5 flex h-9 w-9 items-center justify-center rounded-full bg-accent/15 text-accent">
-                  <Bot className="h-5 w-5" aria-hidden />
-                </div>
+
+          <div
+            className={cn(
+              'relative flex h-[min(92vh,740px)] w-full flex-col overflow-hidden',
+              'border border-brand/20 bg-surface shadow-elevated',
+              'sm:m-5 sm:h-auto sm:max-h-[min(88vh,740px)] sm:w-[420px] sm:rounded-2xl',
+              panelIn ? 'animate-ava-panel-in' : 'animate-ava-panel-out',
+              'motion-reduce:animate-none',
+            )}
+          >
+            <div className="pointer-events-none absolute inset-x-0 top-0 h-28 bg-gradient-to-b from-brand/15 via-brand/5 to-transparent" />
+
+            <header className="relative z-[1] flex items-center justify-between gap-3 border-b border-border/80 px-4 py-3.5">
+              <div className="flex items-center gap-3">
+                <AvaAvatar size="md" thinking={busy} />
                 <div>
-                  <p className="text-sm font-semibold text-fg">AVA</p>
-                  <p className="text-xs text-muted">AfriVate Virtual Assistant</p>
+                  <p className="font-heading text-sm font-semibold tracking-wide text-fg">AVA</p>
+                  <p className="text-[11px] text-muted">
+                    {busy ? (
+                      <span className="inline-flex items-center gap-1.5 text-brand">
+                        <span className="relative flex h-1.5 w-1.5">
+                          <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-brand/60 motion-reduce:animate-none" />
+                          <span className="relative inline-flex h-1.5 w-1.5 rounded-full bg-brand" />
+                        </span>
+                        Thinking…
+                      </span>
+                    ) : (
+                      'AfriVate Virtual Assistant'
+                    )}
+                  </p>
                 </div>
               </div>
               <button
                 type="button"
-                onClick={() => setOpen(false)}
-                className="rounded-md p-2 text-muted hover:bg-surface-2 ring-focus"
+                onClick={closePanel}
+                className="rounded-full p-2 text-muted transition-colors duration-200 hover:bg-surface-2 hover:text-fg ring-focus"
                 aria-label="Close"
               >
                 <X className="h-4 w-4" />
               </button>
             </header>
 
-            <div ref={listRef} className="min-h-0 flex-1 space-y-3 overflow-y-auto px-4 py-3">
-              {messages.map((m) => (
+            <div
+              ref={listRef}
+              className="relative z-[1] min-h-0 flex-1 space-y-3.5 overflow-y-auto px-4 py-4"
+            >
+              {messages.map((m, i) => (
                 <div
                   key={m.id}
-                  className={cn('flex', m.role === 'user' ? 'justify-end' : 'justify-start')}
+                  className={cn(
+                    'flex gap-2 animate-ava-msg-in motion-reduce:animate-none',
+                    m.role === 'user' ? 'justify-end' : 'justify-start',
+                  )}
+                  style={{ animationDelay: `${Math.min(i, 6) * 40}ms` }}
                 >
+                  {m.role === 'assistant' ? <AvaAvatar size="sm" /> : null}
                   <div
                     className={cn(
-                      'max-w-[90%] rounded-lg px-3 py-2 text-sm whitespace-pre-wrap',
+                      'max-w-[82%] px-3.5 py-2.5 shadow-sm',
                       m.role === 'user'
-                        ? 'bg-accent text-white'
-                        : 'bg-surface-2 text-fg border border-border',
+                        ? 'rounded-2xl rounded-br-md bg-gradient-to-br from-brand-500 to-brand-700 text-white'
+                        : 'rounded-2xl rounded-bl-md border border-brand/10 bg-surface-2 text-fg',
                     )}
                   >
-                    {m.content}
+                    <AvaMarkdown
+                      text={m.content}
+                      tone={m.role === 'user' ? 'user' : 'assistant'}
+                    />
                     {m.links?.length ? (
-                      <div className="mt-2 flex flex-wrap gap-2">
+                      <div className="mt-2.5 flex flex-wrap gap-1.5">
                         {m.links.map((l) => (
                           <Link
                             key={l.path + l.label}
                             to={l.path}
-                            onClick={() => setOpen(false)}
-                            className="rounded-md bg-surface px-2 py-1 text-xs font-medium text-accent underline-offset-2 hover:underline"
+                            onClick={closePanel}
+                            className={cn(
+                              'rounded-full px-2.5 py-1 text-[11px] font-medium transition-transform duration-200 hover:scale-[1.03]',
+                              m.role === 'user'
+                                ? 'bg-white/15 text-white'
+                                : 'bg-brand/10 text-brand hover:bg-brand/15',
+                            )}
                           >
                             {l.label}
                           </Link>
@@ -256,7 +496,12 @@ export function AvaFab() {
                       </div>
                     ) : null}
                     {m.citations?.length ? (
-                      <p className="mt-2 text-[11px] text-muted">
+                      <p
+                        className={cn(
+                          'mt-2 text-[10px]',
+                          m.role === 'user' ? 'text-white/70' : 'text-muted',
+                        )}
+                      >
                         Sources: {m.citations.join(' · ')}
                       </p>
                     ) : null}
@@ -267,8 +512,8 @@ export function AvaFab() {
                           <div key={a.path} className="mt-2">
                             <Link
                               to={a.path}
-                              onClick={() => setOpen(false)}
-                              className="text-xs font-medium text-accent underline"
+                              onClick={closePanel}
+                              className="text-xs font-medium text-brand underline underline-offset-2"
                             >
                               {a.label}
                             </Link>
@@ -278,16 +523,12 @@ export function AvaFab() {
                   </div>
                 </div>
               ))}
-              {busy ? (
-                <p className="text-xs text-muted" role="status">
-                  AVA is thinking…
-                </p>
-              ) : null}
+              {busy ? <AvaTypingBubble /> : null}
             </div>
 
             {pendingAction &&
             (pendingAction.type === 'draft_leave' || pendingAction.type === 'draft_checkin') ? (
-              <div className="border-t border-border bg-surface-2 px-4 py-3 text-sm">
+              <div className="relative z-[1] border-t border-border bg-brand/[0.04] px-4 py-3 text-sm animate-ava-msg-in motion-reduce:animate-none">
                 <p className="font-medium text-fg">{pendingAction.label}</p>
                 {pendingAction.type === 'draft_leave' ? (
                   <p className="mt-1 text-xs text-muted">
@@ -303,7 +544,7 @@ export function AvaFab() {
                     {'\n'}Hours: {pendingAction.payload.hoursWorked}
                   </p>
                 )}
-                <div className="mt-2 flex gap-2">
+                <div className="mt-2.5 flex gap-2">
                   <Button size="sm" onClick={confirmPending}>
                     Confirm &amp; submit
                   </Button>
@@ -315,20 +556,29 @@ export function AvaFab() {
             ) : null}
 
             {actionNote ? (
-              <p className="border-t border-border px-4 py-2 text-xs text-accent" role="status">
+              <p
+                className="relative z-[1] border-t border-border px-4 py-2 text-xs text-brand animate-ava-msg-in motion-reduce:animate-none"
+                role="status"
+              >
                 {actionNote}
               </p>
             ) : null}
 
-            <div className="border-t border-border px-3 py-2">
-              <div className="mb-2 flex gap-2 overflow-x-auto pb-1">
-                {AVA_SUGGESTED_PROMPTS.map((p) => (
+            <div className="relative z-[1] border-t border-border/80 bg-surface/95 px-3 py-3 backdrop-blur-sm">
+              <div className="mb-2.5 flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
+                {AVA_SUGGESTED_PROMPTS.map((p, idx) => (
                   <button
                     key={p}
                     type="button"
                     disabled={busy}
                     onClick={() => void send(p)}
-                    className="shrink-0 rounded-full border border-border bg-surface px-3 py-1 text-[11px] text-muted hover:bg-surface-2"
+                    style={{ animationDelay: `${120 + idx * 50}ms` }}
+                    className={cn(
+                      'shrink-0 rounded-full border border-brand/20 bg-brand/[0.06] px-3 py-1.5',
+                      'text-[11px] font-medium text-fg/80',
+                      'transition-all duration-200 hover:border-brand/40 hover:bg-brand/10 hover:text-fg',
+                      'disabled:opacity-50 animate-ava-chip-in motion-reduce:animate-none',
+                    )}
                   >
                     {p}
                   </button>
@@ -345,13 +595,18 @@ export function AvaFab() {
                   Message AVA
                 </label>
                 <textarea
+                  ref={inputRef}
                   id="ava-input"
                   rows={2}
                   value={input}
                   disabled={busy}
                   onChange={(e) => setInput(e.target.value)}
                   placeholder="Ask AVA…"
-                  className="min-h-[44px] flex-1 resize-none rounded-md border border-border bg-surface px-3 py-2 text-sm text-fg ring-focus"
+                  className={cn(
+                    'min-h-[48px] flex-1 resize-none rounded-xl border border-border bg-surface-2/80',
+                    'px-3.5 py-2.5 text-sm text-fg shadow-inner ring-focus',
+                    'transition-colors duration-200 focus:border-brand/40 focus:bg-surface',
+                  )}
                   onKeyDown={(e) => {
                     if (e.key === 'Enter' && !e.shiftKey) {
                       e.preventDefault()
@@ -359,11 +614,17 @@ export function AvaFab() {
                     }
                   }}
                 />
-                <Button type="submit" size="icon" disabled={busy || !input.trim()} aria-label="Send">
+                <Button
+                  type="submit"
+                  size="icon"
+                  disabled={busy || !input.trim()}
+                  aria-label="Send"
+                  className="rounded-xl transition-transform duration-200 hover:scale-105 active:scale-95"
+                >
                   <Send className="h-4 w-4" />
                 </Button>
               </form>
-              <p className="mt-2 text-[10px] text-muted">
+              <p className="mt-2 text-center text-[10px] text-muted">
                 AVA guides you. The Portal remains the system of record.
               </p>
             </div>

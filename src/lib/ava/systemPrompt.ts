@@ -28,7 +28,7 @@ Rules:
 
 Respond in JSON only with this shape:
 {
-  "reply": "markdown-friendly plain text answer",
+  "reply": "Use markdown the UI will render: **bold** for labels/emphasis, numbered or bulleted lists for steps. Avoid raw asterisks for decoration.",
   "citations": ["Document name"],
   "links": [{"label": "Time off", "path": "/people/leave"}],
   "suggestedActions": []

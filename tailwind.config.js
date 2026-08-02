@@ -86,6 +86,51 @@ export default {
           '0%': { transform: 'translateX(100%)' },
           '100%': { transform: 'translateX(0)' },
         },
+        'ava-breathe': {
+          '0%, 100%': { opacity: '0.45', transform: 'scale(1)' },
+          '50%': { opacity: '0.85', transform: 'scale(1.08)' },
+        },
+        'ava-glow': {
+          '0%, 100%': { opacity: '0.35', transform: 'scale(1)' },
+          '50%': { opacity: '0.95', transform: 'scale(1.18)' },
+        },
+        'ava-orbit': {
+          '0%': { transform: 'rotate(0deg) scale(1)', opacity: '0.55' },
+          '50%': { transform: 'rotate(180deg) scale(1.05)', opacity: '0.9' },
+          '100%': { transform: 'rotate(360deg) scale(1)', opacity: '0.55' },
+        },
+        'ava-fab-pulse': {
+          '0%, 100%': { boxShadow: '0 8px 24px -6px rgba(141, 64, 135, 0.55)' },
+          '50%': { boxShadow: '0 10px 32px -4px rgba(141, 64, 135, 0.8)' },
+        },
+        'ava-panel-in': {
+          '0%': { opacity: '0', transform: 'translateY(28px) scale(0.96)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'ava-panel-out': {
+          '0%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+          '100%': { opacity: '0', transform: 'translateY(20px) scale(0.97)' },
+        },
+        'ava-backdrop-in': {
+          '0%': { opacity: '0' },
+          '100%': { opacity: '1' },
+        },
+        'ava-backdrop-out': {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
+        },
+        'ava-msg-in': {
+          '0%': { opacity: '0', transform: 'translateY(10px) scale(0.98)' },
+          '100%': { opacity: '1', transform: 'translateY(0) scale(1)' },
+        },
+        'ava-dot': {
+          '0%, 80%, 100%': { transform: 'translateY(0)', opacity: '0.4' },
+          '40%': { transform: 'translateY(-4px)', opacity: '1' },
+        },
+        'ava-chip-in': {
+          '0%': { opacity: '0', transform: 'translateY(6px)' },
+          '100%': { opacity: '1', transform: 'translateY(0)' },
+        },
       },
       animation: {
         'slide-up': 'slide-up 0.25s ease-out',
@@ -95,6 +140,17 @@ export default {
         'scale-in': 'scale-in 0.2s ease-out',
         'page-enter': 'page-enter 0.35s ease-out',
         'slide-in-right': 'slide-in-right 0.28s ease-out',
+        'ava-breathe': 'ava-breathe 3.2s ease-in-out infinite',
+        'ava-glow': 'ava-glow 1.4s ease-in-out infinite',
+        'ava-orbit': 'ava-orbit 2.8s linear infinite',
+        'ava-fab-pulse': 'ava-fab-pulse 2.4s ease-in-out infinite',
+        'ava-panel-in': 'ava-panel-in 0.32s cubic-bezier(0.34, 1.2, 0.64, 1)',
+        'ava-panel-out': 'ava-panel-out 0.24s ease-in forwards',
+        'ava-backdrop-in': 'ava-backdrop-in 0.25s ease-out',
+        'ava-backdrop-out': 'ava-backdrop-out 0.22s ease-in forwards',
+        'ava-msg-in': 'ava-msg-in 0.28s ease-out',
+        'ava-dot': 'ava-dot 1.05s ease-in-out infinite',
+        'ava-chip-in': 'ava-chip-in 0.35s ease-out both',
       },
       transitionTimingFunction: {
         spring: 'cubic-bezier(0.34, 1.56, 0.64, 1)',
