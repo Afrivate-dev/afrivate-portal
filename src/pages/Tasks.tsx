@@ -85,6 +85,21 @@ function priorityLabel(p: TaskPriority): string {
   return { high: T.priorityUrgent, medium: T.priorityNormal, low: T.priorityLater }[p]
 }
 
+function completionAudit(task: Task): { at: string; by?: string } | null {
+  if (task.status !== 'done') return null
+  if (task.completedAt) return { at: task.completedAt, by: task.completedBy }
+
+  // Backward compatibility for tasks completed before dedicated audit fields existed.
+  const entry = [...(task.activity ?? [])]
+    .reverse()
+    .find((item) => item.message === 'Status → Done')
+  return entry ? { at: entry.at, by: entry.by } : null
+}
+
+function exactTimestamp(iso: string): string {
+  return format(parseISO(iso), "d MMM yyyy, HH:mm:ss 'GMT'xxx")
+}
+
 // CATEGORIES and CATEGORY_LABEL are now built dynamically from DataContext.taskCategories
 
 type DueBucket = 'overdue' | 'today' | 'this_week' | 'later' | 'none'
@@ -700,6 +715,10 @@ export function TasksPage() {
                           ? [t.assigneeId]
                           : [t.ownerId]
                       const person = assigneeOptions.find((u) => u.id === weekAids[0])
+                      const completion = completionAudit(t)
+                      const completedBy = completion
+                        ? assigneeOptions.find((u) => u.id === completion.by)
+                        : undefined
                       return (
                         <button
                           key={t.id}
@@ -721,6 +740,12 @@ export function TasksPage() {
                               <Badge tone={PRIORITY_TONE[t.priority]} className="mt-1">
                                 {priorityLabel(t.priority)}
                               </Badge>
+                              {completion ? (
+                                <p className="mt-1 break-words text-[10px] leading-tight text-success">
+                                  Done {exactTimestamp(completion.at)}
+                                  {completedBy ? ` by ${completedBy.name}` : ''}
+                                </p>
+                              ) : null}
                             </div>
                           </div>
                         </button>
@@ -784,6 +809,10 @@ export function TasksPage() {
                         ? [t.assigneeId]
                         : [t.ownerId]
                     const person = assigneeOptions.find((u) => u.id === tableAids[0])
+                    const completion = completionAudit(t)
+                    const completedBy = completion
+                      ? assigneeOptions.find((u) => u.id === completion.by)
+                      : undefined
                     return (
                       <tr
                         key={t.id}
@@ -793,6 +822,12 @@ export function TasksPage() {
                         <td className="py-2.5 pr-3 font-medium text-fg">{t.title}</td>
                         <td className="py-2.5 pr-3">
                           <Badge tone={STATUS_UI[t.status].tone}>{statusLabel(t.status)}</Badge>
+                          {completion ? (
+                            <p className="mt-1 max-w-[15rem] text-[11px] leading-tight text-success">
+                              {exactTimestamp(completion.at)}
+                              {completedBy ? ` · ${completedBy.name}` : ''}
+                            </p>
+                          ) : null}
                         </td>
                         <td className="py-2.5 pr-3 text-muted">{CATEGORY_LABEL[t.category] ?? t.category}</td>
                         <td className="py-2.5 pr-3">
@@ -1025,6 +1060,25 @@ export function TasksPage() {
             </div>
 
             {(() => {
+              const completion = completionAudit(detailTask)
+              if (!completion) return null
+              const completedBy = assigneeOptions.find((u) => u.id === completion.by)
+              return (
+                <div className="rounded-md border border-success/25 bg-success/5 p-3">
+                  <p className="text-xs font-semibold uppercase tracking-wide text-success">
+                    Completion details
+                  </p>
+                  <p className="mt-1 text-sm font-medium text-fg">
+                    {completedBy ? `Completed by ${completedBy.name}` : 'Completed'}
+                  </p>
+                  <time className="text-xs text-muted" dateTime={completion.at}>
+                    {exactTimestamp(completion.at)}
+                  </time>
+                </div>
+              )
+            })()}
+
+            {(() => {
               const assigneeIds = detailTask.assigneeIds?.length
                 ? detailTask.assigneeIds
                 : detailTask.assigneeId
@@ -1135,12 +1189,21 @@ export function TasksPage() {
                 {T.detailActivity}
               </h4>
               <ul className="space-y-1.5 text-xs">
-                {[...detailTask.activity].reverse().map((a, i) => (
-                  <li key={i} className="flex justify-between gap-3 text-muted">
-                    <span>{a.message}</span>
-                    <span className="shrink-0">{relativeTime(a.at)}</span>
-                  </li>
-                ))}
+                {[...detailTask.activity].reverse().map((a, i) => {
+                  const actor = assigneeOptions.find((u) => u.id === a.by)
+                  const isCompletion = a.message === 'Status → Done'
+                  return (
+                    <li key={i} className="flex flex-col gap-0.5 text-muted sm:flex-row sm:justify-between sm:gap-3">
+                      <span>
+                        {a.message}
+                        {actor ? ` · ${actor.name}` : ''}
+                      </span>
+                      <time className="shrink-0" dateTime={a.at} title={exactTimestamp(a.at)}>
+                        {isCompletion ? exactTimestamp(a.at) : relativeTime(a.at)}
+                      </time>
+                    </li>
+                  )
+                })}
               </ul>
             </div>
           </div>
@@ -1270,6 +1333,8 @@ function TaskCard({
     .map((id) => users.find((u) => u.id === id))
     .filter(Boolean) as User[]
   const extraCount = assigneeIds.length > 3 ? assigneeIds.length - 3 : 0
+  const completion = completionAudit(task)
+  const completedBy = completion ? users.find((u) => u.id === completion.by) : undefined
 
   return (
     <button
@@ -1307,6 +1372,11 @@ function TaskCard({
             </span>
             <span>{task.hoursLogged ?? 0}h</span>
           </div>
+          {completion ? (
+            <p className="mt-2 break-words text-[11px] leading-tight text-success">
+              {completedBy ? `Done by ${completedBy.name}` : 'Done'} · {exactTimestamp(completion.at)}
+            </p>
+          ) : null}
         </div>
       </div>
     </button>

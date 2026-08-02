@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase'
 import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { isHR, isLead } from '@/utils/helpers'
 import { uid } from '@/utils/helpers'
+import { useLocalPeopleOpsHr } from '@/hooks/useLocalPeopleOpsHr'
 import type {
   FeedbackAssignment,
   FeedbackCycle,
@@ -185,7 +186,7 @@ const DEFAULT_MILESTONES = (userId: string): OnboardingMilestone[] => [
 
 export function SupabaseHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, teams, departments, leaveRequests, documents, recognition } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition, tasks } = useData()
   const client = supabase!
 
   const [hrStatus, setHrStatus] = useState<'ready' | 'loading'>('loading')
@@ -211,6 +212,14 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     engagementScore: number | null
     enpsScore: number | null
   } | null>(null)
+
+  const peopleOps = useLocalPeopleOpsHr({
+    tasks,
+    okrs,
+    oneOnOneLogs,
+    users,
+    teams,
+  })
 
   const reloadInFlightRef = useRef<Promise<void> | null>(null)
 
@@ -1205,6 +1214,9 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           okrs,
           feedbackEntries,
           recognition,
+          performanceImprovementPlans: peopleOps.performanceImprovementPlans,
+          disciplineCases: peopleOps.disciplineCases,
+          employeeProfiles: peopleOps.employeeProfiles,
         },
         { memberIds, pulseOverrides },
       )
@@ -1229,6 +1241,9 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       okrs,
       feedbackEntries,
       recognition,
+      peopleOps.performanceImprovementPlans,
+      peopleOps.disciplineCases,
+      peopleOps.employeeProfiles,
     ],
   )
 
@@ -1287,6 +1302,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       seedOnboardingMilestones,
       quarterlyAwards,
       addQuarterlyAward,
+      ...peopleOps,
       getMetrics,
       hrStatus,
       reloadHr,
@@ -1345,6 +1361,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       seedOnboardingMilestones,
       quarterlyAwards,
       addQuarterlyAward,
+      peopleOps,
       getMetrics,
       hrStatus,
       reloadHr,

@@ -54,14 +54,19 @@ export const PORTAL_HR_LIVE_TABLES = [
   'portal_idps',
   'portal_feedback_cycles',
   'portal_feedback_entries',
-  'portal_feedback_templates',
   'portal_feedback_assignments',
   'portal_job_requisitions',
   'portal_job_candidates',
+  'portal_exit_interviews',
   'portal_grievances',
   'portal_onboarding_milestones',
   'portal_quarterly_awards',
-  'portal_exit_interviews',
+  'portal_employee_profiles',
+  'portal_discipline_cases',
+  'portal_pips',
+  'portal_appraisals',
+  'portal_hr_audit_log',
+  'portal_offboarding_checklists',
 ] as const
 
 /** Reload when shared tables change — keeps UI live without manual refresh. */

@@ -139,6 +139,9 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <StatCard label="Recognition (mo)" value={String(metrics.recognitionVolume)} hint="Target 3+/mo" />
         <StatCard label="Values alignment" value={metrics.valuesAlignment != null ? metrics.valuesAlignment.toFixed(1) : '—'} hint="Target 7+" />
         <StatCard label="Onboarding CSAT" value={metrics.onboardingSatisfaction != null ? metrics.onboardingSatisfaction.toFixed(1) : '—'} hint="Target 8+" />
+        <StatCard label="Active PIPs" value={String(metrics.activePips)} />
+        <StatCard label="Pending discipline" value={String(metrics.pendingDiscipline)} />
+        <StatCard label="Probation due (30d)" value={String(metrics.upcomingProbations)} />
       </div>
 
       <HrOperatingRhythmCard />
