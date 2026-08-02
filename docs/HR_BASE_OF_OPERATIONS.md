@@ -27,9 +27,10 @@ HR exists to attract the right people, develop them relentlessly, connect them t
 | **Bridge** | Google Drive picker (optional) | Import files from Drive into portal Resources / Learning submissions |
 | **Live meetings** | Google Meet / Zoom | Town halls, 1:1s, interviews |
 | **Employer brand** | LinkedIn, Instagram | Recruitment marketing (external) |
-| **Quick chat** | WhatsApp or Slack (optional) | Informal team chatter — **not** the system of record |
+| **Internal messaging** | Slack | Official internal communication, coordination, and escalation — **not** the system of record |
+| **Informal contact** | WhatsApp | Personal or emergency contact only — never leave, policy, or formal HR |
 
-**Principle:** If it needs a record, approval, or audit trail → **portal**. If it needs reach to inboxes → **Gmail**. If it teaches a skill → **Alison**. If it is a master document → **Drive**, with a portal copy where staff need access.
+**Principle:** If it needs a record, approval, or audit trail → **portal**. If it needs reach to inboxes → **Gmail**. If it teaches a skill → **Alison**. If it is day-to-day work chat → **Slack**. If it is a master document → **Drive**, with a portal copy where staff need access.
 
 ---
 
@@ -323,7 +324,7 @@ Each pillar lists: **activities**, **where in portal**, **external tool**, **own
 | Birthday/anniversary calendar | Gmail templates + optional Events entries |
 | First pulse survey | Admin → HR dashboard → Launch pulse |
 | Peer recognition live | `/people/shout-outs` — announce in digest |
-| Internal comms channel | WhatsApp/Slack optional; **portal Memos = official record** |
+| Internal comms channel | **Slack** (official); WhatsApp for informal contact only; **portal Memos = official broadcast record** |
 | Publish Afrivate Way | Resources upload + Getting started video |
 | First town hall | Create Event; Memos reminder |
 | Month 1 Alison course | HR dashboard assign + Gmail course email |
@@ -523,7 +524,8 @@ These are intentional or on the roadmap — not blockers to operating the plan:
 | eNPS / attrition / time-to-hire / policy ack / survey completion on dashboard | **Live** on HR dashboard + CSV export | Monthly leadership report via Export KPIs |
 | Portal labels (categories, tags, exit reasons) | **Live** — Admin → HR dashboard → Portal labels | Edit in admin UI |
 | Payroll & salary bands | External | Drive + Finance |
-| WhatsApp/Slack integration | External | Portal remains system of record |
+| Slack | Official internal messaging | Portal remains the system of record for workflows |
+| WhatsApp | Informal / emergency contact only | Never the system of record |
 | Buddy system field | Informal | Team assignment + WhatsApp |
 | PIP formal workflow | External template | Drive PIP doc + IDP/Growth tracking |
 | Town hall recording | External | Meet recording → Drive link in Event |

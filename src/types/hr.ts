@@ -270,3 +270,259 @@ export interface QuarterlyAward {
   note?: string
   createdAt: string
 }
+
+/* ─── Employee Information Hub ─── */
+
+export type EngagementType = 'employee' | 'volunteer' | 'contractor'
+export type EmploymentStatus = 'active' | 'probation' | 'leave' | 'exiting' | 'terminated' | 'archived'
+
+export interface EmployeeEmergencyContact {
+  name: string
+  phone: string
+  relationship: string
+}
+
+/** 1:1 with User.id — hybrid personal (employee) + HR-only fields. */
+export interface EmployeeProfile {
+  id: string
+  userId: string
+  /** Employee-editable */
+  preferredName?: string
+  legalName?: string
+  personalEmail?: string
+  phone?: string
+  workLocation?: string
+  addressCountry?: string
+  dateOfBirth?: string
+  pronouns?: string
+  linkedinUrl?: string
+  bio?: string
+  skills?: string[]
+  emergencyContact?: EmployeeEmergencyContact
+  nextOfKinNotes?: string
+  /** HR-only */
+  engagementType: EngagementType
+  employmentStatus: EmploymentStatus
+  startDate?: string
+  probationEndDate?: string
+  confirmationDate?: string
+  confirmedAt?: string
+  confirmedById?: string
+  contractTermsSummary?: string
+  payrollSetupComplete: boolean
+  hrPrivateNotes?: string
+  hrRequestsUpdate: boolean
+  archived: boolean
+  profileCompleteness: number
+  lastEmployeeUpdateAt?: string
+  lastHrUpdateAt?: string
+  createdAt: string
+  updatedAt: string
+}
+
+/** Fields employees may update via My Info. */
+export type EmployeePersonalFields = Pick<
+  EmployeeProfile,
+  | 'preferredName'
+  | 'legalName'
+  | 'personalEmail'
+  | 'phone'
+  | 'workLocation'
+  | 'addressCountry'
+  | 'dateOfBirth'
+  | 'pronouns'
+  | 'linkedinUrl'
+  | 'bio'
+  | 'skills'
+  | 'emergencyContact'
+  | 'nextOfKinNotes'
+>
+
+/* ─── Progressive discipline & PIP (SWP §9) ─── */
+
+export type DisciplineStep =
+  | 'coaching_verbal'
+  | 'written_warning'
+  | 'pip'
+  | 'restricted_duties'
+  | 'termination_case'
+
+export type DisciplineSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type DisciplineEmployeeLevel = 'staff' | 'assistant_lead' | 'team_lead' | 'contractor' | 'volunteer'
+export type DisciplineCaseStatus =
+  | 'draft'
+  | 'pending_hr'
+  | 'active'
+  | 'completed'
+  | 'escalated'
+  | 'cancelled'
+export type DisciplineDeliveryMode = 'portal_notice' | 'meeting' | 'email_formal' | 'written_letter'
+
+export type DisciplineTrigger =
+  | 'missed_deadlines'
+  | 'inaccurate_reporting'
+  | 'poor_communication'
+  | 'unauthorised_absence'
+  | 'misconduct'
+  | 'underperformance'
+  | 'security'
+  | 'systems_non_use'
+  | 'leave_pattern'
+
+export interface DisciplineEvidenceLink {
+  kind: 'task' | 'checkin' | 'okr' | 'leave' | 'other'
+  refId?: string
+  note?: string
+}
+
+export interface DisciplineCase {
+  id: string
+  subjectUserId: string
+  step: DisciplineStep
+  severity: DisciplineSeverity
+  employeeLevel: DisciplineEmployeeLevel
+  triggers: DisciplineTrigger[]
+  reason: string
+  evidence: DisciplineEvidenceLink[]
+  status: DisciplineCaseStatus
+  deliveryMode: DisciplineDeliveryMode
+  issuedById: string
+  recommendedById?: string
+  approvedById?: string
+  deliveredAt?: string
+  acknowledgementRequired: boolean
+  acknowledgedAt?: string
+  pipId?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export type PipGoalStatus = 'not_started' | 'in_progress' | 'met' | 'missed'
+export type PipReviewRating = 'on_track' | 'at_risk' | 'off_track'
+export type PipOutcome = 'passed' | 'extended' | 'escalated' | 'terminated_recommendation'
+
+export interface PipGoal {
+  id: string
+  description: string
+  successMetric: string
+  dueDate: string
+  status: PipGoalStatus
+}
+
+export interface PipReview {
+  id: string
+  scheduledAt: string
+  completedAt?: string
+  reviewerId: string
+  rating?: PipReviewRating
+  notes?: string
+  nextActions?: string
+}
+
+export interface PerformanceImprovementPlan {
+  id: string
+  caseId: string
+  subjectUserId: string
+  goals: PipGoal[]
+  startDate: string
+  endDate: string
+  durationDays: number
+  reviews: PipReview[]
+  outcome?: PipOutcome
+  outcomeNote?: string
+  outcomeAt?: string
+  outcomeById?: string
+  templateKey?: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface PipTemplate {
+  id: string
+  key: string
+  label: string
+  employeeLevel: DisciplineEmployeeLevel
+  category: 'performance' | 'conduct' | 'attendance'
+  defaultDurationDays: number
+  defaultDeliveryMode: DisciplineDeliveryMode
+  goalTemplates: Array<{ description: string; successMetric: string }>
+  reviewCadenceDays: number[]
+}
+
+/* ─── Formal appraisals (60/40) ─── */
+
+export type AppraisalCadence = 'quarterly' | 'monthly'
+export type AppraisalStatus = 'draft' | 'submitted' | 'calibrated' | 'finalized'
+export type AppraisalBand = 'exceptional' | 'good' | 'concern' | 'disciplinary' | 'termination_risk'
+
+export interface AppraisalScores {
+  /** 0–100 deliverables/output (60% weight). */
+  outputScore: number
+  /** 0–100 soft skills (40% weight). */
+  softSkillsScore: number
+}
+
+export interface FormalAppraisal {
+  id: string
+  subjectUserId: string
+  reviewerId: string
+  periodLabel: string
+  cadence: AppraisalCadence
+  status: AppraisalStatus
+  scores: AppraisalScores
+  /** Computed overall 0–100. */
+  overallScore: number
+  band: AppraisalBand
+  outputNotes?: string
+  softSkillsNotes?: string
+  evidenceLinks: DisciplineEvidenceLink[]
+  onActivePip: boolean
+  createdAt: string
+  updatedAt: string
+  finalizedAt?: string
+}
+
+/* ─── HR audit, offboarding, manager scorecard ─── */
+
+export interface HrAuditEntry {
+  id: string
+  actorId: string
+  entityType: 'employee_profile' | 'discipline_case' | 'pip' | 'appraisal' | 'offboarding'
+  entityId: string
+  action: string
+  summary: string
+  createdAt: string
+}
+
+export type OffboardingItemStatus = 'pending' | 'done' | 'skipped'
+
+export interface OffboardingChecklistItem {
+  id: string
+  label: string
+  status: OffboardingItemStatus
+  completedAt?: string
+  completedById?: string
+}
+
+export interface OffboardingChecklist {
+  id: string
+  userId: string
+  reason: string
+  lastDay?: string
+  volunteerBridgeNotice: boolean
+  items: OffboardingChecklistItem[]
+  status: 'open' | 'completed' | 'cancelled'
+  createdById: string
+  createdAt: string
+  updatedAt: string
+}
+
+export interface ManagerPeopleScorecard {
+  managerId: string
+  periodLabel: string
+  deliveryConsistency: number
+  kpiCompletion: number
+  communicationDiscipline: number
+  escalationQuality: number
+  notes?: string
+}

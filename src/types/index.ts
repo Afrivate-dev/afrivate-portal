@@ -78,6 +78,10 @@ export interface Task {
   hoursLogged?: number
   estimatedHours?: number
   blockers?: string
+  /** Exact time this task most recently transitioned to Done. */
+  completedAt?: string
+  /** User who most recently transitioned this task to Done. */
+  completedBy?: string
   activity: TaskActivityEntry[]
   createdAt: string
   updatedAt: string

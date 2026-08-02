@@ -20,6 +20,8 @@ interface ImportMetaEnv {
   readonly VITE_USE_SUPABASE_AUTH?: string
   /** When `true`, tasks/announcements/directory data load from Postgres (`portal_*` tables + `profiles`). Requires auth session + migration `20260518120000_portal_data_tables.sql`. */
   readonly VITE_USE_SUPABASE_DATA?: string
+  /** When `false`, hides AVA (AfriVate Virtual Assistant). Default: enabled. */
+  readonly VITE_AVA_ENABLED?: string
 }
 
 interface ImportMeta {

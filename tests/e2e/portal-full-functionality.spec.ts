@@ -129,8 +129,10 @@ test.describe('Full portal — admin session', () => {
     { path: '/people/learning', heading: /learning/i },
     { path: '/people/surveys', heading: /survey/i },
     { path: '/people/growth', heading: /growth/i },
+    { path: '/people/my-info', heading: /my info|employee|profile/i },
     { path: '/people/directory', heading: /people|directory|team/i },
     { path: '/admin', heading: /admin|workspace|approvals|users/i },
+    { path: '/admin?section=employees', heading: /employee|hub|directory|dossier/i },
     { path: '/launch-checklist', heading: /launch|checklist|revival/i },
   ]
 
@@ -217,6 +219,53 @@ test.describe('Full portal — admin session', () => {
       await clickIfVisible(page, name)
       await expectMainOk(page)
     }
+  })
+
+  test('tasks: completion records exact time and actor', async ({ page }) => {
+    await page.evaluate(
+      ({ adminId, staffId }) => {
+        localStorage.setItem(
+          'av-tasks',
+          JSON.stringify([
+            {
+              id: 'e2e-shared-task',
+              ownerId: adminId,
+              assigneeId: adminId,
+              assigneeIds: [adminId, staffId],
+              title: 'Shared launch task',
+              status: 'todo',
+              priority: 'medium',
+              category: 'admin',
+              hoursLogged: 0,
+              activity: [
+                {
+                  at: '2026-07-30T08:00:00.000Z',
+                  by: adminId,
+                  message: 'Created task',
+                },
+              ],
+              createdAt: '2026-07-30T08:00:00.000Z',
+              updatedAt: '2026-07-30T08:00:00.000Z',
+            },
+          ]),
+        )
+      },
+      { adminId: ADMIN.id, staffId: STAFF.id },
+    )
+    await page.goto('/tasks')
+    await page.getByRole('button', { name: /shared launch task/i }).click()
+    const dialog = page.getByRole('dialog')
+    await dialog.getByRole('button', { name: /^complete$/i }).click()
+
+    await expect(dialog.getByText('Completed by E2E Admin')).toBeVisible()
+    await expect(dialog.getByRole('time').first()).toContainText(/GMT[+-]\d{2}:\d{2}/)
+
+    const stored = await page.evaluate(() => {
+      const tasks = JSON.parse(localStorage.getItem('av-tasks') ?? '[]')
+      return tasks.find((task: { id: string }) => task.id === 'e2e-shared-task')
+    })
+    expect(stored.completedBy).toBe(ADMIN.id)
+    expect(Date.parse(stored.completedAt)).not.toBeNaN()
   })
 
   test('check-in: tabs and form controls', async ({ page }) => {
@@ -370,6 +419,7 @@ test.describe('Full portal — admin session', () => {
       /onboarding|getting started/i,
       /check.?ins?/i,
       /hr dashboard|hr ops|people ops/i,
+      /employees/i,
     ]
     for (const name of sectionNames) {
       const tab = page.getByRole('button', { name }).first()
@@ -379,6 +429,41 @@ test.describe('Full portal — admin session', () => {
         await expect(page.getByRole('heading').first()).toBeVisible()
       }
     }
+  })
+
+  test('admin employees hub: tabs and dossier open', async ({ page }) => {
+    await page.goto('/admin?section=employees')
+    await expectMainOk(page)
+    for (const name of [
+      /directory/i,
+      /discipline|pip/i,
+      /appraisal/i,
+      /probation/i,
+      /scorecard/i,
+      /offboard/i,
+      /audit/i,
+    ]) {
+      await clickIfVisible(page, name)
+      await expectMainOk(page)
+    }
+    const openBtn = page.getByRole('button', { name: /open|dossier|view/i }).first()
+    if (await openBtn.isVisible().catch(() => false)) {
+      await openBtn.click()
+      const dialog = page.getByRole('dialog')
+      if (await dialog.isVisible().catch(() => false)) {
+        await expect(dialog).toBeVisible()
+        await closeDialogIfOpen(page)
+      }
+    }
+  })
+
+  test('people my-info: form loads and save control present', async ({ page }) => {
+    await page.goto('/people/my-info')
+    await expectMainOk(page)
+    await expect(page.getByRole('heading', { name: /my info/i }).first()).toBeVisible()
+    await expect(
+      page.getByRole('button', { name: /save/i }).or(page.getByText(/completeness|emergency/i)).first(),
+    ).toBeVisible()
   })
 
   test('admin leave: all requests list visible', async ({ page }) => {
@@ -410,6 +495,18 @@ test.describe('Full portal — admin session', () => {
     await page.goto('/privacy')
     await expect(page.getByText(/privacy|personal data|ndpr/i).first()).toBeVisible()
   })
+
+  test('AVA assistant: open, ask leave how-to, see guidance', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: /^open ava$|^ava$/i }).click()
+    await expect(page.getByRole('dialog', { name: /ava/i })).toBeVisible()
+    await expect(page.getByText(/afriVate virtual assistant/i).first()).toBeVisible()
+    await page.getByRole('button', { name: /how do i request leave/i }).click()
+    await expect(page.getByText(/people → time off|time off/i).first()).toBeVisible({
+      timeout: 15_000,
+    })
+    await page.getByRole('button', { name: /^close$/i }).or(page.getByLabel(/^close$/i)).first().click()
+  })
 })
 
 test.describe('Staff session (non-admin)', () => {
@@ -439,10 +536,21 @@ test.describe('Staff session (non-admin)', () => {
       '/people/learning',
       '/people/surveys',
       '/people/growth',
+      '/people/my-info',
       '/people/directory',
     ]) {
       await page.goto(path)
       await expectMainOk(page)
+    }
+  })
+
+  test('staff my-info is editable', async ({ page }) => {
+    await page.goto('/people/my-info')
+    await expectMainOk(page)
+    const phone = page.getByLabel(/phone|mobile/i).first()
+    if (await phone.isVisible().catch(() => false)) {
+      await phone.fill('+2348000000001')
+      await expect(phone).toHaveValue('+2348000000001')
     }
   })
 })

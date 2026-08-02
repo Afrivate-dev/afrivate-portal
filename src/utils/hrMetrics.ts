@@ -20,6 +20,15 @@ export type HrMetricsOptions = {
 }
 
 export type HrMetricsInput = {
+  performanceImprovementPlans?: Array<{ subjectUserId: string; outcome?: string | null }>
+  disciplineCases?: Array<{ subjectUserId: string; status: string }>
+  employeeProfiles?: Array<{
+    userId: string
+    probationEndDate?: string
+    archived?: boolean
+    employmentStatus?: string
+  }>
+
   pulseSurveys: PulseSurvey[]
   pulseResponses: PulseResponse[]
   learningAssignments: LearningAssignment[]
@@ -100,6 +109,9 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     okrs,
     feedbackEntries,
     recognition,
+    performanceImprovementPlans = [],
+    disciplineCases = [],
+    employeeProfiles = [],
   } = input
 
   const memberIds = options?.memberIds
@@ -245,6 +257,20 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     feedbackEntries.filter((e) => scopedUserIds.has(e.subjectUserId)),
   )
 
+  const activePips = performanceImprovementPlans.filter(
+    (p) => !p.outcome && scopedUserIds.has(p.subjectUserId),
+  ).length
+  const pendingDiscipline = disciplineCases.filter(
+    (c) => c.status === 'pending_hr' && scopedUserIds.has(c.subjectUserId),
+  ).length
+  const in30 = Date.now() + 30 * 24 * 60 * 60 * 1000
+  const upcomingProbations = employeeProfiles.filter((p) => {
+    if (p.archived || !p.probationEndDate) return false
+    if (!scopedUserIds.has(p.userId)) return false
+    const end = new Date(p.probationEndDate).getTime()
+    return end >= Date.now() && end <= in30
+  }).length
+
   return {
     engagementScore,
     enpsScore,
@@ -263,5 +289,8 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     recognitionVolume,
     valuesAlignment,
     onboardingSatisfaction,
+    activePips,
+    pendingDiscipline,
+    upcomingProbations,
   }
 }

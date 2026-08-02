@@ -7,6 +7,7 @@ import {
   BarChart3,
   TrendingUp,
   Users,
+  IdCard,
 } from 'lucide-react'
 
 export interface PeopleNavItem {
@@ -24,5 +25,6 @@ export const peopleNavItems: PeopleNavItem[] = [
   { to: '/people/learning', label: 'Learning', icon: GraduationCap },
   { to: '/people/surveys', label: 'Surveys', icon: BarChart3 },
   { to: '/people/growth', label: 'Growth', icon: TrendingUp },
+  { to: '/people/my-info', label: 'My info', icon: IdCard },
   { to: '/people/directory', label: 'Directory', icon: Users },
 ]

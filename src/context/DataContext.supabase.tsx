@@ -369,6 +369,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         id: 't_' + uid(),
         createdAt: now,
         updatedAt: now,
+        completedAt: input.status === 'done' ? now : undefined,
+        completedBy: input.status === 'done' ? input.ownerId : undefined,
         activity: [{ at: now, by: input.ownerId, message: 'Created task' }],
       }
       setTasks((p) => [task, ...p])
@@ -457,6 +459,15 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             : t.assigneeId,
         updatedAt: now,
         activity: log.length ? [...t.activity, ...log] : t.activity,
+      }
+      if (patch.status && patch.status !== t.status) {
+        if (patch.status === 'done') {
+          merged.completedAt = now
+          merged.completedBy = by
+        } else {
+          merged.completedAt = undefined
+          merged.completedBy = undefined
+        }
       }
 
       setTasks((prev) => prev.map((x) => (x.id === id ? merged : x)))

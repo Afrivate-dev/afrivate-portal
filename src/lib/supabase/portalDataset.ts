@@ -120,6 +120,8 @@ export function rowToTask(r: Record<string, unknown>): Task {
     hoursLogged: r.hours_logged != null ? Number(r.hours_logged) : undefined,
     estimatedHours: r.estimated_hours != null ? Number(r.estimated_hours) : undefined,
     blockers: r.blockers ? String(r.blockers) : undefined,
+    completedAt: r.completed_at ? String(r.completed_at) : undefined,
+    completedBy: r.completed_by ? String(r.completed_by) : undefined,
     activity: Array.isArray(r.activity)
       ? (r.activity as TaskActivityEntry[])
       : [],
@@ -144,6 +146,8 @@ export function taskToInsertRow(t: Task): Record<string, unknown> {
     hours_logged: t.hoursLogged ?? null,
     estimated_hours: t.estimatedHours ?? null,
     blockers: t.blockers ?? null,
+    completed_at: t.completedAt ?? null,
+    completed_by: t.completedBy ?? null,
     activity: t.activity,
     created_at: t.createdAt,
     updated_at: t.updatedAt,

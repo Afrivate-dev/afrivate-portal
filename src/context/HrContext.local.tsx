@@ -6,6 +6,7 @@ import { HrContext, type HrContextValue, type HrMetrics } from '@/context/hrCont
 import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { DEFAULT_FEEDBACK_TEMPLATES } from '@/lib/feedbackConfig'
 import { buildPeerAssignmentsForSubject } from '@/lib/feedbackPeers'
+import { useLocalPeopleOpsHr } from '@/hooks/useLocalPeopleOpsHr'
 import { uid } from '@/utils/helpers'
 import type {
   FeedbackAssignment,
@@ -49,7 +50,7 @@ const SEED_SURVEY: PulseSurvey = {
 
 export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, teams, departments, leaveRequests, documents, recognition } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition, tasks } = useData()
 
   const [pulseSurveys, setPulseSurveys] = useLocalStorage<PulseSurvey[]>('av-hr-pulse-surveys', [SEED_SURVEY])
   const [pulseResponses, setPulseResponses] = useLocalStorage<HrContextValue['pulseResponses']>('av-hr-pulse-responses', [])
@@ -75,6 +76,14 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const [grievances, setGrievances] = useLocalStorage<Grievance[]>('av-hr-grievances', [])
   const [onboardingMilestones, setOnboardingMilestones] = useLocalStorage<OnboardingMilestone[]>('av-hr-milestones', [])
   const [quarterlyAwards, setQuarterlyAwards] = useLocalStorage<QuarterlyAward[]>('av-hr-awards', [])
+
+  const peopleOps = useLocalPeopleOpsHr({
+    tasks,
+    okrs,
+    oneOnOneLogs,
+    users,
+    teams,
+  })
 
   const submitPulseResponse = useCallback(
     async (surveyId: string, userId: string, answers: Record<string, string | number>) => {
@@ -427,6 +436,9 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
           okrs,
           feedbackEntries,
           recognition,
+          performanceImprovementPlans: peopleOps.performanceImprovementPlans,
+          disciplineCases: peopleOps.disciplineCases,
+          employeeProfiles: peopleOps.employeeProfiles,
         },
         { memberIds },
       )
@@ -450,6 +462,9 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       okrs,
       feedbackEntries,
       recognition,
+      peopleOps.performanceImprovementPlans,
+      peopleOps.disciplineCases,
+      peopleOps.employeeProfiles,
     ],
   )
 
@@ -508,6 +523,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       seedOnboardingMilestones,
       quarterlyAwards,
       addQuarterlyAward,
+      ...peopleOps,
       getMetrics,
       hrStatus: 'ready',
       reloadHr: async () => {},
@@ -523,6 +539,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, addJobCandidatesBatch, updateJobCandidate, removeJobCandidates,
       exitInterviews, addExitInterview, grievances, submitGrievance, updateGrievance,
       onboardingMilestones, setMilestoneCompleted, seedOnboardingMilestones, quarterlyAwards, addQuarterlyAward,
+      peopleOps,
       getMetrics,
     ],
   )

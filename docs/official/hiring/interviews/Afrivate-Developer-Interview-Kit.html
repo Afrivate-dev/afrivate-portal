@@ -1,0 +1,352 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AfriVate Developer Interview Kit</title>
+  <style>
+  :root {
+    --purple: #8d4087;
+    --ink: #1f1f1f;
+    --muted: #5f5f5f;
+    --line: #ebdceb;
+    --soft: #f8f3f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink);
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.55;
+    background: #fff;
+  }
+  .shell {
+    position: relative;
+    padding: 0 4px;
+  }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--purple);
+    margin-bottom: 18px;
+  }
+  .brand {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+  }
+  .brand img {
+    width: 154px;
+    height: 49px;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .chip {
+    text-align: right;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  h1 {
+    font-size: 17px;
+    line-height: 1.3;
+    margin: 0 0 14px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .meta {
+    display: grid;
+    gap: 6px;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0 0 16px;
+  }
+  .meta div {
+    display: grid;
+    grid-template-columns: 130px 1fr;
+    gap: 8px;
+  }
+  .meta span { color: var(--muted); }
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--purple);
+    margin: 18px 0 8px;
+    padding-bottom: 5px;
+    border-bottom: 1px solid var(--line);
+    break-after: avoid-page;
+  }
+  h3 {
+    font-size: 11px;
+    margin: 12px 0 6px;
+    break-after: avoid-page;
+  }
+  p { margin: 0 0 9px; }
+  ul, ol {
+    margin: 0 0 10px;
+    padding-left: 20px;
+  }
+  li {
+    margin: 0 0 5px;
+    break-inside: avoid-page;
+  }
+  .note {
+    background: var(--soft);
+    border-left: 3px solid var(--purple);
+    padding: 9px 12px;
+    margin: 8px 0 12px;
+  }
+  .listen {
+    color: var(--muted);
+    font-size: 9.5pt;
+    margin: 2px 0 8px;
+  }
+  .q {
+    margin: 0 0 2px;
+    break-inside: avoid-page;
+  }
+  .scenario {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    margin: 8px 0 12px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 12px;
+    font-size: 9.5pt;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 6px 8px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--soft);
+    color: var(--purple);
+    font-weight: 700;
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .check td:last-child {
+    width: 48px;
+    text-align: center;
+  }
+  .score td:nth-child(2) {
+    width: 42px;
+    text-align: center;
+  }
+  .blank {
+    border-bottom: 1px solid #bbb;
+    display: inline-block;
+    min-width: 140px;
+    height: 1em;
+  }
+  .blank-long {
+    border-bottom: 1px solid #bbb;
+    display: block;
+    width: 100%;
+    height: 1.4em;
+    margin: 4px 0 8px;
+  }
+  .two-col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 12px;
+    margin: 0 0 12px;
+  }
+  .two-col .box {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    padding: 10px 12px;
+    background: #fff;
+  }
+  .two-col h3 { margin-top: 0; }
+  .page-break {
+    break-before: page;
+  }
+  .rec-row {
+    margin: 4px 0;
+  }
+  .muted { color: var(--muted); }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="file:///C:/Users/DELL/Desktop/CODE/Afrivate/afrivate-portal/docs/official/brand/afrivate-logo-long-purple.png" alt="AfriVate" />
+      </div>
+      <div class="chip">Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092</div>
+    </div>
+    <h1>Developer Interview Kit</h1>
+    <section class="meta">
+      <div><strong>Document Code</strong><span>AFRI-DIK-01</span></div>
+      <div><strong>Roles Covered</strong><span>Front-End Developer · Back-End Developer</span></div>
+      <div><strong>Format</strong><span>Virtual / Remote Video Interview</span></div>
+      <div><strong>Duration</strong><span>~45–60 minutes</span></div>
+      <div><strong>Stack Focus</strong><span>React · TypeScript · Node.js / NestJS · PostgreSQL · Git/GitHub</span></div>
+      <div><strong>Audience</strong><span>Interviewers &amp; Hiring Panel</span></div>
+    </section>
+
+    <div class="note"><strong>How to use:</strong> Ask the shared questions for every candidate, then ask <strong>4–5 role-specific</strong> questions. Use follow-ups only when you need more signal. Early-career candidates with strong projects are welcome — weigh <strong>practical ability and judgement</strong> over years of experience.</div>
+
+    <h2>1. Before the Call (Remote Checklist)</h2>
+    <table class="check">
+      <thead>
+        <tr><th>Item</th><th>Done</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Confirm role (FE / BE), time zone, and meeting link</td><td>☐</td></tr>
+        <tr><td>Read CV, cover letter, and one GitHub/portfolio project they highlighted</td><td>☐</td></tr>
+        <tr><td>Stable internet, quiet space, camera on; have a backup (hotspot / WhatsApp)</td><td>☐</td></tr>
+        <tr><td>Candidate can screen-share (GitHub, deployed app, or code)</td><td>☐</td></tr>
+        <tr><td>Open <strong>Afrivate-Developer-Interview-Scorecard.docx</strong> — score during/right after the call</td><td>☐</td></tr>
+        <tr><td>Ask them to join 2–3 minutes early to test audio/video</td><td>☐</td></tr>
+      </tbody>
+    </table>
+    <p><strong>Opening (2 min):</strong> Introduce AfriVate briefly, confirm the role, explain the agenda (background → project deep-dive → technical → remote work → their questions), and say you will take notes.</p>
+
+    <h2>2. Shared Agenda (~50 min)</h2>
+    <table>
+      <thead>
+        <tr><th>Block</th><th>Time</th><th>Purpose</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Warm-up &amp; motivation</td><td>5 min</td><td>Fit, clarity, communication</td></tr>
+        <tr><td>Portfolio / project deep-dive</td><td>12–15 min</td><td>Ownership, real contribution, problem-solving</td></tr>
+        <tr><td>Role-specific technical</td><td>15–20 min</td><td>Stack depth matched to the job post</td></tr>
+        <tr><td>Remote work &amp; collaboration</td><td>5–8 min</td><td>Reliability for flexible remote work</td></tr>
+        <tr><td>Candidate questions + close</td><td>5 min</td><td>Curiosity, mutual fit</td></tr>
+      </tbody>
+    </table>
+
+    <h2>3. Shared Questions (Both Roles)</h2>
+
+    <h3>Warm-up</h3>
+    <p class="q"><strong>1.</strong> Walk me through your background and what drew you to AfriVate / this role.</p>
+    <p class="listen"><em>Listen for:</em> clear story; interest in product/impact — not only “I need a job”.</p>
+
+    <p class="q"><strong>2.</strong> What does “good code” mean to you in a small, fast-moving team?</p>
+    <p class="listen"><em>Listen for:</em> readability, pragmatism, shipping, feedback — matches AfriVate values.</p>
+
+    <h3>Project deep-dive (use their application project)</h3>
+    <p class="q"><strong>3.</strong> Pick the project you are most proud of. What did <em>you</em> personally build?</p>
+    <p class="listen"><em>Listen for:</em> “I” vs vague “we”; concrete contributions.</p>
+
+    <p class="q"><strong>4.</strong> What was the hardest technical problem, and how did you solve it?</p>
+    <p class="listen"><em>Listen for:</em> debugging process, trade-offs, learning — not just tool names.</p>
+
+    <p class="q"><strong>5.</strong> If you rebuilt it today, what would you change?</p>
+    <p class="listen"><em>Listen for:</em> self-awareness, growth, humility.</p>
+
+    <h3>Remote work &amp; ownership</h3>
+    <p class="q"><strong>6.</strong> How do you stay reliable when working remotely with flexible hours?</p>
+    <p class="listen"><em>Listen for:</em> async updates, deadlines, escalation, Portal/Slack-style habits.</p>
+
+    <p class="q"><strong>7.</strong> Tell me about a time you got stuck. How did you unblock yourself, and when did you ask for help?</p>
+    <p class="listen"><em>Listen for:</em> early escalation, documentation, ownership — not silent struggle for days.</p>
+
+    <p class="q"><strong>8.</strong> How do you handle code review feedback you disagree with?</p>
+    <p class="listen"><em>Listen for:</em> respect, evidence-based discussion, willingness to learn.</p>
+
+    <h3>Close</h3>
+    <p class="q"><strong>9.</strong> What questions do you have for us?</p>
+    <p class="listen"><em>Strong signal:</em> product, stack, how work is assigned, FE/BE collaboration, growth.</p>
+
+    <h2 class="page-break">4. Front-End Developer — Technical Questions</h2>
+    <p>Aligned to: React, TypeScript, HTML/CSS, hooks, state, forms, routing, REST APIs, accessibility, Git/GitHub. Nice-to-haves (TanStack Query, Tailwind, Supabase, tests) are bonus, not required. Ask <strong>4–5</strong> questions. Prefer discussion + screen-share over trivia.</p>
+
+    <h3>Core (pick 4)</h3>
+    <p class="q"><strong>FE-1. Components &amp; hooks</strong> — In React, when do you use <code>useState</code> vs lifting state up vs a shared store (Context / Zustand / Redux)?</p>
+    <p class="listen"><em>Listen for:</em> local vs shared needs; avoids overusing global state; Context isn’t always for server data.</p>
+
+    <p class="q"><strong>FE-2. API integration</strong> — How do you handle loading, errors, auth failure, and empty states when calling a REST API from React?</p>
+    <p class="listen"><em>Listen for:</em> UX for each state; retries/timeouts; token expiry; UI never left hanging.</p>
+
+    <p class="q"><strong>FE-3. TypeScript</strong> — How has TypeScript helped (or slowed) you in a React project? Give a concrete example.</p>
+    <p class="listen"><em>Listen for:</em> typing props/API responses; avoiding <code>any</code>; practical benefit, not buzzwords.</p>
+
+    <p class="q"><strong>FE-4. Responsive &amp; accessibility</strong> — How do you make a UI work on mobile and stay usable for keyboard / screen-reader users?</p>
+    <p class="listen"><em>Listen for:</em> semantic HTML, labels, focus, contrast, responsive layout — even if basics only.</p>
+
+    <p class="q"><strong>FE-5. Git collaboration</strong> — Describe your branch → PR → review flow. How do you handle merge conflicts?</p>
+    <p class="listen"><em>Listen for:</em> small PRs, clear descriptions, calm conflict resolution.</p>
+
+    <h3>Optional follow-ups</h3>
+    <ul>
+      <li><strong>FE-6.</strong> Client state vs server state (e.g. why TanStack Query / caching API data).</li>
+      <li><strong>FE-7.</strong> One performance issue you’ve fixed (re-renders, large lists, images, bundle size).</li>
+      <li><strong>FE-8.</strong> Screen-share: open a component they wrote and walk through structure and decisions.</li>
+    </ul>
+
+    <div class="scenario">
+      <strong>Mini scenario (optional, 5 min):</strong> “Design a login form in React that talks to an API. What states and edge cases do you handle?”<br/>
+      <span class="muted"><em>Listen for:</em> validation, loading/disabled submit, wrong password, network error, redirect after success, careful token storage.</span>
+    </div>
+
+    <h2>5. Back-End Developer — Technical Questions</h2>
+    <p>Aligned to: TypeScript, Node (Express/Fastify/NestJS), PostgreSQL, REST APIs, auth/RBAC, validation, security, migrations, Git. Nice-to-haves (Prisma, Redis, queues, Docker) are bonus. Ask <strong>4–5</strong> questions.</p>
+
+    <h3>Core (pick 4)</h3>
+    <p class="q"><strong>BE-1. API design</strong> — How do you design a REST endpoint so a React frontend can use it reliably? What belongs in the contract?</p>
+    <p class="listen"><em>Listen for:</em> status codes, consistent error shape, pagination/filtering, docs, auth headers.</p>
+
+    <p class="q"><strong>BE-2. PostgreSQL</strong> — How do you model related data (e.g. users and roles) and keep it consistent? When do you use transactions?</p>
+    <p class="listen"><em>Listen for:</em> relations/FKs, constraints, migrations; transactions for multi-step writes.</p>
+
+    <p class="q"><strong>BE-3. Auth &amp; authorisation</strong> — Difference between authentication and authorisation. How would you protect an admin-only route?</p>
+    <p class="listen"><em>Listen for:</em> identity vs permissions; JWT/session awareness; RBAC; never trust the client alone.</p>
+
+    <p class="q"><strong>BE-4. Security</strong> — Name 2–3 ways an API gets abused and how you prevent them.</p>
+    <p class="listen"><em>Listen for:</em> validation, parameterised queries, hashed passwords, rate limits, secrets in env.</p>
+
+    <p class="q"><strong>BE-5. Debugging &amp; ownership</strong> — A production endpoint suddenly returns 500s. What do you check first?</p>
+    <p class="listen"><em>Listen for:</em> logs, recent deploys, DB errors, reproducible steps — calm structure.</p>
+
+    <h3>Optional follow-ups</h3>
+    <ul>
+      <li><strong>BE-6.</strong> Indexes: when you’d add one and what can go wrong if you add too many.</li>
+      <li><strong>BE-7.</strong> Background jobs / webhooks: one real use case they’ve built or would design.</li>
+      <li><strong>BE-8.</strong> Screen-share: walk through an API route or schema they wrote (auth + validation).</li>
+    </ul>
+
+    <div class="scenario">
+      <strong>Mini scenario (optional, 5 min):</strong> “Users upload a profile photo. Outline the backend flow: API, storage, permissions, and failure cases.”<br/>
+      <span class="muted"><em>Listen for:</em> auth before upload, file type/size checks, secure storage, metadata in DB, cleanup on failure.</span>
+    </div>
+
+    <h2 class="page-break">6. Scoring</h2>
+    <div class="note">
+      <strong>Use the separate scorecard:</strong> <em>Afrivate-Developer-Interview-Scorecard.docx</em> (AFRI-DISC-01).<br/><br/>
+      That form has fixed 1–4 anchors, FE/BE observable checks, hard gates, and forced recommendations. Do not invent informal scores in this kit. Complete one scorecard per candidate during or immediately after the call, before discussing the hire with anyone else.
+    </div>
+    <p><strong>Advance rule (summary):</strong> Advance only if every scored competency is ≥ 3, technical depth is ≥ 3, no hard fails/gates, and Confidence is Medium or High. Full rules live in the DOCX.</p>
+
+    <h2>7. Candidate Invite (Copy / Paste)</h2>
+    <div class="scenario">
+      <strong>Subject:</strong> AfriVate interview — [Front-End / Back-End] Developer<br/><br/>
+      Hi [Name],<br/><br/>
+      Thank you for applying. We would like to invite you to a <strong>virtual interview</strong> (~45–60 minutes) for the <strong>[Front-End / Back-End] Developer</strong> role.<br/><br/>
+      Please confirm:<br/>
+      — Preferred date/time (with time zone)<br/>
+      — Video link preference if any (we will send a meeting link)<br/><br/>
+      Please join from a quiet place with stable internet and be ready to <strong>screen-share</strong> a project from your portfolio or GitHub.<br/><br/>
+      Looking forward to speaking with you.<br/><br/>
+      AfriVate Technologies Ltd
+    </div>
+  </div>
+</body>
+</html>

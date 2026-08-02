@@ -74,6 +74,9 @@ const PeopleSurveyDetailPage = lazy(() =>
 const PeopleGrowthPage = lazy(() =>
   import('@/pages/people/PeopleGrowthPage').then((m) => ({ default: m.PeopleGrowthPage })),
 )
+const PeopleMyInfoPage = lazy(() =>
+  import('@/pages/people/PeopleMyInfoPage').then((m) => ({ default: m.PeopleMyInfoPage })),
+)
 const PrivacyNoticePage = lazy(() =>
   import('@/pages/PrivacyNotice').then((m) => ({ default: m.PrivacyNoticePage })),
 )
@@ -224,6 +227,7 @@ export default function App() {
                         <Route path="surveys" element={<PeopleSurveysPage />} />
                         <Route path="surveys/:surveyId" element={<PeopleSurveyDetailPage />} />
                         <Route path="growth" element={<PeopleGrowthPage />} />
+                        <Route path="my-info" element={<PeopleMyInfoPage />} />
                         <Route path="directory" element={<StaffDirectoryPage />} />
                       </Route>
                       <Route path="/directory" element={<LegacyRedirect to="/people/directory" />} />

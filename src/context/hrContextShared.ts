@@ -1,20 +1,29 @@
 import { createContext, useContext } from 'react'
 import type {
   DocumentAcknowledgment,
+  DisciplineCase,
+  EmployeePersonalFields,
+  EmployeeProfile,
   ExitInterview,
   FeedbackAssignment,
   FeedbackCycle,
   FeedbackEntry,
   FeedbackTemplate,
+  FormalAppraisal,
   Grievance,
+  HrAuditEntry,
   IndividualDevelopmentPlan,
   JobCandidate,
   JobRequisition,
   LearningAssignment,
   LearningSubmission,
+  ManagerPeopleScorecard,
+  OffboardingChecklist,
   Okr,
   OneOnOneLog,
   OnboardingMilestone,
+  PerformanceImprovementPlan,
+  PipTemplate,
   PulseResponse,
   PulseSurvey,
   QuarterlyAward,
@@ -30,22 +39,17 @@ export interface HrMetrics {
   activeSurveys: number
   headcount: number
   pendingLeave: number
-  /** Exit interviews in the last 12 months as % of headcount. */
   attritionRate: number | null
-  /** Average days from application to hire for hired candidates. */
   avgTimeToHireDays: number | null
-  /** % of active staff who acknowledged all required policies. */
   policyAckRate: number | null
-  /** % of staff who responded to open pulse/eNPS surveys. */
   surveyCompletionRate: number | null
-  /** Average key-result progress across the current quarter's OKRs (%). */
   okrAchievement: number | null
-  /** Number of shout-outs posted this calendar month. */
   recognitionVolume: number
-  /** Average 360° feedback score (0–10) — proxy for values alignment. */
   valuesAlignment: number | null
-  /** Average onboarding satisfaction survey score (1–10). */
   onboardingSatisfaction: number | null
+  activePips: number
+  pendingDiscipline: number
+  upcomingProbations: number
 }
 
 export interface HrContextValue {
@@ -64,8 +68,18 @@ export interface HrContextValue {
   learningSubmissions: LearningSubmission[]
   addLearningAssignment: (a: Omit<LearningAssignment, 'id' | 'createdAt'>) => void
   updateLearningAssignment: (id: string, patch: Partial<LearningAssignment>) => void
-  submitLearning: (s: Omit<LearningSubmission, 'id' | 'status' | 'submittedAt' | 'reviewedAt' | 'reviewedById' | 'reviewerNote'>) => boolean
-  reviewLearningSubmission: (id: string, status: 'approved' | 'rejected', reviewerId: string, note?: string) => void
+  submitLearning: (
+    s: Omit<
+      LearningSubmission,
+      'id' | 'status' | 'submittedAt' | 'reviewedAt' | 'reviewedById' | 'reviewerNote'
+    >,
+  ) => boolean
+  reviewLearningSubmission: (
+    id: string,
+    status: 'approved' | 'rejected',
+    reviewerId: string,
+    note?: string,
+  ) => void
 
   documentAcknowledgments: DocumentAcknowledgment[]
   acknowledgeDocument: (documentId: string, userId: string) => void
@@ -75,10 +89,17 @@ export interface HrContextValue {
   deleteOkr: (id: string) => void
 
   oneOnOneLogs: OneOnOneLog[]
-  setOneOnOneCompleted: (employeeId: string, managerId: string, month: string, completed: boolean) => void
+  setOneOnOneCompleted: (
+    employeeId: string,
+    managerId: string,
+    month: string,
+    completed: boolean,
+  ) => void
 
   idps: IndividualDevelopmentPlan[]
-  saveIdp: (idp: Omit<IndividualDevelopmentPlan, 'id' | 'updatedAt' | 'reviewedAt'> & { id?: string }) => void
+  saveIdp: (
+    idp: Omit<IndividualDevelopmentPlan, 'id' | 'updatedAt' | 'reviewedAt'> & { id?: string },
+  ) => void
   reviewIdp: (userId: string, managerNote: string) => boolean
 
   feedbackCycles: FeedbackCycle[]
@@ -103,7 +124,6 @@ export interface HrContextValue {
   ) => Promise<string>
   updateJobRequisition: (id: string, patch: Partial<JobRequisition>) => void
   addJobCandidate: (c: Omit<JobCandidate, 'id' | 'updatedAt'>, opts?: { reload?: boolean }) => void
-  /** Bulk insert for Gmail sync — one DB round-trip pattern + single HR reload. */
   addJobCandidatesBatch: (
     rows: Array<Omit<JobCandidate, 'id' | 'updatedAt'>>,
   ) => Promise<{ added: number; failed: number }>
@@ -112,7 +132,6 @@ export interface HrContextValue {
     patch: Partial<JobCandidate>,
     opts?: { reload?: boolean },
   ) => void | Promise<{ error: { message: string } | null }>
-  /** Delete candidates by id (used to purge non-application noise). */
   removeJobCandidates: (ids: string[]) => Promise<{ removed: number }>
 
   exitInterviews: ExitInterview[]
@@ -128,6 +147,83 @@ export interface HrContextValue {
 
   quarterlyAwards: QuarterlyAward[]
   addQuarterlyAward: (a: Omit<QuarterlyAward, 'id' | 'createdAt'>) => void
+
+  employeeProfiles: EmployeeProfile[]
+  ensureEmployeeProfile: (userId: string) => EmployeeProfile
+  saveEmployeePersonalFields: (userId: string, fields: EmployeePersonalFields) => void
+  saveEmployeeProfileHr: (
+    profile: Omit<EmployeeProfile, 'id' | 'createdAt' | 'updatedAt' | 'profileCompleteness'> & {
+      id?: string
+    },
+  ) => void
+  archiveEmployeeProfile: (userId: string, archived?: boolean) => void
+
+  disciplineCases: DisciplineCase[]
+  recommendDisciplineCase: (
+    c: Omit<
+      DisciplineCase,
+      | 'id'
+      | 'status'
+      | 'approvedById'
+      | 'deliveredAt'
+      | 'acknowledgedAt'
+      | 'pipId'
+      | 'createdAt'
+      | 'updatedAt'
+    >,
+  ) => string
+  saveDisciplineCase: (
+    c: Omit<DisciplineCase, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => string
+  approveDisciplineCase: (id: string, approvedById: string) => boolean
+  acknowledgeDisciplineCase: (id: string) => boolean
+
+  performanceImprovementPlans: PerformanceImprovementPlan[]
+  pipTemplates: PipTemplate[]
+  createPipForCase: (
+    caseId: string,
+    opts?: { templateKey?: string; durationDays?: number; startDate?: string },
+  ) => string | null
+  savePip: (
+    pip: Omit<PerformanceImprovementPlan, 'id' | 'createdAt' | 'updatedAt'> & { id?: string },
+  ) => void
+  completePipReview: (
+    pipId: string,
+    reviewId: string,
+    patch: {
+      rating: NonNullable<PerformanceImprovementPlan['reviews'][0]['rating']>
+      notes?: string
+      nextActions?: string
+      reviewerId: string
+    },
+  ) => boolean
+  closePip: (
+    pipId: string,
+    outcome: NonNullable<PerformanceImprovementPlan['outcome']>,
+    outcomeById: string,
+    note?: string,
+  ) => boolean
+
+  formalAppraisals: FormalAppraisal[]
+  saveFormalAppraisal: (
+    a: Omit<FormalAppraisal, 'id' | 'createdAt' | 'updatedAt' | 'overallScore' | 'band'> & {
+      id?: string
+    },
+  ) => string
+  finalizeAppraisal: (id: string) => boolean
+
+  hrAuditLog: HrAuditEntry[]
+  appendHrAudit: (entry: Omit<HrAuditEntry, 'id' | 'createdAt'>) => void
+
+  offboardingChecklists: OffboardingChecklist[]
+  createOffboardingChecklist: (
+    c: Omit<OffboardingChecklist, 'id' | 'createdAt' | 'updatedAt' | 'status' | 'items'> & {
+      items?: OffboardingChecklist['items']
+    },
+  ) => string
+  updateOffboardingChecklist: (id: string, patch: Partial<OffboardingChecklist>) => void
+
+  getManagerPeopleScorecard: (managerId: string, periodLabel?: string) => ManagerPeopleScorecard
 
   getMetrics: (options?: { teamScope?: boolean }) => HrMetrics
   hrStatus: 'ready' | 'loading'

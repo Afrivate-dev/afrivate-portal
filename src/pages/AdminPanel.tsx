@@ -17,6 +17,7 @@ import {
   BarChart3,
   UserCheck,
   Briefcase,
+  IdCard,
 } from 'lucide-react'
 import {
   addMonths,
@@ -48,6 +49,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { LeaveSupportingDoc } from '@/components/shared/LeaveSupportingDoc'
 import { HrDashboardSection } from '@/pages/admin/HrDashboardSection'
 import { RecruitmentAtsSection } from '@/pages/admin/RecruitmentAtsSection'
+import { EmployeeHubSection } from '@/pages/admin/EmployeeHubSection'
 import { useHr } from '@/context/HrContext'
 import { MediaAttachmentEditor } from '@/components/shared/AnnouncementAttachments'
 import { TabBar, type TabBarItem } from '@/components/ui/TabBar'
@@ -76,7 +78,7 @@ import type {
   WorkspaceTeam,
 } from '@/types'
 
-type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment'
+type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment' | 'employees'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Staff' },
@@ -166,6 +168,7 @@ export function AdminPanelPage() {
         'checkins',
         'hr',
         'recruitment',
+        'employees',
       ].includes(sectionFromUrl)
       ? sectionFromUrl
       : 'approvals',
@@ -198,6 +201,7 @@ export function AdminPanelPage() {
         'checkins',
         'hr',
         'recruitment',
+        'employees',
       ].includes(sectionFromUrl)
     ) {
       setSectionState(sectionFromUrl)
@@ -509,6 +513,14 @@ export function AdminPanelPage() {
         label: (
           <span className="inline-flex items-center gap-2">
             <BarChart3 className="h-4 w-4" /> HR dashboard
+          </span>
+        ),
+      },
+      {
+        id: 'employees',
+        label: (
+          <span className="inline-flex items-center gap-2">
+            <IdCard className="h-4 w-4" /> Employees
           </span>
         ),
       },
@@ -1698,6 +1710,7 @@ export function AdminPanelPage() {
       ) : null}
 
       {section === 'hr' ? <HrDashboardSection metrics={getMetrics()} /> : null}
+      {section === 'employees' ? <EmployeeHubSection /> : null}
       {section === 'recruitment' && canManageRecruitment ? <RecruitmentAtsSection /> : null}
 
       {/* Modals */}
