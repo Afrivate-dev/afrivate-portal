@@ -495,6 +495,18 @@ test.describe('Full portal — admin session', () => {
     await page.goto('/privacy')
     await expect(page.getByText(/privacy|personal data|ndpr/i).first()).toBeVisible()
   })
+
+  test('AVA assistant: open, ask leave how-to, see guidance', async ({ page }) => {
+    await page.goto('/')
+    await page.getByRole('button', { name: /^open ava$|^ava$/i }).click()
+    await expect(page.getByRole('dialog', { name: /ava/i })).toBeVisible()
+    await expect(page.getByText(/afriVate virtual assistant/i).first()).toBeVisible()
+    await page.getByRole('button', { name: /how do i request leave/i }).click()
+    await expect(page.getByText(/people → time off|time off/i).first()).toBeVisible({
+      timeout: 15_000,
+    })
+    await page.getByRole('button', { name: /^close$/i }).or(page.getByLabel(/^close$/i)).first().click()
+  })
 })
 
 test.describe('Staff session (non-admin)', () => {

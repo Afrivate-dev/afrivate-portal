@@ -12,6 +12,7 @@ import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { Drawer } from '@/components/layout/Drawer'
 import { InstallAppPrompt } from '@/components/shared/InstallAppPrompt'
+import { AvaFab } from '@/components/ava/AvaFab'
 
 function AppShell({
   drawerOpen,
@@ -53,6 +54,7 @@ function AppShell({
       </div>
       <Drawer open={drawerOpen} onClose={onCloseDrawer} />
       <InstallAppPrompt />
+      <AvaFab />
     </div>
   )
 }

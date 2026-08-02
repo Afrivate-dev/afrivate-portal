@@ -20,6 +20,7 @@ This guide describes the principal features of AfriVate Team Space and the appro
 | **Google Drive** | Master copies of policies and contracts. Staff-facing copies are published under **Resources**. |
 | **Slack** | Official internal messaging for clarification, coordination, escalation, and reachability during core hours. Official messages must be acknowledged within four (4) hours on official work days. Slack does **not** replace Portal records. |
 | **WhatsApp** | Informal or emergency contact only. WhatsApp must **not** be used for leave requests, policy acknowledgements, appraisals, or formal People & Culture processes. |
+| **AVA** | AfriVate Virtual Assistant — in-portal help for how-to guidance, policy explanation, and (with confirmation) drafting leave or weekly updates. AVA does not approve leave or replace People & Culture decisions. |
 
 **Operating principle:** Matters requiring a formal record, approval, or acknowledgement must be completed in the Portal. Official broadcasts are issued by email. Learning delivery is provided through Alison. Official internal messaging is conducted through Slack. WhatsApp is reserved for informal or emergency contact only.
 
