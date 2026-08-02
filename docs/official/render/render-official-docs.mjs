@@ -1,7 +1,9 @@
 import { chromium } from 'playwright'
-import { mkdir, writeFile } from 'node:fs/promises'
+import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+
+const downloadsDir = path.resolve('C:/Users/DELL/Downloads')
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const officialRoot = path.resolve(__dirname, '..')
@@ -164,123 +166,134 @@ const docs = [
     title: 'Afrivate Team Lead Operational Playbook',
     meta: [
       ['Document Code', 'AFRI-TLOP-01'],
-      ['Target Audience', 'Team Leads'],
-      ['Focus', 'Authority, Accountability & Delivery'],
+      ['Status', 'Official — Binding for Team Leads'],
+      ['Applies To', 'Portal Team Leads and Assistant Leads'],
+      ['Effective Date', '2 August 2026'],
+      ['Related', 'AFRI-SWP · AFRI-DOA-01 · AFRI-LAP-01 · AFRI-ORG-01'],
     ],
     body: `
-      <h2>Introduction</h2>
-      <p>This Playbook defines the operational authority, responsibilities, and success metrics for Team Leads at AfriVate Technologies Ltd. It ensures consistent leadership standards across all departments.</p>
-      <div class="note"><strong>Operating systems:</strong> Slack is AfriVate’s official internal communication channel. The AfriVate Portal is the system of record for operational workflows, including tasks, weekly check-ins, goals, leave, onboarding, learning, resources, surveys, feedback, performance records, events, and people operations.</div>
+      <div class="note"><strong>Authority ceiling:</strong> This Playbook grants only the powers listed below. It does not create employment authority, spending authority, or final leave-approval authority. AFRI-DOA-01 prevails on conflicts about who may decide.</div>
 
-      <h2>C1. Core Responsibilities of Team Leads</h2>
+      <h2>1. Purpose</h2>
+      <p>This Playbook defines the operational duties and limits of Team Leads (including Assistant Leads where the Portal assigns them lead functions) at AfriVate Technologies Ltd.</p>
+
+      <h2>2. Operating systems</h2>
+      <p>Slack is the official internal communication channel. The AfriVate Portal is the sole system of record for tasks, weekly check-ins, goals, leave requests, onboarding, learning, resources, surveys, feedback, performance records, events, and people operations. A Slack message does not create a Portal decision.</p>
+
+      <h2>3. Mandatory duties</h2>
       <ul>
-        <li><strong>Task management:</strong> Create, assign, clarify, and reassign work through <strong>Portal → My work</strong>, including the outcome, owner, priority, deadline, status, hours, dependencies, and blockers.</li>
-        <li><strong>Goals and KPIs:</strong> Agree goals with direct reports, record them through <strong>Portal → Growth → OKRs</strong>, and review progress through Weekly check-in.</li>
-        <li><strong>Performance monitoring:</strong> Use Portal tasks, weekly check-ins, OKRs, IDPs, feedback, and 1:1 records to maintain an accurate performance record.</li>
-        <li><strong>Disciplinary authority:</strong> Initiate first-level disciplinary actions in accordance with the Standard Work Process and applicable People &amp; Culture procedures.</li>
-        <li><strong>Escalation:</strong> Record risks and blockers in the relevant Portal workflow and communicate or escalate them through Slack.</li>
+        <li><strong>Task management:</strong> Create, assign, clarify, and reassign work through <strong>Portal → My work</strong>, stating outcome, owner, priority, deadline, status, hours, dependencies, and blockers.</li>
+        <li><strong>Goals and KPIs:</strong> Agree goals with direct reports, record them in <strong>Portal → Growth → OKRs</strong>, and review progress through Weekly check-in.</li>
+        <li><strong>Performance monitoring:</strong> Maintain an accurate performance record using Portal tasks, weekly check-ins, OKRs, IDPs, feedback, and 1:1 records.</li>
+        <li><strong>First-level conduct:</strong> Initiate coaching, verbal warnings, and written warnings in accordance with AFRI-SWP, and copy People &amp; Culture on written warnings.</li>
+        <li><strong>Escalation:</strong> Record risks and blockers in the applicable Portal workflow and escalate through Slack per AFRI-DOA-01 (critical matters within sixty (60) minutes).</li>
+        <li><strong>Leave recommendation:</strong> Within one (1) official work day of a team leave request, record in the Portal an objective operational recommendation (impact, handover adequacy, capacity). Final approval or decline is by People &amp; Culture under AFRI-LAP-01.</li>
       </ul>
 
-      <h2>C2. Team Lead Authority Boundaries</h2>
-      <h3>Team Leads may:</h3>
+      <h2>4. Powers granted</h2>
+      <p>Team Leads <strong>may</strong>:</p>
       <ul>
-        <li>Assign and reassign tasks within their team through the Portal</li>
-        <li>Agree KPIs with direct reports, record goals in Portal OKRs, and review progress through Weekly check-in</li>
-        <li>Review team leave requests, check handover and delivery impact, and record the permitted recommendation or decision in the Portal</li>
-        <li>Use Slack to clarify work, coordinate delivery, and communicate operational decisions</li>
-        <li>Issue verbal and written warnings</li>
-        <li>Recommend Performance Improvement Plans (PIPs)</li>
+        <li>Assign and reassign tasks within their Portal team;</li>
+        <li>Agree KPIs with direct reports and record goals in Portal OKRs;</li>
+        <li>Record leave recommendations (not final approvals) in the Portal;</li>
+        <li>Use Slack to clarify work and coordinate delivery;</li>
+        <li>Issue verbal and written warnings (written warnings copied to People &amp; Culture);</li>
+        <li>Recommend Performance Improvement Plans (PIPs) to People &amp; Culture.</li>
       </ul>
-      <h3>Team Leads may NOT:</h3>
+      <p>Team Leads <strong>must not</strong>:</p>
       <ul>
-        <li>Terminate employment without HR/Admin approval</li>
-        <li>Change compensation or benefits</li>
-        <li>Override company-wide policy</li>
-        <li>Approve leave outside defined authority</li>
+        <li>End a Team Member’s engagement, revoke Portal access, or “terminate employment” (People &amp; Culture / CEO under AFRI-DOA-01 and AFRI-ICEF-01);</li>
+        <li>Promise, change, or discuss as binding any salary, stipend, equity, or benefits;</li>
+        <li>Create any Cash Commitment or sign any agreement binding AfriVate;</li>
+        <li>Override company-wide policy or this Playbook’s limits;</li>
+        <li>Treat a leave request as approved unless People &amp; Culture’s decision appears in the Portal (or a written CEO delegation expressly authorises the Team Lead for a defined scope).</li>
       </ul>
 
-      <h2>C3. Team Lead Success Metrics</h2>
+      <h2>5. Success metrics</h2>
       <ul>
-        <li>Team delivery consistency</li>
-        <li>KPI completion rates</li>
-        <li>Communication discipline</li>
+        <li>Team delivery against Portal deadlines and outcomes</li>
+        <li>KPI / OKR completion rates for reports</li>
+        <li>Communication discipline (Slack acknowledgement and Portal accuracy)</li>
         <li>Escalation accuracy and timeliness</li>
       </ul>
 
-      <h2>Leadership Protocol: Task Assignment Checklist</h2>
+      <h2>6. Task assignment checklist (completeness gate)</h2>
       <ol>
-        <li>Clear title, outcome, and description entered in the Portal</li>
+        <li>Clear title, outcome, and description in the Portal</li>
         <li>Owner or assignees confirmed</li>
         <li>Priority and deadline stated</li>
         <li>Dependencies, files, and success criteria attached where relevant</li>
-        <li>Clarification and follow-up communication handled through Slack</li>
+        <li>Clarification handled through Slack; final agreed outcome reflected in the Portal task</li>
       </ol>
-      <div class="note"><strong>Completeness requirement:</strong> A task that omits any of the above elements is incomplete and must be corrected before it is treated as valid assigned work.</div>
+      <div class="note"><strong>Completeness requirement:</strong> A task missing any element above is incomplete and is not valid assigned work until corrected.</div>
+
+      <h2>7. Governing provisions</h2>
+      <p>Governed by the laws of the Federal Republic of Nigeria. Amendments only by CEO-authorised update published under Portal Resources. AFRI-DOA-01 and AFRI-LAP-01 prevail over this Playbook on decision rights and leave.</p>
     `,
   },
   {
     folder: 'policies',
     file: 'Afrivate-Employee-Onboarding-Handbook.pdf',
     htmlFile: 'Afrivate-Employee-Onboarding-Handbook.html',
-    title: 'Afrivate Employee Onboarding Handbook',
+    title: 'Afrivate Team Member Onboarding Handbook',
     meta: [
       ['Document Code', 'AFRI-EOH-01'],
-      ['Target Audience', 'New Hires & Existing Staff'],
-      ['Status', 'Mandatory Reading'],
+      ['Status', 'Official — Mandatory acknowledgement'],
+      ['Applies To', 'All new and existing Team Members'],
+      ['Effective Date', '2 August 2026'],
+      ['Precedence', 'AFRI-SWP and AFRI-ICEF-01 prevail on conflict'],
     ],
     body: `
-      <h2>Welcome to AfriVate</h2>
-      <p>This handbook provides a formal orientation to AfriVate Technologies Ltd for new and existing personnel. It summarises culture, communication, performance, and conduct expectations.</p>
-      <div class="note"><strong>Precedence:</strong> This handbook does not supersede the Standard Work Process (SWP). Where any conflict arises, the SWP prevails.</div>
+      <div class="note"><strong>Status:</strong> Most AfriVate Team Members are Internal Contributors under AFRI-ICEF-01 (unpaid). This handbook orients you to standards. It does <strong>not</strong> create employment or any right to pay. “Employee” in any older form means Team Member.</div>
 
-      <h2>1. Mission &amp; Culture Overview</h2>
-      <p>AfriVate is building the future of user connectivity. Our culture is founded on excellence, ownership, professionalism, and disciplined execution.</p>
+      <h2>1. Welcome and mission</h2>
+      <p>AfriVate Technologies Ltd builds platforms and programmes that connect African Pathfinders (talent) with Enablers (organisations) through volunteering, internships, mentorship, micro-tasks, remote work, and related opportunities — elevating life and professional growth across Africa.</p>
+      <p>Culture standards: excellence, ownership, professionalism, and disciplined execution.</p>
 
-      <h2>2. Schedule &amp; Availability</h2>
+      <h2>2. Precedence</h2>
+      <p>This handbook summarises expectations. It does not supersede AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01, AFRI-DOA-01, or AFRI-LAP-01. On conflict, those instruments prevail in the order set by AFRI-ODR-01.</p>
+
+      <h2>3. Schedule and availability</h2>
       <ul>
         <li><strong>Official work days:</strong> Monday to Thursday.</li>
-        <li><strong>Friday to Sunday:</strong> Off-days or asynchronous update days, unless an approved team schedule states otherwise.</li>
-        <li><strong>Core hours:</strong> Personnel must remain reachable and active during team-defined core hours on official work days.</li>
+        <li><strong>Friday to Sunday:</strong> Not official work days. No duty applies unless (a) your Agreed Capacity or an approved team schedule recorded in writing/Portal expressly includes specific weekend work, or (b) you voluntarily complete asynchronous work without creating an expectation of others’ availability.</li>
+        <li><strong>Core hours:</strong> During official work days, you must be reachable on Slack during the core hours your Team Lead records for your team.</li>
       </ul>
 
-      <h2>3. Communication Standards</h2>
+      <h2>4. Communication standards</h2>
       <ul>
-        <li><strong>Four-hour acknowledgement rule:</strong> Official messages received through Slack must be acknowledged within four (4) hours during official work days.</li>
-        <li><strong>Official communication channel:</strong> Slack is the approved channel for internal communication, coordination, clarification, and follow-up.</li>
-        <li><strong>Portal as system of record:</strong> Complete and record every applicable workflow in the AfriVate Portal, including tasks, weekly check-ins, leave, onboarding, goals, learning submissions, surveys, feedback, policy acknowledgements, resources, events, and people operations.</li>
-        <li><strong>Email:</strong> Use your @afrivate email address for account access and approved external or formal correspondence. Email does not replace Slack for internal operational communication.</li>
+        <li><strong>Four-hour rule:</strong> Acknowledge official Slack messages within four (4) hours during official work days and core hours.</li>
+        <li><strong>Slack:</strong> Official internal communication, coordination, clarification, and follow-up.</li>
+        <li><strong>Portal:</strong> Complete every applicable workflow (tasks, weekly check-ins, leave, onboarding, goals, learning, surveys, feedback, acknowledgements, events, people records).</li>
+        <li><strong>Email:</strong> Use your @afrivate address for account access and authorised external/formal correspondence. Email does not replace Slack for internal ops.</li>
+        <li><strong>WhatsApp:</strong> Informal or emergency contact only. Never for leave, policy acknowledgement, appraisals, or formal people processes.</li>
       </ul>
 
-      <h2>4. Performance &amp; Reporting</h2>
+      <h2>5. Performance and reporting</h2>
       <ul>
-        <li>Each employee maintains three to five (3–5) weekly KPIs.</li>
-        <li>Agree goals with your Team Lead and record them through <strong>Portal → Growth → OKRs</strong>.</li>
-        <li>Submit the weekly report through <strong>Portal → Weekly check-in</strong> for Team Lead review.</li>
-        <li>Maintain accurate Portal task records, including status, progress, hours, and blockers.</li>
-        <li>Individual and team goals must support AfriVate’s organisational target of <strong>1,000,000 users by 31 December 2026</strong>.</li>
+        <li>Maintain three to five (3–5) weekly KPIs agreed with your Team Lead.</li>
+        <li>Record goals in <strong>Portal → Growth → OKRs</strong>.</li>
+        <li>Submit <strong>Portal → Weekly check-in</strong> each reporting period.</li>
+        <li>Keep Portal tasks accurate (status, progress, hours, blockers).</li>
+        <li>Align goals to the organisational objectives published by the CEO (including any stated user/growth target for the period).</li>
       </ul>
 
-      <h2>5. Evaluation &amp; Conduct</h2>
+      <h2>6. Evaluation and conduct</h2>
       <ul>
-        <li>Appraisals are weighted <strong>60% output / deliverables</strong> and <strong>40% professional and behavioural competencies</strong>.</li>
-        <li>AfriVate applies progressive discipline: coaching or verbal warning, written warning, Performance Improvement Plan (PIP), restricted duties where applicable, and termination subject to fair review.</li>
-      </ul>
-      <p><strong>Conduct expectations:</strong></p>
-      <ul>
-        <li>Act with integrity.</li>
-        <li>Pursue consistent excellence.</li>
-        <li>Respect reporting lines and organisational authority.</li>
-        <li>Protect company data and confidential information.</li>
+        <li>Appraisals use <strong>60% deliverables</strong> and <strong>40% professional conduct</strong>, per AFRI-SWP.</li>
+        <li>Progressive discipline follows AFRI-SWP (coaching/verbal warning → written warning → PIP → restricted duties → end of engagement / employment termination where a paid contract exists).</li>
+        <li>Act with integrity; protect Confidential Information; respect reporting lines; use Portal Speak up for confidential concerns.</li>
       </ul>
 
-      <h2>New Hire Checklist</h2>
+      <h2>7. Day-1 to Day-7 checklist (mandatory)</h2>
       <ol>
-        <li>☐ Sign in to the AfriVate Portal and complete the assigned onboarding checklist and videos.</li>
-        <li>☐ Open the SWP under <strong>Portal → Resources</strong>, read it in full, and complete the required policy acknowledgement.</li>
-        <li>☐ Join the AfriVate Slack workspace and the assigned team channels.</li>
-        <li>☐ Configure your @afrivate email account for access and approved external correspondence.</li>
-        <li>☐ Agree three to five (3–5) initial KPIs with your Team Lead and record the goals through <strong>Portal → Growth → OKRs</strong>.</li>
-        <li>☐ Review assigned tasks and submit progress through <strong>Portal → Weekly check-in</strong>.</li>
+        <li>Sign in to the Portal; complete Getting started / onboarding checklist and videos.</li>
+        <li>Confirm Directory shows correct department, job title, and reports-to; notify People &amp; Culture of errors.</li>
+        <li>Acknowledge in Portal Resources: AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01 (if unpaid), AFRI-LAP-01, and this Handbook (AFRI-EOH-01).</li>
+        <li>Join Slack and assigned channels.</li>
+        <li>Configure @afrivate email if issued.</li>
+        <li>Agree Agreed Capacity and 3–5 KPIs with your Team Lead; record OKRs in the Portal.</li>
+        <li>Review assigned tasks; submit the first Weekly check-in on schedule.</li>
       </ol>
     `,
   },
@@ -290,64 +303,67 @@ const docs = [
     htmlFile: 'Afrivate-Volunteer-Code-of-Conduct.html',
     title: 'Afrivate Volunteer Code of Conduct',
     meta: [
-      ['Document Type', 'Code of Conduct'],
-      ['Audience', 'Volunteers & Partner Collaborators'],
-      ['Status', 'Binding upon acceptance'],
+      ['Document Code', 'AFRI-VCC'],
+      ['Status', 'Official — Binding upon acceptance'],
+      ['Applies To', 'External volunteers and partner collaborators (not internal unpaid operators)'],
+      ['Effective Date', '2 August 2026'],
+      ['Related', 'AFRI-ICEF-01 applies to internal unpaid Contributors instead'],
     ],
     body: `
-      <h2>1. Professionalism &amp; Excellence</h2>
+      <div class="note"><strong>Scope boundary:</strong> This Code applies to external volunteers and partner collaborators placed with or through AfriVate programmes. Persons who operate AfriVate internally without pay are governed by <strong>AFRI-ICEF-01</strong>, not this Code alone. This Code does not create employment with AfriVate or with any Partner.</div>
+
+      <h2>1. Definitions</h2>
       <ul>
-        <li><strong>Reliability:</strong> Meet commitments, deadlines, and agreed deliverables consistently.</li>
-        <li><strong>Excellence:</strong> Produce work that reflects AfriVate’s quality and professionalism standards.</li>
-        <li><strong>Continuous learning:</strong> Maintain and develop the skills required for the assigned role.</li>
+        <li><strong>Volunteer:</strong> A person accepting an external volunteering, internship, mentorship, or similar placement under AfriVate or a Partner arrangement.</li>
+        <li><strong>Partner:</strong> The host organisation named in the opportunity or placement terms.</li>
+        <li><strong>Written / writing:</strong> Email, Portal record, or signed PDF — not WhatsApp alone.</li>
       </ul>
 
-      <h2>2. Integrity &amp; Character</h2>
+      <h2>2. Professionalism and excellence</h2>
       <ul>
-        <li><strong>Confidentiality:</strong> Protect sensitive data and information at all times, in accordance with any applicable non-disclosure obligations.</li>
-        <li><strong>Honesty in reporting:</strong> Record progress and blockers accurately in Portal tasks and Weekly check-in; use Slack for related communication and clarification.</li>
-        <li><strong>Representation:</strong> Do not speak on behalf of AfriVate without prior written authorisation.</li>
+        <li>Meet commitments, deadlines, and agreed deliverables.</li>
+        <li>Produce work that meets AfriVate’s quality standard for the role.</li>
+        <li>Maintain skills required for the assignment.</li>
       </ul>
 
-      <h2>3. Notice &amp; Departure Protocol</h2>
+      <h2>3. Integrity, confidentiality, and IP</h2>
       <ul>
-        <li><strong>Notice period:</strong> Provide at least two (2) weeks’ written notice before ending the volunteer engagement.</li>
-        <li><strong>Knowledge transfer:</strong> Update unfinished tasks, shared notes, learning records, and applicable resources in the Portal, then communicate the handover and clarify ownership through Slack.</li>
+        <li>Protect Confidential Information of AfriVate and the Partner; do not disclose without written authorisation.</li>
+        <li>Record progress and blockers accurately in Portal tasks and Weekly check-in where those workflows apply; use Slack only for coordination.</li>
+        <li>Do not speak on behalf of AfriVate without prior written authorisation from AfriVate.</li>
+        <li>Unless a written placement term states otherwise, work product created for AfriVate in the placement is owned by AfriVate; work product created solely for a Partner under that Partner’s brief is governed by the Partner’s written terms. If unclear, ask People &amp; Culture in writing before proceeding.</li>
       </ul>
 
-      <h2>4. Safety, Fair Treatment &amp; Rights</h2>
+      <h2>4. Notice and departure</h2>
       <ul>
-        <li><strong>Right to refuse:</strong> A volunteer may refuse work that is unsafe, unethical, or outside the agreed scope.</li>
-        <li><strong>Harassment-free workplace:</strong> Submit a confidential report through <strong>Portal → People → Growth → Speak up</strong>. Use Slack only for necessary follow-up communication.</li>
-        <li><strong>Working hours:</strong> Volunteers must not be required to work beyond agreed maximum hours.</li>
+        <li>Give at least fourteen (14) calendar days’ written notice before ending the engagement, except where immediate departure is required for safety or unlawful conditions (notify AfriVate immediately).</li>
+        <li>Complete Portal handover: unfinished tasks, notes, learning records, and resources; clarify ownership on Slack.</li>
       </ul>
 
-      <h2>5. Official Systems &amp; Records</h2>
+      <h2>5. Safety, fair treatment, and hours</h2>
       <ul>
-        <li><strong>Slack:</strong> The official channel for internal communication, coordination, clarification, and follow-up.</li>
-        <li><strong>AfriVate Portal:</strong> The official system for every feature and workflow available within the website, including tasks, check-ins, onboarding, learning, leave, goals, feedback, surveys, resources, acknowledgements, events, and people processes.</li>
-        <li><strong>Accuracy:</strong> Volunteers must keep their assigned Portal records complete and current. A Slack message does not replace a required Portal submission or update.</li>
+        <li>A Volunteer may refuse work that is unsafe, unlawful, unethical, or outside the agreed written scope, and must report it through <strong>Portal → People → Growth → Speak up</strong> (or to hr@afrivate.org if Portal access is unavailable).</li>
+        <li>Harassment and discrimination are prohibited. Use Speak up for confidential reports.</li>
+        <li>Volunteers must not be required to exceed the maximum hours agreed in writing for the placement.</li>
       </ul>
 
-      <h2>6. Grounds for Termination of Status</h2>
-      <p>A volunteer’s relationship with AfriVate and the Partner may be terminated for:</p>
+      <h2>6. Official systems</h2>
       <ul>
-        <li><strong>Inadequate productivity:</strong> Consistent failure to meet agreed KPIs.</li>
-        <li><strong>Breach of obligations:</strong> Violation of confidentiality obligations or the terms of this Code.</li>
-        <li><strong>Unprofessional conduct:</strong> Behaviour that damages the reputation of AfriVate or the Partner.</li>
+        <li><strong>Slack:</strong> Official coordination channel where issued.</li>
+        <li><strong>Portal:</strong> System of record for applicable workflows. A Slack message does not replace a required Portal submission.</li>
       </ul>
+
+      <h2>7. End of status</h2>
+      <p>AfriVate and/or the Partner may end the volunteering relationship immediately for serious breach, or otherwise on written notice, including for: consistent failure to meet agreed KPIs; breach of confidentiality or this Code; or conduct that materially damages AfriVate’s or the Partner’s reputation. Confidentiality and any IP assignment survive end of status.</p>
+
+      <h2>8. Governing law</h2>
+      <p>Governed by the laws of the Federal Republic of Nigeria. Acceptance (including Portal acknowledgement) binds the Volunteer to this Code.</p>
 
       <div class="sign-block">
-        <p><strong>Signed,</strong></p>
+        <p><strong>Issued for AfriVate Technologies Ltd,</strong></p>
         <div class="sign-row">
-          <div class="sign-card">
-            <div class="who">Joshua Oluwasujibomi Komolafe</div>
-            <div class="role">CEO, Afrivate Technologies Limited</div>
-          </div>
-          <div class="sign-card">
-            <div class="who">Daniel Ifeoluwasubomi Akinyemi</div>
-            <div class="role">CHRO, Afrivate Technologies Limited</div>
-          </div>
+          <div class="sign-card"><div class="who">Joshua Oluwasujibomi Komolafe</div><div class="role">Chief Executive Officer</div></div>
+          <div class="sign-card"><div class="who">Daniel Ifeoluwasubomi Akinyemi</div><div class="role">CHRO / Head of People &amp; Culture</div></div>
         </div>
       </div>
     `,
@@ -358,169 +374,126 @@ const docs = [
     htmlFile: 'Afrivate-Standard-Work-Process.html',
     title: 'Afrivate Standard Work Process (SWP)',
     meta: [
-      ['Document Status', 'Official Internal Policy'],
-      ['Applies To', 'All AfriVate Employees, Contractors, Volunteers & Team Leads'],
-      ['Effective Date', '4 February 2026'],
-      ['Review Cycle', 'Every 6 Months'],
-      ['Approved By', 'CEO & Executive Leadership'],
+      ['Document Code', 'AFRI-SWP'],
+      ['Status', 'Official — Binding'],
+      ['Applies To', 'All AfriVate Team Members (paid or unpaid), Team Leads, and Pillar Heads'],
+      ['Effective Date', '2 August 2026'],
+      ['Review Cycle', 'Every 6 months or on material operational change'],
+      ['Owner', 'CEO / People & Culture'],
     ],
     body: `
-      <h2>1. Purpose of This Document</h2>
-      <p>The AfriVate Standard Work Process (SWP) is the authoritative framework governing how work is performed, managed, recorded, and evaluated across the organisation. It formalises operations, establishes accountability, and sets clear expectations for professional conduct, performance, and collaboration across all teams.</p>
-      <p>This document is designed to:</p>
-      <ul>
-        <li><strong>Eliminate ambiguity</strong> by clearly defining roles, responsibilities, authority, and expectations.</li>
-        <li><strong>Standardise operations</strong> so work is executed consistently across teams.</li>
-        <li><strong>Enable accountability</strong> through measurable standards, accurate Portal records, and appropriate consequences.</li>
-        <li><strong>Support scalability</strong> through systems suitable for growth, hiring, delivery, and infrastructure expansion.</li>
-      </ul>
-      <div class="note"><strong>Mandatory compliance:</strong> This SWP is the primary operational standard for AfriVate personnel. Failure to comply may result in corrective or disciplinary action.</div>
+      <div class="note"><strong>Status disclaimer:</strong> Compliance with this SWP is a condition of continued Portal access and contribution. It does <strong>not</strong> by itself create employment, wages, or benefits. Unpaid Internal Contributors are also bound by AFRI-ICEF-01. Structure detail is in AFRI-ORG-01. Decision rights are in AFRI-DOA-01.</div>
 
-      <h2>2. Core Principles</h2>
+      <h2>1. Purpose</h2>
+      <p>The SWP is AfriVate’s authoritative framework for how work is performed, recorded, evaluated, and corrected. Failure to comply may result in progressive discipline under §9, including end of unpaid engagement or, where a paid employment contract exists, termination of that contract subject to applicable law.</p>
+
+      <h2>2. Definitions</h2>
       <ul>
-        <li><strong>Accountability:</strong> Every role has defined ownership, deliverables, and measurable outcomes. Team members own the quality, timeliness, impact, and accurate reporting of their work.</li>
-        <li><strong>Structure with Flexibility:</strong> AfriVate maintains clear systems for order and predictability while permitting justified flexibility that does not weaken accountability.</li>
-        <li><strong>Professionalism:</strong> All personnel must demonstrate reliability, ethical conduct, time discipline, and respect. Informality must never become laxity or missed obligations.</li>
-        <li><strong>Transparency:</strong> Expectations, decisions, evaluations, and consequences must be clearly documented and communicated through the approved systems.</li>
-        <li><strong>Performance-Driven Growth:</strong> Advancement and opportunities are earned through consistent results and professional behaviour.</li>
-        <li><strong>Excellence:</strong> Work must be thoughtful, precise, impactful, and continuously improved—not merely completed.</li>
+        <li><strong>Team Member:</strong> Any person with approved Portal access performing AfriVate work.</li>
+        <li><strong>Official work days:</strong> Monday to Thursday, excluding public holidays and company-declared non-working days.</li>
+        <li><strong>Core hours:</strong> The daily availability window on official work days that the Team Lead records for the team.</li>
+        <li><strong>Writing:</strong> @afrivate email, Portal Memo, or signed instrument — not WhatsApp alone.</li>
       </ul>
 
-      <h2>3. Organisational Structure &amp; Authority</h2>
-      <h3>3.1 Leadership Hierarchy</h3>
+      <h2>3. Core principles</h2>
       <ul>
-        <li><strong>Chief Executive Officer (CEO):</strong> Strategic direction, final decision-making authority, and organisational accountability.</li>
-        <li><strong>Executive Leadership / C-Level:</strong> Departmental oversight, strategy execution, and cross-functional alignment.</li>
-        <li><strong>Team Leads:</strong> Day-to-day operational management, task assignment, performance monitoring, review, and escalation.</li>
-        <li><strong>Team Members:</strong> Execution of assigned responsibilities and delivery of defined outcomes.</li>
-      </ul>
-      <p>Leadership roles exist to manage responsibility, performance, and escalation. They do not imply personal superiority.</p>
-
-      <h3>3.2 Reporting Lines</h3>
-      <ul>
-        <li>Team Members report to their assigned Team Lead or formally designated manager.</li>
-        <li>Team Leads report to their Department Head or the CEO, depending on the approved structure.</li>
-        <li>Direct CEO escalation is reserved for critical risks, authorised matters, or situations where the normal reporting line is implicated.</li>
-        <li>Reporting relationships, departments, and team assignments must be maintained accurately in the AfriVate Portal.</li>
+        <li><strong>Accountability:</strong> Every role has defined ownership and measurable outcomes. Team Members own quality, timeliness, impact, and accurate reporting.</li>
+        <li><strong>Documented flexibility only:</strong> Exceptions to process require Team Lead or Pillar Head approval recorded in the Portal or in writing. Informal “flexibility” that erases accountability is not permitted.</li>
+        <li><strong>Professionalism:</strong> Reliability, ethical conduct, time discipline, and respect are mandatory.</li>
+        <li><strong>Transparency:</strong> Expectations, decisions, evaluations, and consequences must be recorded in approved systems.</li>
+        <li><strong>Excellence:</strong> Work must meet the stated success criteria — completion without quality is failure.</li>
       </ul>
 
-      <h2>4. Work Schedule &amp; Availability</h2>
-      <h3>4.1 Official Work Days</h3>
+      <h2>4. Structure and authority</h2>
+      <p>Hierarchy and pillar ownership are set exclusively by <strong>AFRI-ORG-01</strong>. In summary:</p>
       <ul>
-        <li><strong>Monday to Thursday:</strong> Primary execution, collaboration, meetings, and decision-making.</li>
-        <li><strong>Friday to Sunday:</strong> Off-days or asynchronous update days unless an approved team schedule states otherwise.</li>
+        <li><strong>CEO</strong> — strategy and final organisational authority.</li>
+        <li><strong>Pillar Heads</strong> — ownership of pillar outcomes (not a generic “C-Level” layer).</li>
+        <li><strong>Team Leads</strong> — day-to-day operational management under AFRI-TLOP-01.</li>
+        <li><strong>Team Members</strong> — execution of assigned outcomes.</li>
       </ul>
-      <p>Teams supporting weekend operations may schedule work in advance with Team Lead approval and appropriate notice.</p>
+      <p>Reporting lines in the Portal Directory are conclusive for day-to-day authority. Direct CEO escalation is limited to critical risk, authorised matters, or where the normal line is implicated (including Speak up).</p>
 
-      <h3>4.2 Work Hours &amp; Meetings</h3>
+      <h2>5. Work schedule and availability</h2>
       <ul>
-        <li>Each team will define core availability hours within official work days.</li>
-        <li>Team members must be reachable through Slack during those hours.</li>
-        <li>Meetings require punctuality, preparation, active participation, and advance notice where attendance is impossible.</li>
-        <li>Repeated unauthorised unavailability, lateness, absence, or disengagement may affect performance evaluation.</li>
-      </ul>
-
-      <h2>5. Official Systems &amp; Communication</h2>
-      <h3>5.1 Slack: Official Internal Communication</h3>
-      <p>Slack is AfriVate’s official channel for internal communication, coordination, clarification, follow-up, and operational escalation. Official Slack messages must be professional, clear, solution-oriented, and acknowledged within <strong>four (4) hours</strong> during official work days.</p>
-      <p>Personal messaging applications, including WhatsApp, must not replace Slack for official work. Slack supports day-to-day coordination only; the AfriVate Portal remains the system of record for submissions, approvals, acknowledgements, and operational history. Email is reserved for account access, approved external correspondence, and circumstances expressly authorised by leadership.</p>
-
-      <h3>5.2 AfriVate Portal: Official System of Record</h3>
-      <p>The AfriVate Portal is the official system for every feature and workflow available within the website. Where a Portal feature exists, the relevant work must be completed and recorded there. This includes:</p>
-      <ul>
-        <li>Tasks, assignees, priorities, deadlines, status, progress, hours, and blockers;</li>
-        <li>Weekly check-ins, goals and OKRs, 1:1 records, development plans, feedback, and milestones;</li>
-        <li>Leave requests, supporting documents, reviews, and decisions;</li>
-        <li>Onboarding, learning assignments, certificate submissions, and completion records;</li>
-        <li>Resources, policy acknowledgements, surveys, events, and approved company records;</li>
-        <li>People operations, reporting relationships, grievances, recruitment, recognition, and other enabled workflows.</li>
-      </ul>
-      <div class="note"><strong>System rule:</strong> Slack is used to communicate; the Portal is used to perform and record the corresponding workflow. A Slack message does not replace a required Portal submission, approval, acknowledgement, or update.</div>
-
-      <h2>6. Standard Work Process (How Work Is Done)</h2>
-      <h3>6.1 Task Assignment</h3>
-      <p>All actionable work must be recorded in the Portal by the authorised owner or Team Lead. A valid task must contain:</p>
-      <ul>
-        <li><strong>Clear Owner:</strong> One accountable owner or identified assignees.</li>
-        <li><strong>Defined Outcome:</strong> A clear description of successful completion.</li>
-        <li><strong>Priority &amp; Deadline:</strong> The relative urgency and agreed delivery date.</li>
-        <li><strong>Supporting Context:</strong> Relevant files, dependencies, notes, and success criteria.</li>
-      </ul>
-      <p>Clarification and coordination occur through Slack; the agreed outcome must then be reflected in the Portal task.</p>
-
-      <h3>6.2 Execution &amp; Reporting</h3>
-      <ul>
-        <li>Execute work to agreed quality, security, and professional standards.</li>
-        <li>Keep Portal tasks current by recording status, progress, hours, and blockers.</li>
-        <li>Communicate risks, delays, and blockers early through Slack.</li>
-        <li>Submit the weekly report through <strong>Portal → Weekly check-in</strong> against defined KPIs.</li>
-        <li>Team Leads review performance and escalate where required.</li>
+        <li><strong>Monday–Thursday:</strong> Official work days for execution, collaboration, meetings, and decisions.</li>
+        <li><strong>Friday–Sunday:</strong> Not official work days. Duty exists only if Agreed Capacity or an approved written/Portal team schedule expressly requires specified work.</li>
+        <li>Team Members must be reachable on Slack during core hours on official work days.</li>
+        <li>Meetings require punctuality, preparation, and advance notice if attendance is impossible.</li>
+        <li>Repeated unauthorised unavailability, lateness, absence, or disengagement is a performance and conduct issue under §9.</li>
       </ul>
 
-      <h2>7. Targets, KPIs &amp; Performance Management</h2>
-      <h3>7.1 Company and Individual Targets</h3>
-      <p>AfriVate’s primary strategic objective is <strong>1,000,000 users by 31 December 2026</strong>. Departmental and individual goals must directly or indirectly support this objective.</p>
-      <p>Each team member must maintain <strong>3–5 weekly KPIs</strong> that are specific, measurable, actionable, and results-driven. Goals are recorded in Portal OKRs and progress is reported through Weekly check-in.</p>
+      <h2>6. Official systems</h2>
+      <h3>6.1 Slack</h3>
+      <p>Official channel for internal communication, coordination, clarification, follow-up, and operational escalation. Official messages must be acknowledged within <strong>four (4) hours</strong> during official work days and core hours. WhatsApp must not replace Slack for official work.</p>
+      <h3>6.2 Portal</h3>
+      <p>The Portal is the system of record wherever a feature exists, including tasks, weekly check-ins, OKRs, 1:1s, leave, onboarding, learning, resources, acknowledgements, surveys, events, and people workflows.</p>
+      <div class="note"><strong>System rule:</strong> Slack communicates; the Portal records. A Slack message never replaces a required Portal submission, approval, acknowledgement, or update.</div>
 
-      <h3>7.2 Appraisal Structure</h3>
+      <h2>7. How work is done</h2>
+      <h3>7.1 Task assignment</h3>
+      <p>All actionable work must be recorded in the Portal. A valid task requires: clear owner/assignees; defined outcome; priority and deadline; supporting context (files, dependencies, success criteria). Clarification may occur on Slack; the agreed outcome must be reflected in the Portal task.</p>
+      <h3>7.2 Execution and reporting</h3>
       <ul>
-        <li><strong>60% Deliverables &amp; Output:</strong> Quality, timeliness, consistency, and impact.</li>
-        <li><strong>40% Professional Skills:</strong> Communication, ownership, attitude, teamwork, reliability, and conduct.</li>
-      </ul>
-      <p>Standard employees receive quarterly appraisals. Employees with active performance concerns may receive monthly reviews or a Performance Improvement Plan (PIP). Portal records—including tasks, check-ins, OKRs, feedback, 1:1s, and development plans—form part of the evidence used in a fair evaluation.</p>
-
-      <h3>7.3 Performance Scale</h3>
-      <ul>
-        <li><strong>70% and above:</strong> Exceptional performance; reward-eligible.</li>
-        <li><strong>60–69%:</strong> Good performance.</li>
-        <li><strong>50–59%:</strong> Performance concern; coaching required.</li>
-        <li><strong>40–49%:</strong> Disciplinary or corrective action may apply.</li>
-        <li><strong>Below 40%:</strong> Termination consideration, subject to fair review and applicable policy.</li>
+        <li>Execute to agreed quality, security, and professional standards.</li>
+        <li>Keep Portal tasks current (status, progress, hours, blockers).</li>
+        <li>Raise risks and delays early on Slack and in the Portal.</li>
+        <li>Submit <strong>Portal → Weekly check-in</strong> each period against defined KPIs.</li>
       </ul>
 
-      <h2>8. Leave, Attendance &amp; Continuity</h2>
-      <p>Leave must be requested through the AfriVate Portal in accordance with the current Leave and Absence Policy. Except for accepted medical or clearly specified personal emergencies, a minimum of <strong>three (3) official work days’ notice</strong> is required.</p>
-      <p>Before leave, outstanding work must be completed or reassigned, Portal tasks and shared records must be updated, and the handover must be communicated through Slack. A request is not approved until the decision is recorded in the Portal. Repeated avoidable impromptu leave may attract corrective action.</p>
+      <h2>8. Targets, KPIs, and performance</h2>
+      <p>Departmental and individual goals must support the organisational objectives published by the CEO for the relevant period (including any stated growth or user target). Each Team Member maintains <strong>3–5 weekly KPIs</strong>, recorded in Portal OKRs and reported via Weekly check-in.</p>
+      <ul>
+        <li><strong>Appraisal weights:</strong> 60% deliverables/output; 40% professional conduct.</li>
+        <li><strong>Cadence:</strong> Ordinary appraisals are quarterly. Active performance concerns may trigger monthly review or a PIP.</li>
+        <li><strong>Evidence:</strong> Portal tasks, check-ins, OKRs, feedback, 1:1s, and development plans.</li>
+      </ul>
+      <p><strong>Performance scale:</strong> 70%+ exceptional (recognition-eligible under §10); 60–69% good; 50–59% concern — coaching required; 40–49% corrective action may apply; below 40% — end of engagement (unpaid) or termination of employment (if a paid contract exists), subject to fair review and AFRI-ICEF-01 / applicable law.</p>
 
-      <h2>9. Discipline &amp; Corrective Action</h2>
-      <p>Discipline exists to correct behaviour and protect organisational standards. Triggers may include missed deadlines, inaccurate reporting, poor communication, unauthorised absence, misconduct, repeated underperformance, security violations, or failure to use the approved systems.</p>
+      <h2>9. Discipline and corrective action</h2>
+      <p>Triggers include missed deadlines, inaccurate reporting, poor communication, unauthorised absence, misconduct, repeated underperformance, security violations, and failure to use approved systems.</p>
       <ol>
         <li>Documented coaching or verbal warning</li>
-        <li>Written warning</li>
+        <li>Written warning (copied to People &amp; Culture)</li>
         <li>Performance Improvement Plan (PIP)</li>
         <li>Restricted responsibilities or other proportionate corrective action</li>
-        <li>Termination, subject to fair review and applicable requirements</li>
+        <li>End of unpaid engagement and/or termination of paid employment, subject to AFRI-DOA-01, AFRI-ICEF-01, and applicable law</li>
       </ol>
+      <p>AfriVate may skip steps for serious misconduct (including dishonesty, harassment, confidentiality breach, or security violations).</p>
 
-      <h2>10. Reward &amp; Incentive System</h2>
-      <p>Subject to leadership approval, performance, affordability, and applicable terms, recognition may include bonuses, learning opportunities, public recognition, representation at approved events, speaking opportunities, awards, or long-term benefits. Recognition and awards available through the Portal should be recorded there.</p>
+      <h2>10. Recognition</h2>
+      <p>Recognition (learning opportunities, public recognition, events, awards, or — only if separately approved in writing by the CEO — any cash or equity benefit) is discretionary, subject to performance, affordability, and AFRI-DOA-01. No Team Member has a right to bonus or reward. Portal awards must be recorded in the Portal.</p>
 
-      <h2>11. Culture &amp; Employee Engagement</h2>
+      <h2>11. Culture and speak up</h2>
       <ul>
-        <li><strong>Ownership:</strong> Take responsibility for outcomes, not only effort.</li>
-        <li><strong>Punctuality:</strong> Respect commitments across meetings, deadlines, and responses.</li>
-        <li><strong>Respect for Authority:</strong> Follow reporting lines while retaining the right to raise concerns responsibly.</li>
-        <li><strong>Speak Up:</strong> Confidential workplace concerns may be submitted through <strong>Portal → People → Growth → Speak up</strong>.</li>
-        <li><strong>Participation:</strong> Complete assigned surveys, learning, onboarding, policy acknowledgements, feedback, and development workflows in the Portal.</li>
+        <li>Own outcomes, not only effort.</li>
+        <li>Respect commitments (meetings, deadlines, response times).</li>
+        <li>Follow reporting lines; raise concerns through <strong>Portal → People → Growth → Speak up</strong>.</li>
+        <li>Complete assigned surveys, learning, onboarding, acknowledgements, and development workflows.</li>
       </ul>
 
-      <h2>12. Crisis Management &amp; Escalation</h2>
-      <p>A crisis is an event posing immediate risk to operations, reputation, infrastructure, legal standing, safety, or user trust. The escalation flow is:</p>
+      <h2>12. Crisis escalation</h2>
+      <p>A crisis is an event posing immediate risk to operations, reputation, infrastructure, legal standing, safety, or user trust.</p>
       <ol>
-        <li>The Team Member communicates the issue immediately through Slack and records the relevant operational detail in the Portal where an applicable workflow exists.</li>
-        <li>The Team Lead assesses severity and escalates a critical issue within one hour.</li>
-        <li>Executive Leadership coordinates the response.</li>
-        <li>The CEO retains final authority over crisis decisions.</li>
+        <li>Team Member notifies via Slack immediately and records detail in the Portal where a workflow exists.</li>
+        <li>Team Lead assesses and, if critical, escalates to Pillar Head and CEO within <strong>sixty (60) minutes</strong> of becoming aware it is critical.</li>
+        <li>Pillar Heads coordinate the operational response.</li>
+        <li>CEO retains final authority over crisis decisions and public statements.</li>
       </ol>
 
-      <h2>13. Document Governance &amp; Amendments</h2>
-      <p>This SWP is a living document reviewed every six months or when material operational changes occur. The current approved copy will be maintained under Portal Resources. Personnel are responsible for reading the current version and completing the required Portal policy acknowledgement.</p>
+      <h2>13. Leave</h2>
+      <p>Absence from duty is governed exclusively by AFRI-LAP-01. No leave is effective until the People &amp; Culture decision appears in the Portal.</p>
 
-      <h2>14. Employee Acknowledgement</h2>
-      <p>By completing the policy acknowledgement in the AfriVate Portal, the team member confirms that they have read, understood, and agree to comply with this SWP. Where a physical signature is required, complete the fields below.</p>
+      <h2>14. Governance, law, and acknowledgement</h2>
+      <ul>
+        <li>Reviewed every six months or on material change. Binding version is the Portal Resources copy with this Document Code.</li>
+        <li>Governed by the laws of the Federal Republic of Nigeria; FCT Abuja courts (subject to mandatory rules).</li>
+        <li>Severability and no-waiver apply.</li>
+        <li>Portal acknowledgement = confirmation of reading, understanding, and agreement to comply.</li>
+      </ul>
       <div class="sign-block">
         <div class="sign-row">
-          <div class="sign-card"><div class="who">Employee Name / Signature</div><div class="role">Role / Department · Date</div></div>
+          <div class="sign-card"><div class="who">Team Member Name / Signature</div><div class="role">Role / Department · Date</div></div>
           <div class="sign-card"><div class="who">Authorised AfriVate Representative</div><div class="role">Name / Role · Date</div></div>
         </div>
       </div>
@@ -584,9 +557,10 @@ const docs = [
       </ul>
 
       <h2>Role Benefits</h2>
+      <div class="note"><strong>Non-binding until signed:</strong> Any salary, stipend, data support, equity, or benefit is effective only under a written instrument signed by the CEO (or authorised signatory). Advertisements and interviews create no entitlement. AfriVate may engage successful candidates as unpaid Internal Contributors under AFRI-ICEF-01 until such an instrument exists.</div>
       <ul>
-        <li><strong>Remote, flexible work:</strong> A full-time role with a flexible work structure focused on accountability and outcomes.</li>
-        <li><strong>Equity participation:</strong> A 2% equity stake vesting over two years, subject to the formal equity award, vesting terms, continued service, and applicable company documentation.</li>
+        <li><strong>Remote, flexible work:</strong> A role with a flexible work structure focused on accountability and outcomes (full-time expectation only if stated in the signed instrument).</li>
+        <li><strong>Equity participation (if offered in writing):</strong> Where the CEO issues a formal equity award, indicative terms may include up to a 2% equity stake vesting over two years, subject to the award document, vesting terms, continued qualifying service, and applicable company documentation. No equity exists without that signed award.</li>
         <li><strong>Monthly data support:</strong> A ₦20,000 data stipend to support reliable remote work.</li>
         <li><strong>Professional growth:</strong> Practical learning opportunities, direct exposure to product and engineering decisions, and space to strengthen your technical judgement.</li>
         <li><strong>Meaningful ownership:</strong> The opportunity to shape products, engineering standards, and user experiences from an early stage.</li>
@@ -666,9 +640,10 @@ const docs = [
       </ul>
 
       <h2>Role Benefits</h2>
+      <div class="note"><strong>Non-binding until signed:</strong> Any salary, stipend, data support, equity, or benefit is effective only under a written instrument signed by the CEO (or authorised signatory). Advertisements and interviews create no entitlement. AfriVate may engage successful candidates as unpaid Internal Contributors under AFRI-ICEF-01 until such an instrument exists.</div>
       <ul>
-        <li><strong>Remote, flexible work:</strong> A full-time role with a flexible work structure focused on accountability and outcomes.</li>
-        <li><strong>Equity participation:</strong> A 2% equity stake vesting over two years, subject to the formal equity award, vesting terms, continued service, and applicable company documentation.</li>
+        <li><strong>Remote, flexible work:</strong> A role with a flexible work structure focused on accountability and outcomes (full-time expectation only if stated in the signed instrument).</li>
+        <li><strong>Equity participation (if offered in writing):</strong> Where the CEO issues a formal equity award, indicative terms may include up to a 2% equity stake vesting over two years, subject to the award document, vesting terms, continued qualifying service, and applicable company documentation. No equity exists without that signed award.</li>
         <li><strong>Monthly data support:</strong> A ₦20,000 data stipend to support reliable remote work.</li>
         <li><strong>Professional growth:</strong> Practical learning opportunities, direct exposure to product, architecture, infrastructure, and security decisions, and space to strengthen your technical judgement.</li>
         <li><strong>Meaningful ownership:</strong> The opportunity to shape backend systems, engineering standards, and technical foundations from an early stage.</li>
@@ -749,9 +724,10 @@ const docs = [
       </ul>
 
       <h2>Role Benefits</h2>
+      <div class="note"><strong>Non-binding until signed:</strong> Any salary, stipend, data support, equity, or benefit is effective only under a written instrument signed by the CEO (or authorised signatory). Advertisements and interviews create no entitlement. AfriVate may engage successful candidates as unpaid Internal Contributors under AFRI-ICEF-01 until such an instrument exists.</div>
       <ul>
-        <li><strong>Remote, flexible work:</strong> A full-time role with a flexible work structure focused on accountability and outcomes.</li>
-        <li><strong>Equity participation:</strong> A 2% equity stake vesting over two years, subject to the formal equity award, vesting terms, continued service, and applicable company documentation.</li>
+        <li><strong>Remote, flexible work:</strong> A role with a flexible work structure focused on accountability and outcomes (full-time expectation only if stated in the signed instrument).</li>
+        <li><strong>Equity participation (if offered in writing):</strong> Where the CEO issues a formal equity award, indicative terms may include up to a 2% equity stake vesting over two years, subject to the award document, vesting terms, continued qualifying service, and applicable company documentation. No equity exists without that signed award.</li>
         <li><strong>Monthly data support:</strong> A ₦20,000 data stipend to support reliable remote work.</li>
         <li><strong>Creative ownership:</strong> The opportunity to shape the visual expression of an African technology brand and establish reusable creative standards.</li>
         <li><strong>Portfolio development:</strong> Exposure to varied brand, campaign, product, event, editorial, and corporate design work.</li>
@@ -780,79 +756,84 @@ const docs = [
     title: 'Afrivate Leave and Absence Policy',
     meta: [
       ['Document Code', 'AFRI-LAP-01'],
-      ['Target Audience', 'All Staff & Volunteers'],
-      ['Policy Owner', 'People & Culture (HR)'],
-      ['Status', 'Mandatory Compliance'],
+      ['Status', 'Official — Binding'],
+      ['Applies To', 'All Team Members within Agreed Capacity (paid or unpaid)'],
+      ['Policy Owner', 'People & Culture'],
+      ['Effective Date', '2 August 2026'],
+      ['Related', 'AFRI-SWP · AFRI-DOA-01 · AFRI-ICEF-01 · AFRI-TLOP-01'],
     ],
     body: `
+      <div class="note"><strong>What “leave” means:</strong> For unpaid Internal Contributors, leave is <strong>authorised absence from Agreed Capacity</strong> under AFRI-ICEF-01. It is not, by itself, statutory annual leave, paid leave, or an employment benefit. For any future paid Employee, statutory rights under Nigerian law apply in addition to this process; this Policy still governs how absence is requested and approved in AfriVate systems.</div>
+
       <h2>1. Purpose</h2>
-      <p>This Policy establishes a clear and consistent process for requesting leave from AfriVate Technologies Ltd. It is designed to protect employee wellbeing while ensuring continuity, accountability, and uninterrupted team delivery.</p>
+      <p>This Policy sets the exclusive process for requesting and deciding absence from duty at AfriVate Technologies Ltd, so wellbeing and continuity are balanced without informal or ambiguous approvals.</p>
 
-      <h2>2. Notice Requirement</h2>
-      <p>Except in an accepted emergency, every leave request must be submitted at least <strong>three (3) official work days</strong> before the first intended day of absence. Official work days are the days recognised by AfriVate as scheduled working days and do not include weekends, public holidays, or company-declared non-working days.</p>
-      <div class="note"><strong>Important:</strong> Submission of a request does not constitute approval. Personnel must remain available for duty until the request has been formally approved in the Portal.</div>
-
-      <h2>3. Work Completion &amp; Handover</h2>
-      <p>Before proceeding on approved leave, the requesting team member must protect the continuity of their work. They are required to:</p>
+      <h2>2. Definitions</h2>
       <ul>
-        <li><strong>Complete outstanding work:</strong> Conclude all due or outstanding work for the relevant period before leave begins; or</li>
-        <li><strong>Arrange reassignment:</strong> Where completion is not reasonably possible, agree with the Team Lead to reassign the work to an appropriate colleague;</li>
-        <li><strong>Provide a clear handover:</strong> Share the status, deadlines, files, access information, and next actions needed by the colleague taking over; and</li>
-        <li><strong>Confirm ownership:</strong> Ensure the Team Lead and receiving colleague understand and accept the temporary arrangement.</li>
+        <li><strong>Leave:</strong> Authorised absence from Agreed Capacity / scheduled duty for stated dates.</li>
+        <li><strong>Official work days:</strong> Monday–Thursday, excluding public holidays and company-declared non-working days.</li>
+        <li><strong>Unauthorised absence:</strong> Any absence from Agreed Capacity without a Portal decision of “approved” (except while an emergency is being regularised under §6 in good faith).</li>
       </ul>
-      <p>Leave may be delayed or declined where an adequate handover has not been completed and business continuity would be materially affected.</p>
 
-      <h2>4. Reason &amp; Approval</h2>
-      <p>Every request must include a clear and truthful reason, the requested dates, and any relevant supporting information. The People &amp; Culture (HR) team retains the authority to <strong>approve or decline</strong> a leave request after considering:</p>
+      <h2>3. Notice requirement</h2>
+      <p>Except under §6 (emergency), every leave request must be submitted in the Portal at least <strong>three (3) official work days</strong> before the first intended day of absence.</p>
+      <div class="note"><strong>No constructive approval:</strong> Submission is not approval. The Team Member remains available for duty until People &amp; Culture’s decision appears in the Portal as approved.</div>
+
+      <h2>4. Handover (condition of proceeding)</h2>
+      <p>Before starting approved leave, the Team Member must:</p>
       <ul>
-        <li>The reason and urgency of the request;</li>
-        <li>The notice provided;</li>
-        <li>The employee’s handover and outstanding responsibilities;</li>
-        <li>Team capacity and operational requirements; and</li>
-        <li>The employee’s recent leave and attendance record.</li>
+        <li>Complete due work for the period; or</li>
+        <li>Agree reassignment with the Team Lead to a named colleague;</li>
+        <li>Provide handover (status, deadlines, files, access, next actions); and</li>
+        <li>Obtain confirmation that the Team Lead and receiving colleague understand the temporary ownership.</li>
       </ul>
-      <p>HR may consult the relevant Team Lead before making a decision. Where reasonable and appropriate, HR will communicate the reason for a declined request.</p>
+      <p>People &amp; Culture may delay or decline leave where handover is inadequate and continuity would be materially affected.</p>
 
-      <h2>5. Official Submission Channel</h2>
-      <p>All leave requests must be submitted through the <strong>AfriVate Portal</strong>. Requests made solely through WhatsApp, Slack, email, telephone, or verbal conversation are not official and will not be treated as approved leave.</p>
+      <h2>5. Approval authority (exclusive rule)</h2>
       <ol>
-        <li>Sign in to the AfriVate Portal.</li>
-        <li>Open the Leave section and select the applicable leave type.</li>
-        <li>Enter the dates and a clear reason for the request.</li>
-        <li>Add handover details and supporting documentation where required.</li>
-        <li>Submit the request and await the decision recorded in the portal.</li>
+        <li>Every request must state truthful reason, dates, and supporting information where required.</li>
+        <li>The Team Lead must record an operational recommendation in the Portal within <strong>one (1) official work day</strong> (impact, handover, capacity).</li>
+        <li><strong>People &amp; Culture alone approves or declines</strong>, after considering reason, urgency, notice, handover, capacity, and attendance history. The CEO may override in writing.</li>
+        <li>A Team Lead Portal action is a recommendation only, unless the CEO has issued a written, time-bound delegation naming the delegate and scope (see AFRI-DOA-01). Silence is not delegation.</li>
+        <li>Where a request is declined, People &amp; Culture will ordinarily state the reason in the Portal.</li>
       </ol>
 
-      <h2>6. Emergency &amp; Impromptu Leave</h2>
-      <p>AfriVate recognises that an accepted emergency may make the required three official work days’ notice impossible. Emergency consideration is limited to:</p>
-      <ul>
-        <li><strong>Medical emergencies:</strong> An urgent illness, injury, hospital admission, or immediate medical situation affecting the team member or a person under their direct care.</li>
-        <li><strong>Specified personal emergencies:</strong> A serious, unforeseen personal event that requires the team member’s immediate presence. The specific circumstances must be clearly stated in the portal request and may require reasonable supporting information.</li>
-      </ul>
-      <p>In either case, the team member must notify their Team Lead and HR as soon as reasonably possible and submit or regularise the request through the portal at the earliest opportunity.</p>
-      <p>An emergency exception is not an automatic approval and must not be used to avoid the standard notice and handover requirements.</p>
+      <h2>6. Official channel</h2>
+      <p>Leave requests must be submitted through the <strong>AfriVate Portal</strong>. Requests made solely through WhatsApp, Slack, email, telephone, or verbal conversation are not leave and will not be treated as approved.</p>
+      <ol>
+        <li>Sign in to the Portal.</li>
+        <li>Open Leave / Time off; select leave type.</li>
+        <li>Enter dates and clear reason.</li>
+        <li>Add handover details and supporting documents where required.</li>
+        <li>Submit and await the Portal decision.</li>
+      </ol>
 
-      <h2>7. Repeated Impromptu Leave &amp; Consequences</h2>
-      <p>Consistent impromptu leave, repeated late requests, unauthorised absence, or misuse of the emergency exception may attract corrective or disciplinary action. Depending on frequency, impact, and surrounding circumstances, action may include:</p>
+      <h2>7. Emergency and impromptu absence</h2>
+      <p>Notice under §3 may be impossible only for:</p>
       <ul>
-        <li>A documented discussion or coaching;</li>
-        <li>A verbal or written warning;</li>
-        <li>Restriction or closer review of future discretionary leave requests; or</li>
-        <li>Further action under AfriVate’s progressive discipline process.</li>
+        <li><strong>Medical emergency:</strong> Urgent illness, injury, hospital admission, or immediate medical situation affecting the Team Member or a person under their direct care.</li>
+        <li><strong>Specified personal emergency:</strong> A serious, unforeseen personal event requiring immediate presence; circumstances must be stated in the Portal and may require reasonable supporting information.</li>
       </ul>
-      <p>Any consequence will be considered fairly, with regard to the employee’s explanation, supporting evidence, attendance history, and applicable company policy.</p>
+      <p>The Team Member must notify the Team Lead and People &amp; Culture as soon as reasonably possible and submit or regularise the Portal request at the earliest opportunity. Emergency notice is not automatic approval and must not be used to evade ordinary process.</p>
 
-      <h2>8. Responsibilities</h2>
+      <h2>8. Consequences</h2>
+      <p>Repeated late requests, unauthorised absence, or misuse of §7 may result in coaching, verbal or written warning, closer review of future requests, or further action under AFRI-SWP progressive discipline — assessed fairly on explanation, evidence, history, and impact.</p>
+
+      <h2>9. Responsibilities</h2>
       <ul>
-        <li><strong>Team Members:</strong> Submit timely and accurate requests, complete or hand over work, and wait for formal approval.</li>
-        <li><strong>Team Leads:</strong> Assess delivery impact, support handover arrangements, and provide HR with an objective operational recommendation.</li>
-        <li><strong>People &amp; Culture (HR):</strong> Review requests consistently, record decisions through the portal, and maintain appropriate leave records.</li>
+        <li><strong>Team Members:</strong> Timely accurate requests; handover; wait for Portal approval.</li>
+        <li><strong>Team Leads:</strong> Assess impact; support handover; record recommendation within one official work day.</li>
+        <li><strong>People &amp; Culture:</strong> Decide consistently; record in Portal; maintain records.</li>
       </ul>
 
-      <div class="note"><strong>Policy standard:</strong> No leave is approved until the decision appears in the AfriVate Portal. Medical emergencies and clearly specified personal emergencies will be considered with fairness, but repeated avoidable non-compliance may attract a penalty under the progressive discipline process.</div>
+      <div class="note"><strong>Hard rule:</strong> No leave is approved until the decision appears in the AfriVate Portal.</div>
+
+      <h2>10. Governing law</h2>
+      <p>Governed by the laws of the Federal Republic of Nigeria. Severability and no-waiver apply. Amendments only by CEO-authorised publication under Portal Resources.</p>
     `,
   },
 ]
+
 
 await mkdir(path.join(officialRoot, 'policies'), { recursive: true })
 await mkdir(path.join(officialRoot, 'hiring', 'job-posts'), { recursive: true })
@@ -883,6 +864,13 @@ for (const doc of docs) {
     margin: { top: '16mm', right: '16mm', bottom: '18mm', left: '18mm' },
   })
   console.log('Wrote', pdfPath)
+  if (doc.folder === 'policies') {
+    try {
+      await copyFile(pdfPath, path.join(downloadsDir, doc.file))
+    } catch {
+      /* ignore lock */
+    }
+  }
 }
 
 await browser.close()
