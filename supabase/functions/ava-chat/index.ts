@@ -47,15 +47,15 @@ const AVA_RESPONSE_SCHEMA = {
     },
     suggestedActions: {
       type: 'array',
+      description: 'Navigate-only CTAs. Never include write/draft/submit action types.',
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string' },
+          type: { type: 'string', description: 'Must be "navigate"' },
           label: { type: 'string' },
-          path: { type: 'string' },
-          payload: { type: 'object' },
+          path: { type: 'string', description: 'Portal path starting with /' },
         },
-        required: ['type', 'label'],
+        required: ['type', 'label', 'path'],
       },
     },
   },
@@ -67,10 +67,86 @@ function systemPrompt(role: string) {
 Tone: professional, concise, formal English. Use numbered steps for procedures.
 Rules: Portal is system of record; Slack is messaging; WhatsApp is informal only.
 Never approve leave, finalise appraisals, or change roles. Use only provided user context.
-Cite docs by name when relevant. Suggest Portal paths.
-Only propose draft_leave or draft_checkin suggestedActions when the user clearly wants to create one.
+CRITICAL: You never create, submit, approve, reject, edit, or delete Portal records for anyone. You only explain and take the user to the correct page so THEY complete the action.
+Cite docs by name when relevant.
+For links use short labels and Portal paths only, e.g. {"label":"Time off","path":"/people/leave"}.
+suggestedActions may ONLY be {"type":"navigate","label":"Go to Time off","path":"/people/leave"}. Never invent draft/submit action types or payloads.
+Keep reply under 220 words so the JSON response is complete.
 User role: ${role}
 Knowledge: ${KNOWLEDGE}`
+}
+
+function sanitizeSuggestedActions(raw: unknown): Array<{ type: 'navigate'; label: string; path: string }> | undefined {
+  if (!Array.isArray(raw)) return undefined
+  const out: Array<{ type: 'navigate'; label: string; path: string }> = []
+  for (const item of raw) {
+    if (!item || typeof item !== 'object') continue
+    const a = item as Record<string, unknown>
+    const type = typeof a.type === 'string' ? a.type : ''
+    const label = typeof a.label === 'string' ? a.label.trim() : ''
+    const path = typeof a.path === 'string' ? a.path.trim() : ''
+    if (type && type !== 'navigate') continue
+    if (label && path.startsWith('/')) out.push({ type: 'navigate', label, path })
+  }
+  return out.length ? out : undefined
+}
+
+function extractJsonStringField(text: string, key: string): string | undefined {
+  const re = new RegExp(`"${key}"\\s*:\\s*"((?:\\\\.|[^"\\\\])*)"`, 's')
+  const m = text.match(re)
+  if (!m?.[1]) return undefined
+  return m[1]
+    .replace(/\\n/g, '\n')
+    .replace(/\\r/g, '\r')
+    .replace(/\\t/g, '\t')
+    .replace(/\\"/g, '"')
+    .replace(/\\\\/g, '\\')
+    .trim()
+}
+
+function parseModelPayload(raw: string): Record<string, unknown> {
+  const trimmed = raw.trim()
+  try {
+    const start = trimmed.indexOf('{')
+    const end = trimmed.lastIndexOf('}')
+    if (start >= 0 && end > start) {
+      const obj = JSON.parse(trimmed.slice(start, end + 1)) as Record<string, unknown>
+      if (typeof obj.reply === 'string') return obj
+    }
+  } catch {
+    /* loose */
+  }
+  const reply = extractJsonStringField(trimmed, 'reply')
+  if (reply) {
+    const citationsMatch = trimmed.match(/"citations"\s*:\s*\[([\s\S]*?)\]/)
+    const citations = citationsMatch
+      ? [...citationsMatch[1].matchAll(/"((?:\\.|[^"\\])*)"/g)].map((x) =>
+          x[1].replace(/\\"/g, '"'),
+        )
+      : undefined
+    const links: Array<{ label: string; path: string }> = []
+    const linkBlock = trimmed.match(/"links"\s*:\s*\[([\s\S]*?)(?:\]|$)/)
+    if (linkBlock?.[1]) {
+      for (const chunk of linkBlock[1].matchAll(/\{[\s\S]*?\}/g)) {
+        const label = extractJsonStringField(chunk[0], 'label')
+        const path = extractJsonStringField(chunk[0], 'path')
+        if (label && path?.startsWith('/')) links.push({ label, path })
+      }
+      if (!links.length) {
+        const label =
+          extractJsonStringField(linkBlock[1], 'label') ||
+          linkBlock[1].match(/"label"\s*:\s*"([^"]+)/)?.[1]
+        const lower = (label || '').toLowerCase()
+        let path = ''
+        if (lower.includes('time off') || lower.includes('leave')) path = '/people/leave'
+        else if (lower.includes('learning')) path = '/people/learning'
+        else if (lower.includes('check')) path = '/checkin'
+        if (label && path) links.push({ label: label.replace(/->/g, '→').trim(), path })
+      }
+    }
+    return { reply, citations, links: links.length ? links : undefined }
+  }
+  return { reply: trimmed }
 }
 
 function jsonResponse(body: unknown, status = 200) {
@@ -191,8 +267,8 @@ Deno.serve(async (req) => {
         schema: AVA_RESPONSE_SCHEMA,
       },
       generation_config: {
-        max_output_tokens: 1024,
-        temperature: 0.4,
+        max_output_tokens: 2048,
+        temperature: 0.35,
       },
     }
 
@@ -220,21 +296,31 @@ Deno.serve(async (req) => {
 
     const interaction = (await geminiRes.json()) as Record<string, unknown>
     const raw = extractOutputText(interaction)
+    if (!raw) {
+      return jsonResponse({ error: 'Empty AVA response', fallback: true }, 502)
+    }
 
-    let parsed: Record<string, unknown> = {}
-    try {
-      parsed = JSON.parse(raw)
-    } catch {
-      return jsonResponse({ raw, source: 'gemini', model })
+    const parsed = parseModelPayload(raw)
+    const reply = typeof parsed.reply === 'string' ? parsed.reply : ''
+    if (!reply || (reply.trim().startsWith('{') && /"reply"\s*:/.test(reply))) {
+      // Still looks like an envelope — last resort plain guidance
+      return jsonResponse({
+        source: 'gemini',
+        model,
+        reply:
+          'I could not finish formatting that answer. Please ask again in a shorter question, or open Resources for the Portal User Guide.',
+        citations: parsed.citations,
+        links: parsed.links,
+      })
     }
 
     return jsonResponse({
       source: 'gemini',
       model,
-      reply: typeof parsed.reply === 'string' ? parsed.reply : raw,
+      reply,
       citations: parsed.citations,
       links: parsed.links,
-      suggestedActions: parsed.suggestedActions,
+      suggestedActions: sanitizeSuggestedActions(parsed.suggestedActions),
     })
   } catch (e) {
     console.error(e)

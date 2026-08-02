@@ -496,16 +496,89 @@ test.describe('Full portal — admin session', () => {
     await expect(page.getByText(/privacy|personal data|ndpr/i).first()).toBeVisible()
   })
 
-  test('AVA assistant: open, ask leave how-to, see guidance', async ({ page }) => {
-    await page.goto('/')
-    await page.getByRole('button', { name: /^open ava$|^ava$/i }).click()
-    await expect(page.getByRole('dialog', { name: /ava/i })).toBeVisible()
-    await expect(page.getByText(/afriVate virtual assistant/i).first()).toBeVisible()
-    await page.getByRole('button', { name: /how do i request leave/i }).click()
-    await expect(page.getByText(/people → time off|time off/i).first()).toBeVisible({
-      timeout: 15_000,
+  test.describe('AVA assistant', () => {
+    async function openAva(page: Page) {
+      await page.goto('/')
+      await page.getByRole('button', { name: /^open ava$|^ava$/i }).click()
+      const dialog = page.getByRole('dialog', { name: /ava/i })
+      await expect(dialog).toBeVisible()
+      return dialog
+    }
+
+    test('opens with navigate-only welcome and no submit controls', async ({ page }) => {
+      const dialog = await openAva(page)
+      await expect(dialog.getByText(/afriVate virtual assistant/i).first()).toBeVisible()
+      await expect(dialog.getByText(/never submit|you complete every action/i).first()).toBeVisible()
+      await expect(dialog.getByRole('button', { name: /confirm|& submit/i })).toHaveCount(0)
+      await expect(dialog.getByText(/confirm & submit/i)).toHaveCount(0)
     })
-    await page.getByRole('button', { name: /^close$/i }).or(page.getByLabel(/^close$/i)).first().click()
+
+    test('leave how-to guides and navigates to Time off', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByRole('button', { name: /how do i request leave/i }).click()
+      await expect(dialog.getByText(/cannot submit leave|time off/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      await expect(dialog.getByText(/\{[\s\S]*"reply"/)).toHaveCount(0)
+      const go = dialog.getByRole('link', { name: /go to time off|time off/i }).first()
+      await expect(go).toBeVisible()
+      await go.click()
+      await expect(page).toHaveURL(/\/people\/leave/)
+    })
+
+    test('learning how-to navigates to Learning', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByRole('button', { name: /alison certificate/i }).click()
+      await expect(dialog.getByText(/learning|certificate/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      await dialog.getByRole('link', { name: /go to learning|learning/i }).first().click()
+      await expect(page).toHaveURL(/\/people\/learning/)
+    })
+
+    test('weekly check-in how-to navigates without drafting', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByRole('button', { name: /weekly check-in/i }).click()
+      await expect(dialog.getByText(/cannot submit check-in|weekly update/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      await expect(dialog.getByText(/confirm & submit|review check-in draft/i)).toHaveCount(0)
+      await dialog.getByRole('link', { name: /go to weekly update|weekly update/i }).first().click()
+      await expect(page).toHaveURL(/\/checkin/)
+    })
+
+    test('open tasks navigates to My work', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByRole('button', { name: /open tasks/i }).click()
+      await expect(dialog.getByText(/my work|open tasks/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      await dialog.getByRole('link', { name: /go to my work|my work/i }).first().click()
+      await expect(page).toHaveURL(/\/tasks/)
+    })
+
+    test('Slack rule answer and Escape closes panel', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByRole('button', { name: /four-hour slack|slack rule/i }).click()
+      await expect(dialog.getByText(/four \(4\) hours|slack/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      await page.keyboard.press('Escape')
+      await expect(dialog).toBeHidden({ timeout: 5_000 })
+      await expect(page.getByRole('button', { name: /^open ava$|^ava$/i })).toBeVisible()
+    })
+
+    test('typed question shows bold markdown not raw asterisks', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill('How do I request leave?')
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(dialog.getByText(/request leave|time off/i).first()).toBeVisible({
+        timeout: 15_000,
+      })
+      // Bold labels should render as text without leftover ** wrappers in the bubble
+      await expect(dialog.locator('strong').filter({ hasText: /time off|request leave|people/i }).first()).toBeVisible()
+      await expect(dialog.getByText(/\*\*People/)).toHaveCount(0)
+    })
   })
 })
 

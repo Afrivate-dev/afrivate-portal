@@ -77,5 +77,5 @@ export const AVA_SUGGESTED_PROMPTS = [
   'Where do I submit my Alison certificate?',
   'What is the four-hour Slack rule?',
   'What are my open tasks?',
-  'Help me draft a weekly check-in',
+  'How do I submit my weekly check-in?',
 ] as const

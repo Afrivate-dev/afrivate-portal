@@ -29,8 +29,9 @@ HR exists to attract the right people, develop them relentlessly, connect them t
 | **Employer brand** | LinkedIn, Instagram | Recruitment marketing (external) |
 | **Internal messaging** | Slack | Official internal communication, coordination, and escalation — **not** the system of record |
 | **Informal contact** | WhatsApp | Personal or emergency contact only — never leave, policy, or formal HR |
+| **In-portal help** | AVA (AfriVate Virtual Assistant) | How-to guidance and navigation to the correct Portal screen. AVA **never** submits or completes HR actions for anyone |
 
-**Principle:** If it needs a record, approval, or audit trail → **portal**. If it needs reach to inboxes → **Gmail**. If it teaches a skill → **Alison**. If it is day-to-day work chat → **Slack**. If it is a master document → **Drive**, with a portal copy where staff need access.
+**Principle:** If it needs a record, approval, or audit trail → **portal**. If it needs reach to inboxes → **Gmail**. If it teaches a skill → **Alison**. If it is day-to-day work chat → **Slack**. If it is a master document → **Drive**, with a portal copy where staff need access. If someone is unsure where to act → **AVA**, then they complete the action themselves in the Portal.
 
 ---
 

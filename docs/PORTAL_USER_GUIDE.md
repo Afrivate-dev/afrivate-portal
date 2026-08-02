@@ -20,7 +20,7 @@ This guide describes the principal features of AfriVate Team Space and the appro
 | **Google Drive** | Master copies of policies and contracts. Staff-facing copies are published under **Resources**. |
 | **Slack** | Official internal messaging for clarification, coordination, escalation, and reachability during core hours. Official messages must be acknowledged within four (4) hours on official work days. Slack does **not** replace Portal records. |
 | **WhatsApp** | Informal or emergency contact only. WhatsApp must **not** be used for leave requests, policy acknowledgements, appraisals, or formal People & Culture processes. |
-| **AVA** | AfriVate Virtual Assistant — in-portal help for how-to guidance, policy explanation, and (with confirmation) drafting leave or weekly updates. AVA does not approve leave or replace People & Culture decisions. |
+| **AVA** | AfriVate Virtual Assistant — in-portal help for how-to guidance, policy explanation, and taking you to the correct Portal page. AVA **never** submits leave, check-ins, learning, approvals, or any other record for anyone. You complete every action yourself. |
 
 **Operating principle:** Matters requiring a formal record, approval, or acknowledgement must be completed in the Portal. Official broadcasts are issued by email. Learning delivery is provided through Alison. Official internal messaging is conducted through Slack. WhatsApp is reserved for informal or emergency contact only.
 
@@ -352,7 +352,35 @@ Chronological log of HR actions on profiles, discipline, PIPs, appraisals, and o
 
 ---
 
-## 16. Revival launch checklist (special access)
+## 16. AVA — AfriVate Virtual Assistant
+
+**Where:** Purple **AVA** button (bottom-right on desktop; above the mobile nav on phones).
+
+AVA is the official in-portal help assistant for Team Space. She explains how to use the Portal, summarises key policy rules, and can take you to the page where you complete an action.
+
+### What AVA can do
+- Answer how-to questions (leave, learning, weekly updates, tasks, surveys, My info, Slack rules).
+- Explain which tool is correct (Portal vs Slack vs WhatsApp).
+- Show a **Go to…** button that opens the right Portal page (for example Time off, Learning, Weekly update).
+- Use your own Portal snapshot (open tasks, leave status, surveys) to give personalised guidance.
+
+### What AVA cannot do
+- Submit, approve, reject, edit, or delete any Portal record for anyone.
+- Draft a leave request or weekly check-in that gets saved for you.
+- Replace People & Culture decisions or Slack acknowledgements.
+
+### Procedure
+1. Select **AVA**.
+2. Ask a question or choose a suggested prompt (for example “How do I request leave?”).
+3. Read the steps. If a **Go to…** button appears, select it to open that page.
+4. Complete the action yourself in the Portal.
+5. Close AVA with the close control or Escape.
+
+If AVA is unavailable, open **Resources** for the Portal User Guide and policies, or contact `hr@afrivate.org`.
+
+---
+
+## 17. Revival launch checklist (special access)
 
 **Path:** `/launch-checklist` (also linked from the HR dashboard)
 
@@ -360,18 +388,19 @@ Only named launch owners can open this. It is a shared playbook for portal readi
 
 ---
 
-## 17. Quick “who does what” cheat sheet
+## 18. Quick “who does what” cheat sheet
 
 | Need | Where |
 |------|--------|
-| Request leave | People → Time off |
+| Request leave | People → Time off (or ask AVA → **Go to Time off**) |
 | Approve leave | People → Time off (leads) or Admin → Leave (HR) |
 | Acknowledge a policy | Resources (or Home banner) |
-| Submit weekly update | Weekly update |
-| Submit learning completion evidence | People → Learning |
+| Submit weekly update | Weekly update (or ask AVA → **Go to Weekly update**) |
+| Submit learning completion evidence | People → Learning (or ask AVA → **Go to Learning**) |
 | Complete an open survey | People → Surveys |
 | Update emergency contact | People → My info |
 | Locate a colleague | People → Directory or Search |
+| Get how-to help inside the Portal | AVA (navigate-only; you complete the action) |
 | Publish an organisational memo | Memos (team lead+) or Admin → Announcements |
 | Manage recruitment pipeline | Admin → Recruitment |
 | Record a PIP or appraisal | Admin → Employees |
@@ -379,7 +408,7 @@ Only named launch owners can open this. It is a shared playbook for portal readi
 
 ---
 
-## 18. Recommended weekly practice
+## 19. Recommended weekly practice
 
 1. Begin at **Home** and address outstanding banners (surveys, learning, policy acknowledgements).
 2. Record leave and formal People & Culture matters in the **Portal** — not in WhatsApp or Slack.
@@ -387,6 +416,7 @@ Only named launch owners can open this. It is a shared playbook for portal readi
 4. Submit the **Weekly update** before the reporting period closes.
 5. Maintain complete **My info** records to minimise administrative follow-up.
 6. Use **Slack** for official internal messaging. Use the Portal whenever a formal record, approval, or acknowledgement is required.
+7. Use **AVA** when you are unsure where to go — then complete the action yourself on the page she opens.
 
 ---
 

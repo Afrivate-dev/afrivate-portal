@@ -44,33 +44,14 @@ export function localAvaRespond(
   if (includesAny(q, ['leave', 'time off', 'annual leave', 'sick'])) {
     citations.push('Leave and Absence Policy', 'Portal User Guide')
     links.push({ label: 'Time off', path: '/people/leave' })
-    if (includesAny(q, ['draft', 'request', 'apply', 'submit', 'help me'])) {
-      const start = new Date()
-      start.setDate(start.getDate() + 5)
-      const end = new Date(start)
-      end.setDate(end.getDate() + 1)
-      actions.push({
-        type: 'draft_leave',
-        label: 'Review leave draft',
-        payload: {
-          leaveType: includesAny(q, ['sick'])
-            ? 'sick'
-            : includesAny(q, ['emergency'])
-              ? 'emergency'
-              : 'annual',
-          startDate: start.toISOString().slice(0, 10),
-          endDate: end.toISOString().slice(0, 10),
-          reason: 'Draft prepared by AVA — please edit before submitting.',
-        },
-      })
-    }
+    actions.push({ type: 'navigate', label: 'Go to Time off', path: '/people/leave' })
     return {
       source: 'local',
       citations,
       links,
       suggestedActions: actions,
       reply: [
-        'Leave must be requested through **People → Time off** in the AfriVate Portal.',
+        'I can take you to **People → Time off**, where you submit leave yourself. AVA cannot submit leave for anyone.',
         '',
         '1. Open Time off and select **Request leave**.',
         '2. Enter the dates, leave type, and a clear reason.',
@@ -89,12 +70,14 @@ export function localAvaRespond(
   if (includesAny(q, ['alison', 'learning', 'certificate', 'course'])) {
     citations.push('Portal User Guide')
     links.push({ label: 'Learning', path: '/people/learning' })
+    actions.push({ type: 'navigate', label: 'Go to Learning', path: '/people/learning' })
     return {
       source: 'local',
       citations,
       links,
+      suggestedActions: actions,
       reply: [
-        'Learning assignments are managed under **People → Learning**.',
+        'I can take you to **People → Learning**, where you upload certificates yourself. AVA cannot submit learning records for anyone.',
         '',
         '1. Open the assigned Alison course.',
         '2. Complete the course.',
@@ -124,11 +107,13 @@ export function localAvaRespond(
 
   if (includesAny(q, ['task', 'my work', 'overdue', 'open tasks'])) {
     links.push({ label: 'My work', path: '/tasks' })
+    actions.push({ type: 'navigate', label: 'Go to My work', path: '/tasks' })
     return {
       source: 'local',
       links,
+      suggestedActions: actions,
       reply: [
-        'Your work is tracked under **My work**.',
+        'I can take you to **My work**, where you update tasks yourself. AVA cannot complete tasks for anyone.',
         '',
         personalSummary(ctx) || 'I could not load task totals right now. Open My work to review assignments.',
         '',
@@ -139,24 +124,13 @@ export function localAvaRespond(
 
   if (includesAny(q, ['check-in', 'checkin', 'weekly update', 'weekly report'])) {
     links.push({ label: 'Weekly update', path: '/checkin' })
-    if (includesAny(q, ['draft', 'help me', 'write', 'prepare'])) {
-      actions.push({
-        type: 'draft_checkin',
-        label: 'Review check-in draft',
-        payload: {
-          completed: 'Summarise completed work for this week.',
-          nextWeek: 'Summarise priorities for next week.',
-          blockers: '',
-          hoursWorked: 0,
-        },
-      })
-    }
+    actions.push({ type: 'navigate', label: 'Go to Weekly update', path: '/checkin' })
     return {
       source: 'local',
       links,
       suggestedActions: actions,
       reply: [
-        'Submit your weekly update under **Weekly update**.',
+        'I can take you to **Weekly update**, where you submit your check-in yourself. AVA cannot submit check-ins for anyone.',
         '',
         'Include completed work, next-week priorities, blockers, and hours worked.',
         `This week’s check-in: ${ctx.personal?.checkInThisWeek ? 'already submitted' : 'not yet submitted'}.`,
@@ -166,20 +140,24 @@ export function localAvaRespond(
 
   if (includesAny(q, ['survey', 'pulse', 'enps'])) {
     links.push({ label: 'Surveys', path: '/people/surveys' })
+    actions.push({ type: 'navigate', label: 'Go to Surveys', path: '/people/surveys' })
     return {
       source: 'local',
       links,
-      reply: `Open surveys are under **People → Surveys**. You currently have ${ctx.personal?.openSurveys ?? 0} open survey(s).`,
+      suggestedActions: actions,
+      reply: `I can take you to **People → Surveys**. You currently have ${ctx.personal?.openSurveys ?? 0} open survey(s). AVA cannot complete surveys for anyone.`,
     }
   }
 
   if (includesAny(q, ['my info', 'emergency contact', 'profile completeness'])) {
     links.push({ label: 'My info', path: '/people/my-info' })
+    actions.push({ type: 'navigate', label: 'Go to My info', path: '/people/my-info' })
     return {
       source: 'local',
       links,
+      suggestedActions: actions,
       reply: [
-        'Update personal details under **People → My info**.',
+        'I can take you to **People → My info**, where you update your details yourself.',
         typeof ctx.personal?.myInfoCompleteness === 'number'
           ? `Current completeness: ${ctx.personal.myInfoCompleteness}%.`
           : 'Complete emergency contact and personal fields, then save.',
@@ -193,12 +171,14 @@ export function localAvaRespond(
     includesAny(q, ['pip', 'discipline', 'appraisal', 'employee hub', 'recruitment', 'approvals'])
   ) {
     links.push({ label: 'Admin', path: '/admin' })
+    actions.push({ type: 'navigate', label: 'Go to Admin', path: '/admin' })
     citations.push('Portal User Guide', 'Standard Work Process')
     const hr = ctx.hr
     return {
       source: 'local',
       citations,
       links,
+      suggestedActions: actions,
       reply: [
         'People & Culture tools live under **Admin**.',
         '',
@@ -212,7 +192,7 @@ export function localAvaRespond(
           ? `Current snapshot: ${hr.pendingApprovals} pending approvals; ${hr.pendingLeaveOrg} pending leave; ${hr.activePips} active PIPs; ${hr.pendingDiscipline} pending discipline; ${hr.pendingLearningReviews} learning reviews.`
           : 'Open Admin for live queues and metrics.',
         '',
-        'AVA can explain process. Final HR decisions remain with authorised personnel in the Portal.',
+        'AVA explains process and takes you to the right Admin screen. Final HR decisions remain with authorised personnel in the Portal — AVA never completes those actions.',
       ].join('\n'),
     }
   }
@@ -225,7 +205,7 @@ export function localAvaRespond(
     reply: [
       `Hello ${ctx.name.split(' ')[0] || 'there'} — I am AVA, the AfriVate Virtual Assistant.`,
       '',
-      'I can help with leave, learning, weekly updates, tasks, Slack/Portal rules, My info, and (for HR) Admin navigation.',
+      'I can explain how Team Space works and take you to the page where you complete an action. I never submit leave, check-ins, learning, approvals, or any other record for anyone.',
       '',
       personalSummary(ctx) ? `Your current snapshot:\n${personalSummary(ctx)}` : '',
       '',

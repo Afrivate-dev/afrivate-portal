@@ -149,7 +149,16 @@ Then rebuild / redeploy the portal if you changed env vars.
 2. Sign in with a normal team account.
 3. Click the purple **AVA** button (bottom-right).
 4. Try a prompt chip, e.g. **How do I request leave?**
-5. You should get a clear step-by-step answer.
+5. You should get a clear step-by-step answer and a **Go to Time off** (or similar) button.
+6. Select **Go to…** — AVA must open the Portal page. She must **not** show “Confirm & submit” or submit leave/check-ins for you.
+7. Confirm answers render as normal text (bold labels, numbered steps) — not raw JSON or `**asterisks**`.
+
+### Offline / CI checks (developers)
+
+```bash
+npm run test:ava
+npx playwright test -c playwright.mock.config.ts --project=chromium-mock -g "AVA assistant"
+```
 
 ### How to tell if Gemini is working
 
@@ -158,6 +167,8 @@ Then rebuild / redeploy the portal if you changed env vars.
 | Clear, natural answers that vary with wording | Gemini cloud path is working |
 | Short template-style FAQ answers | Local fallback (no key, undeployed function, or auth/session issue) |
 | “AVA is busy (rate limit)” | Free-tier limit — wait, or switch to `gemini-3.5-flash-lite` |
+| Raw `{ "reply": ... }` in the chat | Redeploy `ava-chat` and refresh — parser should strip envelopes |
+| Confirm & submit / draft leave UI | Wrong build — AVA is navigate-only; redeploy portal |
 
 ---
 

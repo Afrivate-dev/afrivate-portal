@@ -5,12 +5,13 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { askAva, isAvaEnabled } from '@/lib/ava/avaClient'
+import { normalizeAvaDisplayText } from '@/lib/ava/parseResponse'
 import { buildAvaUserContext } from '@/lib/ava/buildContext'
 import { AVA_SUGGESTED_PROMPTS } from '@/lib/ava/knowledge'
 import type { AvaChatMessage, AvaResponse, AvaSuggestedAction } from '@/lib/ava/types'
 import { computeProfileCompleteness } from '@/lib/hrPeopleOps'
 import { managedReportIds } from '@/utils/hrMetrics'
-import { cn, isHR, isLead, uid, weekLabel } from '@/utils/helpers'
+import { cn, isHR, isLead, uid } from '@/utils/helpers'
 import { Button } from '@/components/ui/Button'
 import { usersAwaitingApproval } from '@/context/dataContextShared'
 import { AvaAvatar, AvaTypingBubble } from '@/components/ava/AvaAvatar'
@@ -60,14 +61,6 @@ function pageLabel(pathname: string): string {
   return 'this page'
 }
 
-function mondayIso(d = new Date()) {
-  const x = new Date(d)
-  const day = x.getDay()
-  const diff = day === 0 ? -6 : 1 - day
-  x.setDate(x.getDate() + diff)
-  return x.toISOString().slice(0, 10)
-}
-
 export function AvaFab() {
   const enabled = isAvaEnabled()
   const { user } = useAuth()
@@ -79,8 +72,6 @@ export function AvaFab() {
     tasks,
     leaveRequests,
     checkIns,
-    submitLeave,
-    submitCheckIn,
   } = useData()
   const hr = useHr()
   const [mounted, setMounted] = useState(false)
@@ -93,11 +84,9 @@ export function AvaFab() {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Hello — I am AVA, the AfriVate Virtual Assistant. I can help you use Team Space, explain policies, and guide you through leave, learning, tasks, and more. What do you need?',
+        'Hello — I am AVA, the AfriVate Virtual Assistant. I can explain how Team Space works and take you to the page where you complete an action. I never submit leave, check-ins, learning, or any other record for anyone. What do you need?',
     },
   ])
-  const [pendingAction, setPendingAction] = useState<AvaSuggestedAction | null>(null)
-  const [actionNote, setActionNote] = useState<string | null>(null)
   const listRef = useRef<HTMLDivElement>(null)
   const closeTimer = useRef<number | null>(null)
   const inputRef = useRef<HTMLTextAreaElement>(null)
@@ -213,7 +202,7 @@ export function AvaFab() {
   useEffect(() => {
     if (!mounted) return
     listRef.current?.scrollTo({ top: listRef.current.scrollHeight, behavior: 'smooth' })
-  }, [messages, mounted, pendingAction, busy])
+  }, [messages, mounted, busy])
 
   const context = useMemo(() => {
     if (!user) return null
@@ -249,8 +238,6 @@ export function AvaFab() {
     async (text: string) => {
       const trimmed = text.trim()
       if (!trimmed || !context || busy) return
-      setActionNote(null)
-      setPendingAction(null)
       const userMsg: UiMessage = { id: uid(), role: 'user', content: trimmed }
       const nextHistory = [...messages, userMsg]
       setMessages(nextHistory)
@@ -269,14 +256,10 @@ export function AvaFab() {
             content: res.reply,
             citations: res.citations,
             links: res.links,
-            suggestedActions: res.suggestedActions,
+            suggestedActions: res.suggestedActions?.filter((a) => a.type === 'navigate'),
             source: res.source,
           },
         ])
-        const actionable = res.suggestedActions?.find(
-          (a) => a.type === 'draft_leave' || a.type === 'draft_checkin',
-        )
-        if (actionable) setPendingAction(actionable)
       } catch {
         setMessages((prev) => [
           ...prev,
@@ -284,7 +267,7 @@ export function AvaFab() {
             id: uid(),
             role: 'assistant',
             content:
-              'I could not complete that request right now. Please try again, or open Resources for the Portal User Guide.',
+              'I could not answer that right now. Please try again, or open Resources for the Portal User Guide.',
           },
         ])
       } finally {
@@ -293,37 +276,6 @@ export function AvaFab() {
     },
     [busy, context, messages],
   )
-
-  const confirmPending = useCallback(() => {
-    if (!user || !pendingAction) return
-    if (pendingAction.type === 'draft_leave') {
-      const p = pendingAction.payload
-      submitLeave({
-        userId: user.id,
-        type: p.leaveType,
-        startDate: p.startDate,
-        endDate: p.endDate,
-        reason: p.reason,
-      })
-      setActionNote('Leave request submitted to the Portal for review.')
-      setPendingAction(null)
-      return
-    }
-    if (pendingAction.type === 'draft_checkin') {
-      const p = pendingAction.payload
-      submitCheckIn({
-        userId: user.id,
-        weekStart: mondayIso(),
-        completed: p.completed,
-        nextWeek: p.nextWeek,
-        blockers: p.blockers,
-        hoursWorked: p.hoursWorked,
-        visibility: 'department',
-      })
-      setActionNote(`Weekly update submitted for week of ${weekLabel(mondayIso())}.`)
-      setPendingAction(null)
-    }
-  }, [pendingAction, submitCheckIn, submitLeave, user])
 
   if (!enabled || !user) return null
 
@@ -473,7 +425,9 @@ export function AvaFab() {
                     )}
                   >
                     <AvaMarkdown
-                      text={m.content}
+                      text={
+                        m.role === 'assistant' ? normalizeAvaDisplayText(m.content) : m.content
+                      }
                       tone={m.role === 'user' ? 'user' : 'assistant'}
                     />
                     {m.links?.length ? (
@@ -505,64 +459,29 @@ export function AvaFab() {
                         Sources: {m.citations.join(' · ')}
                       </p>
                     ) : null}
-                    {m.suggestedActions
-                      ?.filter((a) => a.type === 'navigate')
-                      .map((a) =>
-                        a.type === 'navigate' ? (
-                          <div key={a.path} className="mt-2">
-                            <Link
-                              to={a.path}
-                              onClick={closePanel}
-                              className="text-xs font-medium text-brand underline underline-offset-2"
-                            >
-                              {a.label}
-                            </Link>
-                          </div>
-                        ) : null,
-                      )}
+                    {m.role === 'assistant' && m.suggestedActions?.length ? (
+                      <div className="mt-2.5 flex flex-col gap-1.5">
+                        {m.suggestedActions.map((a) => (
+                          <Link
+                            key={`${a.path}-${a.label}`}
+                            to={a.path}
+                            onClick={closePanel}
+                            className={cn(
+                              'inline-flex items-center justify-center rounded-xl px-3 py-2',
+                              'bg-brand text-white text-xs font-semibold shadow-sm',
+                              'transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98]',
+                            )}
+                          >
+                            {a.label}
+                          </Link>
+                        ))}
+                      </div>
+                    ) : null}
                   </div>
                 </div>
               ))}
               {busy ? <AvaTypingBubble /> : null}
             </div>
-
-            {pendingAction &&
-            (pendingAction.type === 'draft_leave' || pendingAction.type === 'draft_checkin') ? (
-              <div className="relative z-[1] border-t border-border bg-brand/[0.04] px-4 py-3 text-sm animate-ava-msg-in motion-reduce:animate-none">
-                <p className="font-medium text-fg">{pendingAction.label}</p>
-                {pendingAction.type === 'draft_leave' ? (
-                  <p className="mt-1 text-xs text-muted">
-                    {pendingAction.payload.leaveType} · {pendingAction.payload.startDate} →{' '}
-                    {pendingAction.payload.endDate}
-                    <br />
-                    {pendingAction.payload.reason}
-                  </p>
-                ) : (
-                  <p className="mt-1 text-xs text-muted whitespace-pre-wrap">
-                    Completed: {pendingAction.payload.completed}
-                    {'\n'}Next: {pendingAction.payload.nextWeek}
-                    {'\n'}Hours: {pendingAction.payload.hoursWorked}
-                  </p>
-                )}
-                <div className="mt-2.5 flex gap-2">
-                  <Button size="sm" onClick={confirmPending}>
-                    Confirm &amp; submit
-                  </Button>
-                  <Button size="sm" variant="ghost" onClick={() => setPendingAction(null)}>
-                    Dismiss
-                  </Button>
-                </div>
-              </div>
-            ) : null}
-
-            {actionNote ? (
-              <p
-                className="relative z-[1] border-t border-border px-4 py-2 text-xs text-brand animate-ava-msg-in motion-reduce:animate-none"
-                role="status"
-              >
-                {actionNote}
-              </p>
-            ) : null}
 
             <div className="relative z-[1] border-t border-border/80 bg-surface/95 px-3 py-3 backdrop-blur-sm">
               <div className="mb-2.5 flex gap-2 overflow-x-auto pb-0.5 scrollbar-none">
@@ -625,7 +544,7 @@ export function AvaFab() {
                 </Button>
               </form>
               <p className="mt-2 text-center text-[10px] text-muted">
-                AVA guides you. The Portal remains the system of record.
+                AVA guides you to the right page. You complete every action in the Portal.
               </p>
             </div>
           </div>
