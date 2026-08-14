@@ -47,7 +47,7 @@ export function InboxPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title={I.title}
         description={I.subtitle}

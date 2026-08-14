@@ -88,7 +88,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
   const resolvedAwardCategory = awardCategory || awardCategories[0]?.id || ''
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-fg">HR dashboard</h2>

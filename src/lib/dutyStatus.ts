@@ -53,6 +53,12 @@ export function canViewDutyBadge(
 /** Suspended staff may read memos/resources and manage their own account. */
 export const SUSPENDED_ALLOWED_PATHS = ['/announcements', '/documents', '/privacy', '/account'] as const
 
+export function isSuspendedAllowedPath(pathname: string): boolean {
+  return SUSPENDED_ALLOWED_PATHS.some(
+    (p) => pathname === p || pathname.startsWith(`${p}/`),
+  )
+}
+
 export function dutyStatusConfirmCopy(
   name: string,
   next: DutyStatus,

@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   ClipboardList,
@@ -31,6 +31,7 @@ import { notifySuccess, notifyError } from '@/lib/notify'
 import { isAdmin, isHR, isLead } from '@/utils/helpers'
 import { managedReportIds } from '@/utils/hrMetrics'
 import {
+  DUTY_STATUS_LABELS,
   DUTY_STATUS_OPTIONS,
   dutyStatusConfirmCopy,
   dutyStatusOf,
@@ -121,7 +122,7 @@ export function EmployeeHubSection() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="av-contain space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-ink)]">Employee information hub</h2>
@@ -153,9 +154,9 @@ export function EmployeeHubSection() {
       />
 
       {tab === 'directory' ? (
-        <Card className="space-y-4 p-4">
+        <Card className="min-w-0 space-y-4 p-4">
           <div className="flex flex-wrap gap-2">
-            <div className="relative min-w-[220px] flex-1">
+            <div className="relative min-w-0 w-full flex-1">
               <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-[var(--color-muted)]" />
               <Input
                 className="pl-9"
@@ -165,7 +166,46 @@ export function EmployeeHubSection() {
               />
             </div>
           </div>
-          <div className="overflow-x-auto">
+          <ul className="space-y-3 lg:hidden">
+            {rows.map(({ user: u, profile: p }) => (
+              <li
+                key={u.id}
+                className="rounded-lg border border-[var(--color-line)] p-3"
+              >
+                <div className="flex items-start justify-between gap-2">
+                  <div className="min-w-0">
+                    <div className="font-medium text-[var(--color-ink)]">{u.name}</div>
+                    <div className="truncate text-xs text-[var(--color-muted)]">{u.email}</div>
+                    <div className="mt-1 text-xs text-[var(--color-muted)]">
+                      {u.jobTitle || u.role} · {p.engagementType} · {p.employmentStatus}
+                    </div>
+                    <div className="mt-1 flex flex-wrap items-center gap-2">
+                      <DutyStatusBadge
+                        viewer={user}
+                        subject={u}
+                        hasActivePip={hr.performanceImprovementPlans.some(
+                          (pip) => pip.subjectUserId === u.id && !pip.outcome,
+                        )}
+                      />
+                      <span className="text-xs text-[var(--color-muted)]">
+                        {p.profileCompleteness}% complete
+                      </span>
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    variant="secondary"
+                    size="sm"
+                    className="shrink-0"
+                    onClick={() => openDossier(u.id)}
+                  >
+                    Dossier
+                  </Button>
+                </div>
+              </li>
+            ))}
+          </ul>
+          <div className="hidden av-scroll-x lg:block">
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-line)] text-[var(--color-muted)]">
@@ -363,7 +403,11 @@ function DossierModal({
   const { setDutyStatus } = useDutyStatusActions()
   const u = users.find((x) => x.id === userId)
   const profile = hr.ensureEmployeeProfile(userId)
-  const [draft, setDraft] = useStateProfile(profile)
+  const [draft, setDraft] = useState({ ...profile })
+
+  useEffect(() => {
+    setDraft({ ...profile })
+  }, [profile.id, profile.updatedAt, profile.userId, profile.engagementType, profile.employmentStatus, profile.startDate, profile.probationEndDate, profile.confirmationDate, profile.payrollSetupComplete, profile.hrRequestsUpdate, profile.contractTermsSummary, profile.hrPrivateNotes])
 
   if (!u) return null
 
@@ -376,10 +420,62 @@ function DossierModal({
     (p) => p.subjectUserId === userId && !p.outcome,
   )
   const shownDuty = effectiveDutyStatus(u, hasActivePip)
+  const openCases = hr.disciplineCases.filter(
+    (c) =>
+      c.subjectUserId === userId &&
+      (c.status === 'active' || c.status === 'pending_hr' || c.status === 'escalated'),
+  )
+  const latestOpen = openCases[0]
 
   return (
-    <Modal open title={`Dossier — ${u.name}`} onClose={onClose} size="xl">
+    <Modal
+      open
+      title={`Dossier — ${u.name}`}
+      onClose={onClose}
+      size="xl"
+      closeOnBackdrop={false}
+      footer={
+        <>
+          <Button type="button" variant="secondary" onClick={onClose}>
+            Close
+          </Button>
+          <Button type="button" onClick={save}>
+            Save HR fields
+          </Button>
+        </>
+      }
+    >
       <div className="space-y-4">
+        {shownDuty !== 'none' || latestOpen ? (
+          <div
+            className={
+              shownDuty === 'suspended'
+                ? 'rounded-lg border border-danger/40 bg-danger/10 p-3'
+                : 'rounded-lg border border-warning/40 bg-warning/10 p-3'
+            }
+          >
+            <div className="flex flex-wrap items-center justify-between gap-2">
+              <div>
+                <p className="text-sm font-semibold">
+                  {shownDuty !== 'none'
+                    ? DUTY_STATUS_LABELS[shownDuty]
+                    : latestOpen
+                      ? `${DISCIPLINE_STEP_LABELS[latestOpen.step]} · ${latestOpen.status}`
+                      : 'Discipline on file'}
+                </p>
+                <p className="text-xs text-[var(--color-muted)]">
+                  {shownDuty === 'suspended'
+                    ? 'This person can sign in and read Updates and Resources only.'
+                    : shownDuty === 'pip'
+                      ? 'Formal PIP is visible to team leads, HR, and admin.'
+                      : 'This case stays on the dossier until it is closed.'}
+                </p>
+              </div>
+              <DutyStatusBadge viewer={viewer} subject={u} hasActivePip={hasActivePip} />
+            </div>
+          </div>
+        ) : null}
+
         <div className="flex flex-wrap gap-2">
           <Button type="button" variant="secondary" onClick={onPrint}>
             <FileText className="mr-2 h-4 w-4" />
@@ -511,31 +607,24 @@ function DossierModal({
           <p>Completeness: {profile.profileCompleteness}%</p>
         </div>
 
-        <PersonDisciplineBlock subjectUserId={userId} actorId={actorId} />
-
-        <div className="flex justify-end gap-2">
-          <Button type="button" variant="secondary" onClick={onClose}>
-            Close
-          </Button>
-          <Button type="button" onClick={save}>
-            Save HR fields
-          </Button>
-        </div>
+        <PersonDisciplineBlock
+          subjectUserId={userId}
+          actorId={actorId}
+          onBeforeActivate={() => hr.saveEmployeeProfileHr({ ...draft, userId })}
+        />
       </div>
     </Modal>
   )
 }
 
-function useStateProfile(profile: EmployeeProfile) {
-  return useState({ ...profile })
-}
-
 function PersonDisciplineBlock({
   subjectUserId,
   actorId,
+  onBeforeActivate,
 }: {
   subjectUserId: string
   actorId: string
+  onBeforeActivate?: () => void
 }) {
   const hr = useHr()
   const cases = hr.disciplineCases.filter((c) => c.subjectUserId === subjectUserId)
@@ -550,28 +639,28 @@ function PersonDisciplineBlock({
         <p className="text-sm text-[var(--color-muted)]">No cases yet.</p>
       ) : (
         cases.map((c) => (
-          <div key={c.id} className="text-sm">
-            {DISCIPLINE_STEP_LABELS[c.step]} · {c.status} · {c.severity}
+          <div key={c.id} className="rounded-md border border-[var(--color-line)]/70 p-2 text-sm">
+            <div className="font-medium">
+              {DISCIPLINE_STEP_LABELS[c.step]} · {c.status} · {c.severity}
+            </div>
+            {c.reason ? (
+              <p className="mt-1 text-[var(--color-muted)]">{c.reason}</p>
+            ) : null}
             {c.pipId ? (
-              <Button
-                type="button"
-                size="sm"
-                variant="secondary"
-                className="ml-2"
-                onClick={() => {
-                  const pip = pips.find((p) => p.id === c.pipId)
-                  if (pip && !pip.outcome) {
-                    /* keep visible in queue */
-                  }
-                }}
-              >
-                Linked PIP
-              </Button>
+              <p className="mt-1 text-xs text-[var(--color-muted)]">
+                {pips.find((p) => p.id === c.pipId)?.outcome
+                  ? `PIP closed (${pips.find((p) => p.id === c.pipId)?.outcome})`
+                  : 'Linked PIP is active'}
+              </p>
             ) : null}
           </div>
         ))
       )}
-      <NewDisciplineForm subjectUserId={subjectUserId} actorId={actorId} />
+      <NewDisciplineForm
+        subjectUserId={subjectUserId}
+        actorId={actorId}
+        onBeforeActivate={onBeforeActivate}
+      />
     </div>
   )
 }
@@ -579,9 +668,11 @@ function PersonDisciplineBlock({
 function NewDisciplineForm({
   subjectUserId,
   actorId,
+  onBeforeActivate,
 }: {
   subjectUserId: string
   actorId: string
+  onBeforeActivate?: () => void
 }) {
   const { users } = useData()
   const hr = useHr()
@@ -601,9 +692,11 @@ function NewDisciplineForm({
         : 'staff'
 
   const submit = (asRecommend: boolean) => {
-    if (step === 'termination_case' && !isHR({ role: 'hr' } as never) && !isAdmin({ role: 'admin' } as never)) {
-      // UI gate: only HR path uses this form in hub
+    if (!reason.trim()) {
+      notifyError('Add a reason before activating a discipline case.')
+      return
     }
+    onBeforeActivate?.()
     if (asRecommend) {
       const id = hr.recommendDisciplineCase({
         subjectUserId,
@@ -611,7 +704,7 @@ function NewDisciplineForm({
         severity,
         employeeLevel: level,
         triggers,
-        reason,
+        reason: reason.trim(),
         evidence: [],
         deliveryMode,
         issuedById: actorId,
@@ -630,7 +723,7 @@ function NewDisciplineForm({
         severity,
         employeeLevel: level,
         triggers,
-        reason,
+        reason: reason.trim(),
         evidence: [],
         status: 'active',
         deliveryMode,
@@ -640,11 +733,23 @@ function NewDisciplineForm({
         deliveredAt: new Date().toISOString(),
       })
       if (step === 'pip') {
-        hr.createPipForCase(id)
-        markOnPip(subjectUserId)
+        const pipId = hr.createPipForCase(id)
+        if (!pipId) {
+          notifyError('Case saved, but the PIP could not be created. Open Discipline & PIP and retry.')
+        } else {
+          markOnPip(subjectUserId)
+        }
       }
-      hr.approveDisciplineCase(id, actorId)
-      notifySuccess('Discipline case activated')
+      const approved = hr.approveDisciplineCase(id, actorId)
+      if (!approved) {
+        notifyError('Case saved, but approval did not complete. Check Discipline & PIP.')
+      } else {
+        notifySuccess(
+          step === 'pip'
+            ? 'PIP activated — it stays on this dossier and in Discipline & PIP'
+            : 'Discipline case activated — it stays on this dossier',
+        )
+      }
     }
     setReason('')
   }
@@ -702,7 +807,7 @@ function NewDisciplineForm({
         ))}
       </div>
       <Textarea label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
-      <div className="flex gap-2">
+      <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" disabled={!reason.trim()} onClick={() => submit(false)}>
           Activate (HR)
         </Button>
@@ -754,7 +859,7 @@ function DisciplineQueue({
                   </div>
                   <div className="text-[var(--color-muted)]">{c.reason}</div>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                   <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(c.subjectUserId)}>
                     Dossier
                   </Button>

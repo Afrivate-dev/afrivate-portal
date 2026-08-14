@@ -123,7 +123,7 @@ export function DashboardPage() {
   const currentAnnouncement = recentAnnouncements.find((a) => a.id === readingId)
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="av-contain space-y-4 sm:space-y-6">
       {/* Welcome banner */}
       <Card padding="lg" className="relative overflow-hidden">
         <div

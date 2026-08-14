@@ -253,7 +253,7 @@ export function SearchPage() {
   if (!user) return null
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader title={S.title} description={S.subtitle} />
       <Card padding="md">
         <div className="relative">

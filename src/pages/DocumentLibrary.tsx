@@ -306,7 +306,7 @@ export function DocumentLibraryPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title={pages.resources.title}
         description={pages.resources.subtitle}

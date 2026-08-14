@@ -413,7 +413,7 @@ export function AnnouncementsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title={U.title}
         description={U.subtitle}
