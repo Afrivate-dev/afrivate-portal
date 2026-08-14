@@ -174,7 +174,7 @@ export function RevivalLaunchChecklistPage() {
   ]
 
   return (
-    <div className="mx-auto max-w-3xl space-y-6 pb-8">
+    <div className="av-contain mx-auto max-w-3xl space-y-6 pb-8">
       <PageHeader
         title="Revival launch checklist"
         description="Day 1 launch tasks for Emmanuel, Daniel, and Opemipo. Check off manually — portal actions auto-complete where detected."
@@ -402,7 +402,7 @@ export function RevivalLaunchChecklistPage() {
         </div>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="av-stat-grid">
         {[
           { label: 'Total', value: stats.total },
           { label: 'Done', value: stats.done, accent: 'text-emerald-600' },

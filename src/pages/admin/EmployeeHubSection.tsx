@@ -125,15 +125,14 @@ export function EmployeeHubSection() {
     <div className="av-contain space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-[var(--color-ink)]">Employee information hub</h2>
+          <h2 className="text-lg font-semibold text-[var(--color-ink)]">Employee files</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            HR/Admin system of record for profiles, PIP / suspension, discipline, appraisals, and
-            offboarding.
+            Profiles, improvement plans, conduct, reviews, and leaving checklists.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
-          <Badge>{hr.getMetrics().pendingDiscipline} pending discipline</Badge>
-          <Badge>{hr.getMetrics().activePips} active PIPs</Badge>
+          <Badge>{hr.getMetrics().pendingDiscipline} cases waiting</Badge>
+          <Badge>{hr.getMetrics().activePips} active plans</Badge>
           <Badge>{hr.getMetrics().upcomingProbations} probation due</Badge>
         </div>
       </div>
@@ -141,12 +140,12 @@ export function EmployeeHubSection() {
       <TabBar
         tabs={[
           { id: 'directory', label: 'Directory' },
-          { id: 'discipline', label: 'Discipline & PIP' },
-          { id: 'appraisals', label: 'Appraisals' },
+          { id: 'discipline', label: 'Conduct' },
+          { id: 'appraisals', label: 'Reviews' },
           { id: 'probation', label: 'Probation' },
-          { id: 'scorecards', label: 'Lead scorecards' },
-          { id: 'offboarding', label: 'Offboarding' },
-          { id: 'audit', label: 'Audit' },
+          { id: 'scorecards', label: 'Lead scores' },
+          { id: 'offboarding', label: 'Leaving' },
+          { id: 'audit', label: 'Activity' },
         ]}
         active={tab}
         onChange={(id) => setTab(id as HubTab)}
@@ -199,7 +198,7 @@ export function EmployeeHubSection() {
                     className="shrink-0"
                     onClick={() => openDossier(u.id)}
                   >
-                    Dossier
+                    Profile
                   </Button>
                 </div>
               </li>
@@ -240,7 +239,7 @@ export function EmployeeHubSection() {
                     <td className="py-2 pr-3">{p.profileCompleteness}%</td>
                     <td className="py-2">
                       <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id)}>
-                        Open dossier
+                        Open profile
                       </Button>
                     </td>
                   </tr>
@@ -274,7 +273,7 @@ export function EmployeeHubSection() {
       {tab === 'audit' ? (
         <Card className="space-y-2 p-4">
           {hr.hrAuditLog.length === 0 ? (
-            <p className="text-sm text-[var(--color-muted)]">No audit entries yet.</p>
+            <p className="text-sm text-[var(--color-muted)]">No activity yet.</p>
           ) : (
             hr.hrAuditLog.slice(0, 80).map((e) => (
               <div key={e.id} className="border-b border-[var(--color-line)]/50 py-2 text-sm">
@@ -311,7 +310,7 @@ export function EmployeeHubSection() {
                 checked={includeDisciplinePdf}
                 onChange={(e) => setIncludeDisciplinePdf(e.target.checked)}
               />
-              Include discipline summary
+              Include conduct summary
             </label>
             <Button type="button" onClick={() => window.print()}>
               <Printer className="mr-2 h-4 w-4" />
@@ -413,7 +412,7 @@ function DossierModal({
 
   const save = () => {
     hr.saveEmployeeProfileHr({ ...draft, userId })
-    notifySuccess('Employee profile saved')
+    notifySuccess('Profile saved')
   }
 
   const hasActivePip = hr.performanceImprovementPlans.some(
@@ -430,7 +429,7 @@ function DossierModal({
   return (
     <Modal
       open
-      title={`Dossier — ${u.name}`}
+      title={`Profile — ${u.name}`}
       onClose={onClose}
       size="xl"
       closeOnBackdrop={false}
@@ -440,7 +439,7 @@ function DossierModal({
             Close
           </Button>
           <Button type="button" onClick={save}>
-            Save HR fields
+            Save profile
           </Button>
         </>
       }
@@ -467,8 +466,8 @@ function DossierModal({
                   {shownDuty === 'suspended'
                     ? 'This person can sign in and read Updates and Resources only.'
                     : shownDuty === 'pip'
-                      ? 'Formal PIP is visible to team leads, HR, and admin.'
-                      : 'This case stays on the dossier until it is closed.'}
+                      ? 'An improvement plan is visible to team leads, People & Culture, and administrators.'
+                      : 'This case stays on the profile until it is closed.'}
                 </p>
               </div>
               <DutyStatusBadge viewer={viewer} subject={u} hasActivePip={hasActivePip} />
@@ -476,7 +475,7 @@ function DossierModal({
           </div>
         ) : null}
 
-        <div className="flex flex-wrap gap-2">
+        <div className="av-action-row">
           <Button type="button" variant="secondary" onClick={onPrint}>
             <FileText className="mr-2 h-4 w-4" />
             Export PDF
@@ -493,29 +492,29 @@ function DossierModal({
             <Archive className="mr-2 h-4 w-4" />
             Archive
           </Button>
-          <label className="ml-auto flex items-center gap-2 text-sm">
+          <label className="flex items-center gap-2 text-sm sm:ml-auto">
             <input
               type="checkbox"
               checked={includeDisciplinePdf}
               onChange={(e) => setIncludeDisciplinePdf(e.target.checked)}
             />
-            PDF includes discipline
+            Include conduct in PDF
           </label>
         </div>
 
         <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
           <div className="flex flex-wrap items-center justify-between gap-2">
             <div>
-              <p className="text-sm font-medium">PIP / suspension</p>
+              <p className="text-sm font-medium">Improvement plan or suspension</p>
               <p className="text-xs text-[var(--color-muted)]">
-                Visible to team leads, HR, and admin. Suspension lets them sign in and read Updates
-                and Resources only.
+                Visible to team leads, People & Culture, and administrators. Suspended people can
+                sign in and read Memos and Resources only.
               </p>
             </div>
             <DutyStatusBadge viewer={viewer} subject={u} hasActivePip={hasActivePip} />
           </div>
           <Select
-            label="Duty status"
+            label="Access status"
             value={shownDuty === 'pip' && dutyStatusOf(u) === 'none' ? 'pip' : dutyStatusOf(u)}
             onChange={(e) => void setDutyStatus(u, e.target.value as DutyStatus)}
             options={DUTY_STATUS_OPTIONS}
@@ -592,7 +591,7 @@ function DossierModal({
           rows={2}
         />
         <Textarea
-          label="HR private notes (not on default PDF)"
+          label="Private notes (not on the default PDF)"
           value={draft.hrPrivateNotes ?? ''}
           onChange={(e) => setDraft((d) => ({ ...d, hrPrivateNotes: e.target.value }))}
           rows={3}
@@ -633,7 +632,7 @@ function PersonDisciplineBlock({
   return (
     <div className="space-y-2 rounded-lg border border-[var(--color-line)] p-3">
       <div className="flex items-center gap-2 font-medium">
-        <ShieldAlert className="h-4 w-4" /> Discipline history
+        <ShieldAlert className="h-4 w-4" /> Conduct history
       </div>
       {cases.length === 0 ? (
         <p className="text-sm text-[var(--color-muted)]">No cases yet.</p>
@@ -650,7 +649,7 @@ function PersonDisciplineBlock({
               <p className="mt-1 text-xs text-[var(--color-muted)]">
                 {pips.find((p) => p.id === c.pipId)?.outcome
                   ? `PIP closed (${pips.find((p) => p.id === c.pipId)?.outcome})`
-                  : 'Linked PIP is active'}
+                  : 'Linked improvement plan is active'}
               </p>
             ) : null}
           </div>
@@ -715,7 +714,7 @@ function NewDisciplineForm({
         hr.createPipForCase(id)
         markOnPip(subjectUserId)
       }
-      notifySuccess('Discipline case submitted for HR')
+      notifySuccess('Recommendation sent for review')
     } else {
       const id = hr.saveDisciplineCase({
         subjectUserId,
@@ -746,8 +745,8 @@ function NewDisciplineForm({
       } else {
         notifySuccess(
           step === 'pip'
-            ? 'PIP activated — it stays on this dossier and in Discipline & PIP'
-            : 'Discipline case activated — it stays on this dossier',
+            ? 'Improvement plan started — it stays on this profile and under Conduct'
+            : 'Case started — it stays on this profile',
         )
       }
     }
@@ -809,7 +808,7 @@ function NewDisciplineForm({
       <Textarea label="Reason" value={reason} onChange={(e) => setReason(e.target.value)} rows={2} />
       <div className="flex flex-col gap-2 sm:flex-row">
         <Button type="button" disabled={!reason.trim()} onClick={() => submit(false)}>
-          Activate (HR)
+          Start case
         </Button>
         <Button
           type="button"
@@ -817,7 +816,7 @@ function NewDisciplineForm({
           disabled={!reason.trim()}
           onClick={() => submit(true)}
         >
-          Save as pending recommendation
+          Save as recommendation
         </Button>
       </div>
     </div>
@@ -842,9 +841,9 @@ function DisciplineQueue({
   return (
     <div className="space-y-4">
       <Card className="space-y-3 p-4">
-        <h3 className="font-medium">Pending HR approval</h3>
+        <h3 className="font-medium">Waiting for approval</h3>
         {pending.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted)]">No pending recommendations.</p>
+          <p className="text-sm text-[var(--color-muted)]">No recommendations waiting.</p>
         ) : (
           pending.map((c) => {
             const subject = users.find((u) => u.id === c.subjectUserId)
@@ -861,7 +860,7 @@ function DisciplineQueue({
                 </div>
                 <div className="flex w-full flex-col gap-2 sm:w-auto sm:flex-row">
                   <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(c.subjectUserId)}>
-                    Dossier
+                    Profile
                   </Button>
                   <Button
                     type="button"
@@ -884,9 +883,9 @@ function DisciplineQueue({
       </Card>
 
       <Card className="space-y-3 p-4">
-        <h3 className="font-medium">Active PIPs</h3>
+        <h3 className="font-medium">Active improvement plans</h3>
         {activePips.length === 0 ? (
-          <p className="text-sm text-[var(--color-muted)]">No active PIPs.</p>
+          <p className="text-sm text-[var(--color-muted)]">No active improvement plans.</p>
         ) : (
           activePips.map((pip) => {
             const subject = users.find((u) => u.id === pip.subjectUserId)
@@ -900,7 +899,7 @@ function DisciplineQueue({
                     </div>
                   </div>
                   <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(pip.subjectUserId)}>
-                    Dossier
+                    Profile
                   </Button>
                 </div>
                 <ul className="text-sm">
@@ -931,7 +930,7 @@ function DisciplineQueue({
                             notifySuccess('PIP review recorded')
                           }}
                         >
-                          Mark on track
+                          Mark as on track
                         </Button>
                       )}
                     </div>
@@ -952,7 +951,7 @@ function DisciplineQueue({
                           notifySuccess(`PIP closed: ${outcome}`)
                         }}
                       >
-                        Close: {outcome}
+                        Close as {outcome.replaceAll('_', ' ')}
                       </Button>
                     ),
                   )}
@@ -983,7 +982,7 @@ function LeadRecommendPanel({ currentUserId }: { currentUserId: string }) {
   return (
     <Card className="space-y-3 p-4">
       <h3 className="flex items-center gap-2 font-medium">
-        <UserPlus className="h-4 w-4" /> Recommend warning / PIP (managed reports)
+        <UserPlus className="h-4 w-4" /> Recommend a warning or plan
       </h3>
       <Select
         label="Team member"
@@ -1009,7 +1008,7 @@ function LeadRecommendPanel({ currentUserId }: { currentUserId: string }) {
             recommendedById: currentUserId,
             acknowledgementRequired: true,
           })
-          notifySuccess('Recommendation sent to HR')
+          notifySuccess('Recommendation sent for review')
           setReason('')
         }}
       >
@@ -1039,7 +1038,7 @@ function AppraisalsPanel({
   return (
     <div className="space-y-4">
       <Card className="space-y-3 p-4">
-        <h3 className="font-medium">New appraisal (60% output / 40% soft skills)</h3>
+        <h3 className="font-medium">New review (60% output / 40% working style)</h3>
         <div className="grid gap-3 sm:grid-cols-2">
           <Select
             label="Employee"
@@ -1082,7 +1081,7 @@ function AppraisalsPanel({
             notifySuccess('Appraisal saved and finalized')
           }}
         >
-          Save & finalize
+          Save and finalize
         </Button>
       </Card>
       <Card className="space-y-2 p-4">
@@ -1099,7 +1098,7 @@ function AppraisalsPanel({
                 </div>
               </div>
               <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(a.subjectUserId)}>
-                Dossier
+                Profile
               </Button>
             </div>
           )
@@ -1126,7 +1125,7 @@ function ProbationPanel({
 
   return (
     <Card className="space-y-3 p-4">
-      <h3 className="font-medium">Probation & confirmation</h3>
+      <h3 className="font-medium">Probation and confirmation</h3>
       {upcoming.length === 0 ? (
         <p className="text-sm text-[var(--color-muted)]">No upcoming probation ends.</p>
       ) : (
@@ -1140,7 +1139,7 @@ function ProbationPanel({
               </div>
               <div className="flex gap-2">
                 <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(p.userId)}>
-                  Dossier
+                  Profile
                 </Button>
                 <Button
                   type="button"
@@ -1257,7 +1256,7 @@ function OffboardingPanel({
                   <div className="text-sm text-[var(--color-muted)]">{o.reason}</div>
                 </div>
                 <Button type="button" size="sm" variant="secondary" onClick={() => onOpenUser(o.userId)}>
-                  Dossier
+                  Profile
                 </Button>
               </div>
               <ul className="mt-2 space-y-1 text-sm">

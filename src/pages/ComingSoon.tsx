@@ -10,14 +10,14 @@ interface ComingSoonProps {
 
 export function ComingSoon({ title, phase, description }: ComingSoonProps) {
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader title={title} description={`Planned in ${phase}.`} />
       <EmptyState
         icon={Hammer}
         title="Under construction"
         description={
           description ??
-          'This page is on the build roadmap. Section specs are in the project plan and the data layer is already wired up — the UI is the only thing left.'
+          'This page is still being built. Specs are in the project plan — the screen is the last piece.'
         }
       />
     </div>

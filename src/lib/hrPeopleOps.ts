@@ -179,10 +179,10 @@ export const DEFAULT_PIP_TEMPLATES: PipTemplate[] = [
 ]
 
 export const DISCIPLINE_STEP_LABELS: Record<string, string> = {
-  coaching_verbal: 'Coaching / verbal warning',
+  coaching_verbal: 'Coaching conversation',
   written_warning: 'Written warning',
-  pip: 'Performance Improvement Plan',
-  restricted_duties: 'Restricted responsibilities',
+  pip: 'Improvement plan (PIP)',
+  restricted_duties: 'Limited responsibilities',
   termination_case: 'Termination case',
 }
 

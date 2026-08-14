@@ -48,19 +48,19 @@ export function PeopleMyInfoPage() {
         .map((s) => s.trim())
         .filter(Boolean),
     })
-    notifySuccess('Your information was saved for HR.')
+    notifySuccess('Your info was saved.')
   }
 
   return (
     <div className="av-contain space-y-6">
       <PageHeader
         title="My info"
-        description="Update personal and contact details. Employment and sensitive fields are managed by HR only."
+        description="Update personal and contact details. Job and contract fields are managed by People & Culture."
       />
 
       {profile?.hrRequestsUpdate ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          HR has requested that you review and update your personal information.
+          People & Culture has asked you to review and update your personal information.
         </div>
       ) : null}
 
@@ -176,7 +176,7 @@ export function PeopleMyInfoPage() {
           onChange={(e) => setDraft((d) => ({ ...d, nextOfKinNotes: e.target.value }))}
           rows={2}
         />
-        <div className="flex items-center justify-between gap-3">
+        <div className="av-action-row items-stretch sm:items-center sm:justify-between">
           <p className="text-sm text-[var(--color-muted)]">
             Profile completeness: {profile?.profileCompleteness ?? 0}%
           </p>

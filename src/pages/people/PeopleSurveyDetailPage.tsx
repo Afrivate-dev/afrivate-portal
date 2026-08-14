@@ -92,7 +92,7 @@ export function PeopleSurveyDetailPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <Link
         to="/people/surveys"
         className="inline-flex items-center gap-1.5 text-sm text-muted hover:text-accent"
@@ -105,7 +105,7 @@ export function PeopleSurveyDetailPage() {
         title={survey.title}
         description={
           survey.description ??
-          'Your answers are stored securely. HR uses aggregated results for the dashboard; managers see team-level summaries only.'
+          'Your answers are stored securely. People & Culture sees team totals only — not your name next to scores.'
         }
       />
 

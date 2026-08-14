@@ -12,7 +12,7 @@ import { format, parseISO, startOfWeek } from 'date-fns'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
-import { confirms } from '@/content/copy'
+import { confirms, pages } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -176,7 +176,7 @@ export function WeeklyCheckInPage() {
   return (
     <div className="av-contain space-y-6">
       <PageHeader
-        title="Weekly check-in"
+        title={pages.weeklyUpdate.title}
         description={weekLabel(currentWeekStart)}
         actions={
           mySubmissionThisWeek && !editing && tab === 'this-week' ? (
@@ -244,7 +244,7 @@ export function WeeklyCheckInPage() {
           <EmptyState
             icon={History}
             title="No history yet"
-            description="Once you submit a few weekly check-ins, they'll show up here."
+            description="Once you send a few weekly updates, they will show up here."
           />
         ) : (
           <div className="grid gap-3 md:grid-cols-2">
@@ -295,7 +295,7 @@ export function WeeklyCheckInPage() {
               title="No team submissions yet"
               description={
                 departmentFilter === 'all'
-                  ? 'When your team submits check-ins this week, they’ll appear here.'
+                  ? 'When your team sends weekly updates this week, they will appear here.'
                   : 'No one in this department has submitted this week.'
               }
             />
@@ -445,7 +445,7 @@ function CheckInForm({
           rows={3}
         />
         <Select
-          label="Who can see this check-in?"
+          label="Who can see this update?"
           value={form.visibility}
           onChange={(e) =>
             setForm({ ...form, visibility: e.target.value as 'department' | 'all' })
@@ -475,7 +475,7 @@ function CheckInForm({
             </Button>
           ) : null}
           <Button type="submit">
-            {isEdit ? 'Save changes' : 'Submit check-in'}
+            {isEdit ? 'Save changes' : 'Send weekly update'}
             <ChevronRight className="h-4 w-4" />
           </Button>
         </div>

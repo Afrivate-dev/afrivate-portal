@@ -59,7 +59,7 @@ export function PeopleActionBanners() {
         >
           <BarChart3 className="h-5 w-5 shrink-0 text-accent" />
           <span className="min-w-0 flex-1 font-medium text-fg">
-            {survey.surveyType === 'enps' ? 'eNPS survey open' : 'Pulse survey open'} — share your feedback
+            {survey.surveyType === 'enps' ? 'Team loyalty survey is open' : 'A short pulse survey is open'} — share how work feels
           </span>
           <ArrowRight className="h-4 w-4 text-muted" />
         </Link>
@@ -70,7 +70,7 @@ export function PeopleActionBanners() {
           className="flex items-center gap-3 rounded-lg border border-border bg-surface px-4 py-3 text-sm ring-focus transition hover:bg-surface-2"
         >
           <GraduationCap className="h-5 w-5 shrink-0 text-brand" />
-          <span className="min-w-0 flex-1 text-fg">Course submission due — complete on Alison and submit proof</span>
+          <span className="min-w-0 flex-1 text-fg">A course is due — complete it and submit your certificate</span>
           <ArrowRight className="h-4 w-4 text-muted" />
         </Link>
       ) : null}
@@ -81,7 +81,7 @@ export function PeopleActionBanners() {
         >
           <AlertCircle className="h-5 w-5 shrink-0 text-warning" />
           <span className="min-w-0 flex-1 text-fg">
-            {pendingAcks.length} policy document{pendingAcks.length === 1 ? '' : 's'} to acknowledge
+            {pendingAcks.length} polic{pendingAcks.length === 1 ? 'y' : 'ies'} to confirm you have read
           </span>
           <ArrowRight className="h-4 w-4 text-muted" />
         </Link>

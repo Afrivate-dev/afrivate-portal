@@ -40,11 +40,11 @@ export const roleTitles = {
   staff: 'Team member',
   assistant_lead: 'Assistant lead',
   team_lead: 'Team lead',
-  hr: 'People & culture',
+  hr: 'People & Culture',
   admin: 'Administrator',
 } as const
 
-/** Common actions */
+/** Common actions — verb + object, sentence case, 2–4 words */
 export const actions = {
   save: 'Save',
   cancel: 'Cancel',
@@ -53,6 +53,18 @@ export const actions = {
   signOut: 'Sign out',
   viewAll: 'View all',
   learnMore: 'Learn more',
+  approve: 'Approve',
+  decline: 'Decline',
+  delete: 'Delete',
+  edit: 'Edit',
+  saveProfile: 'Save profile',
+  openProfile: 'Open profile',
+  declineRequest: 'Decline request',
+  approveAccount: 'Approve account',
+  inviteTeammate: 'Invite teammate',
+  requestTimeOff: 'Request time off',
+  giveShoutOut: 'Give a shout-out',
+  sendWeeklyUpdate: 'Send weekly update',
 } as const
 
 /** Confirmation dialogs — warm, clear questions before important actions */
@@ -105,9 +117,9 @@ export const confirms = {
   deactivateUserTitle: 'Deactivate account',
   changeRole: (name: string, role: string) => `Change ${name}'s role to ${role}?`,
   changeRoleTitle: 'Change role',
-  denyAccount: 'Decline this access request? They will stay inactive and see that access was not approved. They can request again later.',
-  denyAccountTitle: 'Deny access',
-  approveAccount: 'Activate this account and grant portal access?',
+  denyAccount: 'Decline this access request? They will stay inactive and can request again later.',
+  denyAccountTitle: 'Decline request',
+  approveAccount: 'Approve this account so they can sign in?',
   approveAccountTitle: 'Approve account',
   inviteUser: (email: string) => `Send an invitation email to ${email}?`,
   inviteUserTitle: 'Invite team member',
@@ -124,7 +136,7 @@ export const confirms = {
   activateUser: 'Reactivate this account? They will be able to sign in again.',
   activateUserTitle: 'Activate account',
   removeOrganizationUser: (name: string) =>
-    `Permanently remove ${name} from the organization? Their account and portal access will be deleted. This cannot be undone.`,
+    `Permanently remove ${name} from the organization? Their account will be deleted. This cannot be undone.`,
   removeOrganizationUserTitle: 'Remove from organization',
   changeDepartment: (name: string, dept: string) =>
     `Move ${name} to ${dept}? They will be notified in their inbox.`,
@@ -185,9 +197,9 @@ export const pages = {
     recentUpdates: 'Latest updates',
     todaySchedule: 'Today',
     emptyUpdates: 'No updates yet',
-    emptyUpdatesBody: "When your People & culture team posts news, it'll show up here.",
+    emptyUpdatesBody: "When People & Culture posts news, it will show up here.",
     emptyDay: 'Nothing scheduled',
-    emptyDayBody: "Enjoy the calm — or add something in What's on.",
+    emptyDayBody: 'Enjoy the calm — or add something on the calendar.',
     tipTitle: 'Small habits help the team',
     tipBody:
       'Sending your weekly update on time keeps leads informed. Requesting time off here (instead of chat) gives everyone a clear record.',
@@ -282,7 +294,7 @@ export const pages = {
   inbox: {
     title: 'Inbox',
     subtitle: 'Shout-outs, assignments, and mentions in one place.',
-    markAllRead: 'Mark all read',
+    markAllRead: 'Mark all as read',
     empty: "You're all caught up",
     emptyBody:
       'When someone shouts you out, assigns you a task, or @mentions you in notes, it will show up here.',
@@ -349,7 +361,7 @@ export const pages = {
     shareInvitePlaceholder: 'name@company.com',
     shareInviteAdd: 'Add',
     shareLinkSection: 'Link sharing',
-    shareLinkHelp: 'Turn on a link anyone with the URL can use (they still sign in to the portal).',
+    shareLinkHelp: 'Turn on a link anyone with the URL can use (they still need to sign in).',
     shareLinkOn: 'Link on',
     shareLinkOff: 'Link off',
     shareLinkCopy: 'Copy link',
@@ -450,7 +462,7 @@ export const pages = {
     subtitle: 'See your balances, send a request, and track approvals in one place.',
     requestCta: 'New request',
     balancesExplainer:
-      'Balances show approved days this year. Your full leave policy is with People & culture.',
+      'Balances show approved days this year. Your full leave policy is with People & Culture.',
   },
   people: {
     title: 'People',
@@ -469,7 +481,7 @@ export const pages = {
     organization: 'Organization',
     reportsTo: 'Reports to',
     workLocation: 'Work location',
-    accessRole: 'Portal access',
+    accessRole: 'Access level',
     memberSince: 'Member since',
     about: 'About',
     skills: 'Skills',
@@ -500,7 +512,7 @@ export const pages = {
     teams: 'Teams',
     noTeams: 'Not on a team yet',
     assignDepartment: 'Assign department',
-    assignDepartmentHelp: 'Sets their department and Reports to the department lead.',
+    assignDepartmentHelp: 'Sets their department and who they report to.',
     assignTeam: 'Team membership',
     assignTeamHelp: 'Teams belong to one department. Adding someone updates their department to match.',
     removeFromTeam: 'Remove from team',
@@ -554,5 +566,5 @@ export const pages = {
 export const layout = {
   sidebarBadge: 'Team space',
   sidebarFootnote: (version: string) => `${version} · For team members`,
-  authFooter: (year: number) => `© ${year} AfriVate Technologies · Employee portal`,
+  authFooter: (year: number) => `© ${year} AfriVate Technologies · Team space`,
 } as const

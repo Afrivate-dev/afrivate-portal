@@ -822,7 +822,7 @@ export function RecruitmentAtsSection() {
         </button>
       </div>
 
-      <div className="grid grid-cols-2 gap-2 sm:gap-3 lg:grid-cols-4">
+      <div className="av-stat-grid">
         <Card padding="md">
           <p className="text-xs text-muted">Candidates</p>
           <p className="mt-1 text-xl font-semibold text-fg sm:text-2xl">{stats.total}</p>
@@ -843,7 +843,7 @@ export function RecruitmentAtsSection() {
 
       <Card padding="md" className="space-y-4">
         <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
-          <div className="flex min-w-0 items-center gap-2">
+          <div className="flex min-w-0 flex-wrap items-center gap-2">
             <Settings2 className="h-4 w-4 shrink-0 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
               Scoring rules · {labelForAtsRoleProfile(selectedRole === 'general' ? 'frontend' : selectedRole)}
@@ -1279,7 +1279,7 @@ function CriteriaEditor({
               onChange={(e) => updateCriterion(c.id, { label: e.target.value })}
               hint={criterionKindHint(c.kind)}
             />
-            <div className="grid grid-cols-2 gap-3">
+            <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2">
               <Input
                 label="Points"
                 type="number"

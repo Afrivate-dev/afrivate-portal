@@ -144,24 +144,24 @@ export function DashboardPage() {
             </p>
             <p className="mt-2 text-xs font-medium tracking-wide text-muted/90">{brand.tagline}</p>
           </div>
-          <div className="flex flex-wrap gap-2">
+          <div className="av-action-row">
             <Link
               to="/tasks"
-              className="inline-flex h-11 items-center gap-2 rounded-md bg-accent px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md bg-accent px-5 text-sm font-medium text-white shadow-sm transition-colors hover:bg-accent-hover sm:w-auto"
             >
               <Plus className="h-4 w-4" /> New task
             </Link>
             <Link
               to="/people/leave"
-              className="inline-flex h-11 items-center gap-2 rounded-md border border-border bg-transparent px-5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md border border-border bg-transparent px-5 text-sm font-medium text-fg transition-colors hover:bg-surface-2 sm:w-auto"
             >
-              Request leave
+              Request time off
             </Link>
             <Link
               to="/checkin"
-              className="inline-flex h-11 items-center gap-2 rounded-md px-5 text-sm font-medium text-fg transition-colors hover:bg-surface-2"
+              className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-md px-5 text-sm font-medium text-fg transition-colors hover:bg-surface-2 sm:w-auto"
             >
-              Submit check-in
+              Send weekly update
             </Link>
           </div>
         </div>

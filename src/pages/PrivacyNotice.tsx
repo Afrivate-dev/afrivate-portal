@@ -6,7 +6,7 @@ export function PrivacyNoticePage() {
   const navigate = useNavigate()
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <div>
         <button
           type="button"
@@ -50,7 +50,7 @@ export function PrivacyNoticePage() {
             <ul className="ml-4 list-disc space-y-1 text-sm text-fg/80">
               <li>Identity data — full name, work email address, job title, department, and role</li>
               <li>Employment data — date of joining, leave records (type, dates, reason), and leave balances</li>
-              <li>Work activity data — weekly check-in entries, task assignments, and hours logged</li>
+              <li>Work activity data — weekly updates, task assignments, and hours logged</li>
               <li>Communication data — inbox notifications, @mentions in tasks, and shout-outs (recognition posts)</li>
               <li>Document access data — records of which onboarding materials have been viewed</li>
               <li>Account security data — sign-in credentials stored securely by our hosting provider</li>
@@ -82,7 +82,7 @@ export function PrivacyNoticePage() {
             <h2 className="text-lg font-semibold text-fg">4. Who can see your data</h2>
             <ul className="ml-4 list-disc space-y-1 text-sm text-fg/80">
               <li>Your name, job title, and department are visible to all active portal users</li>
-              <li>Your leave requests and weekly check-ins are visible to your team leads and HR</li>
+              <li>Your time-off requests and weekly updates are visible to your team leads and People & Culture</li>
               <li>Task details you create or are assigned to are visible to other team members</li>
               <li>Administrators can view all data within the portal for operational purposes</li>
               <li>
