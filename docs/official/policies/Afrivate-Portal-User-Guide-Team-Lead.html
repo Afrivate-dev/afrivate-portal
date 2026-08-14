@@ -1,0 +1,356 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AfriVate Team Space — Team Lead Portal Guide</title>
+  <style>
+  :root {
+    --purple: #8d4087;
+    --ink: #1f1f1f;
+    --muted: #5f5f5f;
+    --line: #ebdceb;
+    --soft: #f8f3f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink);
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.58;
+    background: #fff;
+  }
+  .shell { position: relative; padding: 0 4px; }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--purple);
+    margin-bottom: 18px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img {
+    width: 154px;
+    height: 49px;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .chip {
+    text-align: right;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  h1 {
+    font-size: 17px;
+    line-height: 1.3;
+    margin: 0 0 14px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .meta {
+    display: grid;
+    gap: 8px;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0 0 20px;
+  }
+  .meta div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+  }
+  .meta span { color: var(--muted); }
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--purple);
+    margin: 22px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    break-after: avoid-page;
+  }
+  h3 {
+    font-size: 11.2px;
+    margin: 14px 0 6px;
+    color: var(--ink);
+    break-after: avoid-page;
+  }
+  h4 {
+    font-size: 10.8px;
+    margin: 12px 0 6px;
+    color: var(--purple);
+    break-after: avoid-page;
+  }
+  p { margin: 0 0 10px; }
+  ul, ol {
+    margin: 0 0 12px;
+    padding-left: 20px;
+  }
+  li {
+    margin: 0 0 6px;
+    break-inside: avoid-page;
+  }
+  .note {
+    background: var(--soft);
+    border-left: 3px solid var(--purple);
+    padding: 11px 13px;
+    margin: 10px 0 16px;
+  }
+  .path {
+    display: inline-block;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 9.5pt;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 14px;
+    font-size: 9.8pt;
+  }
+  tr { break-inside: avoid-page; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--soft);
+    color: var(--purple);
+    font-weight: 700;
+  }
+  .footer-note {
+    margin-top: 28px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 9.5pt;
+    color: var(--muted);
+    font-style: italic;
+  }
+  code {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 9pt;
+    background: var(--soft);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  strong { font-weight: 700; }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="file:///C:/Users/DELL/Desktop/CODE/Afrivate/afrivate-portal/docs/official/brand/afrivate-logo-long-purple.png" alt="AfriVate" />
+      </div>
+      <div class="chip">Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092</div>
+    </div>
+    <h1>AfriVate Team Space — Team Lead Portal Guide</h1>
+    <section class="meta">
+      <div><strong>Document Code</strong><span>AFRI-PUG-03</span></div>
+      <div><strong>Product</strong><span>AfriVate Team Space · portal.afrivate.org</span></div>
+      <div><strong>Audience</strong><span>Team leads and assistant leads</span></div>
+      <div><strong>Last updated</strong><span>14 August 2026</span></div>
+      <div><strong>Contact</strong><span>hr@afrivate.org</span></div>
+    </section>
+      <p>This guide is <strong>only for team leads and assistant leads</strong>. It covers what you can see and do in the portal — your own work <strong>and</strong> the extra tools for the people you manage.</p>
+  <div class="note">It does <strong>not</strong> cover Admin, recruitment, appraisals, discipline paperwork, or role changes. You will not see those. People &amp; Culture use the full AFRI-PUG-01. Ordinary staff use AFRI-PUG-02.</div>
+
+  <h2>1. Who this is for</h2>
+  <table>
+    <thead><tr><th>Role on your profile</th><th>What this means in the portal</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Assistant lead</strong></td><td>You do everything a team member does, <strong>plus</strong> approve leave for your people, see their weekly updates, see a team snapshot, mark 1:1s, review their IDPs, see team OKRs, see PIP/suspension badges, and open management-only files. You <strong>cannot</strong> publish memos or add calendar events.</td></tr>
+      <tr><td><strong>Team lead</strong></td><td>Everything an assistant lead can do, <strong>plus</strong> publish memos and add calendar events.</td></tr>
+    </tbody>
+  </table>
+  <p>You still <strong>do not</strong> see <strong>Admin</strong> in the menu. That is correct. You cannot approve new joiners, change roles, open recruitment, write appraisals, or place someone on a PIP. Send those to People &amp; Culture.</p>
+  <p>If nobody “belongs” to you yet (no reports-to, no team, no department head role), team tabs will look empty. Ask HR to set reporting lines.</p>
+
+  <h2>2. The golden rule</h2>
+  <p>If it needs a record, it belongs in the <strong>Portal</strong>. Slack is for chat (acknowledge official Slack messages within <strong>four (4) hours</strong> on official work days). WhatsApp is informal or emergency only. A Slack “please approve my leave” is <strong>not</strong> an approval. Click <strong>Approve</strong> in the Portal.</p>
+  <table>
+    <thead><tr><th>Tool</th><th>You use it for</th></tr></thead>
+    <tbody>
+      <tr><td><strong>Portal</strong></td><td>Your own records <strong>and</strong> leave approvals, team check-ins, 1:1 completion, IDP review, memos (team lead), calendar events (team lead).</td></tr>
+      <tr><td><strong>Slack</strong></td><td>Coordination, handover before leave, chasing a late weekly update after you have checked the Portal.</td></tr>
+      <tr><td><strong>Email</strong> (<code>hr@afrivate.org</code>)</td><td>Escalations to People &amp; Culture.</td></tr>
+      <tr><td><strong>Alison</strong></td><td>Your own courses. Proof goes in the Portal.</td></tr>
+      <tr><td><strong>AVA</strong></td><td>How-to help. She never approves or submits for you.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>3. Getting in and finding your way</h2>
+  <p>Same as everyone else: <strong>portal.afrivate.org</strong>, email/password or magic link, <strong>Account &amp; security</strong> for password changes.</p>
+  <p><strong>Menu (no Admin):</strong> Home · My work · Inbox · People · Search · Weekly update · Getting started · Notes · Memos · Resources · Calendar. <strong>Phone:</strong> Home, My work, Inbox, People, More. <strong>Top bar:</strong> light/dark, search, availability (Available / Away / Busy / Focusing), inbox bell, profile menu. Purple <strong>AVA</strong> button bottom-right.</p>
+
+  <h2>4. What you can do that staff cannot</h2>
+  <table>
+    <thead><tr><th>Extra capability</th><th>Where</th><th>Assistant lead</th><th>Team lead</th></tr></thead>
+    <tbody>
+      <tr><td>Approve or decline team leave</td><td>People → Time off → Team requests</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>See who is off (leave calendar)</td><td>People → Time off → Calendar</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>See team weekly updates</td><td>Weekly update → Team</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Team snapshot (combined scores)</td><td>People → Overview</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>See who is on PIP or suspended</td><td>People → Overview, Directory</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Mark 1:1s complete for your people</td><td>People → Growth → 1:1s</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Read team OKRs (read-only)</td><td>People → Growth → OKRs</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Review submitted IDPs</td><td>People → Growth → IDP</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Open management-only files</td><td>Resources</td><td>Yes</td><td>Yes</td></tr>
+      <tr><td>Publish / edit your memos</td><td>Memos</td><td>No</td><td>Yes</td></tr>
+      <tr><td>Add calendar events</td><td>Calendar</td><td>No</td><td>Yes</td></tr>
+    </tbody>
+  </table>
+
+  <h2>5. Home (your extra numbers)</h2>
+  <div class="path">Path: Home</div>
+  <p>Same banners as staff (surveys, learning, policies), <strong>plus</strong> a count of <strong>leave waiting on you</strong> (your people’s pending requests, and your own). Start here. Clear your own banners. Then open Time off if the leave number is not zero.</p>
+
+  <h2>6. Your own work (you still do all of this)</h2>
+  <p>You are not exempt from staff habits.</p>
+  <ul>
+    <li><strong>My work</strong> — create tasks, assign people, mark <strong>Complete</strong> (the portal stores who and when). Views: Board, List, Week.</li>
+    <li><strong>Inbox</strong> — your alerts (leave comments, shout-outs, assignments, memos).</li>
+    <li><strong>Search</strong> — people, memos, tasks, documents you may open (including management-only), events, leave in your scope. Not HR-only files or recruitment.</li>
+    <li><strong>Weekly update</strong> — submit <strong>your</strong> four fields, then open the <strong>Team</strong> tab (section 8).</li>
+    <li><strong>Notes, shout-outs, learning, surveys, My info</strong> — same as staff. Keep your own My info complete.</li>
+    <li><strong>Directory</strong> — edit <strong>your</strong> card. You cannot edit other people’s profiles. You <strong>can</strong> see PIP / suspension badges on others.</li>
+  </ul>
+
+  <h2>7. Approve leave (the most important extra)</h2>
+  <div class="path">Path: People → Time off</div>
+  <p>Staff only see <strong>My requests</strong>. You also see <strong>Team requests</strong> and <strong>Calendar</strong>. Leave is official <strong>only</strong> in the Portal. Do not “approve” on WhatsApp or Slack and skip the button here.</p>
+  <ol>
+    <li>Open People → <strong>Time off</strong> → <strong>Team requests</strong>.</li>
+    <li>Open the request. Check dates, type (annual / sick / emergency), reason, and any attachment.</li>
+    <li>Confirm <strong>Approve</strong> or <strong>Decline</strong>, and add a short note. The person is notified in their Inbox.</li>
+    <li>Use <strong>Calendar</strong> to see who is off that month.</li>
+  </ol>
+  <p>You see people linked to you through reports-to, your team, or a department you head. You do not see the whole organisation. Except emergencies, expect at least <strong>three (3) official work days’ notice</strong> and a work handover (they should also tell the team on Slack). Until you click Approve, they are <strong>not</strong> on approved leave. You cannot delete a leave request. People &amp; Culture can. Typical allowances shown: annual 20 days, sick 10, emergency 7.</p>
+
+  <h2>8. Team weekly updates</h2>
+  <div class="path">Path: Weekly update → Team</div>
+  <p>See who on your team has submitted this week and who has not. Open a person’s update to read finished / next / blockers / hours. You can filter by department. Chase missing updates on Slack if you like — but the <strong>record</strong> is this page. HR can also see org-wide check-ins; you cannot.</p>
+
+  <h2>9. People overview — team snapshot and duty status</h2>
+  <div class="path">Path: People (Overview)</div>
+  <p><strong>My team snapshot</strong> shows combined numbers for people you manage (headcount, engagement, eNPS, and similar). You do <strong>not</strong> see anyone’s individual survey answers. If no numbers appear, reporting lines may not be set. Ask HR.</p>
+  <p><strong>PIP &amp; suspension</strong> (visible to leads, HR, and admin) lists people currently on a Performance Improvement Plan or suspension. You will also see these badges on Directory profiles. You cannot change duty status.</p>
+  <table>
+    <thead><tr><th>Status</th><th>What it means</th><th>What you can do</th></tr></thead>
+    <tbody>
+      <tr><td><strong>On PIP</strong></td><td>They keep full portal access. A banner shows for them.</td><td>Support them. You cannot create or close the formal PIP file. That is HR.</td></tr>
+      <tr><td><strong>Suspended</strong></td><td>They can sign in and read <strong>Memos</strong> and <strong>Resources</strong> only.</td><td>Do not expect tasks, leave, or check-ins from them until HR lifts it.</td></tr>
+    </tbody>
+  </table>
+
+  <h2>10. Growth as a manager</h2>
+  <div class="path">Path: People → Growth</div>
+  <p>You still have your own OKRs, IDP, feedback, milestones, awards, and Speak up. On top of that:</p>
+  <h3>OKRs</h3>
+  <p>Your own objectives for the quarter, with key-result sliders. Below that, <strong>Team OKRs (read-only)</strong> — you can see your people’s aims and progress. You cannot edit theirs.</p>
+  <h3>1:1s</h3>
+  <p>Meet <strong>outside</strong> the portal (Google Meet, Slack huddle, in person). Then come here and <strong>Mark done</strong> for each person this month. That is how HR knows the conversation happened. You will also see whether <strong>your</strong> manager has marked your 1:1 complete. You cannot mark your own.</p>
+  <h3>IDP</h3>
+  <p>Write and submit <strong>your</strong> plan. If people who report to you have submitted theirs, an <strong>IDP reviews</strong> panel appears. Read the plan, write manager feedback, click <strong>Mark reviewed</strong>. They will see your note.</p>
+  <h3>Feedback</h3>
+  <p>When HR opens a 360° cycle, complete the forms assigned to you (including as a manager). You cannot open or close a cycle. HR does that.</p>
+  <h3>Speak up</h3>
+  <p>Your own confidential concerns go to HR. You do not receive other people’s Speak up submissions.</p>
+
+  <h2>11. Publish memos (team lead only)</h2>
+  <div class="path">Path: Memos</div>
+  <p><strong>Assistant leads: skip this section.</strong> You can read memos; you cannot publish.</p>
+  <p><strong>Team leads:</strong> compose a memo (title, body or attached document, category, priority: Info / Important / Urgent). Choose audience: everyone, or a department. Attach images or files if needed. Drafts can save on your device until you publish. You can edit memos you posted. You cannot delete other people’s memos — HR/Admin can. If you need an organisation-wide HR digest, ask People &amp; Culture.</p>
+
+  <h2>12. Add calendar events (team lead only)</h2>
+  <div class="path">Path: Calendar</div>
+  <p><strong>Assistant leads: skip this section.</strong> You can browse events; you cannot add them.</p>
+  <p><strong>Team leads:</strong> create an event (title, date, start/end time, location, audience: everyone or a department). Drafts can save locally before you publish. Staff will see it on Home (if it is soon) and on Calendar.</p>
+
+  <h2>13. Resources (including management-only)</h2>
+  <div class="path">Path: Resources</div>
+  <p>Browse, preview, download, and <strong>acknowledge</strong> policies that require it — same as staff. <strong>Extra:</strong> files marked <strong>management only</strong> are visible to you. Staff cannot see them. Files marked <strong>HR only</strong> are still hidden from you. You cannot upload or delete library files. People &amp; Culture manage the library.</p>
+
+  <h2>14. AVA</h2>
+  <p>Same helper as staff. Ask “How do I approve leave?” and use <strong>Go to Time off</strong>. She never clicks Approve for you. She will not show you HR records you are not allowed to see.</p>
+
+  <h2>15. What you cannot do (send these to HR)</h2>
+  <table>
+    <thead><tr><th>Need</th><th>Who does it</th></tr></thead>
+    <tbody>
+      <tr><td>Approve a new joiner’s access</td><td>Admin → Approvals (HR / Admin)</td></tr>
+      <tr><td>Change someone’s role or department</td><td>Admin → Users (role = Administrator only)</td></tr>
+      <tr><td>Place someone on PIP or suspension</td><td>Admin → Employees or Users (HR / Admin)</td></tr>
+      <tr><td>Write a formal PIP, warning, or appraisal</td><td>Admin → Employees (HR / Admin)</td></tr>
+      <tr><td>Confirm probation</td><td>Admin → Employees</td></tr>
+      <tr><td>Recruitment / CVs</td><td>Admin → Recruitment</td></tr>
+      <tr><td>Launch a survey or assign Alison to the org</td><td>Admin → HR dashboard</td></tr>
+      <tr><td>Upload a policy</td><td>Resources as HR, or Admin</td></tr>
+      <tr><td>See the whole organisation’s check-ins</td><td>Admin → Check-ins</td></tr>
+    </tbody>
+  </table>
+  <p>If a person is not showing on Team requests or Team check-ins, their reporting line is probably wrong. Ask HR to fix reports-to / team membership.</p>
+
+  <h2>16. Quick “where do I…?”</h2>
+  <table>
+    <thead><tr><th>I want to…</th><th>Go here</th></tr></thead>
+    <tbody>
+      <tr><td>Approve leave</td><td>People → Time off → Team requests</td></tr>
+      <tr><td>See who is off</td><td>People → Time off → Calendar</td></tr>
+      <tr><td>See who submitted a weekly update</td><td>Weekly update → Team</td></tr>
+      <tr><td>Mark a 1:1 complete</td><td>People → Growth → 1:1s</td></tr>
+      <tr><td>Review a development plan</td><td>People → Growth → IDP</td></tr>
+      <tr><td>See team OKRs</td><td>People → Growth → OKRs</td></tr>
+      <tr><td>See who is on PIP / suspended</td><td>People → Overview or Directory</td></tr>
+      <tr><td>Publish a memo</td><td>Memos (<strong>team lead</strong> only)</td></tr>
+      <tr><td>Add an event</td><td>Calendar (<strong>team lead</strong> only)</td></tr>
+      <tr><td>Request my leave</td><td>People → Time off</td></tr>
+      <tr><td>Submit my weekly update</td><td>Weekly update → This week</td></tr>
+      <tr><td>Submit my Alison certificate</td><td>People → Learning</td></tr>
+      <tr><td>Update my emergency contact</td><td>People → My info</td></tr>
+      <tr><td>Ask how to do something</td><td>AVA, then complete the action yourself</td></tr>
+    </tbody>
+  </table>
+
+  <h2>17. A good weekly habit for leads</h2>
+  <ol>
+    <li><strong>Home</strong> — your banners first, then any leave waiting on you.</li>
+    <li><strong>Time off → Team requests</strong> — do not leave people pending.</li>
+    <li><strong>Weekly update</strong> — submit yours, then check <strong>Team</strong> for gaps.</li>
+    <li><strong>Growth → 1:1s</strong> — if you met someone this month, mark it done.</li>
+    <li>Keep <strong>your</strong> My info, learning, and surveys current — you model the behaviour.</li>
+    <li>Records in the Portal. Chat on Slack. Escalate to <code>hr@afrivate.org</code> when it is an HR decision.</li>
+  </ol>
+
+  <h2>18. If something goes wrong</h2>
+  <table>
+    <thead><tr><th>What you see</th><th>What to do</th></tr></thead>
+    <tbody>
+      <tr><td>Team requests / Team tab empty</td><td>Ask HR to set reports-to, team, or department head.</td></tr>
+      <tr><td>Cannot publish a memo or add an event</td><td>You may be an <strong>assistant lead</strong>. Ask a team lead or HR.</td></tr>
+      <tr><td>“We couldn’t load your data”</td><td>Retry, then refresh.</td></tr>
+      <tr><td>Someone on your team is suspended</td><td>They can only read Memos and Resources. Talk to HR; you cannot lift it.</td></tr>
+      <tr><td>You are on a PIP banner</td><td>You keep full access. Talk to your lead and HR.</td></tr>
+      <tr><td>AVA down</td><td>Use this guide, or email <code>hr@afrivate.org</code>.</td></tr>
+    </tbody>
+  </table>
+
+  <p class="footer-note">Questions: hr@afrivate.org or your designated People &amp; Culture representative.</p>
+
+  </div>
+</body>
+</html>

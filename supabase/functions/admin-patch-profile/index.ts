@@ -31,6 +31,7 @@ const ALLOWED_PATCH_FIELDS = new Set([
   'active',
   'approved_at',
   'joined_at',
+  'duty_status',
 ])
 
 function pickAllowedPatch(raw: Record<string, unknown>): Record<string, unknown> {
@@ -73,13 +74,20 @@ Deno.serve(async (req) => {
     const adminClient = createClient(supabaseUrl, serviceRoleKey)
     const { data: callerProfile } = await adminClient
       .from('profiles')
-      .select('role')
+      .select('role, duty_status')
       .eq('id', caller.id)
       .single()
 
     if (!callerProfile?.role || !['admin', 'hr'].includes(callerProfile.role)) {
       return new Response(
         JSON.stringify({ error: 'Only administrators and HR can update other profiles' }),
+        { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+      )
+    }
+
+    if (callerProfile.duty_status === 'suspended') {
+      return new Response(
+        JSON.stringify({ error: 'Your account is on suspension; you cannot change profiles.' }),
         { status: 403, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
       )
     }
@@ -111,6 +119,22 @@ Deno.serve(async (req) => {
         status: 403,
         headers: { ...corsHeaders, 'Content-Type': 'application/json' },
       })
+    }
+
+    if (safePatch.duty_status !== undefined) {
+      const duty = String(safePatch.duty_status)
+      if (duty !== 'none' && duty !== 'pip' && duty !== 'suspended') {
+        return new Response(JSON.stringify({ error: 'Invalid duty status' }), {
+          status: 400,
+          headers: { ...corsHeaders, 'Content-Type': 'application/json' },
+        })
+      }
+      if (userId === caller.id && duty === 'suspended') {
+        return new Response(
+          JSON.stringify({ error: 'You cannot suspend your own account while signed in.' }),
+          { status: 400, headers: { ...corsHeaders, 'Content-Type': 'application/json' } },
+        )
+      }
     }
 
     if (Object.keys(safePatch).length === 0) {

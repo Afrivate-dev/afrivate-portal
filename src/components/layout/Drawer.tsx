@@ -1,13 +1,14 @@
 ﻿import { useEffect } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { X, LogOut, ShieldCheck, Rocket } from 'lucide-react'
-import { navItems } from '@/config/nav'
+import { visibleNavItems } from '@/config/nav'
 import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
 import { confirms, actions } from '@/content/copy'
 import { Avatar } from '@/components/ui/Avatar'
 import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
+import { isSuspended } from '@/lib/dutyStatus'
 
 interface DrawerProps {
   open: boolean
@@ -17,7 +18,8 @@ interface DrawerProps {
 export function Drawer({ open, onClose }: DrawerProps) {
   const { user, role, logout } = useAuth()
   const confirm = useConfirm()
-  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user)
+  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user) && !isSuspended(user)
+  const items = visibleNavItems(user, role)
 
   useEffect(() => {
     if (!open) return
@@ -71,8 +73,7 @@ export function Drawer({ open, onClose }: DrawerProps) {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
           <ul className="space-y-0.5">
-            {navItems
-              .filter((i) => !i.roles || (role && i.roles.includes(role)))
+            {items
               .map((item) => (
                 <li key={item.to}>
                   <NavLink

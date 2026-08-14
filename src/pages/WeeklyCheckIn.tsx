@@ -27,6 +27,8 @@ import { cn, fmtDate, isLead, relativeTime, weekLabel, canViewAllCheckIns } from
 import { managedReportIds } from '@/utils/hrMetrics'
 import { managesPeople } from '@/lib/orgStructure'
 import { departmentSelectOptions } from '@/lib/departments'
+import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
+import { useHr } from '@/context/HrContext'
 import type { User, WeeklyCheckIn } from '@/types'
 
 type Tab = 'this-week' | 'history' | 'team'
@@ -518,6 +520,8 @@ function HistoryCard({ checkIn }: { checkIn: WeeklyCheckIn }) {
 }
 
 function TeamRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User[] }) {
+  const { user } = useAuth()
+  const { performanceImprovementPlans } = useHr()
   const u = users.find((x) => x.id === checkIn.userId)
   if (!u) return null
   return (
@@ -528,6 +532,13 @@ function TeamRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User[] }) 
           <div className="min-w-0">
             <p className="truncate text-sm font-medium text-fg">{u.name}</p>
             <p className="truncate text-xs text-muted">{u.department}</p>
+            <DutyStatusBadge
+              viewer={user}
+              subject={u}
+              hasActivePip={performanceImprovementPlans.some(
+                (p) => p.subjectUserId === u.id && !p.outcome,
+              )}
+            />
           </div>
         </div>
       </td>
@@ -551,6 +562,8 @@ function TeamRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User[] }) 
 }
 
 function TeamMobileRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User[] }) {
+  const { user } = useAuth()
+  const { performanceImprovementPlans } = useHr()
   const u = users.find((x) => x.id === checkIn.userId)
   if (!u) return null
   return (
@@ -561,6 +574,13 @@ function TeamMobileRow({ checkIn, users }: { checkIn: WeeklyCheckIn; users: User
           <div className="min-w-0">
             <p className="truncate text-sm font-semibold text-fg">{u.name}</p>
             <p className="truncate text-xs text-muted">{u.department}</p>
+            <DutyStatusBadge
+              viewer={user}
+              subject={u}
+              hasActivePip={performanceImprovementPlans.some(
+                (p) => p.subjectUserId === u.id && !p.outcome,
+              )}
+            />
           </div>
         </div>
         <Badge tone="muted" className="shrink-0">{checkIn.hoursWorked}h</Badge>

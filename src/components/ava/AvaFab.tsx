@@ -12,6 +12,7 @@ import type { AvaChatMessage, AvaResponse, AvaSuggestedAction } from '@/lib/ava/
 import { computeProfileCompleteness } from '@/lib/hrPeopleOps'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { cn, isHR, isLead, uid } from '@/utils/helpers'
+import { isSuspended } from '@/lib/dutyStatus'
 import { Button } from '@/components/ui/Button'
 import { usersAwaitingApproval } from '@/context/dataContextShared'
 import { AvaAvatar, AvaTypingBubble } from '@/components/ava/AvaAvatar'
@@ -277,7 +278,7 @@ export function AvaFab() {
     [busy, context, messages],
   )
 
-  if (!enabled || !user) return null
+  if (!enabled || !user || isSuspended(user)) return null
 
   const showFab = !mounted
   const nudgeLabel = pageLabel(location.pathname)

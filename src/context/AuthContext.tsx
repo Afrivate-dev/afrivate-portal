@@ -10,10 +10,11 @@ import {
   recordSessionActivity,
 } from '@/lib/sessionPolicy'
 import { validatePortalPassword } from '@/utils/passwordPolicy'
+import { parseDutyStatus } from '@/lib/dutyStatus'
 import type { Role, User } from '@/types'
 
 /** Core profile columns guaranteed by migrations (no optional directory fields). */
-const PROFILE_CORE_SELECT = 'id, email, name, role, department, job_title, active' as const
+const PROFILE_CORE_SELECT = 'id, email, name, role, department, job_title, active, duty_status' as const
 
 /** Row shape for `public.profiles` (see SUPABASE_SETUP §4.1). */
 interface ProfileRow {
@@ -24,6 +25,7 @@ interface ProfileRow {
   department: string | null
   job_title: string | null
   active: boolean
+  duty_status?: string | null
 }
 
 /** Never persist passwords — mock login compares against seed data only. */
@@ -72,6 +74,7 @@ function sessionToPortalUser(session: Session | null): User | null {
     linkedinUrl: typeof md.linkedin_url === 'string' ? md.linkedin_url : undefined,
     reportsToId: typeof md.reports_to_id === 'string' ? md.reports_to_id : undefined,
     active: false,
+    dutyStatus: 'none',
   }
 }
 
@@ -89,6 +92,7 @@ function mergeProfileWithSessionUser(base: User, row: ProfileRow): User {
     department: row.department?.trim() || base.department,
     jobTitle: row.job_title?.trim() || base.jobTitle,
     active: row.active === true,
+    dutyStatus: parseDutyStatus(row.duty_status),
   }
 }
 
@@ -105,6 +109,7 @@ function parseProfileRpcPayload(data: unknown): ProfileRow | null {
     department: typeof row.department === 'string' ? row.department : null,
     job_title: typeof row.job_title === 'string' ? row.job_title : null,
     active: row.active === true,
+    duty_status: typeof row.duty_status === 'string' ? row.duty_status : 'none',
   }
 }
 
@@ -127,8 +132,21 @@ async function loadProfileRowFromTable(
     .maybeSingle()
 
   if (error) {
-    // PostgREST: no row for this user is not a hard failure — RPC may have provisioned it.
     if (error.code === 'PGRST116') return { row: null }
+    const missingDuty =
+      error.message.includes('duty_status') || error.code === '42703'
+    if (missingDuty) {
+      const retry = await client
+        .from('profiles')
+        .select('id, email, name, role, department, job_title, active')
+        .eq('id', userId)
+        .maybeSingle()
+      if (retry.error) {
+        if (retry.error.code === 'PGRST116') return { row: null }
+        return { row: null, error: retry.error.message }
+      }
+      return { row: retry.data as ProfileRow | null }
+    }
     return { row: null, error: error.message }
   }
   return { row: row as ProfileRow | null }
@@ -263,6 +281,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
           ...result.user,
           active: prev.active,
           role: prev.role,
+          dutyStatus: prev.dutyStatus,
         }
       }
       // Keep the same object when nothing meaningful changed — avoids remounting the
@@ -272,6 +291,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         prev.id === next.id &&
         prev.active === next.active &&
         prev.role === next.role &&
+        prev.dutyStatus === next.dutyStatus &&
         prev.email === next.email &&
         prev.name === next.name &&
         prev.department === next.department &&
@@ -433,6 +453,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             jobTitle: trimmedTitle,
             joinedAt: new Date().toISOString().slice(0, 10),
             active: false,
+            dutyStatus: 'none',
           }
           localStorage.setItem('av-users', JSON.stringify([...rows, newUser]))
           setStoredUser(stripPasswordForSession(newUser))

@@ -36,6 +36,7 @@ import { notifySuccess } from '@/lib/notify'
 import { isMemoPayload, type ComposerDraft, type MemoDraftPayload } from '@/lib/composerDrafts'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
+import { isSuspended } from '@/lib/dutyStatus'
 import { mergedDepartmentNames } from '@/lib/departments'
 import { userSeesAnnouncement } from '@/lib/announcementVisibility'
 import {
@@ -119,7 +120,7 @@ export function AnnouncementsPage() {
   } = useData()
   const { setActivity, readersForUpdate, multiplayerLive } = useCollab()
 
-  const canPost = isTeamLead(user)
+  const canPost = isTeamLead(user) && !isSuspended(user)
   const [search, setSearch] = useState('')
   const [priorityFilter, setPriorityFilter] = useState<PriorityFilter>('all')
   const [memoFilter, setMemoFilter] = useState<MemoFilter>('all')

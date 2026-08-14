@@ -1,0 +1,75 @@
+AFRIVATE SLACK HOUSE RULES
+Pinned in #announcements · Applies to everyone on this workspace
+
+1) WHAT EACH TOOL IS FOR
+• Slack = official work chat (questions, updates, coordination, clarification, follow-up)
+• Portal (portal.afrivate.org) = official record (leave, tasks, weekly updates, learning, policy acknowledgements, OKRs, surveys, people processes)
+• WhatsApp = informal or emergency contact only — not for official work instructions
+• Simple rule: Slack talks. Portal records. WhatsApp is not official work.
+
+2) AVAILABILITY
+• Official work days: Monday–Thursday (unless your approved team schedule says otherwise)
+• In your team’s core hours, acknowledge work messages within 4 hours
+• If you will be offline, set a status and hand over anything urgent
+• Be reachable on Slack during core hours
+
+3) CHANNELS
+• Use the right channel — don’t dump everything in one place
+• Keep #announcements for important notices only — discuss in team channels
+• @mention the person who must act
+• Prefer team channels over long private side chats when the team needs visibility
+• Don’t create new public channels without Admin/Lead approval while we settle the workspace
+
+4) CONDUCT
+• Be clear, respectful, and professional
+• No harassment, insults, discrimination, bullying, or mocking colleagues
+• Be honest about progress and blockers — don’t hide problems or invent status
+• Disagree on ideas, not on people
+• Follow reporting lines; escalate properly (Team Lead → Pillar Head → leadership)
+• Sensitive concerns / grievances / safety issues → Portal → People → Growth → Speak up (or People & Culture) — not a public channel fight
+
+5) CONFIDENTIALITY & FILES
+• Protect AfriVate, partner, Pathfinder, Enabler, and teammate information
+• Don’t share passwords, private people data, or unreleased plans in the wrong place
+• Share files carefully — prefer AfriVate Google Drive / approved folders
+• Don’t speak for AfriVate externally unless you have prior written authorisation
+
+6) AFRIVATE POLICIES STILL APPLY HERE
+• SWP, Leave Policy, Onboarding Handbook, Org Structure, Delegation of Authority, Internal Contributor / Volunteer rules, and Team Lead Playbook all still apply on Slack
+• Policy acknowledgements happen in Portal → Resources (a Slack pin does not replace that)
+• Slack cannot create, change, or cancel company policy
+• Leave, learning, weekly updates, appraisals, and formal people actions must go through Portal
+• Breach of these rules / AfriVate policies may lead to coaching or progressive discipline under the SWP
+
+7) DO THIS ONCE YOU JOIN
+• Set your real name + profile photo
+• Turn on notifications for DMs and @mentions
+• Read this pin fully
+• Say hello in your team channel and message your Team Lead that you’re on Slack
+• Bookmark the Portal: https://portal.afrivate.org
+
+Questions? Ask in the help channel — then complete formal actions in the Portal.
+Welcome to AfriVate Slack.
+
+---
+
+FULL REFERENCE — AfriVate Slack House Rules
+These house rules summarise, and do not replace, AfriVate’s official instruments:
+• AFRI-SWP — Standard Work Process (how work is done; Slack + Portal system rules; conduct; discipline)
+• AFRI-ORG-01 — Organisational Structure (pillars, ownership, Portal Directory controls reporting lines)
+• AFRI-DOA-01 — Delegation of Authority (who may decide; escalation; crisis within 60 minutes for leads)
+• AFRI-ICEF-01 — Internal Contributor Engagement Framework (unpaid internal contributors; confidentiality; IP; capacity)
+• AFRI-VCC — Volunteer Code of Conduct (external volunteers / partner collaborators)
+• AFRI-LAP-01 — Leave and Absence Policy (leave only via Portal; People & Culture final approval)
+• AFRI-EOH-01 — Team Member Onboarding Handbook
+• AFRI-TLOP-01 — Team Lead Operational Playbook
+• AFRI-ODR-01 — Official Document Register (precedence; Portal Resources is binding staff-facing copy)
+• AFRI-PUG-02 — Portal User Guide for staff (how-to)
+• AFRI-PUG-03 — Portal User Guide for team leads (how-to)
+• AFRI-PUG-01 — Portal User Guide full / Admin (how-to)
+
+Hard lines:
+• A Slack message never creates a Portal approval or policy change
+• Titles/authority claims on Slack that contradict Portal Directory are void
+• Formal people actions (leave, learning proof, weekly update, acknowledgements, appraisals) = Portal
+• Respect, honesty, confidentiality, and professionalism are mandatory everywhere we work — including Slack

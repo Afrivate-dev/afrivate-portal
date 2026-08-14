@@ -64,11 +64,18 @@ import {
 import { invitePortalUser } from '@/lib/invitePortalUser'
 import { resolveAccessJobTitle } from '@/lib/jobTitle'
 import { supabase } from '@/lib/supabase'
+import {
+  DUTY_STATUS_OPTIONS,
+  dutyStatusConfirmCopy,
+  dutyStatusOf,
+} from '@/lib/dutyStatus'
+import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
 import type {
   Announcement,
   AnnouncementMedia,
   AnnouncementPriority,
   Department,
+  DutyStatus,
   LeaveRequest,
   LeaveType,
   OnboardingChecklistItem,
@@ -581,6 +588,22 @@ export function AdminPanelPage() {
     patchUser(u.id, { active })
   }
 
+  const handleDutyStatusChange = async (u: User, next: DutyStatus) => {
+    if (next === dutyStatusOf(u)) return
+    if (user?.id === u.id && next === 'suspended') {
+      setAlertMessage('You cannot suspend your own account while signed in.')
+      return
+    }
+    const copy = dutyStatusConfirmCopy(u.name, next)
+    const ok = await confirm({
+      title: copy.title,
+      message: copy.message,
+      confirmLabel: copy.confirmLabel,
+      destructive: copy.destructive,
+    })
+    if (ok) patchUser(u.id, { dutyStatus: next })
+  }
+
   const handleDepartmentChange = async (u: User, departmentId: string) => {
     if (!canManageUsers) return
     const dept = departments.find((d) => d.id === departmentId)
@@ -995,13 +1018,13 @@ export function AdminPanelPage() {
       {/* USERS */}
       {section === 'users' ? (
         <div className="space-y-3">
-          <p className="text-sm text-muted">
+        <p className="text-sm text-muted">
             {adminUser
-              ? 'Change roles, departments, and status here. Use Remove from organization to permanently delete an account.'
-              : 'Change departments and account status here. Only administrators can permanently remove people from the organization.'}
+              ? 'Change roles, departments, duty (PIP / suspension), and account status here. Use Remove from organization to permanently delete an account.'
+              : 'Change departments, duty (PIP / suspension), and account status here. Only administrators can permanently remove people from the organization.'}
           </p>
         <Card padding="none" className="av-scroll-x">
-          <div className="hidden min-w-[900px] lg:block">
+          <div className="hidden min-w-[1040px] lg:block">
             <table className="w-full text-sm">
               <thead className="bg-surface-2/60 text-left text-xs uppercase tracking-wide text-muted">
                 <tr>
@@ -1010,6 +1033,7 @@ export function AdminPanelPage() {
                   <th className="p-3 font-medium">Department</th>
                   <th className="p-3 font-medium">Joined</th>
                   <th className="p-3 font-medium">Status</th>
+                  <th className="p-3 font-medium">Duty</th>
                   <th className="sticky right-0 bg-surface-2/95 p-3 font-medium shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.15)]">
                     Actions
                   </th>
@@ -1026,6 +1050,7 @@ export function AdminPanelPage() {
                           <div>
                             <p className="font-medium text-fg">{u.name}</p>
                             <p className="text-xs text-muted">{u.email}</p>
+                            <DutyStatusBadge viewer={user} subject={u} className="mt-1" />
                           </div>
                         </div>
                       </td>
@@ -1111,6 +1136,24 @@ export function AdminPanelPage() {
                           </label>
                         )}
                       </td>
+                      <td className="p-3">
+                        {canManageUsers ? (
+                          <select
+                            aria-label={`Duty status for ${u.name}`}
+                            value={dutyStatusOf(u)}
+                            onChange={(e) => void handleDutyStatusChange(u, e.target.value as DutyStatus)}
+                            className="w-full max-w-[150px] rounded-md border border-border bg-surface px-2 py-1.5 text-xs text-fg"
+                          >
+                            {DUTY_STATUS_OPTIONS.map((o) => (
+                              <option key={o.value} value={o.value}>
+                                {o.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <DutyStatusBadge viewer={user} subject={u} />
+                        )}
+                      </td>
                       <td className="sticky right-0 bg-surface p-3 shadow-[-6px_0_8px_-6px_rgba(0,0,0,0.12)]">
                         {adminUser && u.id !== user?.id ? (
                           <Button
@@ -1144,6 +1187,7 @@ export function AdminPanelPage() {
                     <div className="min-w-0 flex-1">
                       <p className="font-semibold text-fg">{u.name}</p>
                       <p className="truncate text-xs text-muted">{u.email}</p>
+                      <DutyStatusBadge viewer={user} subject={u} className="mt-1" />
                     </div>
                   </div>
                   {adminUser ? (
@@ -1178,6 +1222,14 @@ export function AdminPanelPage() {
                   )}
                   {canManageUsers && u.id !== user?.id ? (
                     <p className="text-xs text-muted">Joined {fmtDate(u.joinedAt)}</p>
+                  ) : null}
+                  {canManageUsers ? (
+                    <Select
+                      label="Duty"
+                      value={dutyStatusOf(u)}
+                      onChange={(e) => void handleDutyStatusChange(u, e.target.value as DutyStatus)}
+                      options={DUTY_STATUS_OPTIONS}
+                    />
                   ) : null}
                   <label className="flex items-center gap-2 text-sm">
                     {isFirstTimePendingUser(u) ? (

@@ -40,6 +40,8 @@ import { brand, pages } from '@/content/copy'
 import { MediaUploadError, uploadHostedMediaFile } from '@/utils/mediaUpload'
 import { sanitizeLinkedInUrl } from '@/utils/safeUrl'
 import { fmtDate, mailtoHref, roleLabel, cn, availabilityFromPeer, isAdmin, isHR } from '@/utils/helpers'
+import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
+import { useHr } from '@/context/HrContext'
 import { departmentSelectOptions } from '@/lib/departments'
 import {
   assignableDepartments,
@@ -164,6 +166,7 @@ export function StaffDirectoryPage() {
   const { user, updateProfile } = useAuth()
   const confirm = useConfirm()
   const { users, updateUser, dataStatus, departments: orgDepartments, teams, assignUserToDepartment, setUserTeamMembership } = useData()
+  const { performanceImprovementPlans } = useHr()
   const { peers, multiplayerLive } = useCollab()
   const [searchParams, setSearchParams] = useSearchParams()
   const location = useLocation()
@@ -454,6 +457,13 @@ export function StaffDirectoryPage() {
                               You
                             </Badge>
                           ) : null}
+                          <DutyStatusBadge
+                            viewer={user}
+                            subject={u}
+                            hasActivePip={performanceImprovementPlans.some(
+                              (p) => p.subjectUserId === u.id && !p.outcome,
+                            )}
+                          />
                         </div>
                         <p className="mt-0.5 text-sm text-fg/85">{u.jobTitle}</p>
                         <p className="mt-1.5 flex items-center gap-1.5 text-xs text-muted">
@@ -683,6 +693,15 @@ export function StaffDirectoryPage() {
                         <Badge tone="success" className="text-[10px]">
                           You
                         </Badge>
+                      ) : null}
+                      {opened ? (
+                        <DutyStatusBadge
+                          viewer={user}
+                          subject={opened}
+                          hasActivePip={performanceImprovementPlans.some(
+                            (p) => p.subjectUserId === opened.id && !p.outcome,
+                          )}
+                        />
                       ) : null}
                     </div>
                   </div>

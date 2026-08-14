@@ -11,6 +11,7 @@ import { Avatar } from '@/components/ui/Avatar'
 import { Select } from '@/components/ui/Select'
 import { roleLabel, firstName } from '@/utils/helpers'
 import { unreadAnnouncementsFor } from '@/lib/announcementVisibility'
+import { isSuspended } from '@/lib/dutyStatus'
 import type { UserAvailability } from '@/types'
 
 const AVAILABILITY_OPTIONS: { value: UserAvailability; label: string }[] = [
@@ -57,6 +58,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
   }, [menuOpen])
 
   if (!user) return null
+  const suspended = isSuspended(user)
 
   return (
     <header className="sticky top-0 z-30 flex h-16 min-w-0 max-w-full shrink-0 items-center gap-2 border-b border-border bg-surface/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
@@ -79,23 +81,27 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           {theme === 'dark' ? <Sun className="h-[18px] w-[18px]" /> : <Moon className="h-[18px] w-[18px]" />}
         </button>
 
-        <button
-          type="button"
-          onClick={() => navigate('/search')}
-          aria-label="Search"
-          className="rounded-md p-2 text-fg hover:bg-surface-2 ring-focus"
-        >
-          <Search className="h-[18px] w-[18px]" />
-        </button>
+        {!suspended ? (
+          <button
+            type="button"
+            onClick={() => navigate('/search')}
+            aria-label="Search"
+            className="rounded-md p-2 text-fg hover:bg-surface-2 ring-focus"
+          >
+            <Search className="h-[18px] w-[18px]" />
+          </button>
+        ) : null}
 
-        <div className="hidden w-[130px] shrink-0 md:block">
-          <Select
-            aria-label="Your availability"
-            value={myAvailability}
-            onChange={(e) => setMyAvailability(e.target.value as UserAvailability)}
-            options={AVAILABILITY_OPTIONS}
-          />
-        </div>
+        {!suspended ? (
+          <div className="hidden w-[130px] shrink-0 md:block">
+            <Select
+              aria-label="Your availability"
+              value={myAvailability}
+              onChange={(e) => setMyAvailability(e.target.value as UserAvailability)}
+              options={AVAILABILITY_OPTIONS}
+            />
+          </div>
+        ) : null}
 
         {multiplayerLive ? (
           <span className="hidden rounded-md bg-emerald-500/15 px-2 py-1 text-[10px] font-semibold uppercase tracking-wide text-emerald-700 dark:text-emerald-300 lg:inline">
@@ -110,17 +116,19 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
           </span>
         )}
 
-        <button
-          type="button"
-          onClick={() => navigate('/inbox')}
-          aria-label="Inbox"
-          className="relative rounded-md p-2 text-fg hover:bg-surface-2 ring-focus"
-        >
-          <Bell className="h-[18px] w-[18px]" />
-          {unread > 0 ? (
-            <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
-          ) : null}
-        </button>
+        {!suspended ? (
+          <button
+            type="button"
+            onClick={() => navigate('/inbox')}
+            aria-label="Inbox"
+            className="relative rounded-md p-2 text-fg hover:bg-surface-2 ring-focus"
+          >
+            <Bell className="h-[18px] w-[18px]" />
+            {unread > 0 ? (
+              <span className="absolute right-1.5 top-1.5 h-2 w-2 rounded-full bg-danger" />
+            ) : null}
+          </button>
+        ) : null}
 
         <div className="relative shrink-0" ref={menuRef}>
           <button
@@ -145,29 +153,33 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
               <div className="border-b border-border p-3">
                 <div className="text-sm font-semibold text-fg">{firstName(user.name)}</div>
                 <div className="truncate text-xs text-muted">{user.email}</div>
-                <div className="mt-3 md:hidden">
-                  <Select
-                    aria-label="Your availability"
-                    value={myAvailability}
-                    onChange={(e) => setMyAvailability(e.target.value as UserAvailability)}
-                    options={AVAILABILITY_OPTIONS}
-                  />
-                </div>
+                {!suspended ? (
+                  <div className="mt-3 md:hidden">
+                    <Select
+                      aria-label="Your availability"
+                      value={myAvailability}
+                      onChange={(e) => setMyAvailability(e.target.value as UserAvailability)}
+                      options={AVAILABILITY_OPTIONS}
+                    />
+                  </div>
+                ) : null}
               </div>
               <ul className="py-1">
-                <li>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setMenuOpen(false)
-                      navigate('/profile')
-                    }}
-                    className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg hover:bg-surface-2"
-                  >
-                    <UserIcon className="h-4 w-4 text-muted" />
-                    My profile
-                  </button>
-                </li>
+                {!suspended ? (
+                  <li>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setMenuOpen(false)
+                        navigate('/profile')
+                      }}
+                      className="flex w-full items-center gap-2.5 px-3 py-2 text-sm text-fg hover:bg-surface-2"
+                    >
+                      <UserIcon className="h-4 w-4 text-muted" />
+                      My profile
+                    </button>
+                  </li>
+                ) : null}
                 <li>
                   <button
                     type="button"

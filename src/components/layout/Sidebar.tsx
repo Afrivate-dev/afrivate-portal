@@ -1,13 +1,15 @@
 ﻿import { NavLink, Link } from 'react-router-dom'
 import { Rocket } from 'lucide-react'
-import { navItems } from '@/config/nav'
+import { visibleNavItems } from '@/config/nav'
 import { cn } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
 import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
+import { isSuspended } from '@/lib/dutyStatus'
 
 export function Sidebar() {
   const { role, user } = useAuth()
-  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user)
+  const showLaunchChecklist = canAccessRevivalLaunchChecklist(user) && !isSuspended(user)
+  const items = visibleNavItems(user, role)
 
   return (
     <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
@@ -24,8 +26,7 @@ export function Sidebar() {
 
       <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
         <ul className="space-y-0.5">
-          {navItems
-            .filter((i) => !i.roles || (role && i.roles.includes(role)))
+          {items
             .map((item) => (
               <li key={item.to}>
                 <NavLink

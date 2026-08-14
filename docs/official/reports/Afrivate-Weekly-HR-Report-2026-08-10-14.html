@@ -1,0 +1,360 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Weekly HR &amp; Operations Report · 10–14 August 2026 · AfriVate</title>
+  <style>
+    :root {
+      --purple: #8d4087;
+      --purple-dark: #55205c;
+      --purple-soft: #f8f3f8;
+      --ink: #1f1f1f;
+      --muted: #5f5f5f;
+      --line: #ebdceb;
+      --success: #176b50;
+      --success-soft: #f2faf7;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --info: #2563eb;
+      --info-soft: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.58;
+      background: #fff;
+    }
+    .shell { position: relative; padding: 0 4px; }
+    .topbar {
+      height: 6px;
+      margin: 0 0 16px;
+      background: linear-gradient(90deg, var(--purple-dark), var(--purple), #bb78b5);
+      border-radius: 0 0 3px 3px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--purple);
+      margin-bottom: 18px;
+    }
+    .brand img {
+      width: 154px;
+      height: 49px;
+      object-fit: contain;
+      object-position: left center;
+    }
+    .chip {
+      text-align: right;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    h1 {
+      font-size: 16px;
+      line-height: 1.3;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: var(--purple-dark);
+    }
+    .subtitle {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 11pt;
+    }
+    .meta {
+      display: grid;
+      gap: 8px;
+      background: var(--purple-soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 0 0 20px;
+    }
+    .meta div {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px;
+    }
+    .meta strong { color: var(--purple-dark); }
+    .meta span { color: var(--muted); }
+    h2 {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--purple);
+      margin: 20px 0 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line);
+      break-after: avoid-page;
+    }
+    h3 {
+      font-size: 11px;
+      margin: 14px 0 6px;
+      color: var(--purple-dark);
+      break-after: avoid-page;
+    }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 0 0 12px; padding-left: 20px; }
+    li { margin: 0 0 6px; break-inside: avoid-page; }
+    .lead {
+      padding: 12px 14px;
+      background: var(--purple-soft);
+      border-left: 4px solid var(--purple);
+      border-radius: 0 8px 8px 0;
+      margin: 0 0 16px;
+    }
+    .achievement-block {
+      break-inside: avoid-page;
+      margin: 0 0 14px;
+      padding: 12px 14px;
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      background: #fff;
+    }
+    .achievement-block h3 { margin-top: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 14px;
+      font-size: 9.4pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--purple-soft);
+      color: var(--purple);
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status.done { background: var(--success-soft); color: var(--success); }
+    .status.progress { background: var(--warning-soft); color: var(--warning); }
+    .status.ongoing { background: var(--info-soft); color: var(--info); }
+    .note {
+      margin-top: 18px;
+      padding: 10px 12px;
+      background: var(--purple-soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 9.5pt;
+      color: var(--muted);
+    }
+    .sign-off {
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      break-inside: avoid-page;
+    }
+    .sign-off strong { color: var(--purple-dark); }
+    .sign-off .role { color: var(--muted); font-size: 10pt; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar"></div>
+    <div class="brand-row">
+      <div class="brand">
+        <img src="../brand/afrivate-logo-long-purple-web.png" alt="AfriVate" />
+      </div>
+      <div class="chip">
+        People &amp; Culture<br />
+        AfriVate Technologies Ltd<br />
+        RC: 9210092
+      </div>
+    </div>
+
+    <h1>Weekly HR &amp; Operations Report</h1>
+    <p class="subtitle">Reporting period: 10–14 August 2026</p>
+
+    <section class="meta">
+      <div><strong>Prepared by</strong><span>Emmanuel Okpiaifo</span></div>
+      <div><strong>Role</strong><span>Chief Human Resources Officer (CHRO)</span></div>
+      <div><strong>Department</strong><span>People &amp; Culture</span></div>
+      <div><strong>Report type</strong><span>Weekly HR &amp; Operations · Internal</span></div>
+    </section>
+
+    <h2>1. Weekly Overview</h2>
+    <div class="lead">
+      <p>The week of 10–14 August 2026 focused primarily on strengthening AfriVate's internal communication structure, improving employee access to work systems, reinforcing organizational compliance, strengthening team leadership, and addressing current staffing needs through recruitment.</p>
+    </div>
+    <p>Significant progress was made in transitioning AfriVate from WhatsApp to Slack as its official workplace communication platform, onboarding employees onto the AfriVate portal, establishing new pseudo team leadership positions, and reopening recruitment for key roles.</p>
+
+    <h2>2. Key Achievements</h2>
+
+    <div class="achievement-block">
+      <h3>A. Internal Communication &amp; Collaboration</h3>
+      <p><strong>Official Transition to Slack</strong></p>
+      <ul>
+        <li>Successfully implemented Slack as AfriVate's official internal communication platform.</li>
+        <li>Established Slack as the primary channel for official workplace communication and collaboration.</li>
+        <li>Officially discontinued WhatsApp as a mode of official workplace communication.</li>
+        <li>Communicated the transition and requirements to employees.</li>
+      </ul>
+      <p><strong>Employee Slack Onboarding</strong></p>
+      <ul>
+        <li>Followed up individually with employees to ensure they successfully joined the AfriVate Slack workspace.</li>
+        <li>Assisted employees with setting up and configuring their Slack accounts.</li>
+        <li>Ensured employees understood the new communication structure and expectations.</li>
+      </ul>
+    </div>
+
+    <div class="achievement-block">
+      <h3>B. Employee Portal Onboarding</h3>
+      <ul>
+        <li>Successfully onboarded all employees onto the AfriVate portal for work-related functions and processes.</li>
+        <li>Followed up where necessary to ensure employees were able to access and use the relevant portal functions.</li>
+        <li>Supported the broader transition towards a more centralized and structured system for managing AfriVate's work processes.</li>
+      </ul>
+    </div>
+
+    <div class="achievement-block">
+      <h3>C. Team Leadership &amp; Organizational Structure</h3>
+      <p><strong>Pseudo Team Lead Onboarding</strong></p>
+      <ul>
+        <li>Facilitated the onboarding of Joel as the new Pseudo Team Lead for the Development Team.</li>
+        <li>Facilitated the onboarding of Endurance as the new Pseudo Team Lead for the Media &amp; Research Team.</li>
+        <li>Provided the necessary orientation and context to help both team leads understand their responsibilities, expectations, and position within the organization.</li>
+      </ul>
+    </div>
+
+    <div class="achievement-block">
+      <h3>D. Recruitment &amp; Workforce Development</h3>
+      <p>Republished recruitment posts to attract qualified candidates and support the filling of current staffing needs for:</p>
+      <ul>
+        <li>Content Creator</li>
+        <li>Front-End Developer</li>
+        <li>Back-End Developer</li>
+        <li>Graphic Designer</li>
+      </ul>
+      <p>The recruitment exercise is aimed at strengthening the relevant teams and addressing existing workforce requirements.</p>
+    </div>
+
+    <div class="achievement-block">
+      <h3>E. Employee Compliance</h3>
+      <ul>
+        <li>Managed the termination of Charlton's employment following his violation of the mandatory requirement to join the AfriVate Slack workspace.</li>
+        <li>The matter was handled as part of enforcing established organizational requirements surrounding official workplace communication and employee compliance.</li>
+      </ul>
+    </div>
+
+    <h2>3. Challenges Faced</h2>
+    <ul>
+      <li>Transitioning employees from an existing communication platform to a new official platform required repeated communication, reminders, and individual follow-ups.</li>
+      <li>Some employees required additional assistance to properly set up and access their Slack accounts.</li>
+      <li>Ensuring complete adoption of the new communication structure required active monitoring throughout the transition.</li>
+      <li>Recruitment for multiple roles remains an ongoing process, with further screening and selection required to successfully fill the identified positions.</li>
+    </ul>
+
+    <h2>4. Progress Towards Given Goals</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Internal Communication</td>
+          <td><span class="status done">Substantially Achieved</span></td>
+          <td>Transition to Slack implemented; employees onboarded; WhatsApp discontinued as official channel.</td>
+        </tr>
+        <tr>
+          <td>Employee Systems &amp; Onboarding</td>
+          <td><span class="status done">Achieved</span></td>
+          <td>All employees onboarded onto the AfriVate portal.</td>
+        </tr>
+        <tr>
+          <td>Organizational Structure</td>
+          <td><span class="status progress">In Progress</span></td>
+          <td>Joel and Endurance onboarded as pseudo team leads for Development and Media &amp; Research.</td>
+        </tr>
+        <tr>
+          <td>Recruitment</td>
+          <td><span class="status progress">In Progress</span></td>
+          <td>Campaigns republished for 4 roles; candidate evaluation still required.</td>
+        </tr>
+        <tr>
+          <td>Employee Compliance</td>
+          <td><span class="status ongoing">Ongoing</span></td>
+          <td>Enforcement of mandatory workplace requirements strengthened; monitoring continues.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5. Notable Mentions &amp; Observations</h2>
+    <ul>
+      <li>The move from WhatsApp to Slack marks a significant step towards creating a more structured and professional internal communication environment.</li>
+      <li>Centralizing official communication on Slack should make departmental collaboration, announcements, direct communication, and work discussions easier to manage.</li>
+      <li>The successful onboarding of all employees onto the portal demonstrates improved adoption of AfriVate's internal work systems.</li>
+      <li>The introduction of pseudo team leads provides an additional layer of leadership and accountability within key teams.</li>
+      <li>The current recruitment drive is important for addressing staffing gaps and improving the capacity of the Development and Media &amp; Research teams, alongside other operational functions.</li>
+      <li>The transition also highlighted the importance of clear communication, consistent follow-up, and enforcement when introducing mandatory organizational processes.</li>
+    </ul>
+
+    <h2>6. Agenda for the Next Week</h2>
+
+    <h3>Communication &amp; Systems</h3>
+    <ul>
+      <li>Continue monitoring employee adoption and effective use of Slack.</li>
+      <li>Ensure departments consistently use their designated Slack channels for official communication.</li>
+      <li>Address any outstanding Slack or portal access issues.</li>
+      <li>Monitor compliance with the new communication structure.</li>
+    </ul>
+
+    <h3>Team Leadership</h3>
+    <ul>
+      <li>Follow up with Joel and Endurance on their integration into their respective pseudo team lead responsibilities.</li>
+      <li>Monitor team structure and identify any additional support or clarification required.</li>
+    </ul>
+
+    <h3>Recruitment</h3>
+    <ul>
+      <li>Monitor applications received for the Content Creator, Front-End Developer, Back-End Developer, and Graphic Designer positions.</li>
+      <li>Begin reviewing and shortlisting suitable candidates.</li>
+      <li>Progress qualified candidates through the appropriate recruitment stages.</li>
+    </ul>
+
+    <h3>HR &amp; Operations</h3>
+    <ul>
+      <li>Continue monitoring employee compliance with AfriVate policies and established workplace requirements.</li>
+      <li>Identify areas where existing employee processes can be further improved and documented.</li>
+      <li>Continue supporting the organization's transition towards more structured internal systems and processes.</li>
+    </ul>
+
+    <h2>7. Overall Weekly Summary</h2>
+    <p>The week of 10–14 August 2026 recorded substantial progress across AfriVate's HR and organizational operations. The successful transition to Slack, discontinuation of WhatsApp for official communication, onboarding of all employees onto the AfriVate portal, and individual support provided during the transition have strengthened the organization's internal communication structure.</p>
+    <p>The onboarding of Joel and Endurance as pseudo team leads also represents progress towards strengthening team leadership and accountability, while the republishing of four recruitment opportunities has initiated the process of addressing current staffing needs.</p>
+    <p>Overall, the week was focused on building stronger systems, improving organizational structure, reinforcing employee compliance, and strengthening AfriVate's workforce capacity. Several initiatives have been successfully completed, while recruitment, team-lead integration, and continued adoption of the new systems remain ongoing priorities.</p>
+
+    <p class="note"><strong>Note:</strong> This report covers the full week of 10–14 August as a baseline record. Daily reports begin 14 August 2026 and will follow going forward.</p>
+
+    <div class="sign-off">
+      <strong>Emmanuel Okpiaifo</strong><br />
+      <span class="role">Chief Human Resources Officer (CHRO) · People &amp; Culture</span><br />
+      <span class="role">AfriVate Technologies Ltd · hr@afrivate.org</span>
+    </div>
+  </div>
+</body>
+</html>
