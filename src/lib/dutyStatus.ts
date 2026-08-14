@@ -2,14 +2,14 @@ import type { DutyStatus, User } from '@/types'
 import { isLead } from '@/utils/helpers'
 
 export const DUTY_STATUS_LABELS: Record<DutyStatus, string> = {
-  none: 'Normal duty',
-  pip: 'On PIP',
+  none: 'Usual access',
+  pip: 'Improvement plan',
   suspended: 'Suspended',
 }
 
 export const DUTY_STATUS_OPTIONS: { value: DutyStatus; label: string }[] = [
-  { value: 'none', label: 'Normal duty' },
-  { value: 'pip', label: 'On PIP' },
+  { value: 'none', label: 'Usual access' },
+  { value: 'pip', label: 'Improvement plan' },
   { value: 'suspended', label: 'Suspended' },
 ]
 
@@ -66,7 +66,7 @@ export function dutyStatusConfirmCopy(
   if (next === 'suspended') {
     return {
       title: `Suspend ${name}?`,
-      message: `${name} will still be able to sign in and read Updates and Resources. They cannot take other actions in the portal until you lift the suspension. Team leads, HR, and admin will see this status.`,
+      message: `${name} will still be able to sign in and read Memos and Resources. They cannot take other actions until you lift the suspension. Team leads, People & Culture, and administrators will see this status.`,
       confirmLabel: 'Place on suspension',
       destructive: true,
     }
@@ -74,14 +74,14 @@ export function dutyStatusConfirmCopy(
   if (next === 'pip') {
     return {
       title: `Place ${name} on a PIP?`,
-      message: `Team leads, HR, and admin will see that ${name} is on a Performance Improvement Plan. Portal access stays the same. You can still open a formal PIP in Discipline if needed.`,
-      confirmLabel: 'Place on PIP',
+      message: `Team leads, People & Culture, and administrators will see that ${name} is on a performance improvement plan. Access stays the same. You can still open a formal plan under Conduct if needed.`,
+      confirmLabel: 'Start improvement plan',
       destructive: false,
     }
   }
   return {
     title: `Return ${name} to normal duty?`,
-    message: `${name} will no longer show as on PIP or suspension. If a formal PIP is still open, close it in Discipline & PIP as well.`,
+    message: `${name} will no longer show as on an improvement plan or suspension. If a formal plan is still open, close it under Conduct as well.`,
     confirmLabel: 'Restore normal duty',
     destructive: false,
   }

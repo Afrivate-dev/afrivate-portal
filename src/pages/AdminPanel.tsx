@@ -35,7 +35,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
 import { useData } from '@/context/DataContext'
 import { isFirstTimePendingUser } from '@/context/dataContextShared'
-import { confirms } from '@/content/copy'
+import { confirms, pages } from '@/content/copy'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -88,9 +88,9 @@ import type {
 type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment' | 'employees'
 
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
-  { value: 'staff', label: 'Staff' },
-  { value: 'assistant_lead', label: 'Assistant Lead' },
-  { value: 'team_lead', label: 'Team Lead' },
+  { value: 'staff', label: 'Team member' },
+  { value: 'assistant_lead', label: 'Assistant lead' },
+  { value: 'team_lead', label: 'Team lead' },
   { value: 'hr', label: 'People & Culture' },
   { value: 'admin', label: 'Administrator' },
 ]
@@ -329,7 +329,7 @@ export function AdminPanelPage() {
     const ok = await confirm({
       title: confirms.denyAccountTitle,
       message: confirms.denyAccount,
-      confirmLabel: 'Deny access',
+      confirmLabel: 'Decline request',
       destructive: true,
     })
     if (!ok) return
@@ -448,7 +448,7 @@ export function AdminPanelPage() {
         id: 'recruitment',
         label: (
           <span className="inline-flex items-center gap-2">
-            <Briefcase className="h-4 w-4" /> Recruitment
+            <Briefcase className="h-4 w-4" /> Hiring
           </span>
         ),
       })
@@ -457,7 +457,7 @@ export function AdminPanelPage() {
       id: 'users',
       label: (
         <span className="inline-flex items-center gap-2">
-          <UsersIcon className="h-4 w-4" /> Users
+            <UsersIcon className="h-4 w-4" /> People
         </span>
       ),
     })
@@ -486,7 +486,7 @@ export function AdminPanelPage() {
         id: 'announcements',
         label: (
           <span className="inline-flex items-center gap-2">
-            <Megaphone className="h-4 w-4" /> Announcements
+            <Megaphone className="h-4 w-4" /> Memos
           </span>
         ),
       },
@@ -494,7 +494,7 @@ export function AdminPanelPage() {
         id: 'leave',
         label: (
           <span className="inline-flex items-center gap-2">
-            <CalendarDays className="h-4 w-4" /> Leave
+            <CalendarDays className="h-4 w-4" /> Time off
           </span>
         ),
         count: pendingLeave.length > 0 ? pendingLeave.length : undefined,
@@ -503,7 +503,7 @@ export function AdminPanelPage() {
         id: 'onboarding',
         label: (
           <span className="inline-flex items-center gap-2">
-            <GraduationCap className="h-4 w-4" /> Onboarding
+            <GraduationCap className="h-4 w-4" /> Welcome
           </span>
         ),
       },
@@ -511,7 +511,7 @@ export function AdminPanelPage() {
         id: 'checkins',
         label: (
           <span className="inline-flex items-center gap-2">
-            <ClipboardList className="h-4 w-4" /> Check-ins
+            <ClipboardList className="h-4 w-4" /> Weekly updates
           </span>
         ),
       },
@@ -519,7 +519,7 @@ export function AdminPanelPage() {
         id: 'hr',
         label: (
           <span className="inline-flex items-center gap-2">
-            <BarChart3 className="h-4 w-4" /> HR dashboard
+            <BarChart3 className="h-4 w-4" /> People ops
           </span>
         ),
       },
@@ -527,7 +527,7 @@ export function AdminPanelPage() {
         id: 'employees',
         label: (
           <span className="inline-flex items-center gap-2">
-            <IdCard className="h-4 w-4" /> Employees
+            <IdCard className="h-4 w-4" /> Employee files
           </span>
         ),
       },
@@ -740,7 +740,7 @@ export function AdminPanelPage() {
     <div className="av-contain space-y-6">
       <PageHeader
         title="Admin"
-        description="User management, content moderation, and operational overview."
+        description={pages.workspaceAdmin.subtitle}
       />
 
       <TabBar tabs={adminSectionTabs} active={section} onChange={setSection} variant="pill" />
@@ -751,18 +751,18 @@ export function AdminPanelPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
             <p className="max-w-xl text-sm text-muted">
               Review new signups here. Use <span className="font-medium text-fg">Approve</span> to
-              activate someone, or <span className="font-medium text-fg">Deny access</span> to decline
-              their request.
+              activate someone, or <span className="font-medium text-fg">Decline request</span> to
+              turn them down.
             </p>
-            <Button size="sm" onClick={() => setInviteOpen(true)} className="shrink-0 self-start">
-              <Plus className="h-4 w-4" /> Invite member
+            <Button size="sm" onClick={() => setInviteOpen(true)} className="w-full shrink-0 self-start sm:w-auto">
+              <Plus className="h-4 w-4" /> Invite teammate
             </Button>
           </div>
           {pendingUsers.length === 0 ? (
             <EmptyState
               icon={UserCheck}
               title="No pending approvals"
-              description="When someone requests access, they appear here with Approve and Deny access buttons."
+              description="When someone requests access, they appear here so you can approve or decline."
             />
           ) : (
             pendingUsers.map((u) => {
@@ -807,7 +807,7 @@ export function AdminPanelPage() {
                     disabled={!!denyingId}
                     onClick={() => void handleDenyAccess(u)}
                   >
-                    <X className="h-3.5 w-3.5" /> Deny access
+                    <X className="h-3.5 w-3.5" /> Decline request
                   </Button>
                 </div>
               </Card>
@@ -820,7 +820,7 @@ export function AdminPanelPage() {
       {section === 'departments' ? (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setDeptDraft({ name: '', description: '' })}>
+            <Button size="sm" className="w-full sm:w-auto" onClick={() => setDeptDraft({ name: '', description: '' })}>
               <Plus className="h-4 w-4" /> New department
             </Button>
           </div>
@@ -887,7 +887,7 @@ export function AdminPanelPage() {
                       <p className="text-xs text-muted">
                         Head: {head?.name ?? '—'} · {deptTeams.length} team{deptTeams.length === 1 ? '' : 's'}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="av-action-row">
                         <Button size="sm" variant="outline" onClick={() => setDeptDraft(d)}>
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Button>
@@ -917,7 +917,7 @@ export function AdminPanelPage() {
       {section === 'teams' ? (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button size="sm" onClick={() => setTeamDraft({ name: '', description: '' })}>
+            <Button size="sm" className="w-full sm:w-auto" onClick={() => setTeamDraft({ name: '', description: '' })}>
               <Plus className="h-4 w-4" /> New team
             </Button>
           </div>
@@ -989,7 +989,7 @@ export function AdminPanelPage() {
                         {dept?.name ?? 'No department'} · Lead: {lead?.name ?? '—'}
                         {asst ? ` · Asst: ${asst.name}` : ''}
                       </p>
-                      <div className="flex gap-2">
+                      <div className="av-action-row">
                         <Button size="sm" variant="outline" onClick={() => setTeamDraft(t)}>
                           <Pencil className="h-3.5 w-3.5" /> Edit
                         </Button>
@@ -1020,8 +1020,8 @@ export function AdminPanelPage() {
         <div className="space-y-3">
         <p className="text-sm text-muted">
             {adminUser
-              ? 'Change roles, departments, duty (PIP / suspension), and account status here. Use Remove from organization to permanently delete an account.'
-              : 'Change departments, duty (PIP / suspension), and account status here. Only administrators can permanently remove people from the organization.'}
+              ? 'Change roles, departments, duty (improvement plan or suspension), and account status. Use Remove from organization to permanently delete an account.'
+              : 'Change departments, duty (improvement plan or suspension), and account status. Only administrators can permanently remove people from the organization.'}
           </p>
         <Card padding="none" className="av-scroll-x">
           <div className="hidden min-w-[1040px] lg:block">
@@ -1118,7 +1118,7 @@ export function AdminPanelPage() {
                               disabled={!!denyingId}
                               onClick={() => void handleDenyAccess(u)}
                             >
-                              Deny access
+                              Decline request
                             </Button>
                           </div>
                         ) : (
@@ -1253,7 +1253,7 @@ export function AdminPanelPage() {
                           disabled={!!denyingId}
                           onClick={() => void handleDenyAccess(u)}
                         >
-                          <X className="h-3.5 w-3.5" /> Deny access
+                          <X className="h-3.5 w-3.5" /> Decline request
                         </Button>
                       </div>
                     ) : (
@@ -1293,6 +1293,7 @@ export function AdminPanelPage() {
           <div className="flex justify-end">
             <Button
               size="sm"
+              className="w-full sm:w-auto"
               onClick={() =>
                 setAnnDraft({
                   title: '',
@@ -1304,7 +1305,7 @@ export function AdminPanelPage() {
                 })
               }
             >
-              <Plus className="h-4 w-4" /> New announcement
+              <Plus className="h-4 w-4" /> New memo
             </Button>
           </div>
           {announcements.length === 0 ? (
@@ -1329,7 +1330,7 @@ export function AdminPanelPage() {
                         </span>
                       </div>
                     </div>
-                    <div className="flex shrink-0 gap-1">
+                    <div className="av-action-row shrink-0">
                       <Button size="sm" variant="secondary" onClick={() => openAnn(a)}>
                         <Pencil className="h-3.5 w-3.5" /> Edit
                       </Button>
@@ -1339,7 +1340,7 @@ export function AdminPanelPage() {
                         className="text-danger hover:bg-danger/10"
                         onClick={() => setConfirmState({
                           title: 'Delete announcement',
-                          message: 'Delete this announcement? It will be removed for all staff.',
+                          message: 'Delete this memo? Everyone will lose access to it.',
                           onConfirm: () => deleteAnnouncement(a.id),
                         })}
                       >
@@ -1380,7 +1381,7 @@ export function AdminPanelPage() {
                         </p>
                         {user ? <LeaveSupportingDoc request={l} viewer={user} /> : null}
                       </div>
-                      <div className="flex gap-1">
+                      <div className="av-action-row">
                         <Button size="sm" onClick={() => setReviewing({ req: l, status: 'approved' })}>
                           <Check className="h-3.5 w-3.5" /> Approve
                         </Button>
@@ -1696,7 +1697,7 @@ export function AdminPanelPage() {
           <h3 className="mb-1 text-sm font-semibold text-fg">{weekLabel(currentWeekStart)}</h3>
           <p className="mb-4 text-xs text-muted">All submissions for the current week.</p>
           {weekDigest.length === 0 ? (
-            <EmptyState icon={ClipboardList} title="No check-ins yet this week" />
+            <EmptyState icon={ClipboardList} title="No weekly updates yet this week" />
           ) : (
             <>
             <div className="hidden av-scroll-x lg:block">
@@ -1870,10 +1871,10 @@ export function AdminPanelPage() {
                 void handleDenyAccess(approvingUser)
               }}
             >
-              Deny access
+              Decline request
             </Button>
             <Button onClick={() => void confirmApproval()} disabled={!approvalDeptId || approving || !!denyingId} loading={approving}>
-              Approve & activate
+              Approve account
             </Button>
           </>
         }
@@ -1903,7 +1904,7 @@ export function AdminPanelPage() {
               />
             ) : (
               <p className="text-sm text-muted">
-                Portal access level: Staff (only administrators can assign other levels)
+                Access level: Team member (only administrators can assign other levels)
               </p>
             )}
             <Select

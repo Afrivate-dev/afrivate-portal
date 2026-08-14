@@ -150,6 +150,9 @@
   .av-action-row {
     @apply flex w-full flex-col gap-2 sm:w-auto sm:flex-row sm:flex-wrap sm:items-center;
   }
+  .av-action-row > * {
+    @apply w-full sm:w-auto;
+  }
 
   /** Truncated page title scale */
   .av-title {

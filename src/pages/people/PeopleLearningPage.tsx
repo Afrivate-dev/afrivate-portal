@@ -77,8 +77,8 @@ export function PeopleLearningPage() {
     }
     notifySuccess(
       currentSubmission?.status === 'rejected'
-        ? 'Resubmission sent for HR review.'
-        : 'Submission sent for HR review.',
+        ? 'Resubmission sent for review.'
+        : 'Submission sent for review.',
     )
     setCourseName('')
     setCertFile(null)
@@ -86,7 +86,7 @@ export function PeopleLearningPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="Learning"
         description="Complete courses on Alison, then submit your certificate here."

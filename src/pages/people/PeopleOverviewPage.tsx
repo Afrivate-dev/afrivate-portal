@@ -23,11 +23,11 @@ import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
 import { canViewDutyStatus, effectiveDutyStatus } from '@/lib/dutyStatus'
 
 const quickLinks = [
-  { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request and track leave' },
+  { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request and track time off' },
   { to: '/people/shout-outs', label: 'Shout-outs', icon: Heart, desc: 'Celebrate great work' },
-  { to: '/people/learning', label: 'Learning', icon: GraduationCap, desc: 'Alison courses & submissions' },
-  { to: '/people/surveys', label: 'Surveys', icon: BarChart3, desc: 'Pulse & eNPS feedback' },
-  { to: '/people/growth', label: 'Growth', icon: TrendingUp, desc: 'OKRs, 1:1s, IDPs & more' },
+  { to: '/people/learning', label: 'Learning', icon: GraduationCap, desc: 'Courses and certificates' },
+  { to: '/people/surveys', label: 'Surveys', icon: BarChart3, desc: 'Short team check-ins' },
+  { to: '/people/growth', label: 'Growth', icon: TrendingUp, desc: 'Goals, 1:1s, and development' },
 ]
 
 export function PeopleOverviewPage() {
@@ -65,10 +65,10 @@ export function PeopleOverviewPage() {
 
       {dutyPeople.length > 0 ? (
         <Card padding="md">
-          <h2 className="text-sm font-semibold text-fg">PIP &amp; suspension</h2>
+          <h2 className="text-sm font-semibold text-fg">Improvement plans and suspensions</h2>
           <p className="mt-1 text-xs text-muted">
-            Visible to team leads, HR, and admin. Suspended people can read Updates and Resources
-            only.
+            Visible to team leads, People & Culture, and administrators. Suspended people can read
+            Memos and Resources only.
           </p>
           <ul className="mt-3 divide-y divide-border">
             {dutyPeople.map((u) => (
@@ -108,7 +108,7 @@ export function PeopleOverviewPage() {
         <Card padding="md">
           <div className="mb-3 flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-accent" />
-            <h2 className="text-sm font-semibold text-fg">HR digest</h2>
+            <h2 className="text-sm font-semibold text-fg">Team digest</h2>
             <Badge tone="brand">Memos</Badge>
           </div>
           <ul className="space-y-2">
@@ -133,7 +133,7 @@ export function PeopleOverviewPage() {
           </h2>
           {!isHR(user) ? (
             <p className="mt-1 text-xs text-muted">
-              Aggregated pulse and eNPS for the people you manage only. Individual responses stay with HR.
+              Aggregated pulse scores for the people you manage only. Individual answers stay with People & Culture.
               {directReports === 0
                 ? ' Assign a team lead / department head or reports-to in the directory so team metrics can populate.'
                 : null}
@@ -153,17 +153,17 @@ export function PeopleOverviewPage() {
               <p className="text-lg font-bold text-fg">{metrics.enpsScore ?? '—'}</p>
             </div>
             <div className="rounded-md bg-surface-2/50 px-3 py-2">
-              <p className="text-xs text-muted">L&D completion</p>
+              <p className="text-xs text-muted">Learning done</p>
               <p className="text-lg font-bold text-fg">{metrics.ldCompletionRate != null ? `${metrics.ldCompletionRate}%` : '—'}</p>
             </div>
             <div className="rounded-md bg-surface-2/50 px-3 py-2">
-              <p className="text-xs text-muted">Pending leave</p>
+              <p className="text-xs text-muted">Time off waiting</p>
               <p className="text-lg font-bold text-fg">{metrics.pendingLeave}</p>
             </div>
           </div>
           {isHR(user) ? (
             <Link to="/admin" className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-accent hover:underline">
-              Open HR dashboard <ArrowRight className="h-3 w-3" />
+              Open People ops <ArrowRight className="h-3 w-3" />
             </Link>
           ) : null}
         </Card>
@@ -172,7 +172,7 @@ export function PeopleOverviewPage() {
       {myLeavePending > 0 ? (
         <p className="flex items-center gap-2 text-xs text-muted">
           <AlertCircle className="h-3.5 w-3.5" />
-          You have {myLeavePending} leave request{myLeavePending === 1 ? '' : 's'} awaiting review.
+          You have {myLeavePending} time-off request{myLeavePending === 1 ? '' : 's'} waiting for review.
         </p>
       ) : null}
     </div>

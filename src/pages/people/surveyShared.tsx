@@ -2,9 +2,9 @@ import { fmtDate } from '@/utils/helpers'
 import type { PulseQuestion, PulseSurvey, PulseSurveyType } from '@/types/hr'
 
 export const SURVEY_TYPE_LABEL: Record<PulseSurveyType, string> = {
-  pulse: 'Pulse',
-  enps: 'eNPS',
-  onboarding: 'Onboarding',
+  pulse: 'Pulse check',
+  enps: 'Team loyalty',
+  onboarding: 'Getting started',
 }
 
 export function surveyTypeBadgeTone(

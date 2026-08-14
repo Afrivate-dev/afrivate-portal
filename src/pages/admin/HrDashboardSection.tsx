@@ -91,8 +91,8 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
     <div className="av-contain space-y-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
-          <h2 className="text-lg font-semibold text-fg">HR dashboard</h2>
-          <p className="text-sm text-muted">People metrics and quick actions — aligned to your HR Base of Operations plan.</p>
+          <h2 className="text-lg font-semibold text-fg">People ops</h2>
+          <p className="text-sm text-muted">People metrics and quick actions in one place.</p>
         </div>
         <HrKpiExport metrics={metrics} />
       </div>
@@ -101,7 +101,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <Card padding="md" accentBorder="info" className="border-l-4 border-l-brand">
           <div className="flex flex-wrap items-start justify-between gap-3">
             <div className="min-w-0">
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Rocket className="h-4 w-4 shrink-0 text-brand" />
                 <h3 className="text-sm font-semibold text-fg">Revival launch checklist</h3>
                 <Badge tone="warning">Core HR only</Badge>
@@ -173,7 +173,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                 setCourseTitle('')
               }}
             >
-              Publish assignment
+              Assign course
             </Button>
             {learningAssignments.filter((a) => a.active).map((a) => (
               <Button
@@ -230,7 +230,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                   notifySuccess(`Reminders queued for ${sent} staff member${sent === 1 ? '' : 's'}.`)
                 }}
               >
-                Remind non-responders
+                Send reminder
               </Button>
             </div>
           ))}

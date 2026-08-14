@@ -36,10 +36,10 @@ export function PeopleSurveysPage() {
   if (!user) return null
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="Surveys"
-        description="Monthly pulse checks, quarterly eNPS, and onboarding feedback. Open a survey to respond on its own page — each submission is stored individually and feeds HR dashboard metrics."
+        description="Short check-ins about how work feels. Open a survey to respond — each answer is stored privately."
       />
 
       {openSurveys.length > 0 ? (

@@ -492,7 +492,7 @@ export function OnboardingPage() {
       {tab === 'admin' && canSeeAdmin ? (
         <div className="space-y-4">
           <div className="flex justify-end">
-            <Button onClick={() => setAddOpen(true)}>
+            <Button className="w-full sm:w-auto" onClick={() => setAddOpen(true)}>
               <Plus className="h-4 w-4" /> Add video
             </Button>
           </div>

@@ -36,15 +36,15 @@ export function PortalLabelsSection() {
   } = useData()
 
   return (
-    <div className="space-y-4">
+    <div className="av-contain space-y-4">
       <div>
         <h2 className="flex items-center gap-2 text-lg font-semibold text-fg">
           <Tags className="h-5 w-5 text-accent" />
-          Portal labels & categories
+          Labels and categories
         </h2>
         <p className="text-sm text-muted">
-          HR and admin can add, rename, or remove labels used across tasks, resources, shout-outs,
-          awards, grievances, memos, and exit interviews.
+          People & Culture can add, rename, or remove labels used across tasks, resources, shout-outs,
+          awards, speak-up reports, memos, and exit interviews.
         </p>
       </div>
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">

@@ -54,7 +54,7 @@ import { supabase } from '@/lib/supabase'
 import { uploadPortalFile } from '@/lib/supabase/fileStorage'
 import { useConfirm } from '@/context/useConfirm'
 import { notifyError } from '@/lib/notify'
-import { confirms } from '@/content/copy'
+import { confirms, pages } from '@/content/copy'
 import type { LeaveComment, LeaveRequest, LeaveStatus, LeaveType, User } from '@/types'
 
 type Tab = 'my' | 'all' | 'calendar'
@@ -375,11 +375,11 @@ export function LeaveRequestsPage() {
   return (
     <div className="av-contain space-y-6">
       <PageHeader
-        title="Time off"
-        description="Request, track and manage time off."
+        title={pages.timeOff.title}
+        description={pages.timeOff.subtitle}
         actions={
           <Button onClick={openForm}>
-            <Plus className="h-4 w-4" /> Request leave
+            <Plus className="h-4 w-4" /> Request time off
           </Button>
         }
       />
@@ -474,7 +474,7 @@ export function LeaveRequestsPage() {
             description="Submit a leave request to get started."
             action={
               <Button onClick={openForm}>
-                <Plus className="h-4 w-4" /> Request leave
+                <Plus className="h-4 w-4" /> Request time off
               </Button>
             }
           />
@@ -568,7 +568,7 @@ export function LeaveRequestsPage() {
       <Modal
         open={formOpen}
         onClose={dismissForm}
-        title="Request leave"
+        title="Request time off"
         size="lg"
         closeOnBackdrop={false}
         footer={

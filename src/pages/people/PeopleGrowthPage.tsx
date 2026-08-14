@@ -153,7 +153,7 @@ export function PeopleGrowthPage() {
     saveOkr({ userId: user.id, year, quarter, objective: objective.trim(), keyResults: krs })
     setObjective('')
     setKrDrafts([''])
-    notifySuccess('OKR saved.')
+    notifySuccess('Goals saved.')
   }
 
   const updateKrProgress = (okr: Okr, krId: string, progress: number) => {
@@ -176,7 +176,7 @@ export function PeopleGrowthPage() {
     if (!grievanceBody.trim()) return
     submitGrievance({ userId: user.id, category: resolvedGrievanceCategory, body: grievanceBody.trim(), confidential: true })
     setGrievanceBody('')
-    notifySuccess('Your message was sent to HR confidentially.')
+    notifySuccess('Your message was sent confidentially.')
   }
 
   const activeTask = feedbackTasks.find((t) => t.key === activeFeedbackKey) ?? null
@@ -204,8 +204,8 @@ export function PeopleGrowthPage() {
   const idpFieldKey = `${myIdp?.id ?? 'new'}-${myIdp?.updatedAt ?? ''}`
 
   return (
-    <div className="space-y-6">
-      <PageHeader title="Growth" description="OKRs, 1:1s, development plans, feedback, and milestones." />
+    <div className="av-contain space-y-6">
+      <PageHeader title="Growth" description="Goals, 1:1s, development plans, feedback, and first 90 days." />
 
       <TabBar
         variant="chip"
@@ -213,11 +213,11 @@ export function PeopleGrowthPage() {
         active={tab}
         onChange={setTab}
         tabs={[
-          { id: 'okrs', label: 'OKRs' },
+          { id: 'okrs', label: 'Goals' },
           { id: 'one_on_one', label: '1:1s' },
-          { id: 'idp', label: 'IDP' },
-          { id: 'feedback', label: '360°' },
-          { id: 'milestones', label: '30-60-90' },
+          { id: 'idp', label: 'Development' },
+          { id: 'feedback', label: 'Feedback' },
+          { id: 'milestones', label: 'First 90 days' },
           { id: 'awards', label: 'Awards' },
           { id: 'grievance', label: 'Speak up' },
         ]}
@@ -251,7 +251,7 @@ export function PeopleGrowthPage() {
                   <Plus className="h-3.5 w-3.5" /> Add key result
                 </Button>
               </div>
-              <Button onClick={addOkr}>Save OKR</Button>
+              <Button onClick={addOkr}>Save goals</Button>
             </div>
           </Card>
           {myOkrs.map((o) => (
@@ -283,7 +283,7 @@ export function PeopleGrowthPage() {
           ))}
           {reportOkrs.length > 0 ? (
             <Card padding="md">
-              <h3 className="text-sm font-semibold text-fg">Team OKRs (read-only)</h3>
+              <h3 className="text-sm font-semibold text-fg">Team goals (read-only)</h3>
               <ul className="mt-3 space-y-4">
                 {reportOkrs.map(({ okr, report }) => (
                   <li key={okr.id} className="rounded-md border border-border p-3">
@@ -337,7 +337,7 @@ export function PeopleGrowthPage() {
                     <li key={r.id} className="flex flex-col gap-2 rounded-md border border-border px-3 py-2 text-sm sm:flex-row sm:items-center sm:justify-between">
                       <span className="min-w-0 font-medium">{r.name}</span>
                       <Button size="sm" variant={done ? 'secondary' : 'primary'} className="w-full shrink-0 sm:w-auto" onClick={() => setOneOnOneCompleted(r.id, user.id, month, !done)}>
-                        {done ? 'Completed ✓' : 'Mark done'}
+                        {done ? 'Completed ✓' : 'Mark as done'}
                       </Button>
                     </li>
                   )
@@ -367,7 +367,7 @@ export function PeopleGrowthPage() {
               onChange={(e) => setIdpContent(e.target.value)}
               placeholder="Skills to build, courses to take, experiences to seek…"
             />
-            <Button className="mt-3" onClick={saveMyIdp}>Save & submit</Button>
+            <Button className="mt-3" onClick={saveMyIdp}>Submit plan</Button>
             {myIdp ? (
               <div className="mt-2 space-y-1 text-xs text-muted">
                 <p>Status: {myIdp.status}</p>
@@ -457,7 +457,7 @@ export function PeopleGrowthPage() {
             </>
           ) : (
             <Card padding="md">
-              <p className="text-sm text-muted">No 360° cycle is open. HR runs these bi-annually.</p>
+              <p className="text-sm text-muted">No feedback cycle is open. People & Culture runs these twice a year.</p>
               {isHR(user) ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {feedbackTemplates.map((tpl) => (
@@ -547,7 +547,7 @@ export function PeopleGrowthPage() {
                 }))}
               />
               <Textarea label="Describe your concern" rows={4} value={grievanceBody} onChange={(e) => setGrievanceBody(e.target.value)} />
-              <Button onClick={submitGrievanceForm}>Submit to HR</Button>
+              <Button onClick={submitGrievanceForm}>Send to People & Culture</Button>
             </div>
           </Card>
           {myGrievances.length > 0 ? (

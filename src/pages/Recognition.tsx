@@ -393,7 +393,7 @@ export function RecognitionPage() {
               </Button>
             ) : null}
             <Button onClick={openForm} disabled={otherUsers.length === 0} className="w-full sm:w-auto">
-              <Plus className="h-4 w-4" /> Give shoutout
+              <Plus className="h-4 w-4" /> Give a shout-out
             </Button>
           </div>
         }
@@ -435,11 +435,11 @@ export function RecognitionPage() {
       {sorted.length === 0 ? (
         <EmptyState
           icon={Heart}
-          title="No shoutouts yet"
+          title="No shout-outs yet"
           description="Be the first to celebrate someone’s work."
           action={
             <Button onClick={openForm} disabled={otherUsers.length === 0}>
-              <Plus className="h-4 w-4" /> Give shoutout
+              <Plus className="h-4 w-4" /> Give a shout-out
             </Button>
           }
         />
@@ -579,7 +579,7 @@ export function RecognitionPage() {
       <Modal
         open={formOpen}
         onClose={() => setFormOpen(false)}
-        title="Give shoutout"
+        title="Give a shout-out"
         description="Recognise someone for great work."
         size="lg"
         closeOnBackdrop={false}
@@ -605,7 +605,7 @@ export function RecognitionPage() {
                 draft.message.length > MAX_LENGTH
               }
             >
-              Post shoutout
+              Post shout-out
             </Button>
           </>
         }

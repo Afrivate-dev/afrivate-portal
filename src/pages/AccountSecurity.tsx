@@ -80,7 +80,7 @@ export function AccountSecurityPage() {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-6">
+    <div className="av-contain mx-auto max-w-2xl space-y-6">
       <div>
         <button
           type="button"
