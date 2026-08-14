@@ -373,7 +373,7 @@ export function LeaveRequestsPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="Time off"
         description="Request, track and manage time off."

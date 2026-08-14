@@ -18,7 +18,22 @@ import { supabase } from '@/lib/supabase'
 import { computeHrMetrics, managedReportIds } from '@/utils/hrMetrics'
 import { isHR, isLead } from '@/utils/helpers'
 import { uid } from '@/utils/helpers'
-import { useLocalPeopleOpsHr } from '@/hooks/useLocalPeopleOpsHr'
+import { useLocalPeopleOpsHr, type PeopleOpsPersist } from '@/hooks/useLocalPeopleOpsHr'
+import {
+  appraisalToRow,
+  beginPeopleOpsWrite,
+  disciplineCaseToRow,
+  employeeProfileToRow,
+  endPeopleOpsWrite,
+  fetchPeopleOpsDataset,
+  hrAuditToRow,
+  isPeopleOpsDatasetEmpty,
+  isPeopleOpsWriting,
+  offboardingToRow,
+  pipToRow,
+  seedPeopleOpsDataset,
+  upsertPeopleOpsRow,
+} from '@/lib/supabase/peopleOpsDataset'
 import type {
   FeedbackAssignment,
   FeedbackCycle,
@@ -213,13 +228,59 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     enpsScore: number | null
   } | null>(null)
 
+  const persistPeopleOps = useMemo<PeopleOpsPersist>(
+    () => ({
+      employeeProfile: async (row) => {
+        const { error } = await upsertPeopleOpsRow(
+          client,
+          'portal_employee_profiles',
+          employeeProfileToRow(row),
+        )
+        if (error) reportHrError('save employee profile', error)
+      },
+      disciplineCase: async (row) => {
+        const { error } = await upsertPeopleOpsRow(
+          client,
+          'portal_discipline_cases',
+          disciplineCaseToRow(row),
+        )
+        if (error) reportHrError('save discipline case', error)
+      },
+      pip: async (row) => {
+        const { error } = await upsertPeopleOpsRow(client, 'portal_pips', pipToRow(row))
+        if (error) reportHrError('save PIP', error)
+      },
+      appraisal: async (row) => {
+        const { error } = await upsertPeopleOpsRow(client, 'portal_appraisals', appraisalToRow(row))
+        if (error) reportHrError('save appraisal', error)
+      },
+      audit: async (row) => {
+        const { error } = await upsertPeopleOpsRow(client, 'portal_hr_audit_log', hrAuditToRow(row))
+        if (error) reportHrError('save HR audit', error)
+      },
+      offboarding: async (row) => {
+        const { error } = await upsertPeopleOpsRow(
+          client,
+          'portal_offboarding_checklists',
+          offboardingToRow(row),
+        )
+        if (error) reportHrError('save offboarding', error)
+      },
+    }),
+    [client],
+  )
+
   const peopleOps = useLocalPeopleOpsHr({
     tasks,
     okrs,
     oneOnOneLogs,
     users,
     teams,
+    persist: persistPeopleOps,
   })
+  const peopleOpsRef = useRef(peopleOps)
+  peopleOpsRef.current = peopleOps
+  const peopleOpsSeededRef = useRef(false)
 
   const reloadInFlightRef = useRef<Promise<void> | null>(null)
 
@@ -293,6 +354,41 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           }
         } else {
           setTeamPulseAggregates(null)
+        }
+        if (!isPeopleOpsWriting()) {
+          const people = await fetchPeopleOpsDataset(client)
+          if (people) {
+            const local = peopleOpsRef.current
+            const localHas =
+              local.employeeProfiles.length > 0 ||
+              local.disciplineCases.length > 0 ||
+              local.performanceImprovementPlans.length > 0 ||
+              local.formalAppraisals.length > 0 ||
+              local.offboardingChecklists.length > 0
+            if (isPeopleOpsDatasetEmpty(people)) {
+              if (localHas && !peopleOpsSeededRef.current) {
+                peopleOpsSeededRef.current = true
+                beginPeopleOpsWrite()
+                pauseHrRealtime()
+                try {
+                  const seeded = await seedPeopleOpsDataset(client, {
+                    employeeProfiles: local.employeeProfiles,
+                    disciplineCases: local.disciplineCases,
+                    performanceImprovementPlans: local.performanceImprovementPlans,
+                    formalAppraisals: local.formalAppraisals,
+                    hrAuditLog: local.hrAuditLog,
+                    offboardingChecklists: local.offboardingChecklists,
+                  })
+                  if (seeded.error) reportHrError('sync people records', seeded.error)
+                } finally {
+                  endPeopleOpsWrite()
+                  resumeHrRealtime()
+                }
+              }
+            } else {
+              local.hydratePeopleOps(people)
+            }
+          }
         }
       } catch (e) {
         reportHrError('load HR data', e instanceof Error ? e : { message: String(e) })

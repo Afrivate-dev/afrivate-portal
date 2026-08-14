@@ -76,7 +76,7 @@ function ShareReadOnlyPanel({ note }: { note: WorkspaceNote }) {
   }, [s, teams, users])
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <p className="text-sm leading-relaxed text-muted">{N.shareReadOnlyHint}</p>
 
       <div className="rounded-xl border border-border bg-surface-2/40 p-4">

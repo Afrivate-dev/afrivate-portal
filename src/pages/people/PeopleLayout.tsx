@@ -8,7 +8,7 @@ export function PeopleLayout() {
   const { hrStatus } = useHr()
 
   return (
-    <div className="space-y-4 sm:space-y-6">
+    <div className="av-contain space-y-4 sm:space-y-6">
       <div className="av-scroll-x w-full max-w-full border-b border-border pb-1">
         <nav className="inline-flex w-max gap-1" aria-label="People sections">
           {peopleNavItems.map((item) => (

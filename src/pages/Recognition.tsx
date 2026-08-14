@@ -381,7 +381,7 @@ export function RecognitionPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="Shout-outs"
         description="Celebrate great work across the team."

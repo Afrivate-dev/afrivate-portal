@@ -52,7 +52,7 @@ export function PeopleMyInfoPage() {
   }
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="My info"
         description="Update personal and contact details. Employment and sensitive fields are managed by HR only."

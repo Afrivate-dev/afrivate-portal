@@ -156,7 +156,7 @@ export function OnboardingPage() {
   if (!user) return null
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title={pages.gettingStarted.title}
         description={pages.gettingStarted.subtitle}

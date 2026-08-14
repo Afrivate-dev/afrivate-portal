@@ -1,5 +1,11 @@
-import { useCallback, useMemo } from 'react'
+import { useCallback, useMemo, useRef } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
+import {
+  beginPeopleOpsWrite,
+  endPeopleOpsWrite,
+  pauseHrRealtime,
+  resumeHrRealtime,
+} from '@/lib/supabase/peopleOpsDataset'
 import {
   appraisalBandFromOverall,
   computeAppraisalOverall,
@@ -24,6 +30,24 @@ import type {
 } from '@/types/hr'
 import type { Task } from '@/types'
 import type { Okr, OneOnOneLog } from '@/types/hr'
+
+export type PeopleOpsPersist = {
+  employeeProfile?: (row: EmployeeProfile) => void
+  disciplineCase?: (row: DisciplineCase) => void
+  pip?: (row: PerformanceImprovementPlan) => void
+  appraisal?: (row: FormalAppraisal) => void
+  audit?: (row: HrAuditEntry) => void
+  offboarding?: (row: OffboardingChecklist) => void
+}
+
+export type PeopleOpsHydrate = {
+  employeeProfiles?: EmployeeProfile[]
+  disciplineCases?: DisciplineCase[]
+  performanceImprovementPlans?: PerformanceImprovementPlan[]
+  formalAppraisals?: FormalAppraisal[]
+  hrAuditLog?: HrAuditEntry[]
+  offboardingChecklists?: OffboardingChecklist[]
+}
 
 function addDays(isoDate: string, days: number): string {
   const d = new Date(isoDate)
@@ -56,6 +80,7 @@ export function useLocalPeopleOpsHr(deps: {
   oneOnOneLogs: OneOnOneLog[]
   users: Array<{ id: string; role: string }>
   teams: Array<{ leadUserId?: string; asstLeadUserId?: string; memberIds: string[] }>
+  persist?: PeopleOpsPersist
 }) {
   const [employeeProfiles, setEmployeeProfiles] = useLocalStorage<EmployeeProfile[]>(
     'av-hr-employee-profiles',
@@ -83,12 +108,59 @@ export function useLocalPeopleOpsHr(deps: {
     [],
   )
 
+  const persist = deps.persist
+  const persistRef = useRef(persist)
+  persistRef.current = persist
+  const disciplineCasesRef = useRef(disciplineCases)
+  disciplineCasesRef.current = disciplineCases
+  const pipsRef = useRef(performanceImprovementPlans)
+  pipsRef.current = performanceImprovementPlans
+  const persistQueueRef = useRef(Promise.resolve())
+  const persistResumeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const persistPausedRef = useRef(false)
+
+  const enqueuePersist = (task: () => void | Promise<void>) => {
+    persistQueueRef.current = persistQueueRef.current
+      .then(async () => {
+        if (!persistPausedRef.current) {
+          beginPeopleOpsWrite()
+          pauseHrRealtime()
+          persistPausedRef.current = true
+        }
+        if (persistResumeTimer.current) clearTimeout(persistResumeTimer.current)
+        try {
+          await Promise.resolve(task())
+        } finally {
+          persistResumeTimer.current = setTimeout(() => {
+            if (!persistPausedRef.current) return
+            persistPausedRef.current = false
+            endPeopleOpsWrite()
+            resumeHrRealtime()
+          }, 700)
+        }
+      })
+      .catch((err) => {
+        console.warn('[hr] people ops persist', err)
+      })
+  }
+
+  const persistRow = <K extends keyof PeopleOpsPersist>(
+    key: K,
+    row: Parameters<NonNullable<PeopleOpsPersist[K]>>[0],
+  ) => {
+    if (!persistRef.current?.[key]) return
+    enqueuePersist(() => persistRef.current?.[key]?.(row as never))
+  }
+
   const appendHrAudit = useCallback(
     (entry: Omit<HrAuditEntry, 'id' | 'createdAt'>) => {
-      setHrAuditLog((prev) => [
-        { ...entry, id: `aud_${uid()}`, createdAt: new Date().toISOString() },
-        ...prev,
-      ])
+      const row: HrAuditEntry = {
+        ...entry,
+        id: `aud_${uid()}`,
+        createdAt: new Date().toISOString(),
+      }
+      setHrAuditLog((prev) => [row, ...prev])
+      persistRow('audit', row)
     },
     [setHrAuditLog],
   )
@@ -97,18 +169,15 @@ export function useLocalPeopleOpsHr(deps: {
     (userId: string) => {
       const existing = employeeProfiles.find((p) => p.userId === userId && !p.archived)
       if (existing) return existing
-      const now = new Date().toISOString()
-      const row: EmployeeProfile = {
+      return {
         ...emptyEmployeeProfile(userId),
-        id: `epr_${uid()}`,
+        id: `epr_${userId}`,
         profileCompleteness: 0,
-        createdAt: now,
-        updatedAt: now,
+        createdAt: '',
+        updatedAt: '',
       }
-      setEmployeeProfiles((prev) => [...prev, row])
-      return row
     },
-    [employeeProfiles, setEmployeeProfiles],
+    [employeeProfiles],
   )
 
   const saveEmployeePersonalFields = useCallback(
@@ -116,27 +185,27 @@ export function useLocalPeopleOpsHr(deps: {
       const now = new Date().toISOString()
       setEmployeeProfiles((prev) => {
         const existing = prev.find((p) => p.userId === userId)
-        if (existing) {
-          const next = {
-            ...existing,
-            ...fields,
-            lastEmployeeUpdateAt: now,
-            updatedAt: now,
-            hrRequestsUpdate: false,
-          }
-          next.profileCompleteness = computeProfileCompleteness(next)
-          return prev.map((p) => (p.userId === userId ? next : p))
-        }
-        const row: EmployeeProfile = {
-          ...emptyEmployeeProfile(userId),
-          ...fields,
-          id: `epr_${uid()}`,
-          lastEmployeeUpdateAt: now,
-          createdAt: now,
-          updatedAt: now,
-          profileCompleteness: 0,
-        }
+        const row: EmployeeProfile = existing
+          ? {
+              ...existing,
+              ...fields,
+              lastEmployeeUpdateAt: now,
+              updatedAt: now,
+              hrRequestsUpdate: false,
+              profileCompleteness: 0,
+            }
+          : {
+              ...emptyEmployeeProfile(userId),
+              ...fields,
+              id: `epr_${userId}`,
+              lastEmployeeUpdateAt: now,
+              createdAt: now,
+              updatedAt: now,
+              profileCompleteness: 0,
+            }
         row.profileCompleteness = computeProfileCompleteness(row)
+        persistRow('employeeProfile', row)
+        if (existing) return prev.map((p) => (p.userId === userId ? row : p))
         return [...prev, row]
       })
       appendHrAudit({
@@ -161,18 +230,19 @@ export function useLocalPeopleOpsHr(deps: {
         const existing =
           (profile.id ? prev.find((p) => p.id === profile.id) : undefined) ??
           prev.find((p) => p.userId === profile.userId)
-        const id = profile.id ?? existing?.id ?? `epr_${uid()}`
+        const id = (profile.id && profile.id.length > 0 ? profile.id : undefined) ?? existing?.id ?? `epr_${profile.userId}`
         const row: EmployeeProfile = {
           ...(existing ?? emptyEmployeeProfile(profile.userId)),
           ...profile,
           id,
           lastHrUpdateAt: now,
-          createdAt: existing?.createdAt ?? now,
+          createdAt: existing?.createdAt || now,
           updatedAt: now,
           profileCompleteness: 0,
         }
         row.profileCompleteness = computeProfileCompleteness(row)
-        if (existing) return prev.map((p) => (p.id === id ? row : p))
+        persistRow('employeeProfile', row)
+        if (existing) return prev.map((p) => (p.id === existing.id || p.userId === profile.userId ? row : p))
         return [...prev, row]
       })
       appendHrAudit({
@@ -190,17 +260,18 @@ export function useLocalPeopleOpsHr(deps: {
     (userId: string, archived = true) => {
       const now = new Date().toISOString()
       setEmployeeProfiles((prev) =>
-        prev.map((p) =>
-          p.userId === userId
-            ? {
-                ...p,
-                archived,
-                employmentStatus: archived ? 'archived' : p.employmentStatus,
-                updatedAt: now,
-                lastHrUpdateAt: now,
-              }
-            : p,
-        ),
+        prev.map((p) => {
+          if (p.userId !== userId) return p
+          const row: EmployeeProfile = {
+            ...p,
+            archived,
+            employmentStatus: archived ? 'archived' : p.employmentStatus,
+            updatedAt: now,
+            lastHrUpdateAt: now,
+          }
+          persistRow('employeeProfile', row)
+          return row
+        }),
       )
       appendHrAudit({
         actorId: userId,
@@ -237,7 +308,9 @@ export function useLocalPeopleOpsHr(deps: {
         createdAt: now,
         updatedAt: now,
       }
-      setDisciplineCases((prev) => [row, ...prev])
+      disciplineCasesRef.current = [row, ...disciplineCasesRef.current.filter((x) => x.id !== id)]
+      setDisciplineCases(disciplineCasesRef.current)
+      persistRow('disciplineCase', row)
       appendHrAudit({
         actorId: c.issuedById,
         entityType: 'discipline_case',
@@ -254,17 +327,18 @@ export function useLocalPeopleOpsHr(deps: {
     (c: Omit<DisciplineCase, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
       const now = new Date().toISOString()
       const id = c.id ?? `dsc_${uid()}`
-      setDisciplineCases((prev) => {
-        const existing = prev.find((x) => x.id === id)
-        const row: DisciplineCase = {
-          ...c,
-          id,
-          createdAt: existing?.createdAt ?? now,
-          updatedAt: now,
-        }
-        if (existing) return prev.map((x) => (x.id === id ? row : x))
-        return [row, ...prev]
-      })
+      const existing = disciplineCasesRef.current.find((x) => x.id === id)
+      const row: DisciplineCase = {
+        ...c,
+        id,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      }
+      disciplineCasesRef.current = existing
+        ? disciplineCasesRef.current.map((x) => (x.id === id ? row : x))
+        : [row, ...disciplineCasesRef.current]
+      setDisciplineCases(disciplineCasesRef.current)
+      persistRow('disciplineCase', row)
       return id
     },
     [setDisciplineCases],
@@ -275,7 +349,7 @@ export function useLocalPeopleOpsHr(deps: {
       caseId: string,
       opts?: { templateKey?: string; durationDays?: number; startDate?: string },
     ) => {
-      const dc = disciplineCases.find((c) => c.id === caseId)
+      const dc = disciplineCasesRef.current.find((c) => c.id === caseId)
       if (!dc) return null
       const tpl =
         pipTemplates.find((t) => t.key === opts?.templateKey) ??
@@ -315,12 +389,16 @@ export function useLocalPeopleOpsHr(deps: {
         createdAt: now,
         updatedAt: now,
       }
-      setPips((prev) => [pip, ...prev])
-      setDisciplineCases((prev) =>
-        prev.map((c) =>
-          c.id === caseId ? { ...c, pipId, step: 'pip', updatedAt: now } : c,
-        ),
+      pipsRef.current = [pip, ...pipsRef.current.filter((p) => p.id !== pipId)]
+      setPips(pipsRef.current)
+      persistRow('disciplineCase', dc)
+      persistRow('pip', pip)
+      const nextCase: DisciplineCase = { ...dc, pipId, step: 'pip', updatedAt: now }
+      disciplineCasesRef.current = disciplineCasesRef.current.map((c) =>
+        c.id === caseId ? nextCase : c,
       )
+      setDisciplineCases(disciplineCasesRef.current)
+      persistRow('disciplineCase', nextCase)
       appendHrAudit({
         actorId: dc.issuedById,
         entityType: 'pip',
@@ -330,31 +408,25 @@ export function useLocalPeopleOpsHr(deps: {
       })
       return pipId
     },
-    [appendHrAudit, disciplineCases, pipTemplates, setDisciplineCases, setPips],
+    [appendHrAudit, pipTemplates, setDisciplineCases, setPips],
   )
 
   const approveDisciplineCase = useCallback(
     (id: string, approvedById: string) => {
-      const dc = disciplineCases.find((c) => c.id === id)
+      const dc = disciplineCasesRef.current.find((c) => c.id === id)
       if (!dc) return false
-      if (dc.step === 'termination_case') {
-        // HR-only gate enforced in UI; still allow here
-      }
       const now = new Date().toISOString()
-      setDisciplineCases((prev) =>
-        prev.map((c) =>
-          c.id === id
-            ? {
-                ...c,
-                status: 'active',
-                approvedById,
-                deliveredAt: c.deliveredAt ?? now,
-                updatedAt: now,
-              }
-            : c,
-        ),
-      )
-      if (dc.step === 'pip' && !dc.pipId) {
+      const next: DisciplineCase = {
+        ...dc,
+        status: 'active',
+        approvedById,
+        deliveredAt: dc.deliveredAt ?? now,
+        updatedAt: now,
+      }
+      disciplineCasesRef.current = disciplineCasesRef.current.map((c) => (c.id === id ? next : c))
+      setDisciplineCases(disciplineCasesRef.current)
+      persistRow('disciplineCase', next)
+      if (next.step === 'pip' && !next.pipId) {
         createPipForCase(id)
       }
       appendHrAudit({
@@ -366,15 +438,18 @@ export function useLocalPeopleOpsHr(deps: {
       })
       return true
     },
-    [appendHrAudit, createPipForCase, disciplineCases, setDisciplineCases],
+    [appendHrAudit, createPipForCase, setDisciplineCases],
   )
 
   const acknowledgeDisciplineCase = useCallback(
     (id: string) => {
       const now = new Date().toISOString()
-      setDisciplineCases((prev) =>
-        prev.map((c) => (c.id === id ? { ...c, acknowledgedAt: now, updatedAt: now } : c)),
-      )
+      const dc = disciplineCasesRef.current.find((c) => c.id === id)
+      if (!dc) return false
+      const next: DisciplineCase = { ...dc, acknowledgedAt: now, updatedAt: now }
+      disciplineCasesRef.current = disciplineCasesRef.current.map((c) => (c.id === id ? next : c))
+      setDisciplineCases(disciplineCasesRef.current)
+      persistRow('disciplineCase', next)
       return true
     },
     [setDisciplineCases],
@@ -384,17 +459,18 @@ export function useLocalPeopleOpsHr(deps: {
     (pip: Omit<PerformanceImprovementPlan, 'id' | 'createdAt' | 'updatedAt'> & { id?: string }) => {
       const now = new Date().toISOString()
       const id = pip.id ?? `pip_${uid()}`
-      setPips((prev) => {
-        const existing = prev.find((p) => p.id === id)
-        const row: PerformanceImprovementPlan = {
-          ...pip,
-          id,
-          createdAt: existing?.createdAt ?? now,
-          updatedAt: now,
-        }
-        if (existing) return prev.map((p) => (p.id === id ? row : p))
-        return [row, ...prev]
-      })
+      const existing = pipsRef.current.find((p) => p.id === id)
+      const row: PerformanceImprovementPlan = {
+        ...pip,
+        id,
+        createdAt: existing?.createdAt ?? now,
+        updatedAt: now,
+      }
+      pipsRef.current = existing
+        ? pipsRef.current.map((p) => (p.id === id ? row : p))
+        : [row, ...pipsRef.current]
+      setPips(pipsRef.current)
+      persistRow('pip', row)
     },
     [setPips],
   )
@@ -411,25 +487,20 @@ export function useLocalPeopleOpsHr(deps: {
       },
     ) => {
       const now = new Date().toISOString()
-      setPips((prev) =>
-        prev.map((p) => {
-          if (p.id !== pipId) return p
-          return {
-            ...p,
-            updatedAt: now,
-            reviews: p.reviews.map((r) =>
-              r.id === reviewId
-                ? {
-                    ...r,
-                    ...patch,
-                    completedAt: now,
-                    reviewerId: patch.reviewerId,
-                  }
-                : r,
-            ),
-          }
-        }),
-      )
+      const pip = pipsRef.current.find((p) => p.id === pipId)
+      if (!pip) return false
+      const row: PerformanceImprovementPlan = {
+        ...pip,
+        updatedAt: now,
+        reviews: pip.reviews.map((r) =>
+          r.id === reviewId
+            ? { ...r, ...patch, completedAt: now, reviewerId: patch.reviewerId }
+            : r,
+        ),
+      }
+      pipsRef.current = pipsRef.current.map((p) => (p.id === pipId ? row : p))
+      setPips(pipsRef.current)
+      persistRow('pip', row)
       return true
     },
     [setPips],
@@ -443,36 +514,34 @@ export function useLocalPeopleOpsHr(deps: {
       note?: string,
     ) => {
       const now = new Date().toISOString()
-      setPips((prev) =>
-        prev.map((p) =>
-          p.id === pipId
-            ? {
-                ...p,
-                outcome,
-                outcomeNote: note,
-                outcomeAt: now,
-                outcomeById,
-                updatedAt: now,
-              }
-            : p,
-        ),
-      )
-      const pip = performanceImprovementPlans.find((p) => p.id === pipId)
-      if (pip) {
-        setDisciplineCases((prev) =>
-          prev.map((c) =>
-            c.id === pip.caseId
-              ? {
-                  ...c,
-                  status:
-                    outcome === 'escalated' || outcome === 'terminated_recommendation'
-                      ? 'escalated'
-                      : 'completed',
-                  updatedAt: now,
-                }
-              : c,
-          ),
+      const pip = pipsRef.current.find((p) => p.id === pipId)
+      if (!pip) return false
+      const row: PerformanceImprovementPlan = {
+        ...pip,
+        outcome,
+        outcomeNote: note,
+        outcomeAt: now,
+        outcomeById,
+        updatedAt: now,
+      }
+      pipsRef.current = pipsRef.current.map((p) => (p.id === pipId ? row : p))
+      setPips(pipsRef.current)
+      persistRow('pip', row)
+      const dc = disciplineCasesRef.current.find((c) => c.id === pip.caseId)
+      if (dc) {
+        const nextCase: DisciplineCase = {
+          ...dc,
+          status:
+            outcome === 'escalated' || outcome === 'terminated_recommendation'
+              ? 'escalated'
+              : 'completed',
+          updatedAt: now,
+        }
+        disciplineCasesRef.current = disciplineCasesRef.current.map((c) =>
+          c.id === pip.caseId ? nextCase : c,
         )
+        setDisciplineCases(disciplineCasesRef.current)
+        persistRow('disciplineCase', nextCase)
       }
       appendHrAudit({
         actorId: outcomeById,
@@ -483,7 +552,7 @@ export function useLocalPeopleOpsHr(deps: {
       })
       return true
     },
-    [appendHrAudit, performanceImprovementPlans, setDisciplineCases, setPips],
+    [appendHrAudit, setDisciplineCases, setPips],
   )
 
   const saveFormalAppraisal = useCallback(
@@ -496,9 +565,10 @@ export function useLocalPeopleOpsHr(deps: {
       const id = a.id ?? `apr_${uid()}`
       const overallScore = computeAppraisalOverall(a.scores)
       const band = appraisalBandFromOverall(overallScore)
+      let row: FormalAppraisal | null = null
       setFormalAppraisals((prev) => {
         const existing = prev.find((x) => x.id === id)
-        const row: FormalAppraisal = {
+        row = {
           ...a,
           id,
           overallScore,
@@ -506,9 +576,10 @@ export function useLocalPeopleOpsHr(deps: {
           createdAt: existing?.createdAt ?? now,
           updatedAt: now,
         }
-        if (existing) return prev.map((x) => (x.id === id ? row : x))
+        if (existing) return prev.map((x) => (x.id === id ? row! : x))
         return [row, ...prev]
       })
+      if (row) persistRow('appraisal', row)
       return id
     },
     [setFormalAppraisals],
@@ -517,13 +588,17 @@ export function useLocalPeopleOpsHr(deps: {
   const finalizeAppraisal = useCallback(
     (id: string) => {
       const now = new Date().toISOString()
+      let next: FormalAppraisal | undefined
       setFormalAppraisals((prev) =>
-        prev.map((a) =>
-          a.id === id ? { ...a, status: 'finalized', finalizedAt: now, updatedAt: now } : a,
-        ),
+        prev.map((a) => {
+          if (a.id !== id) return a
+          next = { ...a, status: 'finalized', finalizedAt: now, updatedAt: now }
+          return next
+        }),
       )
+      if (next) persistRow('appraisal', next)
       appendHrAudit({
-        actorId: formalAppraisals.find((a) => a.id === id)?.reviewerId ?? id,
+        actorId: next?.reviewerId ?? id,
         entityType: 'appraisal',
         entityId: id,
         action: 'finalize',
@@ -531,7 +606,7 @@ export function useLocalPeopleOpsHr(deps: {
       })
       return true
     },
-    [appendHrAudit, formalAppraisals, setFormalAppraisals],
+    [appendHrAudit, setFormalAppraisals],
   )
 
   const createOffboardingChecklist = useCallback(
@@ -551,12 +626,19 @@ export function useLocalPeopleOpsHr(deps: {
         updatedAt: now,
       }
       setOffboarding((prev) => [row, ...prev])
+      persistRow('offboarding', row)
       setEmployeeProfiles((prev) =>
-        prev.map((p) =>
-          p.userId === c.userId
-            ? { ...p, employmentStatus: 'exiting', updatedAt: now, lastHrUpdateAt: now }
-            : p,
-        ),
+        prev.map((p) => {
+          if (p.userId !== c.userId) return p
+          const updated: EmployeeProfile = {
+            ...p,
+            employmentStatus: 'exiting',
+            updatedAt: now,
+            lastHrUpdateAt: now,
+          }
+          persistRow('employeeProfile', updated)
+          return updated
+        }),
       )
       appendHrAudit({
         actorId: c.createdById,
@@ -573,9 +655,34 @@ export function useLocalPeopleOpsHr(deps: {
   const updateOffboardingChecklist = useCallback(
     (id: string, patch: Partial<OffboardingChecklist>) => {
       const now = new Date().toISOString()
-      setOffboarding((prev) => prev.map((o) => (o.id === id ? { ...o, ...patch, updatedAt: now } : o)))
+      setOffboarding((prev) =>
+        prev.map((o) => {
+          if (o.id !== id) return o
+          const row: OffboardingChecklist = { ...o, ...patch, updatedAt: now }
+          persistRow('offboarding', row)
+          return row
+        }),
+      )
     },
     [setOffboarding],
+  )
+
+  const hydratePeopleOps = useCallback(
+    (data: PeopleOpsHydrate) => {
+      if (data.employeeProfiles) setEmployeeProfiles(data.employeeProfiles)
+      if (data.disciplineCases) {
+        disciplineCasesRef.current = data.disciplineCases
+        setDisciplineCases(data.disciplineCases)
+      }
+      if (data.performanceImprovementPlans) {
+        pipsRef.current = data.performanceImprovementPlans
+        setPips(data.performanceImprovementPlans)
+      }
+      if (data.formalAppraisals) setFormalAppraisals(data.formalAppraisals)
+      if (data.hrAuditLog) setHrAuditLog(data.hrAuditLog)
+      if (data.offboardingChecklists) setOffboarding(data.offboardingChecklists)
+    },
+    [setDisciplineCases, setEmployeeProfiles, setFormalAppraisals, setHrAuditLog, setOffboarding, setPips],
   )
 
   const getManagerPeopleScorecard = useCallback(
@@ -650,6 +757,7 @@ export function useLocalPeopleOpsHr(deps: {
       createOffboardingChecklist,
       updateOffboardingChecklist,
       getManagerPeopleScorecard,
+      hydratePeopleOps,
     }),
     [
       employeeProfiles,
@@ -677,6 +785,7 @@ export function useLocalPeopleOpsHr(deps: {
       createOffboardingChecklist,
       updateOffboardingChecklist,
       getManagerPeopleScorecard,
+      hydratePeopleOps,
     ],
   )
 }

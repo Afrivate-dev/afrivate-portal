@@ -55,7 +55,7 @@ export function PeopleOverviewPage() {
     : []
 
   return (
-    <div className="space-y-6">
+    <div className="av-contain space-y-6">
       <PageHeader
         title="People"
         description="Time off, learning, feedback, and culture — all in one place."
