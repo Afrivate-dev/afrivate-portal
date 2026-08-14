@@ -1,5 +1,6 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { normalizeInboxTypeFromDb } from '@/lib/inboxNotifications'
+import { parseDutyStatus } from '@/lib/dutyStatus'
 import type {
   Announcement,
   DocumentItem,
@@ -56,6 +57,7 @@ export function profileRowToUser(row: Record<string, unknown>): User {
     reportsToId: row.reports_to_id ? String(row.reports_to_id) : undefined,
     active: row.active !== false,
     approvedAt: row.approved_at ? String(row.approved_at) : undefined,
+    dutyStatus: parseDutyStatus(row.duty_status),
   }
 }
 
@@ -86,6 +88,7 @@ export function userToAdminProfilePatch(u: User): Record<string, unknown> {
     ...userToSelfProfilePatch(u),
     role: u.role,
     active: u.active,
+    duty_status: parseDutyStatus(u.dutyStatus),
   }
 }
 

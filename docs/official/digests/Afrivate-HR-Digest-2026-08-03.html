@@ -1,0 +1,534 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>HR Digest · August 3, 2026 · AfriVate</title>
+  <style>
+    :root {
+      --purple: #8d4087;
+      --purple-dark: #55205c;
+      --purple-mid: #7a3575;
+      --purple-soft: #f8f1f8;
+      --ink: #202026;
+      --muted: #64606a;
+      --line: #eadbea;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --warning-line: #fdba74;
+      --success: #176b50;
+      --success-soft: #f2faf7;
+      --info: #2563eb;
+      --white: #fff;
+    }
+    * { box-sizing: border-box; }
+    html { scroll-behavior: smooth; background: #f4f0f5; }
+    body {
+      margin: 0;
+      color: var(--ink);
+      background: #f4f0f5;
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-size: 16px;
+      line-height: 1.65;
+    }
+    a { color: var(--purple); }
+    a:hover { color: var(--purple-dark); }
+    .memo {
+      width: min(920px, 100%);
+      margin: 0 auto;
+      background: var(--white);
+      box-shadow: 0 18px 50px rgba(48, 24, 53, 0.12);
+    }
+    .topbar {
+      height: 8px;
+      background: linear-gradient(90deg, var(--purple-dark), var(--purple), #bb78b5);
+    }
+    header {
+      padding: 28px 40px 26px;
+      border-bottom: 1px solid var(--line);
+      background:
+        radial-gradient(circle at 92% 18%, rgba(141, 64, 135, 0.14), transparent 26%),
+        linear-gradient(140deg, #fff 62%, #fbf6fb);
+    }
+    .brand {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 20px;
+      margin-bottom: 24px;
+    }
+    .brand img {
+      width: 190px;
+      max-width: 52%;
+      height: auto;
+    }
+    .document-label {
+      color: var(--muted);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-align: right;
+      text-transform: uppercase;
+    }
+    .eyebrow {
+      display: inline-flex;
+      align-items: center;
+      gap: 8px;
+      margin-bottom: 12px;
+      padding: 7px 12px;
+      color: #fff;
+      background: var(--purple);
+      border-radius: 999px;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    h1 {
+      max-width: 760px;
+      margin: 0;
+      font-size: clamp(28px, 5.2vw, 44px);
+      line-height: 1.1;
+      letter-spacing: -0.035em;
+    }
+    .headline {
+      max-width: 680px;
+      margin: 14px 0 0;
+      color: var(--purple-dark);
+      font-size: clamp(17px, 2.6vw, 21px);
+      font-weight: 650;
+      line-height: 1.4;
+    }
+    .jump-nav {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+      margin-top: 22px;
+      padding-top: 18px;
+      border-top: 1px solid var(--line);
+    }
+    .jump-nav a {
+      display: inline-block;
+      padding: 8px 12px;
+      color: var(--purple-dark);
+      background: var(--purple-soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 13px;
+      font-weight: 700;
+      text-decoration: none;
+    }
+    .jump-nav a:hover {
+      background: #fff;
+      border-color: var(--purple);
+    }
+    main { padding: 30px 40px 44px; }
+    .details {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 1px;
+      overflow: hidden;
+      margin: 0 0 28px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--line);
+    }
+    .detail {
+      padding: 14px 16px;
+      background: var(--purple-soft);
+    }
+    .detail span {
+      display: block;
+      margin-bottom: 2px;
+      color: var(--muted);
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.07em;
+      text-transform: uppercase;
+    }
+    .detail strong { color: var(--purple-dark); }
+    .at-a-glance {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 0 0 8px;
+    }
+    .glance {
+      display: block;
+      padding: 18px 18px 16px;
+      color: inherit;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      text-decoration: none;
+      transition: border-color 0.15s ease, box-shadow 0.15s ease;
+    }
+    .glance:hover {
+      border-color: var(--purple);
+      box-shadow: 0 8px 22px rgba(85, 32, 92, 0.08);
+    }
+    .glance.warning {
+      background: var(--warning-soft);
+      border-color: var(--warning-line);
+      border-left: 5px solid var(--warning);
+    }
+    .glance.townhall {
+      background: linear-gradient(145deg, var(--purple-soft), #fff);
+      border-left: 5px solid var(--purple);
+    }
+    .glance .label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 11px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .glance.warning .label { color: var(--warning); }
+    .glance.townhall .label { color: var(--purple); }
+    .glance strong {
+      display: block;
+      color: var(--ink);
+      font-size: 18px;
+      line-height: 1.25;
+    }
+    .glance small {
+      display: block;
+      margin-top: 6px;
+      color: var(--muted);
+      font-size: 13px;
+    }
+    section {
+      margin-top: 34px;
+      scroll-margin-top: 16px;
+    }
+    section:target {
+      outline: 2px solid rgba(141, 64, 135, 0.35);
+      outline-offset: 8px;
+      border-radius: 8px;
+    }
+    h2 {
+      margin: 0 0 12px;
+      padding-bottom: 8px;
+      color: var(--purple-dark);
+      border-bottom: 1px solid var(--line);
+      font-size: 22px;
+      line-height: 1.3;
+    }
+    h3 {
+      margin: 18px 0 8px;
+      font-size: 17px;
+      color: var(--purple-dark);
+    }
+    p { margin: 0 0 13px; }
+    ul {
+      margin: 8px 0 16px;
+      padding-left: 23px;
+    }
+    li { margin-bottom: 8px; }
+    .status-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px;
+      margin: 16px 0 20px;
+    }
+    .status {
+      padding: 16px;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+    }
+    .status.done {
+      background: var(--success-soft);
+      border-color: #cce7dc;
+    }
+    .status.overdue {
+      background: var(--warning-soft);
+      border-color: var(--warning-line);
+    }
+    .status strong {
+      display: block;
+      margin-bottom: 4px;
+      font-size: 16px;
+    }
+    .status.done strong { color: var(--success); }
+    .status.overdue strong { color: var(--warning); }
+    .callout {
+      margin: 16px 0;
+      padding: 18px 20px;
+      border: 1px solid var(--line);
+      border-radius: 12px;
+      background: var(--purple-soft);
+    }
+    .callout.warn {
+      background: var(--warning-soft);
+      border-color: var(--warning-line);
+      border-left: 5px solid var(--warning);
+    }
+    .callout strong {
+      display: block;
+      margin-bottom: 4px;
+      color: var(--purple-dark);
+    }
+    .callout.warn strong { color: var(--warning); }
+    .meet-card {
+      margin: 18px 0;
+      padding: 22px;
+      color: #fff;
+      border-radius: 14px;
+      background: linear-gradient(120deg, var(--purple-dark), var(--purple));
+    }
+    .meet-card span {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+    .meet-card strong {
+      display: block;
+      margin: 4px 0 14px;
+      font-size: clamp(22px, 4vw, 28px);
+      line-height: 1.2;
+    }
+    .meet-meta {
+      margin: 0 0 16px;
+      font-size: 15px;
+      line-height: 1.5;
+      opacity: 0.95;
+    }
+    .code {
+      display: inline-block;
+      margin-top: 4px;
+      padding: 6px 10px;
+      color: var(--purple-dark);
+      background: #fff;
+      border-radius: 6px;
+      font-family: ui-monospace, "Cascadia Code", Consolas, monospace;
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.04em;
+    }
+    .button {
+      display: inline-block;
+      margin: 4px 8px 4px 0;
+      padding: 11px 16px;
+      color: #fff;
+      background: rgba(255, 255, 255, 0.18);
+      border: 1px solid rgba(255, 255, 255, 0.55);
+      border-radius: 8px;
+      font-size: 14px;
+      font-weight: 750;
+      text-decoration: none;
+    }
+    .button:hover { background: rgba(255, 255, 255, 0.28); color: #fff; }
+    .button.solid {
+      color: var(--purple-dark);
+      background: #fff;
+      border-color: #fff;
+    }
+    .button.solid:hover { color: var(--purple); }
+    .button.outline {
+      color: var(--purple-dark);
+      background: #fff;
+      border: 1px solid var(--purple);
+    }
+    .button.outline:hover { background: var(--purple-soft); color: var(--purple-dark); }
+    details.panel {
+      margin: 14px 0;
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      background: #fff;
+      overflow: hidden;
+    }
+    details.panel summary {
+      cursor: pointer;
+      list-style: none;
+      padding: 14px 16px;
+      color: var(--purple-dark);
+      font-weight: 750;
+      background: linear-gradient(145deg, #fff, var(--purple-soft));
+    }
+    details.panel summary::-webkit-details-marker { display: none; }
+    details.panel summary::after {
+      content: "+";
+      float: right;
+      color: var(--purple);
+      font-weight: 800;
+    }
+    details.panel[open] summary::after { content: "–"; }
+    details.panel .panel-body {
+      padding: 4px 16px 16px;
+      border-top: 1px solid var(--line);
+    }
+    .deadline {
+      margin-top: 28px;
+      padding: 18px 20px;
+      color: #fff;
+      background: linear-gradient(110deg, var(--purple-dark), var(--purple));
+      border-radius: 12px;
+      text-align: center;
+    }
+    .deadline span {
+      display: block;
+      font-size: 12px;
+      font-weight: 800;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+    .deadline strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 22px;
+    }
+    footer {
+      padding: 26px 40px;
+      color: var(--muted);
+      background: #faf8fa;
+      border-top: 1px solid var(--line);
+      font-size: 13px;
+    }
+    footer strong { color: var(--purple-dark); }
+    @media (max-width: 640px) {
+      header, main, footer { padding-left: 20px; padding-right: 20px; }
+      .brand { align-items: flex-start; }
+      .document-label { font-size: 10px; }
+      .details, .at-a-glance, .status-grid { grid-template-columns: 1fr; }
+    }
+    @media print {
+      html, body { background: #fff; }
+      .memo { width: 100%; box-shadow: none; }
+      .jump-nav { display: none; }
+      a { color: inherit; }
+      section, .meet-card, .callout, .status { break-inside: avoid-page; }
+    }
+  </style>
+</head>
+<body>
+  <article class="memo">
+    <div class="topbar"></div>
+    <header>
+      <div class="brand">
+        <img src="../brand/afrivate-logo-long-purple-web.png" alt="AfriVate" />
+        <div class="document-label">HR Digest<br />Week of Aug 3, 2026</div>
+      </div>
+      <div class="eyebrow">From the HR Desk</div>
+      <h1>Weekly Digest</h1>
+      <p class="headline">Happy new week. Fresh opportunities to grow, deliver, and strengthen what we’re building together at AfriVate.</p>
+      <nav class="jump-nav" aria-label="Jump to sections">
+        <a href="#glance">At a glance</a>
+        <a href="#course">Course submission</a>
+        <a href="#townhall">Townhall tonight</a>
+        <a href="#closing">Closing</a>
+      </nav>
+    </header>
+
+    <main>
+      <div class="details">
+        <div class="detail"><span>To</span><strong>All Staff</strong></div>
+        <div class="detail"><span>From</span><strong>Emmanuel Okpiaifo · CHRO</strong></div>
+        <div class="detail"><span>Date</span><strong>Monday, August 3, 2026</strong></div>
+        <div class="detail"><span>Type</span><strong>HR Digest</strong></div>
+      </div>
+
+      <section id="glance">
+        <h2>At a Glance</h2>
+        <p>Two items need your attention this week. Tap a card to jump to the full note.</p>
+        <div class="at-a-glance">
+          <a class="glance warning" href="#course">
+            <span class="label">1 · Reminder</span>
+            <strong>Monthly course submission</strong>
+            <small>Deadline was Fri, Jul 31 · Penalties to follow</small>
+          </a>
+          <a class="glance townhall" href="#townhall">
+            <span class="label">2 · Today</span>
+            <strong>Weekly Townhall</strong>
+            <small>Tonight · 8:00 PM WAT · Google Meet</small>
+          </a>
+        </div>
+      </section>
+
+      <section id="course">
+        <h2>1. Monthly Course Submission</h2>
+        <p>Follow-up on the monthly course earlier assigned to all staff. The submission deadline was <strong>Friday, July 31, 2026</strong>.</p>
+
+        <div class="status-grid">
+          <div class="status done">
+            <strong>Already submitted</strong>
+            Thank you. We appreciate your commitment to continuous learning.
+          </div>
+          <div class="status overdue">
+            <strong>Not yet submitted</strong>
+            The deadline has passed. Penalties for non-submission will be communicated shortly.
+          </div>
+        </div>
+
+        <div class="callout warn">
+          <strong>Going forward</strong>
+          Please prioritize assigned trainings promptly. Late submissions affect compliance tracking and team learning cadence.
+        </div>
+
+        <details class="panel">
+          <summary>What to do if you still need to submit</summary>
+          <div class="panel-body">
+            <ul>
+              <li>Complete any outstanding course modules and gather your evidence (e.g. Learner Record / report) as originally assigned.</li>
+              <li>Submit through the channel previously communicated for this assignment.</li>
+              <li>If you have a genuine blocker, contact HR before further action is taken.</li>
+            </ul>
+            <a class="button outline" href="mailto:afrivatehr@gmail.com?subject=Course%20Submission%20Follow-up">Email HR</a>
+          </div>
+        </details>
+      </section>
+
+      <section id="townhall">
+        <h2>2. Weekly Townhall · Tonight</h2>
+        <p>Our Weekly Townhall holds today, <strong>Monday, August 3, 2026</strong>, at <strong>8:00 PM (WAT)</strong>. Attendance matters — we’ll share key updates and align as a team. Please be available and logged in promptly.</p>
+
+        <div class="meet-card">
+          <span>Join on Google Meet</span>
+          <strong>Weekly Townhall</strong>
+          <div class="meet-meta">
+            Monday, August 3, 2026 · 8:00 PM WAT<br />
+            Meeting code: <span class="code">wmh-kvcs-bci</span>
+          </div>
+          <a class="button solid" href="https://meet.google.com/wmh-kvcs-bci" target="_blank" rel="noopener noreferrer">Join Meeting</a>
+          <a class="button" href="https://meet.google.com/wmh-kvcs-bci" target="_blank" rel="noopener noreferrer">Open Meet Link</a>
+        </div>
+
+        <details class="panel">
+          <summary>How to join if the link doesn’t open</summary>
+          <div class="panel-body">
+            <ol style="margin: 8px 0 0; padding-left: 23px;">
+              <li>Open <a href="https://meet.google.com" target="_blank" rel="noopener noreferrer">Google Meet</a>.</li>
+              <li>Enter code <strong>wmh-kvcs-bci</strong>.</li>
+              <li>Join a few minutes early so we can start on time.</li>
+            </ol>
+          </div>
+        </details>
+      </section>
+
+      <div class="deadline">
+        <span>Tonight’s Focus</span>
+        <strong>Townhall · 8:00 PM WAT</strong>
+        Be present. Stay aligned. Make it a strong week.
+      </div>
+
+      <section id="closing">
+        <h2>Closing</h2>
+        <p>Thank you for your continued cooperation and commitment to excellence. Wishing you a productive and successful week ahead.</p>
+        <p>
+          Warm regards,<br />
+          <strong>Emmanuel Okpiaifo</strong><br />
+          Chief Human Resources Officer (CHRO)<br />
+          AfriVate
+        </p>
+      </section>
+    </main>
+
+    <footer>
+      <strong>People &amp; Culture</strong><br />
+      AfriVate Technologies Ltd · From the HR Desk · afrivatehr@gmail.com
+    </footer>
+  </article>
+</body>
+</html>

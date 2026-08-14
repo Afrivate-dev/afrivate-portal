@@ -13,8 +13,9 @@ import {
   Settings,
   type LucideIcon,
 } from 'lucide-react'
-import type { Role } from '@/types'
+import type { Role, User } from '@/types'
 import { nav as navLabels } from '@/content/copy'
+import { isSuspended } from '@/lib/dutyStatus'
 
 export interface NavItem {
   to: string
@@ -33,8 +34,16 @@ export const navItems: NavItem[] = [
   { to: '/checkin', label: navLabels.weeklyUpdate, icon: CalendarCheck },
   { to: '/onboarding', label: navLabels.gettingStarted, icon: PlayCircle },
   { to: '/notes', label: navLabels.notes, icon: StickyNote },
-  { to: '/announcements', label: navLabels.updates, icon: Megaphone },
-  { to: '/documents', label: navLabels.resources, icon: FolderOpen },
+  { to: '/announcements', label: navLabels.updates, icon: Megaphone, showInBottomBar: true },
+  { to: '/documents', label: navLabels.resources, icon: FolderOpen, showInBottomBar: true },
   { to: '/events', label: navLabels.whatsOn, icon: Calendar },
   { to: '/admin', label: navLabels.workspaceAdmin, icon: Settings, roles: ['hr', 'admin'] },
 ]
+
+export function visibleNavItems(user: User | null, role: Role | null): NavItem[] {
+  const items = navItems.filter((i) => !i.roles || (role && i.roles.includes(role)))
+  if (isSuspended(user)) {
+    return items.filter((i) => i.to === '/announcements' || i.to === '/documents')
+  }
+  return items
+}

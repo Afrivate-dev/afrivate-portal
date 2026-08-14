@@ -12,32 +12,12 @@ export interface AvaLink {
   path: string
 }
 
-export type AvaSuggestedAction =
-  | {
-      type: 'navigate'
-      label: string
-      path: string
-    }
-  | {
-      type: 'draft_leave'
-      label: string
-      payload: {
-        leaveType: 'annual' | 'sick' | 'emergency'
-        startDate: string
-        endDate: string
-        reason: string
-      }
-    }
-  | {
-      type: 'draft_checkin'
-      label: string
-      payload: {
-        completed: string
-        nextWeek: string
-        blockers?: string
-        hoursWorked: number
-      }
-    }
+/** AVA may only suggest navigation — never create/update Portal records. */
+export type AvaSuggestedAction = {
+  type: 'navigate'
+  label: string
+  path: string
+}
 
 export interface AvaResponse {
   reply: string

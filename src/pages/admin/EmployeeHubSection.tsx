@@ -27,9 +27,18 @@ import {
   DISCIPLINE_TRIGGER_LABELS,
   emptyEmployeeProfile,
 } from '@/lib/hrPeopleOps'
-import { notifySuccess } from '@/lib/notify'
+import { notifySuccess, notifyError } from '@/lib/notify'
 import { isAdmin, isHR, isLead } from '@/utils/helpers'
 import { managedReportIds } from '@/utils/hrMetrics'
+import {
+  DUTY_STATUS_OPTIONS,
+  dutyStatusConfirmCopy,
+  dutyStatusOf,
+  effectiveDutyStatus,
+} from '@/lib/dutyStatus'
+import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
+import { useConfirm } from '@/context/useConfirm'
+import type { DutyStatus, User } from '@/types'
 import type {
   DisciplineCase,
   DisciplineStep,
@@ -117,7 +126,8 @@ export function EmployeeHubSection() {
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-ink)]">Employee information hub</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            HR/Admin system of record for profiles, discipline, PIPs, appraisals, and offboarding.
+            HR/Admin system of record for profiles, PIP / suspension, discipline, appraisals, and
+            offboarding.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
@@ -156,13 +166,14 @@ export function EmployeeHubSection() {
             </div>
           </div>
           <div className="overflow-x-auto">
-            <table className="w-full min-w-[720px] text-left text-sm">
+            <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-line)] text-[var(--color-muted)]">
                   <th className="py-2 pr-3 font-medium">Name</th>
                   <th className="py-2 pr-3 font-medium">Role</th>
                   <th className="py-2 pr-3 font-medium">Engagement</th>
                   <th className="py-2 pr-3 font-medium">Status</th>
+                  <th className="py-2 pr-3 font-medium">Duty</th>
                   <th className="py-2 pr-3 font-medium">Complete</th>
                   <th className="py-2 font-medium">Actions</th>
                 </tr>
@@ -177,6 +188,15 @@ export function EmployeeHubSection() {
                     <td className="py-2 pr-3">{u.jobTitle || u.role}</td>
                     <td className="py-2 pr-3">{p.engagementType}</td>
                     <td className="py-2 pr-3">{p.employmentStatus}</td>
+                    <td className="py-2 pr-3">
+                      <DutyStatusBadge
+                        viewer={user}
+                        subject={u}
+                        hasActivePip={hr.performanceImprovementPlans.some(
+                          (pip) => pip.subjectUserId === u.id && !pip.outcome,
+                        )}
+                      />
+                    </td>
                     <td className="py-2 pr-3">{p.profileCompleteness}%</td>
                     <td className="py-2">
                       <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id)}>
@@ -278,6 +298,50 @@ function ManagerRecommendHint() {
   return null
 }
 
+function useDutyStatusActions() {
+  const { user } = useAuth()
+  const { users, updateUser } = useData()
+  const hr = useHr()
+  const confirm = useConfirm()
+
+  const setDutyStatus = async (subject: User, next: DutyStatus) => {
+    if (next === dutyStatusOf(subject)) return false
+    if (user?.id === subject.id && next === 'suspended') {
+      notifyError('You cannot suspend your own account while signed in.')
+      return false
+    }
+    const copy = dutyStatusConfirmCopy(subject.name, next)
+    const ok = await confirm({
+      title: copy.title,
+      message: copy.message,
+      confirmLabel: copy.confirmLabel,
+      destructive: copy.destructive,
+    })
+    if (!ok) return false
+    updateUser(subject.id, { dutyStatus: next })
+    notifySuccess(`${subject.name}: ${copy.confirmLabel}`)
+    return true
+  }
+
+  const markOnPip = (subjectUserId: string) => {
+    const subject = users.find((u) => u.id === subjectUserId)
+    if (!subject) return
+    if (dutyStatusOf(subject) === 'suspended' || dutyStatusOf(subject) === 'pip') return
+    updateUser(subjectUserId, { dutyStatus: 'pip' })
+  }
+
+  const clearPipFlag = (subjectUserId: string, closingPipId: string) => {
+    const subject = users.find((u) => u.id === subjectUserId)
+    if (!subject || dutyStatusOf(subject) !== 'pip') return
+    const otherActive = hr.performanceImprovementPlans.some(
+      (p) => p.id !== closingPipId && p.subjectUserId === subjectUserId && !p.outcome,
+    )
+    if (!otherActive) updateUser(subjectUserId, { dutyStatus: 'none' })
+  }
+
+  return { setDutyStatus, markOnPip, clearPipFlag }
+}
+
 function DossierModal({
   userId,
   onClose,
@@ -294,7 +358,9 @@ function DossierModal({
   actorId: string
 }) {
   const { users } = useData()
+  const { user: viewer } = useAuth()
   const hr = useHr()
+  const { setDutyStatus } = useDutyStatusActions()
   const u = users.find((x) => x.id === userId)
   const profile = hr.ensureEmployeeProfile(userId)
   const [draft, setDraft] = useStateProfile(profile)
@@ -305,6 +371,11 @@ function DossierModal({
     hr.saveEmployeeProfileHr({ ...draft, userId })
     notifySuccess('Employee profile saved')
   }
+
+  const hasActivePip = hr.performanceImprovementPlans.some(
+    (p) => p.subjectUserId === userId && !p.outcome,
+  )
+  const shownDuty = effectiveDutyStatus(u, hasActivePip)
 
   return (
     <Modal open title={`Dossier — ${u.name}`} onClose={onClose} size="xl">
@@ -334,6 +405,25 @@ function DossierModal({
             />
             PDF includes discipline
           </label>
+        </div>
+
+        <div className="space-y-2 rounded-lg border border-warning/30 bg-warning/5 p-3">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <div>
+              <p className="text-sm font-medium">PIP / suspension</p>
+              <p className="text-xs text-[var(--color-muted)]">
+                Visible to team leads, HR, and admin. Suspension lets them sign in and read Updates
+                and Resources only.
+              </p>
+            </div>
+            <DutyStatusBadge viewer={viewer} subject={u} hasActivePip={hasActivePip} />
+          </div>
+          <Select
+            label="Duty status"
+            value={shownDuty === 'pip' && dutyStatusOf(u) === 'none' ? 'pip' : dutyStatusOf(u)}
+            onChange={(e) => void setDutyStatus(u, e.target.value as DutyStatus)}
+            options={DUTY_STATUS_OPTIONS}
+          />
         </div>
 
         <div className="grid gap-3 sm:grid-cols-2">
@@ -495,6 +585,7 @@ function NewDisciplineForm({
 }) {
   const { users } = useData()
   const hr = useHr()
+  const { markOnPip } = useDutyStatusActions()
   const subject = users.find((u) => u.id === subjectUserId)
   const [step, setStep] = useState<DisciplineStep>('coaching_verbal')
   const [severity, setSeverity] = useState<DisciplineCase['severity']>('medium')
@@ -527,7 +618,10 @@ function NewDisciplineForm({
         recommendedById: actorId,
         acknowledgementRequired: true,
       })
-      if (step === 'pip') hr.createPipForCase(id)
+      if (step === 'pip') {
+        hr.createPipForCase(id)
+        markOnPip(subjectUserId)
+      }
       notifySuccess('Discipline case submitted for HR')
     } else {
       const id = hr.saveDisciplineCase({
@@ -545,7 +639,10 @@ function NewDisciplineForm({
         acknowledgementRequired: true,
         deliveredAt: new Date().toISOString(),
       })
-      if (step === 'pip') hr.createPipForCase(id)
+      if (step === 'pip') {
+        hr.createPipForCase(id)
+        markOnPip(subjectUserId)
+      }
       hr.approveDisciplineCase(id, actorId)
       notifySuccess('Discipline case activated')
     }
@@ -633,6 +730,7 @@ function DisciplineQueue({
 }) {
   const hr = useHr()
   const { users } = useData()
+  const { markOnPip, clearPipFlag } = useDutyStatusActions()
   const pending = hr.disciplineCases.filter((c) => c.status === 'pending_hr')
   const activePips = hr.performanceImprovementPlans.filter((p) => !p.outcome)
 
@@ -667,6 +765,7 @@ function DisciplineQueue({
                     onClick={() => {
                       hr.approveDisciplineCase(c.id, currentUserId)
                       if (c.step === 'pip' && !c.pipId) hr.createPipForCase(c.id)
+                      if (c.step === 'pip') markOnPip(c.subjectUserId)
                       notifySuccess('Case approved')
                     }}
                   >
@@ -744,6 +843,7 @@ function DisciplineQueue({
                         disabled={outcome === 'terminated_recommendation' && !canTerminate}
                         onClick={() => {
                           hr.closePip(pip.id, outcome, currentUserId)
+                          clearPipFlag(pip.subjectUserId, pip.id)
                           notifySuccess(`PIP closed: ${outcome}`)
                         }}
                       >

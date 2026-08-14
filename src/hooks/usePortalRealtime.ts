@@ -41,6 +41,7 @@ export const PORTAL_DATA_LIVE_TABLES = [
   'portal_recognition_posts',
   'portal_recognition_comments',
   'portal_onboarding_progress',
+  'profiles',
 ] as const
 
 export const PORTAL_HR_LIVE_TABLES = [

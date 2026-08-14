@@ -48,7 +48,7 @@ AVA is **not** a replacement for Slack, Gmail, or formal HR decisions. She is a 
 
 1. **Portal remains the system of record.** AVA explains and guides; she does not become an unofficial approval channel.
 2. **Least privilege.** AVA sees only what the current user is already allowed to see.
-3. **No silent writes.** Any create/update action requires explicit user confirmation.
+3. **Navigate only — never write.** AVA helps with actions by taking the user to the correct Portal page. She never creates, submits, approves, rejects, edits, or deletes any record for anyone.
 4. **Cite the source.** Policy answers should reference the relevant document (e.g. Leave Policy, SWP, User Guide).
 5. **Fail closed.** If AVA is unsure or lacks permission, she says so and points to HR / the correct Portal page.
 6. **Professional tone.** Clear, formal, AfriVate-branded language — warm but not casual slang.
@@ -68,7 +68,7 @@ AVA is **not** a replacement for Slack, Gmail, or formal HR decisions. She is a 
 
 Example first message:
 
-> Hello — I’m AVA, the AfriVate Virtual Assistant. I can help you use Team Space, explain policies, and guide you through leave, learning, tasks, and more. What do you need?
+> Hello — I am AVA, the AfriVate Virtual Assistant. I can explain how Team Space works and take you to the page where you complete an action. I never submit leave, check-ins, learning, or any other record for anyone. What do you need?
 
 ---
 
@@ -120,6 +120,8 @@ Browser (AVA panel)
 - Reveal other employees’ leave, appraisals, discipline, grievances, salaries, or private notes
 - Invent policy that contradicts SWP / Leave Policy / Portal User Guide
 - Approve leave, finalise appraisals, or close PIPs on her own
+- Create, submit, reject, edit, or delete any Portal record for anyone (including drafts that write on confirm)
+- Claim that she completed an action the user must perform themselves
 
 ### 5.2 Permission model
 
@@ -157,9 +159,8 @@ AVA can:
 - Point to the correct route (`/people/leave`, `/tasks`, etc.)
 - Summarise sections of the Portal User Guide and key policies
 
-AVA cannot yet:
-- Read live personal records
-- Create or edit anything
+AVA never:
+- Creates or edits Portal records (navigate-only action help)
 
 **Knowledge sources (bundled/indexed):**
 - `docs/PORTAL_USER_GUIDE.md`
@@ -174,22 +175,22 @@ AVA can:
 - Summarise personal status (leave pending, open tasks, learning due, survey open)
 - Suggest next steps with deep links
 
-Still confirmation-gated for any write.
+AVA never writes Portal data — she only deep-links the user to complete work themselves.
 
-### Phase 3 — Confirmed actions (optional tools)
-**Goal:** Guided actions with explicit Confirm.
+### Phase 3 — Guided navigation (action help)
+**Goal:** Help users complete work by taking them to the right screen.
 
 Examples:
-- Draft leave request → user reviews → Confirm submits via existing `createLeave` path
-- Draft weekly check-in outline → user edits → Submit
-- Open compose memo for leads (prefill only)
+- “Request leave” → explain steps + **Go to Time off** (`/people/leave`)
+- “Submit weekly update” → **Go to Weekly update** (`/checkin`)
+- “Upload Alison certificate” → **Go to Learning** (`/people/learning`)
 
-Each tool maps 1:1 to existing Portal functions; AVA never invents a second write path.
+AVA must not draft or submit leave, check-ins, learning, approvals, or any other record.
 
 ### Phase 4 — HR copilot (HR/Admin only)
-**Goal:** Help HR navigate Employee Hub, explain PIP ladders, draft memo outlines.
+**Goal:** Help HR navigate Employee Hub, explain PIP ladders, and point to the correct Admin screens.
 
-Strictly role-gated. Still no autonomous discipline activation without human confirmation.
+Strictly role-gated. AVA never activates discipline, PIPs, or appraisals — she only navigates.
 
 ---
 
@@ -209,7 +210,8 @@ Strictly role-gated. Still no autonomous discipline activation without human con
   - “Show my open tasks” *(Phase 2)*
 - Message list (user / AVA)
 - Composer with Send
-- Footer note: “AVA guides you. Portal remains the system of record.”
+- Footer note: “AVA guides you to the right page. You complete every action in the Portal.”
+- Optional stuck nudge: after dwell/idle on a page, a speech bubble offers “Ask AVA”
 
 ### 7.3 Empty / error / rate-limit states
 - Offline / function down: clear apology + link to User Guide PDF / Resources
@@ -291,10 +293,10 @@ When Gemini key is absent:
 2. Deep links in answers
 3. Audit log of intents
 
-### Phase 3 — Confirmed actions
-1. Tool registry (leave draft, check-in draft)
-2. Confirm UI before write
-3. HR-only expanded tools later
+### Phase 3 — Guided navigation
+1. Navigate-only suggested actions (`Go to Time off`, etc.)
+2. No write/draft/submit tools
+3. HR answers still navigate-only to Admin screens
 
 ---
 

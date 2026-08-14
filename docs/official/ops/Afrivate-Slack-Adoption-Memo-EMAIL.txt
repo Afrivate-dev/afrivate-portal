@@ -1,0 +1,48 @@
+SUBJECT: AfriVate Slack is live. Action needed this week
+
+MEMO: AFRI-MEMO-SLACK-01
+TO: All AfriVate Team Members
+FROM: People & Culture / Head of Human Resources
+CC: Chief Executive Officer
+DATE: 11 August 2026
+RE: Official adoption of AfriVate Slack for day-to-day work communication
+STATUS: Action required
+
+Team,
+
+AfriVate has launched our official Slack workspace for day-to-day work conversation. This memo confirms the change, what we expect from you, and what you should do this week.
+
+Slack is now the approved place for questions, updates, coordination, clarification, and follow-up during work. It does not replace the AfriVate Portal.
+
+WHAT EACH TOOL IS FOR
+• Slack: official work chat
+• Portal (https://portal.afrivate.org): official record for leave, tasks, weekly updates, learning, policy acknowledgements, OKRs, surveys, and people processes
+• WhatsApp: informal or emergency contact only. Not for official work instructions, approvals, or policy matters
+
+Remember: Slack is for talking. Portal is for recording. WhatsApp is not for official work.
+
+WHAT YOU MUST DO THIS WEEK
+1. Join or open the AfriVate Slack workspace using your invite.
+2. Set your real name and profile photo.
+3. Turn on notifications for direct messages and @mentions.
+4. Watch the welcome video pinned in #announcements.
+5. Read the Slack House Rules pinned in #announcements.
+6. Say hello in your team channel and message your Team Lead that you are on Slack.
+7. Keep using the Portal for leave, tasks, weekly updates, learning, and policy acknowledgements.
+
+AVAILABILITY
+Official work days remain Monday to Thursday (unless your approved team schedule says otherwise). During your team’s core hours, acknowledge work messages on Slack within four (4) hours.
+
+CONDUCT
+AfriVate standards still apply on Slack: professionalism, respect, honesty about progress and blockers, confidentiality, and proper escalation. Sensitive concerns go through Portal > People > Growth > Speak up, or contact People & Culture. Please do not turn sensitive issues into a public channel argument.
+
+Slack cannot create, change, or cancel company policy. Official policies and acknowledgements remain in Portal > Resources.
+
+SUPPORT
+If you have not received a Slack invite, or you cannot access the workspace, email afrivatehr@gmail.com or message afrivatehr on Slack once you are in.
+
+Thank you for helping us keep communication clear, professional, and in the right place.
+
+Emmanuel Okpiaifo,
+Head of Human Resources,
+Afrivate

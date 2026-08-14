@@ -7,24 +7,28 @@ import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScre
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { PageLoadFallback } from '@/components/shared/PageLoadFallback'
 import { AnimatedPage } from '@/components/shared/AnimatedPage'
+import { SuspendedGuard } from '@/components/routing/SuspendedGuard'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
 import { MobileNav } from '@/components/layout/MobileNav'
 import { Drawer } from '@/components/layout/Drawer'
 import { InstallAppPrompt } from '@/components/shared/InstallAppPrompt'
 import { AvaFab } from '@/components/ava/AvaFab'
+import { dutyStatusOf, isSuspended } from '@/lib/dutyStatus'
 
 function AppShell({
   drawerOpen,
   onOpenDrawer,
   onCloseDrawer,
   profileWarning,
+  dutyBanner,
   children,
 }: {
   drawerOpen: boolean
   onOpenDrawer: () => void
   onCloseDrawer: () => void
   profileWarning?: string | null
+  dutyBanner?: React.ReactNode
   children: React.ReactNode
 }) {
   return (
@@ -47,6 +51,7 @@ function AppShell({
             </button>
           </div>
         ) : null}
+        {dutyBanner}
         <main className="min-w-0 flex-1 overflow-x-clip px-3 py-4 pb-[calc(4.5rem+env(safe-area-inset-bottom))] sm:px-5 sm:py-6 md:px-6 lg:px-8 lg:pb-8">
           <div className="mx-auto w-full max-w-7xl min-w-0">{children}</div>
         </main>
@@ -71,6 +76,9 @@ export function AppLayout() {
     const patch: Partial<typeof user> = {}
     if (dataUser.role !== user.role) patch.role = dataUser.role
     if (dataUser.active !== user.active) patch.active = dataUser.active
+    if ((dataUser.dutyStatus ?? 'none') !== (user.dutyStatus ?? 'none')) {
+      patch.dutyStatus = dataUser.dutyStatus ?? 'none'
+    }
     if (Object.keys(patch).length > 0) reconcileUser(patch)
   }, [dataStatus, users, user, reconcileUser])
 
@@ -112,6 +120,25 @@ export function AppLayout() {
         : 'Some profile details could not be loaded. You can still use the portal.'
       : null
 
+  const dutyBanner =
+    user && isSuspended(user) ? (
+      <div
+        role="status"
+        className="border-b border-danger/30 bg-danger/10 px-4 py-2.5 text-center text-sm text-danger"
+      >
+        Your account is on <strong>suspension</strong>. You can read Updates and Resources, but
+        other portal actions are paused until HR lifts this.
+      </div>
+    ) : user && dutyStatusOf(user) === 'pip' ? (
+      <div
+        role="status"
+        className="border-b border-warning/30 bg-warning/10 px-4 py-2.5 text-center text-sm text-warning"
+      >
+        You are on a <strong>Performance Improvement Plan</strong>. Your lead, HR, and admin can
+        see this. Keep using the portal as usual.
+      </div>
+    ) : null
+
   if (profileLoadFailed && !user) {
     return (
       <ProfileLoadErrorScreen
@@ -143,6 +170,7 @@ export function AppLayout() {
         onOpenDrawer={() => setDrawerOpen(true)}
         onCloseDrawer={() => setDrawerOpen(false)}
         profileWarning={profileWarning}
+        dutyBanner={dutyBanner}
       >
         <ScreenLoader message="Loading your portal…" className="min-h-[50vh]" />
       </AppShell>
@@ -156,6 +184,7 @@ export function AppLayout() {
         onOpenDrawer={() => setDrawerOpen(true)}
         onCloseDrawer={() => setDrawerOpen(false)}
         profileWarning={profileWarning}
+        dutyBanner={dutyBanner}
       >
         <div className="flex min-h-[50vh] flex-col items-center justify-center gap-4 text-center">
           <p className="text-sm text-fg">We couldn&apos;t load your data right now.</p>
@@ -177,10 +206,14 @@ export function AppLayout() {
       drawerOpen={drawerOpen}
       onOpenDrawer={() => setDrawerOpen(true)}
       onCloseDrawer={() => setDrawerOpen(false)}
+      profileWarning={profileWarning}
+      dutyBanner={dutyBanner}
     >
       <Suspense fallback={<PageLoadFallback />}>
         <AnimatedPage>
-          <Outlet />
+          <SuspendedGuard>
+            <Outlet />
+          </SuspendedGuard>
         </AnimatedPage>
       </Suspense>
     </AppShell>

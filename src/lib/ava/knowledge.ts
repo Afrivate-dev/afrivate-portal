@@ -15,16 +15,15 @@ export const AVA_KNOWLEDGE = `
 - WhatsApp = informal or emergency contact only. Never for leave, policy acknowledgements, appraisals, or formal People & Culture processes.
 - A Slack message does not replace a required Portal submission, approval, acknowledgement, or update.
 
-## Roles
-- Team member: core employee features.
-- Assistant lead: plus leave approval for managed people and team check-ins.
-- Team lead: plus memos and calendar events.
-- People & Culture (HR): Admin area, org leave, HR dashboard, Recruitment, Employee hub.
-- Administrator: all HR capabilities plus role changes, departments, and teams.
+## Guides
+- Staff: AFRI-PUG-02 (what team members can see and do). No Admin.
+- Team leads / assistant leads: AFRI-PUG-03. Extra: leave approval, team check-ins, 1:1 mark complete, IDP review, team OKRs, PIP/suspension badges, management-only files. Team lead only: publish memos, add calendar events. No Admin.
+- HR / Admin: AFRI-PUG-01 (full guide).
+
 
 ## Main navigation
 - Home (/) — overview and action banners
-- My work (/tasks) — tasks
+- My work (/tasks) — tasks (board / list / week)
 - Inbox (/inbox) — notifications
 - People (/people) — Time off, Shout-outs, Learning, Surveys, Growth, My info, Directory
 - Search (/search)
@@ -35,6 +34,8 @@ export const AVA_KNOWLEDGE = `
 - Resources (/documents)
 - Calendar (/events)
 - Admin (/admin) — HR and Admin only
+- Phone bottom bar: Home, My work, Inbox, People, More.
+- Top bar: dark/light mode, search, availability (Available / Away / Busy / Focusing), inbox bell, profile menu (My profile, Account & security, Sign out).
 
 ## How to request leave
 1. Open People → Time off (/people/leave).
@@ -65,6 +66,7 @@ Formal appraisals: 60% output / deliverables and 40% behavioural competencies. R
 
 ## Progressive discipline (HR)
 Coaching/verbal → written warning → PIP → restricted duties → termination case (fair review). Managed in Admin → Employees. Leads may recommend; HR activates/approves per policy.
+HR can place someone on PIP or suspension from Admin → Employees (dossier) or Admin → Users. Team leads, HR, and admin see the status on directory and people views. On PIP: full portal access remains; a banner is shown. Suspended staff can still sign in and read Memos and Resources, and manage Account & security — they cannot take other portal actions until HR lifts the suspension.
 
 ## AVA boundaries
 - AVA guides users and explains policy. AVA does not approve leave, finalise appraisals, or replace People & Culture decisions.
@@ -77,5 +79,5 @@ export const AVA_SUGGESTED_PROMPTS = [
   'Where do I submit my Alison certificate?',
   'What is the four-hour Slack rule?',
   'What are my open tasks?',
-  'Help me draft a weekly check-in',
+  'How do I submit my weekly check-in?',
 ] as const

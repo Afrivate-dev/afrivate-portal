@@ -19,6 +19,8 @@ import { Badge } from '@/components/ui/Badge'
 import { isHR, isLead } from '@/utils/helpers'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { managesPeople } from '@/lib/orgStructure'
+import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
+import { canViewDutyStatus, effectiveDutyStatus } from '@/lib/dutyStatus'
 
 const quickLinks = [
   { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request and track leave' },
@@ -31,9 +33,7 @@ const quickLinks = [
 export function PeopleOverviewPage() {
   const { user } = useAuth()
   const { announcements, leaveRequests, users, teams, departments } = useData()
-  const {
-    getMetrics,
-  } = useHr()
+  const { getMetrics, performanceImprovementPlans } = useHr()
 
   if (!user) return null
 
@@ -42,6 +42,17 @@ export function PeopleOverviewPage() {
   const directReports = teamScope ? managedReportIds(user, users, teams, departments).size : 0
   const digestMemos = announcements.filter((a) => a.memoCategory === 'digest').slice(0, 3)
   const myLeavePending = leaveRequests.filter((l) => l.userId === user.id && l.status === 'pending').length
+  const dutyPeople = canViewDutyStatus(user)
+    ? users
+        .filter((u) => u.active)
+        .filter((u) => {
+          const hasPip = performanceImprovementPlans.some(
+            (p) => p.subjectUserId === u.id && !p.outcome,
+          )
+          return effectiveDutyStatus(u, hasPip) !== 'none'
+        })
+        .sort((a, b) => a.name.localeCompare(b.name))
+    : []
 
   return (
     <div className="space-y-6">
@@ -51,6 +62,35 @@ export function PeopleOverviewPage() {
       />
 
       <PeopleActionBanners />
+
+      {dutyPeople.length > 0 ? (
+        <Card padding="md">
+          <h2 className="text-sm font-semibold text-fg">PIP &amp; suspension</h2>
+          <p className="mt-1 text-xs text-muted">
+            Visible to team leads, HR, and admin. Suspended people can read Updates and Resources
+            only.
+          </p>
+          <ul className="mt-3 divide-y divide-border">
+            {dutyPeople.map((u) => (
+              <li key={u.id} className="flex flex-wrap items-center justify-between gap-2 py-2">
+                <div>
+                  <p className="text-sm font-medium text-fg">{u.name}</p>
+                  <p className="text-xs text-muted">
+                    {u.jobTitle || u.role} · {u.department}
+                  </p>
+                </div>
+                <DutyStatusBadge
+                  viewer={user}
+                  subject={u}
+                  hasActivePip={performanceImprovementPlans.some(
+                    (p) => p.subjectUserId === u.id && !p.outcome,
+                  )}
+                />
+              </li>
+            ))}
+          </ul>
+        </Card>
+      ) : null}
 
       <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
         {quickLinks.map((link) => (

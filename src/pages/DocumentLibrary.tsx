@@ -31,6 +31,7 @@ import { Modal } from '@/components/ui/Modal'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { TabBar } from '@/components/ui/TabBar'
 import { cn, fmtDate, isHR, isLead } from '@/utils/helpers'
+import { isSuspended } from '@/lib/dutyStatus'
 import { managesPeople } from '@/lib/orgStructure'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
@@ -139,7 +140,7 @@ export function DocumentLibraryPage() {
     }
   }, [searchParams, documents])
 
-  const canManage = isHR(user)
+  const canManage = isHR(user) && !isSuspended(user)
 
   const [category, setCategory] = useState<CategoryFilter>('all')
   const [search, setSearch] = useState('')
@@ -462,7 +463,7 @@ export function DocumentLibraryPage() {
                   >
                     {d.filePath ? 'Preview' : 'View details'}
                   </button>
-                  {d.requiresAcknowledgment && user ? (
+                  {d.requiresAcknowledgment && user && !isSuspended(user) ? (
                     documentAcknowledgments.some((a) => a.documentId === d.id && a.userId === user.id) ? (
                       <p className="mt-2 text-xs font-medium text-success">Policy acknowledged ✓</p>
                     ) : (

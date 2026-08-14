@@ -118,6 +118,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
         jobTitle: '',
         joinedAt: new Date().toISOString(),
         active: true,
+        dutyStatus: 'none',
         password,
       }
       setUsers((prev) => [...prev, newUser])

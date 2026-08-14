@@ -1,5 +1,8 @@
 export type Role = 'staff' | 'assistant_lead' | 'team_lead' | 'hr' | 'admin'
 
+/** HR-set operational flag. Visible to leads/HR/admin. Suspension is read-only portal access. */
+export type DutyStatus = 'none' | 'pip' | 'suspended'
+
 export interface Department {
   id: string
   name: string
@@ -43,6 +46,8 @@ export interface User {
   active: boolean
   /** Set when HR/admin approves first-time portal access (null = never approved). */
   approvedAt?: string
+  /** PIP or suspension. Omit or `none` = normal duty. */
+  dutyStatus?: DutyStatus
 }
 
 export type TaskStatus = 'todo' | 'in_progress' | 'done' | 'blocked'

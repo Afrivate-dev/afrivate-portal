@@ -6,6 +6,7 @@ import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { isSurveyOpen } from '@/utils/hrSurvey'
 import { hasBlockingLearningSubmission } from '@/utils/learningSubmission'
+import { isSuspended } from '@/lib/dutyStatus'
 
 /** Action banners for open surveys, learning due, and policy acknowledgments. */
 export function PeopleActionBanners() {
@@ -38,6 +39,7 @@ export function PeopleActionBanners() {
   }, [learningAssignments, learningSubmissions, user])
 
   if (!user) return null
+  if (isSuspended(user)) return null
 
   const pendingAcks = documents.filter(
     (d) =>
