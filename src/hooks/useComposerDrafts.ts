@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo } from 'react'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
+  COMPOSER_DRAFTS_CHANGED_EVENT,
   COMPOSER_DRAFTS_KEY,
   EMPTY_COMPOSER_DRAFTS,
   draftsOfKind,
@@ -49,8 +50,15 @@ export function useComposerDrafts() {
         /* ignore */
       }
     }
+    const onLocal = () => {
+      setStore((prev) => mergeComposerStores(readComposerDraftsStore(), prev))
+    }
     window.addEventListener('storage', onStorage)
-    return () => window.removeEventListener('storage', onStorage)
+    window.addEventListener(COMPOSER_DRAFTS_CHANGED_EVENT, onLocal)
+    return () => {
+      window.removeEventListener('storage', onStorage)
+      window.removeEventListener(COMPOSER_DRAFTS_CHANGED_EVENT, onLocal)
+    }
   }, [setStore])
 
   const saveDraft = useCallback(

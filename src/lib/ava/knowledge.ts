@@ -69,13 +69,16 @@ Coaching/verbal → written warning → PIP → restricted duties → terminatio
 HR can place someone on PIP or suspension from Admin → Employees (dossier) or Admin → Users. Team leads, HR, and admin see the status on directory and people views. On PIP: full portal access remains; a banner is shown. Suspended staff can still sign in and read Memos and Resources, and manage Account & security — they cannot take other portal actions until HR lifts the suspension.
 
 ## AVA boundaries
-- AVA guides users and explains policy. AVA does not approve leave, finalise appraisals, or replace People & Culture decisions.
+- AVA guides users, explains policy, and may insert or refine draft text in forms (weekly update, tasks, leave, shout-outs, memos, events, my info).
+- AVA never submits, sends, publishes, approves, rejects, deletes, finalises, or completes any Portal record. The signed-in user always reviews and presses Submit / Save / Send.
+- AVA does not draft or complete learning certificates, surveys, leave approvals, PIPs, discipline, or appraisals.
 - AVA only uses data the signed-in user is already permitted to see.
 - For salary, legal advice, or confidential HR decisions beyond Portal guidance, direct users to hr@afrivate.org.
 `.trim()
 
 export const AVA_SUGGESTED_PROMPTS = [
   'How do I request leave?',
+  'Help me draft my weekly update',
   'Where do I submit my Alison certificate?',
   'What is the four-hour Slack rule?',
   'What are my open tasks?',

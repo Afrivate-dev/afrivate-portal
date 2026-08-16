@@ -42,6 +42,7 @@ import { pages } from '@/content/copy'
 import { notifySuccess } from '@/lib/notify'
 import { isEventPayload, type ComposerDraft, type EventDraftPayload } from '@/lib/composerDrafts'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import {
   externalEventToFc,
@@ -200,6 +201,35 @@ export function EventsCalendarPage() {
 
   const pickedWorkspace = picker?.kind === 'workspace' ? events.find((e) => e.id === picker.id) ?? null : null
   const pickedExternal = picker?.kind === 'external' ? picker.ev : null
+
+  useAvaPageDraft(
+    'event',
+    {
+      title: draft.title,
+      description: draft.description,
+      date: draft.date,
+      startTime: draft.startTime,
+      endTime: draft.endTime,
+      location: draft.location,
+      audience: draft.audience,
+    },
+    formOpen && canManage,
+  )
+
+  useAvaFormDraft('event', (d) => {
+    if (!canManage) return
+    setDraft((prev) => ({
+      ...prev,
+      ...(d.fields.title ? { title: d.fields.title } : {}),
+      ...(d.fields.description ? { description: d.fields.description } : {}),
+      ...(d.fields.date ? { date: d.fields.date } : {}),
+      ...(d.fields.startTime ? { startTime: d.fields.startTime } : {}),
+      ...(d.fields.endTime ? { endTime: d.fields.endTime } : {}),
+      ...(d.fields.location ? { location: d.fields.location } : {}),
+      ...(d.fields.audience ? { audience: d.fields.audience } : {}),
+    }))
+    setFormOpen(true)
+  })
 
   if (!user) return null
 

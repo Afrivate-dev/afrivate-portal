@@ -2,6 +2,12 @@ import type { AnnouncementMedia, AnnouncementPriority } from '@/types'
 import { REVIVAL_LAUNCH_MEMOS } from '@/content/revivalLaunchMemos'
 
 export const COMPOSER_DRAFTS_KEY = 'av-composer-drafts'
+export const COMPOSER_DRAFTS_CHANGED_EVENT = 'av:composer-drafts-changed'
+
+export function notifyComposerDraftsChanged(): void {
+  if (typeof window === 'undefined') return
+  window.dispatchEvent(new Event(COMPOSER_DRAFTS_CHANGED_EVENT))
+}
 
 export type ComposerDraftKind = 'memo' | 'shoutout' | 'event' | 'message'
 

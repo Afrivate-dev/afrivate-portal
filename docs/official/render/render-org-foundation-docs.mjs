@@ -7,6 +7,7 @@ import { chromium } from 'playwright'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { hrSignBlockWithCeoHtml } from './hr-signature.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
 const officialRoot = path.resolve(__dirname, '..')
@@ -51,14 +52,7 @@ function wrap(title, metaRows, body) {
   return `<!doctype html><html lang="en"><head><meta charset="utf-8" /><title>${title}</title><style>${css}</style></head><body><div class="shell"><div class="brand-row"><div class="brand"><img src="${logoUrl}" alt="AfriVate" /></div><div class="chip">Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092</div></div><h1>${title}</h1><section class="meta">${meta}</section>${body}</div></body></html>`
 }
 
-const signBlock = `
-  <div class="sign-block">
-    <p><strong>Issued for and on behalf of AfriVate Technologies Ltd,</strong></p>
-    <div class="sign-row">
-      <div class="sign-card"><div class="who">Joshua Oluwasujibomi Komolafe</div><div class="role">Chief Executive Officer</div></div>
-      <div class="sign-card"><div class="who">Emmanuel Okpiaifo</div><div class="role">Chief Human Resources Officer / Head of People &amp; Culture</div></div>
-    </div>
-  </div>`
+const signBlock = hrSignBlockWithCeoHtml
 
 const commonClosing = (code, related) => `
   <h2>Governing law and general</h2>
@@ -107,7 +101,7 @@ const orgBody = `
       <tr><td>Product &amp; Technology</td><td>Head of Product &amp; Technology</td><td>AfriVate product platforms (including Team Space), roadmap, reliability, security</td></tr>
       <tr><td>Community &amp; Opportunity</td><td>Head of Community &amp; Opportunity</td><td>Pathfinder ↔ Enabler opportunity quality and mission outcomes</td></tr>
       <tr><td>Growth &amp; Partnerships</td><td>Head of Growth &amp; Partnerships</td><td>Enabler acquisition, partnerships, and sustainability pipeline</td></tr>
-      <tr><td>People &amp; Culture</td><td>Head of People &amp; Culture (CHRO)</td><td>Talent systems, policies, engagement, L&amp;D, people records via Portal</td></tr>
+      <tr><td>People &amp; Culture</td><td>Human Resources Manager</td><td>Talent systems, policies, engagement, L&amp;D, people records via Portal</td></tr>
       <tr><td>Finance &amp; Administration</td><td>Head of Finance &amp; Administration</td><td>Cash stewardship, books, compliance, vendor and contract administration</td></tr>
       <tr><td>Brand &amp; Communications</td><td>Head of Brand &amp; Communications (or, until appointed, Growth jointly with Product Design as designated by the CEO)</td><td>External narrative, brand standards, employer brand assets</td></tr>
     </tbody>
@@ -144,7 +138,7 @@ const orgBody = `
     <p><strong>Does not:</strong> Sign MoUs/agreements (CEO only, unless DOA says otherwise); promise product features without Product Head written concurrence.</p>
   </div>
   <div class="role-block">
-    <h3>Head of People &amp; Culture</h3>
+    <h3>Human Resources Manager</h3>
     <p><strong>Owns:</strong> Policy stewardship; Portal people systems; recruitment administration; L&amp;D; surveys; engagement; progressive discipline process administration.</p>
     <p><strong>Does not:</strong> Replace Team Leads’ duty to conduct 1:1s and OKR coaching for their reports.</p>
   </div>

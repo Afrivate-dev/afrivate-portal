@@ -1,8 +1,9 @@
 import { supabase } from '@/lib/supabase'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
 import { localAvaRespond } from '@/lib/ava/localFallback'
+import { sanitizeSuggestedActions } from '@/lib/ava/avaDrafts'
 import { normalizeAvaDisplayText, parseAvaModelText } from '@/lib/ava/parseResponse'
-import type { AvaChatMessage, AvaLink, AvaResponse, AvaSuggestedAction, AvaUserContext } from '@/lib/ava/types'
+import type { AvaChatMessage, AvaLink, AvaResponse, AvaUserContext } from '@/lib/ava/types'
 
 /** AVA is on by default; set VITE_AVA_ENABLED=false to hide. */
 export function isAvaEnabled(): boolean {
@@ -51,20 +52,6 @@ function sanitizeLinks(raw: unknown): AvaLink[] | undefined {
   return links.length ? links : undefined
 }
 
-function sanitizeSuggestedActions(raw: unknown): AvaSuggestedAction[] | undefined {
-  if (!Array.isArray(raw)) return undefined
-  const out: AvaSuggestedAction[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const a = item as Record<string, unknown>
-    const type = typeof a.type === 'string' ? a.type : 'navigate'
-    const label = typeof a.label === 'string' ? a.label.trim() : ''
-    const path = typeof a.path === 'string' ? a.path.trim() : ''
-    if (type !== 'navigate') continue
-    if (label && path.startsWith('/')) out.push({ type: 'navigate', label, path })
-  }
-  return out.length ? out : undefined
-}
 
 /** Clean chat history so prior JSON dumps never confuse the model. */
 export function sanitizeAvaMessages(messages: AvaChatMessage[]): AvaChatMessage[] {

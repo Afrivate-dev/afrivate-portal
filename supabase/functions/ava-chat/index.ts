@@ -47,15 +47,63 @@ const AVA_RESPONSE_SCHEMA = {
     },
     suggestedActions: {
       type: 'array',
-      description: 'Navigate-only CTAs. Never include write/draft/submit action types.',
+      description:
+        'navigate and insert_draft only. Never submit, complete, approve, reject, delete, publish, or send.',
       items: {
         type: 'object',
         properties: {
-          type: { type: 'string', description: 'Must be "navigate"' },
+          type: {
+            type: 'string',
+            description: 'navigate or insert_draft',
+          },
           label: { type: 'string' },
           path: { type: 'string', description: 'Portal path starting with /' },
+          kind: {
+            type: 'string',
+            description: 'weekly_update | task | leave | shoutout | memo | event | my_info',
+          },
+          mode: { type: 'string', description: 'insert or refine' },
+          fields: {
+            type: 'object',
+            description: 'Form field keys and string values. Never include submit flags.',
+            properties: {
+              completed: { type: 'string' },
+              nextWeek: { type: 'string' },
+              blockers: { type: 'string' },
+              hoursWorked: { type: 'string' },
+              visibility: { type: 'string' },
+              title: { type: 'string' },
+              description: { type: 'string' },
+              status: { type: 'string' },
+              priority: { type: 'string' },
+              category: { type: 'string' },
+              dueDate: { type: 'string' },
+              estimatedHours: { type: 'string' },
+              type: { type: 'string' },
+              startDate: { type: 'string' },
+              endDate: { type: 'string' },
+              reason: { type: 'string' },
+              message: { type: 'string' },
+              tag: { type: 'string' },
+              body: { type: 'string' },
+              audience: { type: 'string' },
+              memoCategory: { type: 'string' },
+              date: { type: 'string' },
+              startTime: { type: 'string' },
+              endTime: { type: 'string' },
+              location: { type: 'string' },
+              preferredName: { type: 'string' },
+              phone: { type: 'string' },
+              bio: { type: 'string' },
+              skills: { type: 'string' },
+              emergencyContactName: { type: 'string' },
+              emergencyContactPhone: { type: 'string' },
+              emergencyContactRelationship: { type: 'string' },
+              nextOfKinNotes: { type: 'string' },
+            },
+          },
         },
-        required: ['type', 'label', 'path'],
+        required: ['type', 'label'],
       },
     },
   },
@@ -67,25 +115,81 @@ function systemPrompt(role: string) {
 Tone: professional, concise, formal English. Use numbered steps for procedures.
 Rules: Portal is system of record; Slack is messaging; WhatsApp is informal only.
 Never approve leave, finalise appraisals, or change roles. Use only provided user context.
-CRITICAL: You never create, submit, approve, reject, edit, or delete Portal records for anyone. You only explain and take the user to the correct page so THEY complete the action.
+You MAY insert or refine draft form text (weekly update, task, leave, shout-out, memo, event, my info).
+You must NEVER submit, send, publish, approve, reject, delete, finalise, complete, or activate any Portal record. The user always reviews and submits.
+Never insert drafts for learning certificates, surveys, leave approvals, PIPs, discipline, or notes.
 Cite docs by name when relevant.
 For links use short labels and Portal paths only, e.g. {"label":"Time off","path":"/people/leave"}.
-suggestedActions may ONLY be {"type":"navigate","label":"Go to Time off","path":"/people/leave"}. Never invent draft/submit action types or payloads.
+suggestedActions may be navigate or insert_draft only.
+insert_draft example: {"type":"insert_draft","label":"Review weekly update draft","path":"/checkin","kind":"weekly_update","mode":"insert","fields":{"completed":"...","nextWeek":"...","hoursWorked":"40"}}
+If pageDraft is in context and the user asks to refine/revamp, use mode "refine" and return improved fields.
 Keep reply under 220 words so the JSON response is complete.
 User role: ${role}
 Knowledge: ${KNOWLEDGE}`
 }
 
-function sanitizeSuggestedActions(raw: unknown): Array<{ type: 'navigate'; label: string; path: string }> | undefined {
+const DRAFT_KINDS = new Set([
+  'weekly_update',
+  'task',
+  'leave',
+  'shoutout',
+  'memo',
+  'event',
+  'my_info',
+])
+const FORBIDDEN_ACTION_TYPES = new Set([
+  'submit',
+  'complete',
+  'approve',
+  'reject',
+  'delete',
+  'finalize',
+  'publish',
+  'send',
+  'activate',
+  'create',
+  'update',
+  'write',
+  'draft_leave',
+  'draft_checkin',
+  'draft_task',
+])
+
+function sanitizeSuggestedActions(raw: unknown): unknown[] | undefined {
   if (!Array.isArray(raw)) return undefined
-  const out: Array<{ type: 'navigate'; label: string; path: string }> = []
+  const out: unknown[] = []
   for (const item of raw) {
     if (!item || typeof item !== 'object') continue
     const a = item as Record<string, unknown>
-    const type = typeof a.type === 'string' ? a.type : ''
+    const type = typeof a.type === 'string' ? a.type.trim().toLowerCase() : 'navigate'
     const label = typeof a.label === 'string' ? a.label.trim() : ''
     const path = typeof a.path === 'string' ? a.path.trim() : ''
-    if (type && type !== 'navigate') continue
+    if (!label) continue
+    if (FORBIDDEN_ACTION_TYPES.has(type)) continue
+    if (type === 'insert_draft' || type === 'insert' || type === 'refine') {
+      const kind = typeof a.kind === 'string' ? a.kind : ''
+      if (!DRAFT_KINDS.has(kind)) continue
+      const fields: Record<string, string> = {}
+      if (a.fields && typeof a.fields === 'object') {
+        for (const [k, v] of Object.entries(a.fields as Record<string, unknown>)) {
+          if (typeof v === 'string' && v.trim()) fields[k] = v.trim()
+        }
+      }
+      if (!Object.keys(fields).length) continue
+      if (kind === 'task' && /^(done|complete|completed)$/i.test(fields.status ?? '')) {
+        fields.status = 'todo'
+      }
+      out.push({
+        type: 'insert_draft',
+        label,
+        path: path.startsWith('/') ? path : undefined,
+        kind,
+        mode: type === 'refine' || a.mode === 'refine' ? 'refine' : 'insert',
+        fields,
+      })
+      continue
+    }
+    if (type !== 'navigate' && type !== '') continue
     if (label && path.startsWith('/')) out.push({ type: 'navigate', label, path })
   }
   return out.length ? out : undefined
@@ -267,7 +371,7 @@ Deno.serve(async (req) => {
         schema: AVA_RESPONSE_SCHEMA,
       },
       generation_config: {
-        max_output_tokens: 2048,
+        max_output_tokens: 4096,
         temperature: 0.35,
       },
     }

@@ -2,7 +2,7 @@ SUBJECT: Action required: Complete your My Info on the Portal (time sensitive)
 
 MEMO: AFRI-MEMO-MYINFO-01
 TO: All AfriVate Team Members
-FROM: People & Culture / Head of Human Resources
+FROM: People & Culture / Human Resources Manager
 CC: Chief Executive Officer
 DATE: 11 August 2026
 RE: Complete your personal details under People > My Info
@@ -46,5 +46,6 @@ If you cannot access the Portal, or something on My Info will not save, email af
 Thank you for sorting this quickly.
 
 Emmanuel Okpiaifo,
-Head of Human Resources,
+Human Resources Manager,
+AfriVate Technologies Ltd
 Afrivate
