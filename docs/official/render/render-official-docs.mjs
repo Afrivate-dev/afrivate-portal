@@ -2,6 +2,9 @@ import { chromium } from 'playwright'
 import { copyFile, mkdir, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import { onboardingHandbookBody } from './content/onboarding-handbook-body.mjs'
+import { swpBody } from './content/swp-body.mjs'
+import { hrSignBlockIssuedHtml } from './hr-signature.mjs'
 
 const downloadsDir = path.resolve('C:/Users/DELL/Downloads')
 
@@ -126,6 +129,30 @@ const sharedCss = `
   }
   .sign-card .who { font-weight: 700; margin-top: 30px; }
   .sign-card .role { color: var(--muted); font-size: 10.5px; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 14px;
+    font-size: 9.8pt;
+  }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 8px;
+    vertical-align: top;
+    text-align: left;
+  }
+  th {
+    background: var(--soft);
+    color: var(--purple);
+    font-size: 9pt;
+    text-transform: uppercase;
+    letter-spacing: 0.03em;
+  }
+  .footer-note {
+    margin-top: 16px;
+    font-size: 9.5pt;
+    color: var(--muted);
+  }
 `
 
 function shell(title, bodyHtml, metaLines = []) {
@@ -243,59 +270,7 @@ const docs = [
       ['Effective Date', '2 August 2026'],
       ['Precedence', 'AFRI-SWP and AFRI-ICEF-01 prevail on conflict'],
     ],
-    body: `
-      <div class="note"><strong>Status:</strong> Most AfriVate Team Members are Internal Contributors under AFRI-ICEF-01 (unpaid). This handbook orients you to standards. It does <strong>not</strong> create employment or any right to pay. “Employee” in any older form means Team Member.</div>
-
-      <h2>1. Welcome and mission</h2>
-      <p>AfriVate Technologies Ltd builds platforms and programmes that connect African Pathfinders (talent) with Enablers (organisations) through volunteering, internships, mentorship, micro-tasks, remote work, and related opportunities — elevating life and professional growth across Africa.</p>
-      <p>Culture standards: excellence, ownership, professionalism, and disciplined execution.</p>
-
-      <h2>2. Precedence</h2>
-      <p>This handbook summarises expectations. It does not supersede AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01, AFRI-DOA-01, or AFRI-LAP-01. On conflict, those instruments prevail in the order set by AFRI-ODR-01.</p>
-
-      <h2>3. Schedule and availability</h2>
-      <ul>
-        <li><strong>Official work days:</strong> Monday to Thursday.</li>
-        <li><strong>Friday to Sunday:</strong> Not official work days. No duty applies unless (a) your Agreed Capacity or an approved team schedule recorded in writing/Portal expressly includes specific weekend work, or (b) you voluntarily complete asynchronous work without creating an expectation of others’ availability.</li>
-        <li><strong>Core hours:</strong> During official work days, you must be reachable on Slack during the core hours your Team Lead records for your team.</li>
-      </ul>
-
-      <h2>4. Communication standards</h2>
-      <ul>
-        <li><strong>Four-hour rule:</strong> Acknowledge official Slack messages within four (4) hours during official work days and core hours.</li>
-        <li><strong>Slack:</strong> Official internal communication, coordination, clarification, and follow-up.</li>
-        <li><strong>Portal:</strong> Complete every applicable workflow (tasks, weekly check-ins, leave, onboarding, goals, learning, surveys, feedback, acknowledgements, events, people records).</li>
-        <li><strong>Email:</strong> Use your @afrivate address for account access and authorised external/formal correspondence. Email does not replace Slack for internal ops.</li>
-        <li><strong>WhatsApp:</strong> Informal or emergency contact only. Never for leave, policy acknowledgement, appraisals, or formal people processes.</li>
-      </ul>
-
-      <h2>5. Performance and reporting</h2>
-      <ul>
-        <li>Maintain three to five (3–5) weekly KPIs agreed with your Team Lead.</li>
-        <li>Record goals in <strong>Portal → Growth → OKRs</strong>.</li>
-        <li>Submit <strong>Portal → Weekly check-in</strong> each reporting period.</li>
-        <li>Keep Portal tasks accurate (status, progress, hours, blockers).</li>
-        <li>Align goals to the organisational objectives published by the CEO (including any stated user/growth target for the period).</li>
-      </ul>
-
-      <h2>6. Evaluation and conduct</h2>
-      <ul>
-        <li>Appraisals use <strong>60% deliverables</strong> and <strong>40% professional conduct</strong>, per AFRI-SWP.</li>
-        <li>Progressive discipline follows AFRI-SWP (coaching/verbal warning → written warning → PIP → restricted duties → end of engagement / employment termination where a paid contract exists).</li>
-        <li>Act with integrity; protect Confidential Information; respect reporting lines; use Portal Speak up for confidential concerns.</li>
-      </ul>
-
-      <h2>7. Day-1 to Day-7 checklist (mandatory)</h2>
-      <ol>
-        <li>Sign in to the Portal; complete Getting started / onboarding checklist and videos.</li>
-        <li>Confirm Directory shows correct department, job title, and reports-to; notify People &amp; Culture of errors.</li>
-        <li>Acknowledge in Portal Resources: AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01 (if unpaid), AFRI-LAP-01, and this Handbook (AFRI-EOH-01).</li>
-        <li>Join Slack and assigned channels.</li>
-        <li>Configure @afrivate email if issued.</li>
-        <li>Agree Agreed Capacity and 3–5 KPIs with your Team Lead; record OKRs in the Portal.</li>
-        <li>Review assigned tasks; submit the first Weekly check-in on schedule.</li>
-      </ol>
-    `,
+    body: onboardingHandbookBody,
   },
   {
     folder: 'policies',
@@ -359,13 +334,7 @@ const docs = [
       <h2>8. Governing law</h2>
       <p>Governed by the laws of the Federal Republic of Nigeria. Acceptance (including Portal acknowledgement) binds the Volunteer to this Code.</p>
 
-      <div class="sign-block">
-        <p><strong>Issued for AfriVate Technologies Ltd,</strong></p>
-        <div class="sign-row">
-          <div class="sign-card"><div class="who">Joshua Oluwasujibomi Komolafe</div><div class="role">Chief Executive Officer</div></div>
-          <div class="sign-card"><div class="who">Emmanuel Okpiaifo</div><div class="role">CHRO / Head of People &amp; Culture</div></div>
-        </div>
-      </div>
+      ${hrSignBlockIssuedHtml}
     `,
   },
   {
@@ -381,123 +350,7 @@ const docs = [
       ['Review Cycle', 'Every 6 months or on material operational change'],
       ['Owner', 'CEO / People & Culture'],
     ],
-    body: `
-      <div class="note"><strong>Status disclaimer:</strong> Compliance with this SWP is a condition of continued Portal access and contribution. It does <strong>not</strong> by itself create employment, wages, or benefits. Unpaid Internal Contributors are also bound by AFRI-ICEF-01. Structure detail is in AFRI-ORG-01. Decision rights are in AFRI-DOA-01.</div>
-
-      <h2>1. Purpose</h2>
-      <p>The SWP is AfriVate’s authoritative framework for how work is performed, recorded, evaluated, and corrected. Failure to comply may result in progressive discipline under §9, including end of unpaid engagement or, where a paid employment contract exists, termination of that contract subject to applicable law.</p>
-
-      <h2>2. Definitions</h2>
-      <ul>
-        <li><strong>Team Member:</strong> Any person with approved Portal access performing AfriVate work.</li>
-        <li><strong>Official work days:</strong> Monday to Thursday, excluding public holidays and company-declared non-working days.</li>
-        <li><strong>Core hours:</strong> The daily availability window on official work days that the Team Lead records for the team.</li>
-        <li><strong>Writing:</strong> @afrivate email, Portal Memo, or signed instrument — not WhatsApp alone.</li>
-      </ul>
-
-      <h2>3. Core principles</h2>
-      <ul>
-        <li><strong>Accountability:</strong> Every role has defined ownership and measurable outcomes. Team Members own quality, timeliness, impact, and accurate reporting.</li>
-        <li><strong>Documented flexibility only:</strong> Exceptions to process require Team Lead or Pillar Head approval recorded in the Portal or in writing. Informal “flexibility” that erases accountability is not permitted.</li>
-        <li><strong>Professionalism:</strong> Reliability, ethical conduct, time discipline, and respect are mandatory.</li>
-        <li><strong>Transparency:</strong> Expectations, decisions, evaluations, and consequences must be recorded in approved systems.</li>
-        <li><strong>Excellence:</strong> Work must meet the stated success criteria — completion without quality is failure.</li>
-      </ul>
-
-      <h2>4. Structure and authority</h2>
-      <p>Hierarchy and pillar ownership are set exclusively by <strong>AFRI-ORG-01</strong>. In summary:</p>
-      <ul>
-        <li><strong>CEO</strong> — strategy and final organisational authority.</li>
-        <li><strong>Pillar Heads</strong> — ownership of pillar outcomes (not a generic “C-Level” layer).</li>
-        <li><strong>Team Leads</strong> — day-to-day operational management under AFRI-TLOP-01.</li>
-        <li><strong>Team Members</strong> — execution of assigned outcomes.</li>
-      </ul>
-      <p>Reporting lines in the Portal Directory are conclusive for day-to-day authority. Direct CEO escalation is limited to critical risk, authorised matters, or where the normal line is implicated (including Speak up).</p>
-
-      <h2>5. Work schedule and availability</h2>
-      <ul>
-        <li><strong>Monday–Thursday:</strong> Official work days for execution, collaboration, meetings, and decisions.</li>
-        <li><strong>Friday–Sunday:</strong> Not official work days. Duty exists only if Agreed Capacity or an approved written/Portal team schedule expressly requires specified work.</li>
-        <li>Team Members must be reachable on Slack during core hours on official work days.</li>
-        <li>Meetings require punctuality, preparation, and advance notice if attendance is impossible.</li>
-        <li>Repeated unauthorised unavailability, lateness, absence, or disengagement is a performance and conduct issue under §9.</li>
-      </ul>
-
-      <h2>6. Official systems</h2>
-      <h3>6.1 Slack</h3>
-      <p>Official channel for internal communication, coordination, clarification, follow-up, and operational escalation. Official messages must be acknowledged within <strong>four (4) hours</strong> during official work days and core hours. WhatsApp must not replace Slack for official work.</p>
-      <h3>6.2 Portal</h3>
-      <p>The Portal is the system of record wherever a feature exists, including tasks, weekly check-ins, OKRs, 1:1s, leave, onboarding, learning, resources, acknowledgements, surveys, events, and people workflows.</p>
-      <div class="note"><strong>System rule:</strong> Slack communicates; the Portal records. A Slack message never replaces a required Portal submission, approval, acknowledgement, or update.</div>
-
-      <h2>7. How work is done</h2>
-      <h3>7.1 Task assignment</h3>
-      <p>All actionable work must be recorded in the Portal. A valid task requires: clear owner/assignees; defined outcome; priority and deadline; supporting context (files, dependencies, success criteria). Clarification may occur on Slack; the agreed outcome must be reflected in the Portal task.</p>
-      <h3>7.2 Execution and reporting</h3>
-      <ul>
-        <li>Execute to agreed quality, security, and professional standards.</li>
-        <li>Keep Portal tasks current (status, progress, hours, blockers).</li>
-        <li>Raise risks and delays early on Slack and in the Portal.</li>
-        <li>Submit <strong>Portal → Weekly check-in</strong> each period against defined KPIs.</li>
-      </ul>
-
-      <h2>8. Targets, KPIs, and performance</h2>
-      <p>Departmental and individual goals must support the organisational objectives published by the CEO for the relevant period (including any stated growth or user target). Each Team Member maintains <strong>3–5 weekly KPIs</strong>, recorded in Portal OKRs and reported via Weekly check-in.</p>
-      <ul>
-        <li><strong>Appraisal weights:</strong> 60% deliverables/output; 40% professional conduct.</li>
-        <li><strong>Cadence:</strong> Ordinary appraisals are quarterly. Active performance concerns may trigger monthly review or a PIP.</li>
-        <li><strong>Evidence:</strong> Portal tasks, check-ins, OKRs, feedback, 1:1s, and development plans.</li>
-      </ul>
-      <p><strong>Performance scale:</strong> 70%+ exceptional (recognition-eligible under §10); 60–69% good; 50–59% concern — coaching required; 40–49% corrective action may apply; below 40% — end of engagement (unpaid) or termination of employment (if a paid contract exists), subject to fair review and AFRI-ICEF-01 / applicable law.</p>
-
-      <h2>9. Discipline and corrective action</h2>
-      <p>Triggers include missed deadlines, inaccurate reporting, poor communication, unauthorised absence, misconduct, repeated underperformance, security violations, and failure to use approved systems.</p>
-      <ol>
-        <li>Documented coaching or verbal warning</li>
-        <li>Written warning (copied to People &amp; Culture)</li>
-        <li>Performance Improvement Plan (PIP)</li>
-        <li>Restricted responsibilities or other proportionate corrective action</li>
-        <li>End of unpaid engagement and/or termination of paid employment, subject to AFRI-DOA-01, AFRI-ICEF-01, and applicable law</li>
-      </ol>
-      <p>AfriVate may skip steps for serious misconduct (including dishonesty, harassment, confidentiality breach, or security violations).</p>
-
-      <h2>10. Recognition</h2>
-      <p>Recognition (learning opportunities, public recognition, events, awards, or — only if separately approved in writing by the CEO — any cash or equity benefit) is discretionary, subject to performance, affordability, and AFRI-DOA-01. No Team Member has a right to bonus or reward. Portal awards must be recorded in the Portal.</p>
-
-      <h2>11. Culture and speak up</h2>
-      <ul>
-        <li>Own outcomes, not only effort.</li>
-        <li>Respect commitments (meetings, deadlines, response times).</li>
-        <li>Follow reporting lines; raise concerns through <strong>Portal → People → Growth → Speak up</strong>.</li>
-        <li>Complete assigned surveys, learning, onboarding, acknowledgements, and development workflows.</li>
-      </ul>
-
-      <h2>12. Crisis escalation</h2>
-      <p>A crisis is an event posing immediate risk to operations, reputation, infrastructure, legal standing, safety, or user trust.</p>
-      <ol>
-        <li>Team Member notifies via Slack immediately and records detail in the Portal where a workflow exists.</li>
-        <li>Team Lead assesses and, if critical, escalates to Pillar Head and CEO within <strong>sixty (60) minutes</strong> of becoming aware it is critical.</li>
-        <li>Pillar Heads coordinate the operational response.</li>
-        <li>CEO retains final authority over crisis decisions and public statements.</li>
-      </ol>
-
-      <h2>13. Leave</h2>
-      <p>Absence from duty is governed exclusively by AFRI-LAP-01. No leave is effective until the People &amp; Culture decision appears in the Portal.</p>
-
-      <h2>14. Governance, law, and acknowledgement</h2>
-      <ul>
-        <li>Reviewed every six months or on material change. Binding version is the Portal Resources copy with this Document Code.</li>
-        <li>Governed by the laws of the Federal Republic of Nigeria; FCT Abuja courts (subject to mandatory rules).</li>
-        <li>Severability and no-waiver apply.</li>
-        <li>Portal acknowledgement = confirmation of reading, understanding, and agreement to comply.</li>
-      </ul>
-      <div class="sign-block">
-        <div class="sign-row">
-          <div class="sign-card"><div class="who">Team Member Name / Signature</div><div class="role">Role / Department · Date</div></div>
-          <div class="sign-card"><div class="who">Authorised AfriVate Representative</div><div class="role">Name / Role · Date</div></div>
-        </div>
-      </div>
-    `,
+    body: swpBody,
   },
   {
     folder: 'hiring/job-posts',

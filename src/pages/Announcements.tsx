@@ -35,6 +35,7 @@ import { labelForConfigId } from '@/lib/portalConfig'
 import { notifySuccess } from '@/lib/notify'
 import { isMemoPayload, type ComposerDraft, type MemoDraftPayload } from '@/lib/composerDrafts'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import { cn, fmtDate, fmtTime, isAdmin, isHR, isTeamLead, relativeTime } from '@/utils/helpers'
 import { isSuspended } from '@/lib/dutyStatus'
 import { mergedDepartmentNames } from '@/lib/departments'
@@ -298,6 +299,33 @@ export function AnnouncementsPage() {
     reading && multiplayerLive ? readersForUpdate(reading.id) : []
   const readingAuthor = reading ? users.find((u) => u.id === reading.postedById) : undefined
   const userById = (id: string) => users.find((u) => u.id === id)
+
+  useAvaPageDraft(
+    'memo',
+    {
+      title: draft.title,
+      body: draft.body,
+      audience: draft.audience,
+      priority: draft.priority,
+      memoCategory: draft.memoCategory,
+    },
+    formOpen && canPost,
+  )
+
+  useAvaFormDraft('memo', (d) => {
+    if (!canPost) return
+    setDraft((prev) => ({
+      ...prev,
+      ...(d.fields.title ? { title: d.fields.title } : {}),
+      ...(d.fields.body ? { body: d.fields.body } : {}),
+      ...(d.fields.audience ? { audience: d.fields.audience } : {}),
+      ...(d.fields.priority === 'info' || d.fields.priority === 'important' || d.fields.priority === 'urgent'
+        ? { priority: d.fields.priority }
+        : {}),
+      ...(d.fields.memoCategory ? { memoCategory: d.fields.memoCategory } : {}),
+    }))
+    setFormOpen(true)
+  })
 
   if (!user) return null
 

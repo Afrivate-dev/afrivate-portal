@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import {
   CalendarCheck,
   CheckCircle2,
@@ -129,6 +130,33 @@ export function WeeklyCheckInPage() {
     ).size
     return { submitted, total: activeStaff }
   }, [users, checkIns, currentWeekStart])
+
+  useAvaPageDraft(
+    'weekly_update',
+    {
+      completed: form.completed,
+      nextWeek: form.nextWeek,
+      blockers: form.blockers,
+      hoursWorked: form.hoursWorked,
+      visibility: form.visibility,
+    },
+    tab === 'this-week',
+  )
+
+  useAvaFormDraft('weekly_update', (d) => {
+    setTab('this-week')
+    setForm((prev) => ({
+      ...prev,
+      ...(d.fields.completed ? { completed: d.fields.completed } : {}),
+      ...(d.fields.nextWeek ? { nextWeek: d.fields.nextWeek } : {}),
+      ...(d.fields.blockers ? { blockers: d.fields.blockers } : {}),
+      ...(d.fields.hoursWorked ? { hoursWorked: d.fields.hoursWorked } : {}),
+      ...(d.fields.visibility === 'all' || d.fields.visibility === 'department'
+        ? { visibility: d.fields.visibility }
+        : {}),
+    }))
+    setEditing(true)
+  })
 
   if (!user) return null
 

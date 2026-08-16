@@ -36,6 +36,7 @@ import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCateg
 import { notifySuccess } from '@/lib/notify'
 import { isShoutoutPayload, type ComposerDraft, type ShoutoutDraftPayload } from '@/lib/composerDrafts'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import { cn, relativeTime, isHR } from '@/utils/helpers'
 import type { AnnouncementMedia, RecognitionComment, RecognitionPost, User } from '@/types'
 
@@ -279,6 +280,26 @@ export function RecognitionPage() {
       { replace: true },
     )
   }, [searchParams, setSearchParams, getById])
+
+  useAvaPageDraft(
+    'shoutout',
+    {
+      message: draft.message,
+      receiverId: draft.receiverId,
+      tag: draft.tag,
+    },
+    formOpen,
+  )
+
+  useAvaFormDraft('shoutout', (d) => {
+    setDraft((prev) => ({
+      ...prev,
+      ...(d.fields.message ? { message: d.fields.message } : {}),
+      ...(d.fields.receiverId ? { receiverId: d.fields.receiverId } : {}),
+      ...(d.fields.tag ? { tag: d.fields.tag } : {}),
+    }))
+    setFormOpen(true)
+  })
 
   if (!user) return null
 

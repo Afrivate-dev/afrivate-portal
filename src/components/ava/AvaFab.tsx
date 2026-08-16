@@ -5,6 +5,8 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { askAva, isAvaEnabled } from '@/lib/ava/avaClient'
+import { applyAvaSuggestedActions, getAvaPageDraft } from '@/lib/ava/avaDrafts'
+import { notifySuccess } from '@/lib/notify'
 import { normalizeAvaDisplayText } from '@/lib/ava/parseResponse'
 import { buildAvaUserContext } from '@/lib/ava/buildContext'
 import { AVA_SUGGESTED_PROMPTS } from '@/lib/ava/knowledge'
@@ -54,6 +56,7 @@ function pageLabel(pathname: string): string {
   if (pathname.startsWith('/people/leave')) return 'Time Off'
   if (pathname.startsWith('/people/check-ins') || pathname.startsWith('/check-ins'))
     return 'Weekly Check-ins'
+  if (pathname.startsWith('/checkin')) return 'Weekly update'
   if (pathname.startsWith('/tasks')) return 'Tasks'
   if (pathname.startsWith('/admin')) return 'Admin'
   if (pathname.startsWith('/people')) return 'People'
@@ -85,7 +88,7 @@ export function AvaFab() {
       id: 'welcome',
       role: 'assistant',
       content:
-        'Hello — I am AVA, the AfriVate Virtual Assistant. I can explain how Team Space works and take you to the page where you complete an action. I never submit leave, check-ins, learning, or any other record for anyone. What do you need?',
+        'Hello — I am AVA, the AfriVate Virtual Assistant. I can explain Team Space, take you to the right page, and insert or refine drafts for you. I never submit or complete anything — you review and send it yourself. What do you need?',
     },
   ])
   const listRef = useRef<HTMLDivElement>(null)
@@ -223,6 +226,8 @@ export function AvaFab() {
       learningPendingForUser: mySubs.length,
       openSurveysForUser: openSurveys,
       myInfoCompleteness: myProfile ? computeProfileCompleteness(myProfile) : undefined,
+      currentPath: location.pathname,
+      pageDraft: getAvaPageDraft() ?? undefined,
       hrStats: metrics
         ? {
             pendingApprovals: usersAwaitingApproval(users).length,
@@ -233,7 +238,7 @@ export function AvaFab() {
           }
         : undefined,
     })
-  }, [user, users, teams, departments, tasks, leaveRequests, checkIns, hr])
+  }, [user, users, teams, departments, tasks, leaveRequests, checkIns, hr, location.pathname])
 
   const send = useCallback(
     async (text: string) => {
@@ -249,6 +254,10 @@ export function AvaFab() {
           .filter((m) => m.id !== 'welcome' || nextHistory.length === 2)
           .map((m) => ({ role: m.role, content: m.content }))
         const res = await askAva({ messages: apiMessages, context })
+        const suggestedActions = applyAvaSuggestedActions(res.suggestedActions)
+        if (suggestedActions?.some((a) => a.type === 'insert_draft')) {
+          notifySuccess('AVA inserted a draft. Review it, then submit it yourself.')
+        }
         setMessages((prev) => [
           ...prev,
           {
@@ -257,7 +266,7 @@ export function AvaFab() {
             content: res.reply,
             citations: res.citations,
             links: res.links,
-            suggestedActions: res.suggestedActions?.filter((a) => a.type === 'navigate'),
+            suggestedActions,
             source: res.source,
           },
         ])

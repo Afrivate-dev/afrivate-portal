@@ -3,6 +3,7 @@
  * Run: npx tsx --tsconfig tsconfig.app.json scripts/verify-ava.ts
  */
 import { localAvaRespond } from '../src/lib/ava/localFallback'
+import { sanitizeSuggestedActions } from '../src/lib/ava/avaDrafts'
 import { normalizeAvaDisplayText, parseAvaModelText } from '../src/lib/ava/parseResponse'
 import type { AvaUserContext } from '../src/lib/ava/types'
 
@@ -69,12 +70,72 @@ const withDraft = JSON.stringify({
 })
 const parsedDraft = parseAvaModelText(withDraft, 'gemini')
 assert(
-  !parsedDraft.suggestedActions?.some((a) => (a as { type: string }).type !== 'navigate'),
+  !parsedDraft.suggestedActions?.some((a) => (a as { type: string }).type === 'draft_leave'),
   'draft_leave action is rejected',
 )
 assert(
   parsedDraft.suggestedActions?.some((a) => a.type === 'navigate' && a.path === '/people/leave'),
   'navigate action is kept',
+)
+
+const withInsert = JSON.stringify({
+  reply: 'I inserted a weekly update draft. Review it, then send it yourself.',
+  suggestedActions: [
+    {
+      type: 'insert_draft',
+      label: 'Review weekly update draft',
+      path: '/checkin',
+      kind: 'weekly_update',
+      mode: 'insert',
+      fields: {
+        completed: 'Shipped the mobile layout.',
+        nextWeek: 'QA the AVA drafts.',
+        blockers: 'None',
+        hoursWorked: '40',
+      },
+    },
+    {
+      type: 'submit',
+      label: 'Submit check-in',
+      path: '/checkin',
+    },
+  ],
+})
+const parsedInsert = parseAvaModelText(withInsert, 'gemini')
+assert(
+  parsedInsert.suggestedActions?.some(
+    (a) =>
+      a.type === 'insert_draft' &&
+      a.kind === 'weekly_update' &&
+      a.fields.completed.includes('mobile'),
+  ),
+  'insert_draft weekly update is kept',
+)
+assert(
+  !parsedInsert.suggestedActions?.some((a) => a.type !== 'navigate' && a.type !== 'insert_draft'),
+  'submit action is rejected',
+)
+
+const strippedDone = sanitizeSuggestedActions([
+  {
+    type: 'insert_draft',
+    label: 'Review task draft',
+    path: '/tasks',
+    kind: 'task',
+    mode: 'insert',
+    fields: { title: 'Write report', status: 'done' },
+  },
+])
+assert(
+  strippedDone?.[0]?.type === 'insert_draft' &&
+    strippedDone[0].kind === 'task' &&
+    strippedDone[0].fields.status === 'todo',
+  'task insert_draft cannot be marked done',
+)
+
+assert(
+  !sanitizeSuggestedActions([{ type: 'approve', label: 'Approve leave', path: '/admin' }])?.length,
+  'approve action is rejected',
 )
 
 // --- Markdown bold envelope normalize ---
@@ -93,6 +154,18 @@ assert(
   'local leave actions are navigate-only',
 )
 assert(/cannot submit leave/i.test(leave.reply), 'local leave states AVA cannot submit')
+
+const draftUpdate = localAvaRespond(
+  [{ role: 'user', content: 'Help me draft my weekly update: shipped the portal mobile pass' }],
+  ctx,
+)
+assert(
+  draftUpdate.suggestedActions?.some(
+    (a) => a.type === 'insert_draft' && a.kind === 'weekly_update',
+  ),
+  'local weekly draft inserts a form draft',
+)
+assert(/cannot send|review/i.test(draftUpdate.reply), 'local weekly draft reminds user to submit')
 
 const learning = localAvaRespond(
   [{ role: 'user', content: 'Where do I submit my Alison certificate?' }],

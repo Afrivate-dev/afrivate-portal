@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import {
   Plus,
   Calendar as CalendarIcon,
@@ -242,6 +243,30 @@ export function LeaveRequestsPage() {
   useEffect(() => {
     writePersistedLeaveDraft(formOpen, draft)
   }, [formOpen, draft])
+
+  useAvaPageDraft(
+    'leave',
+    {
+      type: draft.type,
+      startDate: draft.startDate,
+      endDate: draft.endDate,
+      reason: draft.reason,
+    },
+    formOpen,
+  )
+
+  useAvaFormDraft('leave', (d) => {
+    setDraft((prev) => ({
+      ...prev,
+      ...(d.fields.type === 'annual' || d.fields.type === 'sick' || d.fields.type === 'emergency'
+        ? { type: d.fields.type }
+        : {}),
+      ...(d.fields.startDate ? { startDate: d.fields.startDate } : {}),
+      ...(d.fields.endDate ? { endDate: d.fields.endDate } : {}),
+      ...(d.fields.reason ? { reason: d.fields.reason } : {}),
+    }))
+    setFormOpen(true)
+  })
 
   const resetForm = useCallback(() => {
     setDraft({ ...emptyDraft })

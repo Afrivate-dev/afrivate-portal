@@ -92,7 +92,7 @@ function metaTable() {
           cell('Ogochukwu Odom', { width: widths[0] }),
           cell('Front-End Developer', { width: widths[1] }),
           cell('30 July 2026', { width: widths[2] }),
-          cell('Emmanuel Okpiaifo (CHRO)', { width: widths[3] }),
+          cell('Emmanuel Okpiaifo (Human Resources Manager)', { width: widths[3] }),
         ],
       }),
     ],
@@ -254,7 +254,7 @@ const doc = new Document({
         p('☑ This form reflects my post-interview judgment for Ogochukwu Odom.', {
           spacingAfter: 60,
         }),
-        p('Interviewer: Emmanuel Okpiaifo — Chief Human Resources Officer (CHRO)', { spacingAfter: 60 }),
+        p('Interviewer: Emmanuel Okpiaifo — Human Resources Manager, AfriVate Technologies Ltd', { spacingAfter: 60 }),
         p('Signature: Emmanuel Okpiaifo', { spacingAfter: 60 }),
         p('Date: 30 July 2026', { spacingAfter: 120 }),
         p('Internal hiring record · Pair with AfriVate Developer Interview Kit', {

@@ -1,4 +1,5 @@
-import type { AvaLink, AvaResponse, AvaSuggestedAction } from '@/lib/ava/types'
+import { sanitizeSuggestedActions } from '@/lib/ava/avaDrafts'
+import type { AvaLink, AvaResponse } from '@/lib/ava/types'
 
 function asString(v: unknown): string | undefined {
   return typeof v === 'string' && v.trim() ? v.trim() : undefined
@@ -81,24 +82,8 @@ function looksLikeJsonEnvelope(text: string): boolean {
   )
 }
 
-/** Only navigate actions are accepted — write/draft types are discarded. */
-function parseActions(raw: unknown): AvaSuggestedAction[] | undefined {
-  if (!Array.isArray(raw)) return undefined
-  const out: AvaSuggestedAction[] = []
-  for (const item of raw) {
-    if (!item || typeof item !== 'object') continue
-    const a = item as Record<string, unknown>
-    const type = asString(a.type)
-    const label = asString(a.label)
-    let path = asString(a.path)
-    if (!label) continue
-    // Never accept write/draft action types from the model
-    if (type && type !== 'navigate') continue
-    if (!path) path = guessPathFromLabel(label)
-    if (!path?.startsWith('/')) continue
-    out.push({ type: 'navigate', label, path })
-  }
-  return out.length ? out : undefined
+function parseActions(raw: unknown) {
+  return sanitizeSuggestedActions(raw)
 }
 
 function parseLinks(raw: unknown): AvaLink[] | undefined {

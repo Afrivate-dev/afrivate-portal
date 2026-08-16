@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import {
   Plus,
   AlertCircle,
@@ -198,6 +199,43 @@ export function TasksPage() {
     })
     return () => cancelAnimationFrame(frameId)
   }, [searchParams, setSearchParams, tasks])
+
+  useAvaPageDraft(
+    'task',
+    {
+      title: draft.title,
+      description: draft.description,
+      status: draft.status,
+      priority: draft.priority,
+      category: draft.category,
+      dueDate: draft.dueDate,
+      blockers: draft.blockers,
+      estimatedHours: draft.estimatedHours,
+    },
+    formOpen,
+  )
+
+  useAvaFormDraft('task', (d) => {
+    setDraft((prev) => {
+      const creating = d.mode === 'insert' || !formOpen
+      const base = creating ? { ...emptyDraft, category: taskCategories[0]?.id ?? '' } : prev
+      const status = d.fields.status
+      const priority = d.fields.priority
+      return {
+        ...base,
+        ...(d.fields.title ? { title: d.fields.title } : {}),
+        ...(d.fields.description ? { description: d.fields.description } : {}),
+        ...(status === 'todo' || status === 'in_progress' || status === 'blocked' ? { status } : {}),
+        ...(priority === 'high' || priority === 'medium' || priority === 'low' ? { priority } : {}),
+        ...(d.fields.dueDate ? { dueDate: d.fields.dueDate } : {}),
+        ...(d.fields.blockers ? { blockers: d.fields.blockers } : {}),
+        ...(d.fields.estimatedHours ? { estimatedHours: d.fields.estimatedHours } : {}),
+        ...(d.fields.category ? { category: d.fields.category } : {}),
+        ...(creating ? { id: undefined } : {}),
+      }
+    })
+    setFormOpen(true)
+  })
 
   const isMyTask = useCallback(
     (t: Task) =>

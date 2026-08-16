@@ -2,7 +2,7 @@ SUBJECT: AfriVate Slack is live. Action needed this week
 
 MEMO: AFRI-MEMO-SLACK-01
 TO: All AfriVate Team Members
-FROM: People & Culture / Head of Human Resources
+FROM: People & Culture / Human Resources Manager
 CC: Chief Executive Officer
 DATE: 11 August 2026
 RE: Official adoption of AfriVate Slack for day-to-day work communication
@@ -44,5 +44,5 @@ If you have not received a Slack invite, or you cannot access the workspace, ema
 Thank you for helping us keep communication clear, professional, and in the right place.
 
 Emmanuel Okpiaifo,
-Head of Human Resources,
-Afrivate
+Human Resources Manager,
+AfriVate Technologies Ltd

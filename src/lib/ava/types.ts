@@ -12,12 +12,34 @@ export interface AvaLink {
   path: string
 }
 
-/** AVA may only suggest navigation — never create/update Portal records. */
-export type AvaSuggestedAction = {
+export type AvaDraftKind =
+  | 'weekly_update'
+  | 'task'
+  | 'leave'
+  | 'shoutout'
+  | 'memo'
+  | 'event'
+  | 'my_info'
+
+export type AvaDraftMode = 'insert' | 'refine'
+
+export type AvaNavigateAction = {
   type: 'navigate'
   label: string
   path: string
 }
+
+/** Fill a form in the Portal. Never submits, completes, approves, or publishes. */
+export type AvaInsertDraftAction = {
+  type: 'insert_draft'
+  label: string
+  path: string
+  kind: AvaDraftKind
+  mode: AvaDraftMode
+  fields: Record<string, string>
+}
+
+export type AvaSuggestedAction = AvaNavigateAction | AvaInsertDraftAction
 
 export interface AvaResponse {
   reply: string
@@ -54,5 +76,10 @@ export interface AvaUserContext {
     activePips: number
     pendingDiscipline: number
     pendingLearningReviews: number
+  }
+  currentPath?: string
+  pageDraft?: {
+    kind: AvaDraftKind
+    fields: Record<string, string>
   }
 }

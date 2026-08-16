@@ -1,4 +1,6 @@
 import { useEffect, useState } from 'react'
+import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
+import { peekAvaDraft } from '@/lib/ava/avaDrafts'
 import { useAuth } from '@/context/AuthContext'
 import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -34,7 +36,71 @@ export function PeopleMyInfoPage() {
       nextOfKinNotes: profile.nextOfKinNotes,
     })
     setSkillsText((profile.skills ?? user.skills ?? []).join(', '))
+    const pending = peekAvaDraft('my_info')
+    if (!pending) return
+    setDraft((prev) => ({
+      ...prev,
+      ...(pending.fields.preferredName ? { preferredName: pending.fields.preferredName } : {}),
+      ...(pending.fields.legalName ? { legalName: pending.fields.legalName } : {}),
+      ...(pending.fields.personalEmail ? { personalEmail: pending.fields.personalEmail } : {}),
+      ...(pending.fields.phone ? { phone: pending.fields.phone } : {}),
+      ...(pending.fields.bio ? { bio: pending.fields.bio } : {}),
+      ...(pending.fields.nextOfKinNotes ? { nextOfKinNotes: pending.fields.nextOfKinNotes } : {}),
+    }))
+    if (pending.fields.skills) setSkillsText(pending.fields.skills)
   }, [user, employeeProfiles, ensureEmployeeProfile])
+
+  useAvaPageDraft(
+    'my_info',
+    {
+      preferredName: draft.preferredName ?? '',
+      legalName: draft.legalName ?? '',
+      personalEmail: draft.personalEmail ?? '',
+      phone: draft.phone ?? '',
+      workLocation: draft.workLocation ?? '',
+      addressCountry: draft.addressCountry ?? '',
+      dateOfBirth: draft.dateOfBirth ?? '',
+      pronouns: draft.pronouns ?? '',
+      linkedinUrl: draft.linkedinUrl ?? '',
+      bio: draft.bio ?? '',
+      skills: skillsText,
+      emergencyContactName: draft.emergencyContact?.name ?? '',
+      emergencyContactPhone: draft.emergencyContact?.phone ?? '',
+      emergencyContactRelationship: draft.emergencyContact?.relationship ?? '',
+      nextOfKinNotes: draft.nextOfKinNotes ?? '',
+    },
+  )
+
+  useAvaFormDraft('my_info', (d) => {
+    setDraft((prev) => {
+      const next = { ...prev }
+      if (d.fields.preferredName) next.preferredName = d.fields.preferredName
+      if (d.fields.legalName) next.legalName = d.fields.legalName
+      if (d.fields.personalEmail) next.personalEmail = d.fields.personalEmail
+      if (d.fields.phone) next.phone = d.fields.phone
+      if (d.fields.workLocation) next.workLocation = d.fields.workLocation
+      if (d.fields.addressCountry) next.addressCountry = d.fields.addressCountry
+      if (d.fields.dateOfBirth) next.dateOfBirth = d.fields.dateOfBirth
+      if (d.fields.pronouns) next.pronouns = d.fields.pronouns
+      if (d.fields.linkedinUrl) next.linkedinUrl = d.fields.linkedinUrl
+      if (d.fields.bio) next.bio = d.fields.bio
+      if (d.fields.nextOfKinNotes) next.nextOfKinNotes = d.fields.nextOfKinNotes
+      if (
+        d.fields.emergencyContactName ||
+        d.fields.emergencyContactPhone ||
+        d.fields.emergencyContactRelationship
+      ) {
+        next.emergencyContact = {
+          name: d.fields.emergencyContactName || prev.emergencyContact?.name || '',
+          phone: d.fields.emergencyContactPhone || prev.emergencyContact?.phone || '',
+          relationship:
+            d.fields.emergencyContactRelationship || prev.emergencyContact?.relationship || '',
+        }
+      }
+      return next
+    })
+    if (d.fields.skills) setSkillsText(d.fields.skills)
+  })
 
   if (!user) return null
 

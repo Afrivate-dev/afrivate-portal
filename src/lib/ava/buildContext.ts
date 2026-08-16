@@ -1,5 +1,5 @@
 import type { User, Task, LeaveRequest, WeeklyCheckIn } from '@/types'
-import type { AvaRole, AvaUserContext } from '@/lib/ava/types'
+import type { AvaDraftKind, AvaRole, AvaUserContext } from '@/lib/ava/types'
 import { isHR, isLead } from '@/utils/helpers'
 
 function mondayOf(d = new Date()): string {
@@ -19,6 +19,8 @@ export function buildAvaUserContext(input: {
   learningPendingForUser?: number
   openSurveysForUser?: number
   myInfoCompleteness?: number
+  currentPath?: string
+  pageDraft?: { kind: AvaDraftKind; fields: Record<string, string> }
   hrStats?: {
     pendingApprovals: number
     pendingLeaveOrg: number
@@ -51,6 +53,8 @@ export function buildAvaUserContext(input: {
     role,
     department: user.department,
     jobTitle: user.jobTitle,
+    currentPath: input.currentPath,
+    pageDraft: input.pageDraft,
     personal: {
       openTasks: openTasks.length,
       overdueTasks: overdueTasks.length,
