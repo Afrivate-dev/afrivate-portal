@@ -34,6 +34,7 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         onClose={() => close(false)}
         title={state?.title ?? confirms.defaultTitle}
         size="sm"
+        zClass="z-[200]"
         footer={
           <>
             <Button variant="ghost" onClick={() => close(false)}>

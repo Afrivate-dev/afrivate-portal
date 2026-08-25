@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
   fetchPortalDataset,
+  persistPortalTask,
   readStringArray,
   rowToAnnouncement,
   rowToCheckIn,
@@ -25,7 +26,7 @@ import {
   rowToRecognitionComment,
   rowToChecklistItem,
   rowToOnboardingVideo,
-  taskToInsertRow,
+  toPgDate,
   userToSelfProfilePatch,
   userToAdminProfilePatch,
   videoToRow,
@@ -376,8 +377,12 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setTasks((p) => [task, ...p])
 
       void (async () => {
-        const { error } = await client.from('portal_tasks').insert(taskToInsertRow(task))
-        if (error) reportDataError('create task', error)
+        const { error } = await persistPortalTask(client, task, 'insert')
+        if (error) {
+          reportDataError('create task', error)
+          await reloadData()
+          return
+        }
 
         const inboxRows: InboxNotification[] = []
         const actor = input.ownerId
@@ -514,8 +519,12 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           }
         }
 
-        const { error } = await client.from('portal_tasks').update(taskToInsertRow(merged)).eq('id', id)
-        if (error) reportDataError('update task', error)
+        const { error } = await persistPortalTask(client, merged, 'update')
+        if (error) {
+          reportDataError('update task', error)
+          await reloadData()
+          return
+        }
         await queueInboxInsert(pendingInbox)
         await reloadData()
       })()
@@ -749,8 +758,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           id: l.id,
           user_id: l.userId,
           type: l.type,
-          start_date: l.startDate,
-          end_date: l.endDate,
+          start_date: toPgDate(l.startDate) ?? l.startDate,
+          end_date: toPgDate(l.endDate) ?? l.endDate,
           reason: l.reason,
           supporting_doc_name: l.supportingDocName ?? null,
           supporting_doc_path: l.supportingDocPath ?? null,
@@ -1261,17 +1270,18 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const ev: EventItem = { ...e, id: 'e_' + uid() }
       setEvents((prev) => [...prev, ev])
       void (async () => {
-        await client.from('portal_events').insert({
+        const { error } = await client.from('portal_events').insert({
           id: ev.id,
           title: ev.title,
           description: ev.description ?? null,
-          event_date: ev.date,
+          event_date: toPgDate(ev.date) ?? ev.date,
           start_time: ev.startTime ?? null,
           end_time: ev.endTime ?? null,
           location: ev.location ?? null,
           audience: ev.audience,
           source: ev.source ?? 'workspace',
         })
+        if (error) reportDataError('add calendar event', error)
         await reloadData()
       })()
     },

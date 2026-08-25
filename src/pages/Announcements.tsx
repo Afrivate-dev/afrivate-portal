@@ -313,7 +313,7 @@ export function AnnouncementsPage() {
   )
 
   useAvaFormDraft('memo', (d) => {
-    if (!canPost) return
+    if (!canPost) return false
     setDraft((prev) => ({
       ...prev,
       ...(d.fields.title ? { title: d.fields.title } : {}),

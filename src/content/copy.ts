@@ -415,7 +415,7 @@ export const pages = {
   },
   gettingStarted: {
     title: 'Getting started',
-    subtitle: 'Videos and a simple checklist so your first weeks feel less overwhelming.',
+    subtitle: 'Your first week: videos, policies, Slack, and a checklist so nothing important is missed.',
     tabVideos: 'Videos',
     tabChecklist: 'Checklist',
     tabAdmin: 'Manage content',

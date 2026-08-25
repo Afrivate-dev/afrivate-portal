@@ -73,17 +73,22 @@ const PRIORITY_TONE: Record<TaskPriority, 'danger' | 'warning' | 'muted'> = {
   low: 'muted',
 }
 
-function statusLabel(s: TaskStatus): string {
-  return {
-    todo: T.statusUpNext,
-    in_progress: T.statusInProgress,
-    done: T.statusComplete,
-    blocked: T.statusStuck,
-  }[s]
+function statusLabel(s: TaskStatus | string | undefined): string {
+  return (
+    {
+      todo: T.statusUpNext,
+      in_progress: T.statusInProgress,
+      done: T.statusComplete,
+      blocked: T.statusStuck,
+    }[s as TaskStatus] ?? T.statusUpNext
+  )
 }
 
-function priorityLabel(p: TaskPriority): string {
-  return { high: T.priorityUrgent, medium: T.priorityNormal, low: T.priorityLater }[p]
+function priorityLabel(p: TaskPriority | string | undefined): string {
+  return (
+    { high: T.priorityUrgent, medium: T.priorityNormal, low: T.priorityLater }[p as TaskPriority] ??
+    T.priorityNormal
+  )
 }
 
 function completionAudit(task: Task): { at: string; by?: string } | null {
@@ -97,8 +102,20 @@ function completionAudit(task: Task): { at: string; by?: string } | null {
   return entry ? { at: entry.at, by: entry.by } : null
 }
 
+function statusUi(s: TaskStatus | string | undefined) {
+  return (s && STATUS_UI[s as TaskStatus]) || STATUS_UI.todo
+}
+
+function priorityTone(p: TaskPriority | string | undefined) {
+  return (p && PRIORITY_TONE[p as TaskPriority]) || PRIORITY_TONE.medium
+}
+
 function exactTimestamp(iso: string): string {
-  return format(parseISO(iso), "d MMM yyyy, HH:mm:ss 'GMT'xxx")
+  try {
+    return format(parseISO(iso), "d MMM yyyy, HH:mm:ss 'GMT'xxx")
+  } catch {
+    return iso
+  }
 }
 
 // CATEGORIES and CATEGORY_LABEL are now built dynamically from DataContext.taskCategories
@@ -613,7 +630,7 @@ export function TasksPage() {
         ) : (
           <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
             {STATUS_ORDER.map((status) => {
-              const meta = STATUS_UI[status]
+              const meta = statusUi(status)
               const items = grouped[status]
               const Icon = meta.icon
               return (
@@ -859,7 +876,7 @@ export function TasksPage() {
                       >
                         <td className="py-2.5 pr-3 font-medium text-fg">{t.title}</td>
                         <td className="py-2.5 pr-3">
-                          <Badge tone={STATUS_UI[t.status].tone}>{statusLabel(t.status)}</Badge>
+                          <Badge tone={statusUi(t.status).tone}>{statusLabel(t.status)}</Badge>
                           {completion ? (
                             <p className="mt-1 max-w-[15rem] text-[11px] leading-tight text-success">
                               {exactTimestamp(completion.at)}
@@ -1085,7 +1102,7 @@ export function TasksPage() {
         {detailTask ? (
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-2">
-              <Badge tone={STATUS_UI[detailTask.status].tone}>{statusLabel(detailTask.status)}</Badge>
+              <Badge tone={statusUi(detailTask.status).tone}>{statusLabel(detailTask.status)}</Badge>
               <Badge tone={PRIORITY_TONE[detailTask.priority]}>
                 {priorityLabel(detailTask.priority)} {T.prioritySuffix}
               </Badge>
@@ -1396,7 +1413,7 @@ function TaskCard({
         <div className="min-w-0 flex-1">
           <p className="line-clamp-2 text-sm font-medium text-fg">{task.title}</p>
           <div className="mt-2 flex flex-wrap items-center gap-1.5">
-            <Badge tone={PRIORITY_TONE[task.priority]}>{priorityLabel(task.priority)}</Badge>
+            <Badge tone={priorityTone(task.priority)}>{priorityLabel(task.priority)}</Badge>
             <Badge tone="muted">{categoryLabel[task.category] ?? task.category}</Badge>
             {task.blockers ? (
               <Badge tone="danger" dot>

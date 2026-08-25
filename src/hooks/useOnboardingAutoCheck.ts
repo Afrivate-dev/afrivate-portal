@@ -46,7 +46,7 @@ export function useOnboardingAutoCheck(opts: {
       if (key === 'profile_complete') done = profileComplete(user)
       if (key === 'first_checkin') done = checkIns.some((c) => c.userId === user.id)
       if (key === 'handbook_visit') done = visitedHandbook
-      if (key === 'directory_complete') done = profileComplete(user)
+      if (key === 'directory_complete') done = Boolean(user.reportsToId)
 
       if (done) {
         ranRef.current.add(item.id)

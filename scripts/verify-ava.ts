@@ -182,6 +182,63 @@ assert(!/draft_checkin/i.test(JSON.stringify(checkin)), 'no draft_checkin in loc
 
 const tasks = localAvaRespond([{ role: 'user', content: 'What are my open tasks?' }], ctx)
 assert(tasks.suggestedActions?.[0]?.path === '/tasks', 'local tasks navigates')
+assert(
+  tasks.suggestedActions?.every((a) => a.type === 'navigate'),
+  'open-tasks question stays navigate-only',
+)
+
+const createTask = localAvaRespond(
+  [{ role: 'user', content: 'Help me create a task titled Prepare onboarding kit due 2026-08-28' }],
+  ctx,
+)
+assert(
+  createTask.suggestedActions?.some(
+    (a) =>
+      a.type === 'insert_draft' &&
+      a.kind === 'task' &&
+      a.fields.title.toLowerCase().includes('onboarding') &&
+      a.fields.dueDate === '2026-08-28',
+  ),
+  'create-task request inserts a task draft with title and due date',
+)
+
+const aliasedTask = sanitizeSuggestedActions([
+  {
+    type: 'insert_draft',
+    label: 'Review task draft',
+    path: '/tasks',
+    kind: 'task',
+    mode: 'insert',
+    fields: { name: 'Write report', due: '2026-08-28T12:00:00.000Z' },
+  },
+])
+assert(
+  aliasedTask?.[0]?.type === 'insert_draft' &&
+    aliasedTask[0].fields.title === 'Write report' &&
+    aliasedTask[0].fields.dueDate === '2026-08-28',
+  'task field aliases and ISO due dates are normalized',
+)
+
+const truncatedInsert = `{
+"reply": "I have inserted a task draft. Review it, then create it yourself.",
+"suggestedActions": [
+{
+"type": "insert_draft",
+"label": "Review task draft",
+"path": "/tasks",
+"kind": "task",
+"mode": "insert",
+"fields": {"title": "Prepare kit", "dueDate": "2026-08-28"}
+}
+]
+}`
+const parsedTruncInsert = parseAvaModelText(truncatedInsert, 'gemini')
+assert(
+  parsedTruncInsert.suggestedActions?.some(
+    (a) => a.type === 'insert_draft' && a.kind === 'task' && a.fields.title === 'Prepare kit',
+  ),
+  'truncated JSON still recovers insert_draft actions',
+)
 
 const slack = localAvaRespond([{ role: 'user', content: 'What is the four-hour Slack rule?' }], ctx)
 assert(/four \(4\) hours/i.test(slack.reply), 'local Slack rule answer')

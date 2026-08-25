@@ -1,4 +1,5 @@
 import { useEffect, useRef } from 'react'
+import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
 import { cn } from '@/utils/helpers'
 
@@ -10,6 +11,8 @@ interface ModalProps {
   children: React.ReactNode
   footer?: React.ReactNode
   size?: 'sm' | 'md' | 'lg' | 'xl'
+  /** Stacking order. Confirm dialogs should sit above form modals. */
+  zClass?: string
   /**
    * When false, backdrop taps do not close the modal.
    * Required for forms with file inputs (mobile OS pickers synthesize backdrop taps).
@@ -35,6 +38,7 @@ export function Modal({
   children,
   footer,
   size = 'md',
+  zClass = 'z-[100]',
   closeOnBackdrop = true,
   closeOnEscape = true,
 }: ModalProps) {
@@ -58,11 +62,11 @@ export function Modal({
 
   if (!open) return null
 
-  return (
+  const dialog = (
     <div
       role="dialog"
       aria-modal="true"
-      className="fixed inset-0 z-[100] flex items-end justify-center sm:items-center"
+      className={cn('fixed inset-0 flex items-end justify-center sm:items-center', zClass)}
     >
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm animate-fade-in"
@@ -110,4 +114,7 @@ export function Modal({
       </div>
     </div>
   )
+
+  if (typeof document === 'undefined') return dialog
+  return createPortal(dialog, document.body)
 }

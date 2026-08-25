@@ -213,6 +213,26 @@ test.describe('Full portal — admin session', () => {
     }
   })
 
+  test('tasks: create a task with a due date', async ({ page }) => {
+    await page.goto('/tasks')
+    await page.getByRole('button', { name: /new task/i }).first().click()
+    const form = page.getByRole('dialog').first()
+    await expect(form).toBeVisible()
+    const title = `E2E task ${Date.now()}`
+    await form.getByLabel(/title/i).fill(title)
+    const due = form.getByLabel(/due date/i)
+    if (await due.isVisible()) {
+      await due.fill('2026-08-28')
+    }
+    await form.getByRole('button', { name: /^create$/i }).click()
+    const confirm = page.getByRole('dialog').filter({ hasText: /save this task|save task/i })
+    if (await confirm.isVisible().catch(() => false)) {
+      await confirm.getByRole('button', { name: /create task/i }).click()
+    }
+    await expect(page.getByText(title).first()).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('body')).not.toContainText(/couldn't save your task|something went wrong/i)
+  })
+
   test('tasks: switch view tabs if present', async ({ page }) => {
     await page.goto('/tasks')
     for (const name of [/board/i, /list/i, /week/i]) {
@@ -341,7 +361,7 @@ test.describe('Full portal — admin session', () => {
   test('people leave: open request form, fill, dismiss', async ({ page }) => {
     await page.goto('/people/leave')
     await expect(page.getByRole('heading', { name: /time off/i })).toBeVisible()
-    await page.getByRole('button', { name: /request leave/i }).first().click()
+    await page.getByRole('button', { name: /request (leave|time off)/i }).first().click()
     const dialog = page.getByRole('dialog')
     await expect(dialog).toBeVisible()
     await dialog.getByLabel(/start date/i).fill('2026-08-01')
@@ -557,6 +577,19 @@ test.describe('Full portal — admin session', () => {
       await expect(page).toHaveURL(/\/tasks/)
     })
 
+    test('creates a task draft and opens the form to review', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill(
+        'Help me create a task titled Prepare onboarding kit due 2026-08-28',
+      )
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/tasks/, { timeout: 15_000 })
+      const form = page.getByRole('dialog').filter({ hasText: /new item|edit item/i })
+      await expect(form).toBeVisible({ timeout: 15_000 })
+      await expect(form.getByLabel(/title/i)).toHaveValue(/onboarding kit/i)
+      await expect(form.getByRole('button', { name: /^create$/i })).toBeVisible()
+    })
+
     test('Slack rule answer and Escape closes panel', async ({ page }) => {
       const dialog = await openAva(page)
       await dialog.getByRole('button', { name: /four-hour slack|slack rule/i }).click()
@@ -595,7 +628,7 @@ test.describe('Staff session (non-admin)', () => {
 
   test('staff can open leave request form', async ({ page }) => {
     await page.goto('/people/leave')
-    await page.getByRole('button', { name: /request leave/i }).first().click()
+    await page.getByRole('button', { name: /request (leave|time off)/i }).first().click()
     await expect(page.getByRole('dialog')).toBeVisible()
     await expect(page.getByText(/upload file|supporting document/i).first()).toBeVisible()
     await page.getByRole('button', { name: /cancel/i }).click()
