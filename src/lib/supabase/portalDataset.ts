@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { DEFAULT_GETTING_STARTED_CHECKLIST } from '@/content/gettingStartedChecklist'
 import { normalizeInboxTypeFromDb } from '@/lib/inboxNotifications'
 import { parseDutyStatus } from '@/lib/dutyStatus'
 import type {
@@ -19,6 +20,48 @@ import type {
   WeeklyCheckIn,
   WorkspaceTeam,
 } from '@/types'
+
+const CHECKLIST_AUTO_KEY: Partial<
+  Record<string, NonNullable<OnboardingChecklistItem['autoKey']>>
+> = Object.fromEntries(
+  DEFAULT_GETTING_STARTED_CHECKLIST.filter((item) => item.autoKey).map((item) => [
+    item.id,
+    item.autoKey,
+  ]),
+)
+
+/** Postgres `date` columns reject empty strings and some full ISO timestamps. */
+export function toPgDate(value?: string | null): string | null {
+  if (value == null) return null
+  const trimmed = String(value).trim()
+  if (!trimmed) return null
+  const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})/)
+  return match ? match[1] : null
+}
+
+export function blankToNull(value?: string | null): string | null {
+  if (value == null) return null
+  const trimmed = String(value).trim()
+  return trimmed || null
+}
+
+export function isMissingColumnError(
+  error: { message?: string; code?: string } | null | undefined,
+  column: string,
+): boolean {
+  if (!error) return false
+  const msg = (error.message ?? '').toLowerCase()
+  const col = column.toLowerCase()
+  if (!msg.includes(col)) return false
+  return (
+    error.code === 'PGRST204' ||
+    msg.includes('schema cache') ||
+    msg.includes('could not find') ||
+    msg.includes('column')
+  )
+}
+
+const TASK_OPTIONAL_COLUMNS = ['completed_at', 'completed_by', 'assignee_ids'] as const
 
 function parseRole(raw: unknown): Role {
   const r = String(raw ?? '')
@@ -134,27 +177,53 @@ export function rowToTask(r: Record<string, unknown>): Task {
 }
 
 export function taskToInsertRow(t: Task): Record<string, unknown> {
-  const assigneeIds = t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
+  const assigneeIds = (t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])).filter(
+    (id) => typeof id === 'string' && id.trim().length > 0,
+  )
   return {
     id: t.id,
     owner_id: t.ownerId,
-    assignee_id: assigneeIds[0] ?? t.assigneeId ?? null,
+    assignee_id: blankToNull(assigneeIds[0] ?? t.assigneeId),
     assignee_ids: assigneeIds,
     title: t.title,
     description: t.description ?? null,
     status: t.status,
     priority: t.priority,
-    category: t.category,
-    due_date: t.dueDate ?? null,
+    category: t.category?.trim() ? t.category : 'other',
+    due_date: toPgDate(t.dueDate),
     hours_logged: t.hoursLogged ?? null,
     estimated_hours: t.estimatedHours ?? null,
     blockers: t.blockers ?? null,
     completed_at: t.completedAt ?? null,
-    completed_by: t.completedBy ?? null,
-    activity: t.activity,
+    completed_by: blankToNull(t.completedBy),
+    activity: t.activity ?? [],
     created_at: t.createdAt,
     updated_at: t.updatedAt,
   }
+}
+
+/** Insert/update a task, dropping optional columns if this database has not applied later migrations. */
+export async function persistPortalTask(
+  client: SupabaseClient,
+  task: Task,
+  mode: 'insert' | 'update',
+): Promise<{ error: { message: string; code?: string } | null }> {
+  let row: Record<string, unknown> = taskToInsertRow(task)
+  for (let attempt = 0; attempt <= TASK_OPTIONAL_COLUMNS.length; attempt++) {
+    const result =
+      mode === 'insert'
+        ? await client.from('portal_tasks').insert(row)
+        : await client.from('portal_tasks').update(row).eq('id', task.id)
+    if (!result.error) return { error: null }
+    const missing = TASK_OPTIONAL_COLUMNS.find(
+      (col) => isMissingColumnError(result.error, col) && col in row,
+    )
+    if (!missing) return { error: result.error }
+    const next = { ...row }
+    delete next[missing]
+    row = next
+  }
+  return { error: { message: 'Could not save task' } }
 }
 
 export function rowToCheckIn(r: Record<string, unknown>): WeeklyCheckIn {
@@ -246,11 +315,13 @@ export function videoToRow(v: OnboardingVideo): Record<string, unknown> {
 }
 
 export function rowToChecklistItem(r: Record<string, unknown>): OnboardingChecklistItem {
+  const id = String(r.id)
   return {
-    id: String(r.id),
+    id,
     label: String(r.label ?? ''),
     link: r.link ? String(r.link) : undefined,
     order: Number(r.sort_order ?? 0),
+    autoKey: CHECKLIST_AUTO_KEY[id],
   }
 }
 

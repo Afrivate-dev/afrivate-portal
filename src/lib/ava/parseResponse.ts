@@ -22,7 +22,62 @@ function extractJsonStringField(text: string, key: string): string | undefined {
   return unescapeJsonString(m[1]).trim() || undefined
 }
 
+function extractBracketSlice(text: string, openIdx: number): string | undefined {
+  const open = text[openIdx]
+  const close = open === '{' ? '}' : open === '[' ? ']' : null
+  if (!close) return undefined
+  let depth = 0
+  let inStr = false
+  let esc = false
+  for (let i = openIdx; i < text.length; i++) {
+    const c = text[i]
+    if (inStr) {
+      if (esc) {
+        esc = false
+        continue
+      }
+      if (c === '\\') {
+        esc = true
+        continue
+      }
+      if (c === '"') inStr = false
+      continue
+    }
+    if (c === '"') {
+      inStr = true
+      continue
+    }
+    if (c === open) depth += 1
+    else if (c === close) {
+      depth -= 1
+      if (depth === 0) return text.slice(openIdx, i + 1)
+    }
+  }
+  return undefined
+}
+
+function extractJsonArrayField(text: string, key: string): unknown[] | undefined {
+  const re = new RegExp(`"${key}"\\s*:\\s*\\[`)
+  const m = re.exec(text)
+  if (!m) return undefined
+  const start = text.indexOf('[', m.index)
+  if (start < 0) return undefined
+  const slice = extractBracketSlice(text, start)
+  if (!slice) return undefined
+  try {
+    const parsed = JSON.parse(slice) as unknown
+    return Array.isArray(parsed) ? parsed : undefined
+  } catch {
+    return undefined
+  }
+}
+
 function extractJsonStringArray(text: string, key: string): string[] | undefined {
+  const parsed = extractJsonArrayField(text, key)
+  if (parsed) {
+    const items = parsed.filter((x): x is string => typeof x === 'string')
+    return items.length ? items : undefined
+  }
   const re = new RegExp(`"${key}"\\s*:\\s*\\[([\\s\\S]*?)\\]`, 'm')
   const m = text.match(re)
   if (!m?.[1]) return undefined
@@ -145,7 +200,8 @@ export function parseAvaModelText(text: string, source: AvaResponse['source']): 
         source,
         reply,
         citations: extractJsonStringArray(candidate, 'citations'),
-        links: extractLinksLoose(candidate),
+        links: extractLinksLoose(candidate) ?? parseLinks(extractJsonArrayField(candidate, 'links')),
+        suggestedActions: parseActions(extractJsonArrayField(candidate, 'suggestedActions')),
       }
     }
     return {

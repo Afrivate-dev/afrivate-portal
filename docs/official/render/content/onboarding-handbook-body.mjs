@@ -123,6 +123,7 @@ export const onboardingHandbookBody = `
       <p>All absence from duty is governed by <strong>AFRI-LAP-01</strong>. Submit requests through the Portal with adequate notice (minimum forty-eight (48) hours for ordinary planned absence unless a genuine emergency applies). Emergency absence still requires Portal regularisation at the earliest opportunity.</p>
 
       <h2>12. Day-by-day onboarding roadmap</h2>
+      <p>People &amp; Culture and Team Leads run this roadmap using <strong>AFRI-ONB-01</strong> (New Team Member Onboarding Kit). The Portal Getting started checklist is your live tracker.</p>
       <h3>Day 1 — Access and orientation</h3>
       <ol>
         <li>Sign in to the Portal; complete Getting started / onboarding checklist and orientation videos.</li>

@@ -37,6 +37,11 @@ export const AVA_KNOWLEDGE = `
 - Phone bottom bar: Home, My work, Inbox, People, More.
 - Top bar: dark/light mode, search, availability (Available / Away / Busy / Focusing), inbox bell, profile menu (My profile, Account & security, Sign out).
 
+## Getting started (onboarding)
+Open Getting started (/onboarding). Watch welcome videos and complete the first-week checklist (profile, My info, Slack, Resources acknowledgements, first tasks, OKRs, weekly update, learning). Home shows video progress for the first 30 days. Some checklist items tick themselves when you complete the related Portal action.
+People & Culture run new joiners with AFRI-ONB-01 (Onboarding Kit). The joiner-facing handbook is AFRI-EOH-01. Slack coordinates; Portal records. WhatsApp is not for onboarding steps.
+Required acknowledgements in Resources within seven official work days: AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, and AFRI-ICEF-01 if unpaid. Team Leads also acknowledge AFRI-TLOP-01 and AFRI-DOA-01.
+
 ## How to request leave
 1. Open People → Time off (/people/leave).
 2. Select Request leave.

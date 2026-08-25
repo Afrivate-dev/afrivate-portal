@@ -1,0 +1,60 @@
+SUBJECT: Welcome to AfriVate — your first days
+
+TO: [Full name] <[email]>
+FROM: People & Culture
+CC: [Team Lead name], Chief Executive Officer (optional)
+DATE: [Send date]
+
+Dear [First name],
+
+Welcome to AfriVate Technologies Ltd. We are glad you are joining us as [Role] in [Department / pillar].
+
+This email is your Day 0 / Day 1 map. Please read it with your Internal Contributor Engagement Letter. That letter, together with AFRI-ICEF-01, is the written record of your placement. Portal access and Slack do not create employment or any right to pay.
+
+WHAT EACH TOOL IS FOR
+• Slack — official work chat (questions, updates, coordination)
+• Portal (https://portal.afrivate.org) — official record (tasks, weekly updates, leave, learning, policy acknowledgements, OKRs)
+• WhatsApp — informal or emergency contact only. Not for official work instructions.
+
+Slack talks. Portal records. WhatsApp is not official work.
+
+YOUR FIRST OFFICIAL WORK DAYS (Monday–Thursday)
+
+Day 1
+1. Sign in at https://portal.afrivate.org
+2. Open People → My info and complete your photo, phone, and emergency contact
+3. Check People → Directory: department, job title, and reports-to must be correct. If anything is wrong, email hr@afrivate.org the same day
+4. Open Getting started — watch the welcome videos and work through the checklist
+5. Join Slack with the invite we sent. Set your real name and a professional photo. Turn on notifications for DMs and @mentions
+6. Read the Slack House Rules pin in #announcements
+7. Say hello in your team channel and message your Team Lead, [Team Lead name], that you are on Slack
+
+Day 2
+• Open Resources and acknowledge the required documents (Standard Work Process, Organisational Structure, Internal Contributor Engagement Framework, Leave and Absence Policy, and the Onboarding Handbook)
+• Review tasks in My work and ask your Team Lead to clarify anything that is unclear
+
+Days 3–4
+• Agree your Agreed Capacity and 3–5 KPIs with your Team Lead
+• Record those KPIs in People → Growth → OKRs
+• Start the work. Update the Portal task every official work day you touch it
+
+Days 5–7
+• Submit your first Weekly update even if progress was limited (explain why)
+• Complete any learning assignment in People → Learning
+
+AVAILABILITY
+Official work days are Monday to Thursday unless your approved schedule says otherwise. During your team’s core hours, acknowledge work messages on Slack within four (4) hours.
+
+NEED HELP?
+• Tasks and day-to-day work — your Team Lead on Slack
+• Access, policies, leave, learning — hr@afrivate.org or afrivatehr@gmail.com
+• Conduct or safety concerns — Portal → People → Growth → Speak up
+
+We are glad you are here. Do the Portal steps first; everything else is easier after that.
+
+Emmanuel Okpiaifo
+Human Resources Manager
+AfriVate Technologies Ltd
+hr@afrivate.org
+
+Memo reference: AFRI-ONB-01 Appendix A

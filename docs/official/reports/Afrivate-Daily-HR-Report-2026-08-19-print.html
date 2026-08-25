@@ -1,0 +1,246 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Daily HR &amp; Operations Report · 19 August 2026 · AfriVate</title>
+  <style>
+    :root {
+      --purple: #8d4087;
+      --purple-dark: #55205c;
+      --purple-soft: #f8f3f8;
+      --ink: #1f1f1f;
+      --muted: #5f5f5f;
+      --line: #ebdceb;
+      --success: #176b50;
+      --success-soft: #f2faf7;
+      --warning: #b45309;
+      --warning-soft: #fff7ed;
+      --info: #2563eb;
+      --info-soft: #eff6ff;
+    }
+    * { box-sizing: border-box; }
+    html, body {
+      margin: 0;
+      padding: 0;
+      color: var(--ink);
+      font-family: Inter, "Segoe UI", Arial, sans-serif;
+      font-size: 10.5pt;
+      line-height: 1.58;
+      background: #fff;
+    }
+    .shell { position: relative; padding: 0 4px; }
+    .topbar {
+      height: 6px;
+      margin: 0 0 16px;
+      background: var(--purple);
+      border-radius: 0 0 3px 3px;
+    }
+    .brand-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      padding-bottom: 12px;
+      border-bottom: 2px solid var(--purple);
+      margin-bottom: 18px;
+    }
+    .brand img {
+      width: 154px;
+      height: 49px;
+      object-fit: contain;
+      object-position: left center;
+    }
+    .chip {
+      text-align: right;
+      font-size: 10px;
+      color: var(--muted);
+      line-height: 1.45;
+    }
+    h1 {
+      font-size: 16px;
+      line-height: 1.3;
+      margin: 0 0 6px;
+      text-transform: uppercase;
+      letter-spacing: 0.02em;
+      color: var(--purple-dark);
+    }
+    .subtitle {
+      margin: 0 0 14px;
+      color: var(--muted);
+      font-size: 11pt;
+    }
+    .meta {
+      display: grid;
+      gap: 8px;
+      background: var(--purple-soft);
+      border: 1px solid var(--line);
+      border-radius: 10px;
+      padding: 12px 14px;
+      margin: 0 0 20px;
+    }
+    .meta div {
+      display: grid;
+      grid-template-columns: 140px 1fr;
+      gap: 8px;
+    }
+    .meta strong { color: var(--purple-dark); }
+    .meta span { color: var(--muted); }
+    h2 {
+      font-size: 11.5px;
+      text-transform: uppercase;
+      letter-spacing: 0.04em;
+      color: var(--purple);
+      margin: 18px 0 8px;
+      padding-bottom: 5px;
+      border-bottom: 1px solid var(--line);
+      break-after: avoid-page;
+    }
+    p { margin: 0 0 10px; }
+    ul, ol { margin: 0 0 12px; padding-left: 20px; }
+    li { margin: 0 0 6px; break-inside: avoid-page; }
+    .lead {
+      padding: 12px 14px;
+      background: var(--purple-soft);
+      border-left: 4px solid var(--purple);
+      border-radius: 0 8px 8px 0;
+      margin: 0 0 16px;
+    }
+    .lead p { margin: 0; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin: 0 0 14px;
+      font-size: 9.4pt;
+    }
+    th, td {
+      border: 1px solid var(--line);
+      padding: 8px 9px;
+      vertical-align: top;
+      text-align: left;
+    }
+    th {
+      background: var(--purple-soft);
+      color: var(--purple);
+      font-size: 9pt;
+      text-transform: uppercase;
+      letter-spacing: 0.03em;
+    }
+    .status {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 999px;
+      font-size: 8.5pt;
+      font-weight: 700;
+      white-space: nowrap;
+    }
+    .status.done { background: var(--success-soft); color: var(--success); }
+    .status.progress { background: var(--warning-soft); color: var(--warning); }
+    .status.ongoing { background: var(--info-soft); color: var(--info); }
+    .note {
+      margin-top: 16px;
+      padding: 10px 12px;
+      background: var(--purple-soft);
+      border: 1px solid var(--line);
+      border-radius: 8px;
+      font-size: 9.5pt;
+      color: var(--muted);
+    }
+    .sign-off {
+      margin-top: 24px;
+      padding-top: 14px;
+      border-top: 1px solid var(--line);
+      break-inside: avoid-page;
+    }
+    .sign-off strong { color: var(--purple-dark); }
+    .sign-off .role { color: var(--muted); font-size: 10pt; }
+  </style>
+</head>
+<body>
+  <div class="shell">
+    <div class="topbar"></div>
+    <div class="brand-row">
+      <div class="brand">
+        <img src="file:///C:/Users/DELL/Desktop/CODE/Afrivate/afrivate-portal/docs/official/brand/afrivate-logo-long-purple-web.png" alt="AfriVate" />
+      </div>
+      <div class="chip">
+        People &amp; Culture<br />
+        AfriVate Technologies Ltd<br />
+        RC: 9210092
+      </div>
+    </div>
+
+    <h1>Daily HR &amp; Operations Report</h1>
+    <p class="subtitle">Reporting date: 19 August 2026</p>
+
+    <section class="meta">
+      <div><strong>Prepared by</strong><span>Emmanuel Okpiaifo</span></div>
+      <div><strong>Role</strong><span>Human Resources Manager</span></div>
+      <div><strong>Department</strong><span>People &amp; Culture</span></div>
+      <div><strong>Report type</strong><span>Daily HR &amp; Operations · Internal</span></div>
+    </section>
+
+    <h2>1. Daily Overview</h2>
+    <div class="lead">
+      <p>Work on 19 August 2026 focused on the daily Slack check-in, follow-up with Team Members who had not responded the previous day, and review of incoming job applications received by email. Assigned operational tasks for the day were completed. Timely response to official messages remains the principal issue.</p>
+    </div>
+
+    <h2>2. Work Completed</h2>
+    <ul>
+      <li>Completed the daily check-in with Team Members through Slack, AfriVate’s official internal communication channel.</li>
+      <li>Issued follow-up to Team Members who did not respond to the previous day’s check-in.</li>
+      <li>Reviewed new job applications received by email.</li>
+    </ul>
+
+    <h2>3. Challenges</h2>
+    <p>A significant number of Team Members did not respond to the daily check-in or to the subsequent follow-up. This delayed confirmation of attendance and slowed related coordination for the day.</p>
+
+    <h2>4. Progress Against Goals</h2>
+    <table>
+      <thead>
+        <tr>
+          <th>Area</th>
+          <th>Status</th>
+          <th>Notes</th>
+        </tr>
+      </thead>
+      <tbody>
+        <tr>
+          <td>Daily check-in and follow-up</td>
+          <td><span class="status progress">Completed — incomplete response</span></td>
+          <td>Check-in and follow-up were issued. A significant number of Team Members did not reply.</td>
+        </tr>
+        <tr>
+          <td>Recruitment administration</td>
+          <td><span class="status done">Completed</span></td>
+          <td>New applications received by email were reviewed.</td>
+        </tr>
+        <tr>
+          <td>Assigned daily goals</td>
+          <td><span class="status done">Completed</span></td>
+          <td>No specific goals were assigned for the day. Recurring operational tasks were completed.</td>
+        </tr>
+      </tbody>
+    </table>
+
+    <h2>5. Observations</h2>
+    <ul>
+      <li>Prompt response on Slack remains inconsistent across a number of Team Members.</li>
+      <li>Delayed replies were also observed on WhatsApp. Slack remains the official channel for workplace communication; WhatsApp is not an official work channel.</li>
+    </ul>
+
+    <h2>6. Agenda for 20 August 2026</h2>
+    <ul>
+      <li>Reconcile Slack and email to confirm that outstanding replies have been actioned and that no correspondence has been overlooked.</li>
+      <li>Continue standing HR and operations duties.</li>
+    </ul>
+
+    <p class="note"><strong>Internal use:</strong> This is a daily operational record for People &amp; Culture. It does not amend policy and does not create employment, pay, or benefits.</p>
+
+    <div class="sign-off">
+      <strong>Emmanuel Okpiaifo</strong><br />
+      <span class="role">Human Resources Manager · AfriVate Technologies Ltd</span><br />
+      <span class="role">People &amp; Culture · hr@afrivate.org</span>
+    </div>
+  </div>
+</body>
+</html>

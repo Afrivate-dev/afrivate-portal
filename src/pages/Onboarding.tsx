@@ -29,6 +29,7 @@ import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
 import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import { pages } from '@/content/copy'
 import { checklistMetaFor } from '@/content/gettingStartedChecklist'
+import { ONBOARDING_WEEK_MAP } from '@/content/onboardingWeekMap'
 import type { OnboardingVideo } from '@/types'
 
 type Tab = 'videos' | 'checklist' | 'admin'
@@ -192,6 +193,28 @@ export function OnboardingPage() {
           />
         </div>
       </Card>
+
+      <div className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {ONBOARDING_WEEK_MAP.map((step) => (
+          <Card key={step.day} padding="md">
+            <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">{step.day}</p>
+            <p className="mt-1 text-sm font-semibold text-fg">{step.title}</p>
+            <ul className="mt-2 space-y-1.5">
+              {step.items.map((item) => (
+                <li key={item} className="text-xs leading-relaxed text-muted">
+                  {item}
+                </li>
+              ))}
+            </ul>
+          </Card>
+        ))}
+      </div>
+      {canSeeAdmin ? (
+        <p className="text-xs text-muted">
+          People & Culture run this week with AFRI-ONB-01 (New Team Member Onboarding Kit). Upload the kit PDF to
+          Resources for leads. The joiner-facing handbook remains AFRI-EOH-01.
+        </p>
+      ) : null}
 
       {/* Completion banner at 100% */}
       {totals.overall === 100 ? (
@@ -404,9 +427,10 @@ export function OnboardingPage() {
           <div className="space-y-4">
             <Card padding="md" accentBorder="info" className="border-l-4 border-l-accent">
               <p className="text-sm text-fg">
-                Work through these at your own pace during your first few weeks. Items with a{' '}
+                Work through these during your first official week (Monday–Thursday). Items with a{' '}
                 <strong>Go</strong> link take you straight to the right place — we also tick some off
-                automatically when you complete the action.
+                automatically when you complete the action. Acknowledge required policies in Resources within
+                seven official work days.
               </p>
               <p className="mt-2 text-xs text-muted">
                 {totals.checklist.checked} of {totals.checklist.total} complete

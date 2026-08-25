@@ -217,7 +217,7 @@ export function EventsCalendarPage() {
   )
 
   useAvaFormDraft('event', (d) => {
-    if (!canManage) return
+    if (!canManage) return false
     setDraft((prev) => ({
       ...prev,
       ...(d.fields.title ? { title: d.fields.title } : {}),

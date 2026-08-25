@@ -57,7 +57,37 @@ function wantsDraft(q: string) {
     'make this',
     'help me write',
     'help me draft',
+    'create a task',
+    'create task',
+    'add a task',
+    'add task',
+    'new task',
+    'make a task',
+    'create a leave',
+    'create leave',
+    'request leave for',
+    'create a memo',
+    'create an event',
+    'add an event',
   ])
+}
+
+function extractTaskTitle(last: string, fallback?: string): string {
+  const quoted = last.match(/["“']([^"”']{3,120})["”']/)
+  if (quoted?.[1]) return quoted[1].trim()
+  const labeled = last.match(/(?:titled|called|named)\s+["“']?(.+)/i)
+  if (labeled?.[1]) {
+    return labeled[1]
+      .replace(/["”'].*$/, '')
+      .replace(/\s+due\s+\d{4}-\d{2}-\d{2}.*$/i, '')
+      .trim()
+      .slice(0, 120)
+  }
+  const colon = last.match(/\btask\s*[:\-–]\s*(.+)/i)
+  if (colon?.[1]) return colon[1].trim().split(/[.!\n]/)[0].slice(0, 120)
+  const after = afterCue(last, ['create a task', 'add a task', 'new task', 'make a task'])
+  if (after) return after.replace(/^(to|for|about)\s+/i, '').split(/[.!\n]/)[0].slice(0, 120)
+  return (fallback ?? '').slice(0, 120)
 }
 
 function insertDraft(
@@ -177,10 +207,15 @@ export function localAvaRespond(
 
   if (wantsDraft(q) && includesAny(q, ['task', 'my work'])) {
     const fromPage = draftFromPage(ctx, 'task')
-    const title = afterCue(last, ['task', 'titled', 'called', ':']) || fromPage.title
+    const title = extractTaskTitle(last, fromPage.title)
     const fields: Record<string, string> = { ...fromPage }
     if (title) fields.title = title.slice(0, 120)
-    if (!fields.description && title) fields.description = afterCue(last, ['description', 'about']) || ''
+    if (!fields.description) {
+      const desc = afterCue(last, ['description', 'about', 'notes'])
+      if (desc) fields.description = desc
+    }
+    const dates = last.match(/\d{4}-\d{2}-\d{2}/g)
+    if (dates?.[0]) fields.dueDate = dates[0]
     if (!fields.title) {
       links.push({ label: 'My work', path: '/tasks' })
       actions.push({ type: 'navigate', label: 'Go to My work', path: '/tasks' })
@@ -250,6 +285,33 @@ export function localAvaRespond(
       links,
       suggestedActions: actions,
       reply: 'I have inserted a **memo draft**. Review it, then publish it yourself. AVA cannot publish memos.',
+    }
+  }
+
+  if (wantsDraft(q) && includesAny(q, ['event', 'calendar', 'meeting'])) {
+    const fromPage = draftFromPage(ctx, 'event')
+    const fields = { ...fromPage }
+    const title = afterCue(last, ['event', 'meeting', 'titled', 'called', ':']) || fromPage.title
+    if (title) fields.title = title.split(/[.!\n]/)[0].slice(0, 120)
+    const dates = last.match(/\d{4}-\d{2}-\d{2}/g)
+    if (dates?.[0]) fields.date = dates[0]
+    if (!fields.title && !fields.date) {
+      links.push({ label: 'Calendar', path: '/events' })
+      actions.push({ type: 'navigate', label: 'Go to Calendar', path: '/events' })
+      return {
+        source: 'local',
+        links,
+        suggestedActions: actions,
+        reply: 'Tell me the event title and date. I will insert a calendar draft — you save it yourself.',
+      }
+    }
+    links.push({ label: 'Calendar', path: '/events' })
+    actions.push(insertDraft('event', 'Review event draft', '/events', fields, refine ? 'refine' : 'insert'))
+    return {
+      source: 'local',
+      links,
+      suggestedActions: actions,
+      reply: 'I have inserted a **calendar draft**. Review it, then save it yourself. AVA cannot publish events.',
     }
   }
 

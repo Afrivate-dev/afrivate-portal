@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { Link, useLocation } from 'react-router-dom'
+import { Link, useLocation, useNavigate } from 'react-router-dom'
 import { Send, X } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
@@ -10,7 +10,7 @@ import { notifySuccess } from '@/lib/notify'
 import { normalizeAvaDisplayText } from '@/lib/ava/parseResponse'
 import { buildAvaUserContext } from '@/lib/ava/buildContext'
 import { AVA_SUGGESTED_PROMPTS } from '@/lib/ava/knowledge'
-import type { AvaChatMessage, AvaResponse, AvaSuggestedAction } from '@/lib/ava/types'
+import type { AvaChatMessage, AvaInsertDraftAction, AvaResponse, AvaSuggestedAction } from '@/lib/ava/types'
 import { computeProfileCompleteness } from '@/lib/hrPeopleOps'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { cn, isHR, isLead, uid } from '@/utils/helpers'
@@ -69,6 +69,7 @@ export function AvaFab() {
   const enabled = isAvaEnabled()
   const { user } = useAuth()
   const location = useLocation()
+  const navigate = useNavigate()
   const {
     users,
     teams,
@@ -255,8 +256,16 @@ export function AvaFab() {
           .map((m) => ({ role: m.role, content: m.content }))
         const res = await askAva({ messages: apiMessages, context })
         const suggestedActions = applyAvaSuggestedActions(res.suggestedActions)
-        if (suggestedActions?.some((a) => a.type === 'insert_draft')) {
-          notifySuccess('AVA inserted a draft. Review it, then submit it yourself.')
+        const draftAction = suggestedActions?.find(
+          (a): a is AvaInsertDraftAction => a.type === 'insert_draft',
+        )
+        if (draftAction) {
+          notifySuccess('AVA filled a draft for you. Review it, then submit it yourself.')
+          closePanel()
+          const destPath = draftAction.path.split('?')[0]
+          if (location.pathname !== destPath || draftAction.path.includes('?')) {
+            navigate(draftAction.path)
+          }
         }
         setMessages((prev) => [
           ...prev,
@@ -284,7 +293,7 @@ export function AvaFab() {
         setBusy(false)
       }
     },
-    [busy, context, messages],
+    [busy, context, messages, closePanel, location.pathname, navigate],
   )
 
   if (!enabled || !user || isSuspended(user)) return null

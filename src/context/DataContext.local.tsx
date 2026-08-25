@@ -80,7 +80,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     seedOnboardingVideos,
   )
   const [onboardingChecklist, setOnboardingChecklist] = useLocalStorage<OnboardingChecklistItem[]>(
-    'av-onboarding-checklist',
+    'av-onboarding-checklist-v2',
     seedOnboardingChecklist,
   )
   const [onboardingProgress, setOnboardingProgress] = useLocalStorage<OnboardingProgress[]>(

@@ -1,6 +1,5 @@
 import { useEffect, useState } from 'react'
 import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
-import { peekAvaDraft } from '@/lib/ava/avaDrafts'
 import { useAuth } from '@/context/AuthContext'
 import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
@@ -36,19 +35,7 @@ export function PeopleMyInfoPage() {
       nextOfKinNotes: profile.nextOfKinNotes,
     })
     setSkillsText((profile.skills ?? user.skills ?? []).join(', '))
-    const pending = peekAvaDraft('my_info')
-    if (!pending) return
-    setDraft((prev) => ({
-      ...prev,
-      ...(pending.fields.preferredName ? { preferredName: pending.fields.preferredName } : {}),
-      ...(pending.fields.legalName ? { legalName: pending.fields.legalName } : {}),
-      ...(pending.fields.personalEmail ? { personalEmail: pending.fields.personalEmail } : {}),
-      ...(pending.fields.phone ? { phone: pending.fields.phone } : {}),
-      ...(pending.fields.bio ? { bio: pending.fields.bio } : {}),
-      ...(pending.fields.nextOfKinNotes ? { nextOfKinNotes: pending.fields.nextOfKinNotes } : {}),
-    }))
-    if (pending.fields.skills) setSkillsText(pending.fields.skills)
-  }, [user, employeeProfiles, ensureEmployeeProfile])
+  }, [user, ensureEmployeeProfile])
 
   useAvaPageDraft(
     'my_info',

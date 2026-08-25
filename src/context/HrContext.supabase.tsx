@@ -12,6 +12,7 @@ import {
   insertFeedbackTemplate,
 } from '@/lib/feedbackConfig'
 import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow, stripOptionalCandidateColumns } from '@/lib/supabase/hrDataset'
+import { toPgDate } from '@/lib/supabase/portalDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
 import { supabase } from '@/lib/supabase'
@@ -521,7 +522,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           p_title: row.title,
           p_alison_url: row.alisonUrl,
           p_description: row.description ?? null,
-          p_due_date: row.dueDate ?? null,
+          p_due_date: toPgDate(row.dueDate),
           p_month_label: row.monthLabel ?? null,
         })
         if (error) reportHrError('add learning assignment', error)
@@ -544,7 +545,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
             title: next.title,
             alison_url: next.alisonUrl,
             description: next.description ?? null,
-            due_date: next.dueDate ?? null,
+            due_date: toPgDate(next.dueDate),
             month_label: next.monthLabel ?? null,
             active: next.active,
           })
@@ -1250,7 +1251,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
             label: m.label,
             completed: m.completed,
             completed_at: m.completedAt ?? null,
-            due_date: m.dueDate ?? null,
+            due_date: toPgDate(m.dueDate),
           })),
         )
         if (error) reportHrError('seed onboarding milestones', error)

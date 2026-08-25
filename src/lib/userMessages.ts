@@ -4,7 +4,8 @@ const PHRASE_MAP: [RegExp, string][] = [
   [/permission denied for table portal_task_categories/i, 'Work categories are using the standard list for now.'],
   [/permission denied/i, "You don't have permission to do that. Ask an administrator if you need access."],
   [/row-level security|rls policy/i, "This change wasn't allowed. You may not have the right access level."],
-  [/could not find the function|pgrst202/i, 'This feature is still being set up. Please try again later or contact support.'],
+  [/invalid input syntax for type date/i, 'Please pick a valid date and try again.'],
+  [/could not find the function|pgrst202|pgrst204|schema cache/i, 'This feature is still being set up. Please try again later or contact support.'],
   [/edge function|404.*not found/i, 'This feature is temporarily unavailable. Please try again later.'],
   [/jwt expired|invalid jwt|session/i, 'Your session has expired. Please sign in again.'],
   [/network|fetch failed|failed to fetch/i, "We couldn't reach the server. Check your internet connection and try again."],
@@ -16,6 +17,7 @@ const PHRASE_MAP: [RegExp, string][] = [
 const ACTION_LABELS: Record<string, string> = {
   'load task categories': 'load work categories',
   'create task': 'save your task',
+  'add calendar event': 'save this calendar event',
   'update task': 'update your task',
   'delete task': 'delete this task',
   'submit check-in': 'send your weekly update',

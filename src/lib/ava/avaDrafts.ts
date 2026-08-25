@@ -135,19 +135,54 @@ function asString(v: unknown): string | undefined {
   return undefined
 }
 
+const FIELD_ALIASES: Record<AvaDraftKind, Record<string, string>> = {
+  weekly_update: { hours: 'hoursWorked', done: 'completed', next: 'nextWeek' },
+  task: {
+    name: 'title',
+    taskTitle: 'title',
+    due: 'dueDate',
+    due_date: 'dueDate',
+    notes: 'description',
+  },
+  leave: { from: 'startDate', to: 'endDate', start: 'startDate', end: 'endDate' },
+  shoutout: { text: 'message', body: 'message', note: 'message' },
+  memo: { text: 'body', content: 'body' },
+  event: { when: 'date', eventDate: 'date', event_date: 'date' },
+  my_info: { about: 'bio', summary: 'bio' },
+}
+
+const DATE_KEYS = new Set(['dueDate', 'startDate', 'endDate', 'date', 'dateOfBirth'])
+
 function pickFields(kind: AvaDraftKind, raw: unknown): Record<string, string> {
   const out: Record<string, string> = {}
   if (!raw || typeof raw !== 'object') return out
   const rec = raw as Record<string, unknown>
+  const aliases = FIELD_ALIASES[kind]
+  const canon = { ...rec }
+  for (const [from, to] of Object.entries(aliases)) {
+    if (canon[to] == null && canon[from] != null) canon[to] = canon[from]
+  }
   for (const key of KEYS_BY_KIND[kind]) {
-    const val = asString(rec[key])
+    const val = asString(canon[key])
     if (val) out[key] = val
   }
   return sanitizeKindFields(kind, out)
 }
 
+function toDateOnly(value: string): string | undefined {
+  const match = value.trim().match(/(\d{4}-\d{2}-\d{2})/)
+  return match?.[1]
+}
+
 function sanitizeKindFields(kind: AvaDraftKind, fields: Record<string, string>): Record<string, string> {
   const next = { ...fields }
+  for (const key of Object.keys(next)) {
+    if (DATE_KEYS.has(key)) {
+      const date = toDateOnly(next[key])
+      if (date) next[key] = date
+      else delete next[key]
+    }
+  }
   if (kind === 'weekly_update') {
     if (next.visibility && next.visibility !== 'department' && next.visibility !== 'all') {
       delete next.visibility
