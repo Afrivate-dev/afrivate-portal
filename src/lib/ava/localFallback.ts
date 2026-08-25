@@ -69,6 +69,18 @@ function wantsDraft(q: string) {
     'create a memo',
     'create an event',
     'add an event',
+    'create a note',
+    'create notes',
+    'add a note',
+    'add notes',
+    'new note',
+    'draft a note',
+    'draft notes',
+    'write a note',
+    'write notes',
+    'create tasks',
+    'add tasks',
+    'draft tasks',
   ])
 }
 
@@ -87,6 +99,57 @@ function extractTaskTitle(last: string, fallback?: string): string {
   if (colon?.[1]) return colon[1].trim().split(/[.!\n]/)[0].slice(0, 120)
   const after = afterCue(last, ['create a task', 'add a task', 'new task', 'make a task'])
   if (after) return after.replace(/^(to|for|about)\s+/i, '').split(/[.!\n]/)[0].slice(0, 120)
+  return (fallback ?? '').slice(0, 120)
+}
+
+/** Numbered/bulleted lines, or "titled A, B, and C". */
+function extractListItems(text: string): string[] {
+  const items: string[] = []
+  for (const line of text.split(/\n/)) {
+    const m = line.match(/^\s*(?:\d+[.)]\s+|[-*•]\s+)(.+)/)
+    if (m?.[1]) {
+      const title = m[1].replace(/\s+due\s+\d{4}-\d{2}-\d{2}.*$/i, '').trim().slice(0, 120)
+      if (title.length >= 2) items.push(title)
+    }
+  }
+  if (items.length >= 2) return items
+
+  const labeled = text.match(/(?:titled|called|named)\s+(.+)/i)
+  if (!labeled?.[1]) return []
+  const parts = labeled[1]
+    .split(/\s*,\s*|\s+and\s+/i)
+    .map((s) =>
+      s
+        .replace(/["”']/g, '')
+        .replace(/[.!?].*$/, '')
+        .replace(/\s+due\s+\d{4}-\d{2}-\d{2}.*$/i, '')
+        .trim(),
+    )
+    .filter((s) => s.length >= 2 && s.length <= 120)
+  return parts.length >= 2 ? parts : []
+}
+
+function extractNoteTitle(last: string, fallback?: string): string {
+  const quoted = last.match(/["“']([^"”']{3,120})["”']/)
+  if (quoted?.[1]) return quoted[1].trim()
+  const labeled = last.match(/(?:titled|called|named)\s+["“']?(.+)/i)
+  if (labeled?.[1]) {
+    return labeled[1]
+      .replace(/["”'].*$/, '')
+      .replace(/\s+about\s+.+$/i, '')
+      .trim()
+      .slice(0, 120)
+  }
+  const after = afterCue(last, [
+    'create a note',
+    'add a note',
+    'new note',
+    'write a note',
+    'draft a note',
+    'create notes',
+    'draft notes',
+  ])
+  if (after) return after.replace(/^(to|for|about|titled|called)\s+/i, '').split(/[.!\n]/)[0].slice(0, 120)
   return (fallback ?? '').slice(0, 120)
 }
 
@@ -167,7 +230,11 @@ export function localAvaRespond(
     }
   }
 
-  if (wantsDraft(q) && includesAny(q, ['leave', 'time off', 'annual leave', 'sick'])) {
+  if (
+    wantsDraft(q) &&
+    !includesAny(q, ['task', 'my work', 'note']) &&
+    includesAny(q, ['leave', 'time off', 'annual leave', 'sick'])
+  ) {
     const fromPage = draftFromPage(ctx, 'leave')
     const reason =
       afterCue(last, ['because', 'reason', 'for', ':']) || fromPage.reason || last.trim()
@@ -205,35 +272,93 @@ export function localAvaRespond(
     }
   }
 
+  if (
+    wantsDraft(q) &&
+    includesAny(q, [
+      'create a note',
+      'create notes',
+      'add a note',
+      'add notes',
+      'new note',
+      'draft a note',
+      'draft notes',
+      'write a note',
+      'write notes',
+      'workspace note',
+    ])
+  ) {
+    const fromPage = draftFromPage(ctx, 'note')
+    const listed = extractListItems(last)
+    const titles =
+      listed.length >= 2
+        ? listed
+        : [extractNoteTitle(last, fromPage.title)].filter((t) => t.length >= 2)
+    if (!titles.length) {
+      links.push({ label: 'Notes', path: '/notes' })
+      actions.push({ type: 'navigate', label: 'Go to Notes', path: '/notes' })
+      return {
+        source: 'local',
+        links,
+        suggestedActions: actions,
+        reply:
+          'Tell me the note title and what to write. I will save draft(s) on Notes — you create the page yourself. AVA cannot publish notes.',
+      }
+    }
+    const body = afterCue(last, ['body', 'about', 'covering', ':']) || fromPage.body
+    for (const title of titles) {
+      const fields: Record<string, string> = { title }
+      if (titles.length === 1 && body && body !== title) fields.body = body
+      actions.push(insertDraft('note', `Review note: ${title}`, '/notes', fields, refine ? 'refine' : 'insert'))
+    }
+    links.push({ label: 'Notes', path: '/notes' })
+    return {
+      source: 'local',
+      links,
+      suggestedActions: actions,
+      reply:
+        titles.length === 1
+          ? 'I saved a **note draft** on Notes. Resume it from Saved drafts, then create the page yourself. AVA cannot publish notes.'
+          : `I saved **${titles.length} note drafts** on Notes. Resume them from Saved drafts, then create the pages yourself. AVA cannot publish notes.`,
+    }
+  }
+
   if (wantsDraft(q) && includesAny(q, ['task', 'my work'])) {
     const fromPage = draftFromPage(ctx, 'task')
-    const title = extractTaskTitle(last, fromPage.title)
-    const fields: Record<string, string> = { ...fromPage }
-    if (title) fields.title = title.slice(0, 120)
-    if (!fields.description) {
-      const desc = afterCue(last, ['description', 'about', 'notes'])
-      if (desc) fields.description = desc
-    }
-    const dates = last.match(/\d{4}-\d{2}-\d{2}/g)
-    if (dates?.[0]) fields.dueDate = dates[0]
-    if (!fields.title) {
+    const listed = extractListItems(last)
+    const titles =
+      listed.length >= 2 ? listed : [extractTaskTitle(last, fromPage.title)].filter((t) => t.length >= 2)
+    if (!titles.length) {
       links.push({ label: 'My work', path: '/tasks' })
       actions.push({ type: 'navigate', label: 'Go to My work', path: '/tasks' })
       return {
         source: 'local',
         links,
         suggestedActions: actions,
-        reply: 'Tell me the task title and details. I will insert a draft on My work — you create it yourself. I will not mark it complete.',
+        reply:
+          'Tell me the task title and details. I will save draft(s) in Drafts on My work — you create them yourself. I will not mark them complete.',
       }
     }
-    fields.status = 'todo'
+    const dates = last.match(/\d{4}-\d{2}-\d{2}/g)
+    const desc = afterCue(last, ['description', 'about', 'notes'])
+    for (const title of titles) {
+      const fields: Record<string, string> = { ...fromPage, title, status: 'todo' }
+      if (titles.length === 1) {
+        if (!fields.description && desc) fields.description = desc
+        if (dates?.[0]) fields.dueDate = dates[0]
+      }
+      actions.push(
+        insertDraft('task', `Review task: ${title}`, '/tasks', fields, refine && titles.length === 1 ? 'refine' : 'insert'),
+      )
+    }
     links.push({ label: 'My work', path: '/tasks' })
-    actions.push(insertDraft('task', 'Review task draft', '/tasks', fields, refine ? 'refine' : 'insert'))
     return {
       source: 'local',
       links,
       suggestedActions: actions,
-      reply: 'I have inserted a **task draft**. Review it on My work, then create it yourself. AVA cannot complete tasks.',
+      reply:
+        titles.length === 1
+          ? 'I saved a **task draft** in Drafts on My work. Open it from that column, then create it yourself. AVA cannot complete tasks.'
+          : `I saved **${titles.length} task drafts** in Drafts on My work. Open them from that column, then create them yourself. AVA cannot complete tasks.`,
     }
   }
 

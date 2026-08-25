@@ -1,4 +1,4 @@
-import type { AnnouncementMedia, AnnouncementPriority } from '@/types'
+import type { AnnouncementMedia, AnnouncementPriority, TaskPriority, TaskStatus } from '@/types'
 import { REVIVAL_LAUNCH_MEMOS } from '@/content/revivalLaunchMemos'
 
 export const COMPOSER_DRAFTS_KEY = 'av-composer-drafts'
@@ -9,7 +9,7 @@ export function notifyComposerDraftsChanged(): void {
   window.dispatchEvent(new Event(COMPOSER_DRAFTS_CHANGED_EVENT))
 }
 
-export type ComposerDraftKind = 'memo' | 'shoutout' | 'event' | 'message'
+export type ComposerDraftKind = 'memo' | 'shoutout' | 'event' | 'message' | 'task' | 'note'
 
 export type MemoDraftPayload = {
   title: string
@@ -45,11 +45,29 @@ export type MessageDraftPayload = {
   channel: 'email' | 'whatsapp'
 }
 
+export type TaskDraftPayload = {
+  title: string
+  description: string
+  status: TaskStatus
+  priority: TaskPriority
+  category: string
+  dueDate: string
+  blockers: string
+  estimatedHours: string
+}
+
+export type NoteDraftPayload = {
+  title: string
+  body: string
+}
+
 export type ComposerDraftPayload =
   | MemoDraftPayload
   | ShoutoutDraftPayload
   | EventDraftPayload
   | MessageDraftPayload
+  | TaskDraftPayload
+  | NoteDraftPayload
 
 export interface ComposerDraft {
   id: string
@@ -235,4 +253,19 @@ export function isEventPayload(p: ComposerDraftPayload): p is EventDraftPayload 
 
 export function isMessagePayload(p: ComposerDraftPayload): p is MessageDraftPayload {
   return 'channel' in p && 'body' in p
+}
+
+export function isTaskPayload(p: ComposerDraftPayload): p is TaskDraftPayload {
+  return 'title' in p && 'status' in p && 'dueDate' in p && !('startTime' in p) && !('message' in p)
+}
+
+export function isNotePayload(p: ComposerDraftPayload): p is NoteDraftPayload {
+  return (
+    'title' in p &&
+    'body' in p &&
+    !('memoCategory' in p) &&
+    !('channel' in p) &&
+    !('audience' in p) &&
+    !('status' in p)
+  )
 }

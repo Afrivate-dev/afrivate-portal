@@ -106,6 +106,8 @@ export function useComposerDrafts() {
       shoutout: draftsOfKind(store, 'shoutout'),
       event: draftsOfKind(store, 'event'),
       message: draftsOfKind(store, 'message'),
+      task: draftsOfKind(store, 'task'),
+      note: draftsOfKind(store, 'note'),
     }),
     [store],
   )

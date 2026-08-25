@@ -20,6 +20,7 @@ export type AvaDraftKind =
   | 'memo'
   | 'event'
   | 'my_info'
+  | 'note'
 
 export type AvaDraftMode = 'insert' | 'refine'
 

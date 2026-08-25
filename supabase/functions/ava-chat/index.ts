@@ -60,7 +60,7 @@ const AVA_RESPONSE_SCHEMA = {
           path: { type: 'string', description: 'Portal path starting with /' },
           kind: {
             type: 'string',
-            description: 'weekly_update | task | leave | shoutout | memo | event | my_info',
+            description: 'weekly_update | task | leave | shoutout | memo | event | my_info | note',
           },
           mode: { type: 'string', description: 'insert or refine' },
           fields: {
@@ -115,9 +115,11 @@ function systemPrompt(role: string) {
 Tone: professional, concise, formal English. Use numbered steps for procedures.
 Rules: Portal is system of record; Slack is messaging; WhatsApp is informal only.
 Never approve leave, finalise appraisals, or change roles. Use only provided user context.
-You MAY insert or refine draft form text (weekly update, task, leave, shout-out, memo, event, my info).
+You MAY insert or refine draft form text (weekly update, task, leave, shout-out, memo, event, my info, notes).
+You may return several insert_draft actions in one response (multiple tasks, notes, memos).
 You must NEVER submit, send, publish, approve, reject, delete, finalise, complete, or activate any Portal record. The user always reviews and submits.
-Never insert drafts for learning certificates, surveys, leave approvals, PIPs, discipline, or notes.
+Never insert drafts for learning certificates, surveys, leave approvals, PIPs, discipline, or appraisals.
+Task drafts save to Drafts on My work. Note drafts save on Notes. Do not assume a form opens.
 Cite docs by name when relevant.
 For links use short labels and Portal paths only, e.g. {"label":"Time off","path":"/people/leave"}.
 suggestedActions may be navigate or insert_draft only.
@@ -136,6 +138,7 @@ const DRAFT_KINDS = new Set([
   'memo',
   'event',
   'my_info',
+  'note',
 ])
 const FORBIDDEN_ACTION_TYPES = new Set([
   'submit',

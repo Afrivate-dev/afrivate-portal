@@ -5,11 +5,15 @@ import {
   upsertComposerDraft,
   writeComposerDraftsStore,
   type ComposerDraftKind,
+  type ComposerDraftPayload,
   type EventDraftPayload,
   type MemoDraftPayload,
+  type NoteDraftPayload,
   type ShoutoutDraftPayload,
+  type TaskDraftPayload,
 } from '@/lib/composerDrafts'
 import type { AvaDraftKind, AvaDraftMode, AvaInsertDraftAction, AvaSuggestedAction } from '@/lib/ava/types'
+import type { TaskPriority, TaskStatus } from '@/types'
 
 export const AVA_DRAFT_EVENT = 'ava:draft'
 const AVA_DRAFT_STORAGE_PREFIX = 'ava-form-draft:'
@@ -22,6 +26,7 @@ const DRAFT_KINDS: readonly AvaDraftKind[] = [
   'memo',
   'event',
   'my_info',
+  'note',
 ]
 
 const KIND_PATH: Record<AvaDraftKind, string> = {
@@ -32,6 +37,21 @@ const KIND_PATH: Record<AvaDraftKind, string> = {
   memo: '/announcements',
   event: '/events',
   my_info: '/people/my-info',
+  note: '/notes',
+}
+
+/** Kinds saved to the Drafts list (multiple allowed). Insert does not open a form. */
+const COMPOSER_DRAFT_KINDS: readonly AvaDraftKind[] = ['task', 'note', 'shoutout', 'memo', 'event']
+
+export function isComposerSavedDraftKind(kind: AvaDraftKind): boolean {
+  return (COMPOSER_DRAFT_KINDS as readonly string[]).includes(kind)
+}
+
+function toComposerKind(kind: AvaDraftKind): ComposerDraftKind | null {
+  if (kind === 'task' || kind === 'note' || kind === 'shoutout' || kind === 'memo' || kind === 'event') {
+    return kind
+  }
+  return null
 }
 
 /** Model action types that would submit, complete, or mutate records — always dropped. */
@@ -68,6 +88,7 @@ const LEAVE_KEYS = ['type', 'startDate', 'endDate', 'reason'] as const
 const SHOUTOUT_KEYS = ['message', 'receiverId', 'tag'] as const
 const MEMO_KEYS = ['title', 'body', 'audience', 'priority', 'memoCategory'] as const
 const EVENT_KEYS = ['title', 'description', 'date', 'startTime', 'endTime', 'location', 'audience'] as const
+const NOTE_KEYS = ['title', 'body'] as const
 const MY_INFO_KEYS = [
   'preferredName',
   'legalName',
@@ -94,6 +115,7 @@ const KEYS_BY_KIND: Record<AvaDraftKind, readonly string[]> = {
   memo: MEMO_KEYS,
   event: EVENT_KEYS,
   my_info: MY_INFO_KEYS,
+  note: NOTE_KEYS,
 }
 
 export interface AvaFormDraft {
@@ -149,6 +171,7 @@ const FIELD_ALIASES: Record<AvaDraftKind, Record<string, string>> = {
   memo: { text: 'body', content: 'body' },
   event: { when: 'date', eventDate: 'date', event_date: 'date' },
   my_info: { about: 'bio', summary: 'bio' },
+  note: { name: 'title', text: 'body', content: 'body', notes: 'body' },
 }
 
 const DATE_KEYS = new Set(['dueDate', 'startDate', 'endDate', 'date', 'dateOfBirth'])
@@ -223,6 +246,7 @@ function guessKind(label: string, path?: string): AvaDraftKind | undefined {
   if (t.includes('memo') || t.includes('announcement')) return 'memo'
   if (t.includes('event') || t.includes('calendar')) return 'event'
   if (t.includes('my info') || t.includes('profile')) return 'my_info'
+  if (t.includes('note')) return 'note'
   return undefined
 }
 
@@ -309,21 +333,22 @@ export function consumeAvaDraft(kind: AvaDraftKind): AvaFormDraft | null {
 function writeComposerFromFields(kind: ComposerDraftKind, fields: Record<string, string>): string | null {
   const id = newComposerDraftId('ava')
   const now = new Date().toISOString()
-  let payload: ShoutoutDraftPayload | MemoDraftPayload | EventDraftPayload
+  let payload: ComposerDraftPayload
   let label = 'AVA draft'
 
   if (kind === 'shoutout') {
-    payload = {
+    const shout: ShoutoutDraftPayload = {
       receiverId: fields.receiverId ?? '',
       tag: fields.tag || 'great_work',
       message: fields.message ?? '',
       media: [],
     }
+    payload = shout
     label = 'AVA shout-out draft'
   } else if (kind === 'memo') {
     const priority =
       fields.priority === 'important' || fields.priority === 'urgent' ? fields.priority : 'info'
-    payload = {
+    const memo: MemoDraftPayload = {
       title: fields.title ?? '',
       body: fields.body ?? '',
       audience: fields.audience || 'all',
@@ -331,9 +356,10 @@ function writeComposerFromFields(kind: ComposerDraftKind, fields: Record<string,
       memoCategory: fields.memoCategory || 'general',
       media: [],
     }
+    payload = memo
     label = fields.title ? `AVA memo — ${fields.title}` : 'AVA memo draft'
   } else if (kind === 'event') {
-    payload = {
+    const event: EventDraftPayload = {
       title: fields.title ?? '',
       description: fields.description ?? '',
       date: fields.date ?? '',
@@ -342,7 +368,32 @@ function writeComposerFromFields(kind: ComposerDraftKind, fields: Record<string,
       location: fields.location ?? '',
       audience: fields.audience || 'all',
     }
+    payload = event
     label = fields.title ? `AVA event — ${fields.title}` : 'AVA event draft'
+  } else if (kind === 'task') {
+    const status: TaskStatus =
+      fields.status === 'in_progress' || fields.status === 'blocked' ? fields.status : 'todo'
+    const priority: TaskPriority =
+      fields.priority === 'high' || fields.priority === 'low' ? fields.priority : 'medium'
+    const task: TaskDraftPayload = {
+      title: fields.title ?? '',
+      description: fields.description ?? '',
+      status,
+      priority,
+      category: fields.category ?? '',
+      dueDate: fields.dueDate ?? '',
+      blockers: fields.blockers ?? '',
+      estimatedHours: fields.estimatedHours ?? '',
+    }
+    payload = task
+    label = fields.title || 'AVA task draft'
+  } else if (kind === 'note') {
+    const note: NoteDraftPayload = {
+      title: fields.title || 'Untitled note',
+      body: fields.body ?? '',
+    }
+    payload = note
+    label = fields.title || 'AVA note draft'
   } else {
     return null
   }
@@ -362,15 +413,23 @@ function writeComposerFromFields(kind: ComposerDraftKind, fields: Record<string,
 /** Persist an insert_draft (never submits). Returns the action with a review path. */
 export function applyInsertDraft(action: AvaInsertDraftAction): AvaInsertDraftAction {
   const draft: AvaFormDraft = { kind: action.kind, mode: action.mode, fields: action.fields }
-  putAvaDraft(draft)
-
+  const composerKind = toComposerKind(action.kind)
   let path = action.path || KIND_PATH[action.kind]
-  if (action.kind === 'shoutout' || action.kind === 'memo' || action.kind === 'event') {
-    const id = writeComposerFromFields(action.kind, action.fields)
+
+  if (action.kind === 'note') {
+    writeComposerFromFields('note', action.fields)
+    path = KIND_PATH.note
+  } else if (action.mode === 'refine') {
+    putAvaDraft(draft)
+  } else if (composerKind) {
+    const id = writeComposerFromFields(composerKind, action.fields)
     if (id) {
-      const base = KIND_PATH[action.kind]
-      path = `${base}?draft=${encodeURIComponent(id)}`
+      path = `${KIND_PATH[action.kind]}?draft=${encodeURIComponent(id)}`
+    } else {
+      path = KIND_PATH[action.kind]
     }
+  } else {
+    putAvaDraft(draft)
   }
 
   const reviewLabel =

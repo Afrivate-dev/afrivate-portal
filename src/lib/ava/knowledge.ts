@@ -23,7 +23,7 @@ export const AVA_KNOWLEDGE = `
 
 ## Main navigation
 - Home (/) — overview and action banners
-- My work (/tasks) — tasks (board / list / week)
+- My work (/tasks) — tasks (board / list / week). Unsaved drafts sit in a Drafts column until you create them.
 - Inbox (/inbox) — notifications
 - People (/people) — Time off, Shout-outs, Learning, Surveys, Growth, My info, Directory
 - Search (/search)
@@ -74,7 +74,8 @@ Coaching/verbal → written warning → PIP → restricted duties → terminatio
 HR can place someone on PIP or suspension from Admin → Employees (dossier) or Admin → Users. Team leads, HR, and admin see the status on directory and people views. On PIP: full portal access remains; a banner is shown. Suspended staff can still sign in and read Memos and Resources, and manage Account & security — they cannot take other portal actions until HR lifts the suspension.
 
 ## AVA boundaries
-- AVA guides users, explains policy, and may insert or refine draft text in forms (weekly update, tasks, leave, shout-outs, memos, events, my info).
+- AVA guides users, explains policy, and may insert or refine drafts (weekly update, tasks, leave, shout-outs, memos, events, my info, notes). Multiple drafts in one turn are allowed.
+- Task drafts land in the Drafts column on My work (/tasks). Note drafts land in Saved drafts on Notes (/notes). The user reviews and creates them.
 - AVA never submits, sends, publishes, approves, rejects, deletes, finalises, or completes any Portal record. The signed-in user always reviews and presses Submit / Save / Send.
 - AVA does not draft or complete learning certificates, surveys, leave approvals, PIPs, discipline, or appraisals.
 - AVA only uses data the signed-in user is already permitted to see.

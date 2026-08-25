@@ -20,6 +20,10 @@ import { Select } from '@/components/ui/Select'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn, isAdmin, uid } from '@/utils/helpers'
 import { pages } from '@/content/copy'
+import { ComposerDraftsPanel } from '@/components/shared/ComposerDraftsPanel'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { isNotePayload, type ComposerDraft } from '@/lib/composerDrafts'
+import { legacyBodyToBlocks } from '@/utils/noteModel'
 import type { NoteShare, WorkspaceNote } from '@/types'
 
 const N = pages.notes
@@ -538,6 +542,7 @@ export function NotesPage() {
     connection,
     registerNoteLinkKey,
   } = useCollab()
+  const { byKind, deleteDraft } = useComposerDrafts()
 
   const byParent = useNoteTree(notes)
   const roots = useMemo(() => byParent.get(null) ?? [], [byParent])
@@ -598,6 +603,22 @@ export function NotesPage() {
     setShareForId(note.id)
   }
 
+  const resumeNoteDraft = (saved: ComposerDraft) => {
+    if (saved.kind !== 'note' || !isNotePayload(saved.payload)) return
+    const id = createNote(null)
+    if (!id) return
+    const title = saved.payload.title.trim() || 'Untitled note'
+    const body = saved.payload.body
+    saveNote(id, {
+      title,
+      body,
+      blocks: legacyBodyToBlocks(body),
+    })
+    deleteDraft(saved.id)
+    setSelectedId(id)
+    setMobileShowEditor(true)
+  }
+
   if (!user) return null
 
   const connLabel =
@@ -641,6 +662,14 @@ export function NotesPage() {
           {N.liveSyncHint}
         </p>
       ) : null}
+
+      <ComposerDraftsPanel
+        title={N.draftsTitle}
+        description={N.draftsDescription}
+        drafts={byKind.note}
+        onResume={resumeNoteDraft}
+        onDelete={deleteDraft}
+      />
 
       <div className="grid min-w-0 gap-4 lg:grid-cols-[minmax(0,280px)_minmax(0,1fr)] lg:items-start">
         <aside
