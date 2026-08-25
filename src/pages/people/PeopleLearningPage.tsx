@@ -9,9 +9,7 @@ import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
-import { supabase } from '@/lib/supabase'
-import { uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { storeWorkspaceFile } from '@/lib/storeWorkspaceFile'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { fmtDate, isHR } from '@/utils/helpers'
 import { hasBlockingLearningSubmission, findLearningSubmission } from '@/utils/learningSubmission'
@@ -50,12 +48,7 @@ export function PeopleLearningPage() {
     setBusy(true)
     let certificatePath: string | undefined
     if (certFile) {
-      if (!isSupabaseAuthEnabled() || !supabase) {
-        notifyError('Certificate upload requires Supabase storage. Submit without a file or connect storage.')
-        setBusy(false)
-        return
-      }
-      const uploaded = await uploadPortalFile(supabase, 'media', certFile, user.id)
+      const uploaded = await storeWorkspaceFile(certFile, 'media', user.id)
       if ('error' in uploaded) {
         notifyError(uploaded.error)
         setBusy(false)

@@ -36,9 +36,8 @@ import { managesPeople } from '@/lib/orgStructure'
 import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCategoriesModal'
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
 import { useHr } from '@/context/HrContext'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
-import { supabase } from '@/lib/supabase'
-import { getPortalFileDownloadUrl, uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { formatFileSize } from '@/lib/supabase/fileStorage'
+import { removeWorkspaceFile, resolveWorkspaceFilePreview, storeWorkspaceFile } from '@/lib/storeWorkspaceFile'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
 import { pages } from '@/content/copy'
@@ -150,7 +149,11 @@ export function DocumentLibraryPage() {
   const [draft, setDraft] = useState<UploadDraft>(() => emptyDraft(documentCategories[0]?.id ?? 'policies'))
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null)
   const [downloadInfoDoc, setDownloadInfoDoc] = useState<DocumentItem | null>(null)
-  const [previewDoc, setPreviewDoc] = useState<{ doc: DocumentItem; url: string } | null>(null)
+  const [previewDoc, setPreviewDoc] = useState<{
+    doc: DocumentItem
+    url: string
+    revoke?: () => void
+  } | null>(null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
@@ -236,6 +239,23 @@ export function DocumentLibraryPage() {
     e.preventDefault()
     if (!draft.title.trim()) return
     if (editDocId) {
+      let filePath: string | undefined
+      let fileSize: string | undefined
+      let fileName: string | undefined
+      if (uploadFile) {
+        setUploading(true)
+        const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+        setUploading(false)
+        if ('error' in uploaded) {
+          notifyError(uploaded.error)
+          return
+        }
+        const existing = documents.find((d) => d.id === editDocId)
+        await removeWorkspaceFile(existing?.filePath)
+        filePath = uploaded.path
+        fileSize = uploaded.sizeLabel
+        fileName = uploadFile.name
+      }
       updateDocument(editDocId, {
         title: draft.title.trim(),
         description: draft.description.trim() || undefined,
@@ -243,12 +263,18 @@ export function DocumentLibraryPage() {
         hrOnly: draft.hrOnly,
         managementOnly: draft.managementOnly,
         requiresAcknowledgment: draft.requiresAcknowledgment,
+        ...(filePath ? { filePath, fileSize, fileName } : {}),
       })
       setUploadOpen(false)
       setEditDocId(null)
+      setUploadFile(null)
+      notifySuccess(filePath ? 'Document and file saved.' : 'Document details saved.')
       return
     }
-    if (!draft.fileName.trim() && !uploadFile) return
+    if (!uploadFile) {
+      notifyError('Attach the file you want to store. A file name alone is not enough.')
+      return
+    }
     const ok = await confirm({
       title: confirms.uploadDocumentTitle,
       message: confirms.uploadDocument,
@@ -256,32 +282,19 @@ export function DocumentLibraryPage() {
     })
     if (!ok) return
     setUploading(true)
-    let filePath: string | undefined
-    let fileSize = '—'
-    let fileName = draft.fileName.trim() || uploadFile?.name || 'document'
-    if (uploadFile) {
-      if (!isSupabaseAuthEnabled() || !supabase) {
-        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
-        setUploading(false)
-        return
-      }
-      const uploaded = await uploadPortalFile(supabase, 'documents', uploadFile, user.id)
-      if ('error' in uploaded) {
-        notifyError(uploaded.error)
-        setUploading(false)
-        return
-      }
-      filePath = uploaded.path
-      fileSize = uploaded.sizeLabel
-      fileName = uploadFile.name
+    const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+    if ('error' in uploaded) {
+      notifyError(uploaded.error)
+      setUploading(false)
+      return
     }
     addDocument({
       title: draft.title.trim(),
       description: draft.description.trim() || undefined,
       category: draft.category,
-      fileName,
-      fileSize,
-      filePath,
+      fileName: uploadFile.name,
+      fileSize: uploaded.sizeLabel,
+      filePath: uploaded.path,
       uploadedById: user.id,
       hrOnly: draft.hrOnly,
       managementOnly: draft.managementOnly,
@@ -290,16 +303,27 @@ export function DocumentLibraryPage() {
     setUploadOpen(false)
     setUploadFile(null)
     setUploading(false)
+    notifySuccess('Document uploaded. Open it from Preview.')
+  }
+
+  const closePreview = () => {
+    previewDoc?.revoke?.()
+    setPreviewDoc(null)
   }
 
   const openDocument = async (doc: DocumentItem) => {
-    if (doc.filePath && supabase) {
-      const url = await getPortalFileDownloadUrl(supabase, doc.filePath)
-      if (url) {
-        setPreviewDoc({ doc, url })
+    if (doc.filePath) {
+      const resolved = await resolveWorkspaceFilePreview(doc.filePath, doc.fileName)
+      if (resolved && 'url' in resolved && resolved.url) {
+        previewDoc?.revoke?.()
+        setPreviewDoc({ doc, url: resolved.url, revoke: resolved.revoke })
         return
       }
-      notifyError('Could not open this file. Check your connection and try again, or contact an admin.')
+      notifyError(
+        resolved && 'error' in resolved
+          ? resolved.error
+          : 'Could not open this file. Try uploading it again.',
+      )
       return
     }
     setDownloadInfoDoc(doc)
@@ -355,7 +379,7 @@ export function DocumentLibraryPage() {
             search || category !== 'all'
               ? 'Try a different search or clear the filter.'
               : canManage
-                ? 'Upload the first document to get started.'
+                ? 'Upload a file to get started — the document is stored with the file, not just a name.'
                 : 'When HR or admin uploads documents, they’ll appear here.'
           }
         />
@@ -498,8 +522,8 @@ export function DocumentLibraryPage() {
         closeOnBackdrop={false}
         description={
           editDocId
-            ? 'Update title, category, access, and policy acknowledgment settings.'
-            : 'Upload a file or enter document details. Files are stored securely when storage is configured.'
+            ? 'Update title, category, access, and attach a file if this record is missing one.'
+            : 'Choose the file to store, then add a title and who can see it.'
         }
         size="lg"
         footer={
@@ -528,25 +552,15 @@ export function DocumentLibraryPage() {
             onChange={(e) => setDraft({ ...draft, description: e.target.value })}
             placeholder="What this document is for and when to use it."
           />
-          <div className="grid gap-4 sm:grid-cols-2">
-            <Select
-              label="Category"
-              value={draft.category}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value })}
-              options={documentCategories.map((c) => ({
-                value: c.id,
-                label: c.label,
-              }))}
-            />
-            {!editDocId ? (
-              <Input
-                label="File name"
-                value={draft.fileName}
-                onChange={(e) => setDraft({ ...draft, fileName: e.target.value })}
-                placeholder="staff-handbook-2026.pdf"
-              />
-            ) : null}
-          </div>
+          <Select
+            label="Category"
+            value={draft.category}
+            onChange={(e) => setDraft({ ...draft, category: e.target.value })}
+            options={documentCategories.map((c) => ({
+              value: c.id,
+              label: c.label,
+            }))}
+          />
           <label className="flex items-center gap-2 text-sm text-fg">
             <input
               type="checkbox"
@@ -556,19 +570,44 @@ export function DocumentLibraryPage() {
             />
             Require staff to acknowledge reading (policies)
           </label>
-          {!editDocId ? (
-            <div>
-              <label className="mb-1 block text-sm font-medium text-fg">Attach file (optional)</label>
+          <div>
+              <label className="mb-1 block text-sm font-medium text-fg">
+                {editDocId ? 'Replace file (optional)' : 'File'}
+              </label>
+              {editDocId && draft.fileName ? (
+                <p className="mb-2 text-xs text-muted">Current file: {draft.fileName}</p>
+              ) : null}
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
                   className="block text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
-                  onChange={(e) => setUploadFile(e.target.files?.[0] ?? null)}
+                  onChange={(e) => {
+                    const file = e.target.files?.[0] ?? null
+                    setUploadFile(file)
+                    if (file) {
+                      setDraft((prev) => ({
+                        ...prev,
+                        fileName: file.name,
+                        title: prev.title.trim() ? prev.title : file.name.replace(/\.[^.]+$/, ''),
+                      }))
+                    }
+                  }}
                 />
-                <GoogleDrivePickerButton onPicked={(file) => setUploadFile(file)} />
+                <GoogleDrivePickerButton onPicked={(file) => {
+                  setUploadFile(file)
+                  setDraft((prev) => ({
+                    ...prev,
+                    fileName: file.name,
+                    title: prev.title.trim() ? prev.title : file.name.replace(/\.[^.]+$/, ''),
+                  }))
+                }} />
               </div>
+              {uploadFile ? (
+                <p className="mt-1.5 text-xs text-muted">
+                  {uploadFile.name} · {formatFileSize(uploadFile.size)}
+                </p>
+              ) : null}
             </div>
-          ) : null}
           <div className="space-y-2 rounded-md border border-border bg-surface-2/40 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Visibility</p>
             <label className="flex items-center gap-2 text-sm text-fg">
@@ -606,7 +645,11 @@ export function DocumentLibraryPage() {
             <Button
               variant="danger"
               onClick={() => {
-                if (deleteConfirmId) deleteDocument(deleteConfirmId)
+                if (deleteConfirmId) {
+                  const existing = documents.find((d) => d.id === deleteConfirmId)
+                  void removeWorkspaceFile(existing?.filePath)
+                  deleteDocument(deleteConfirmId)
+                }
                 setDeleteConfirmId(null)
               }}
             >
@@ -618,19 +661,37 @@ export function DocumentLibraryPage() {
         <p className="text-sm text-fg">Delete this document? This cannot be undone.</p>
       </Modal>
 
-      {/* Document details modal (file storage not yet enabled) */}
+      {/* Document details when no file is attached */}
       <Modal
         open={!!downloadInfoDoc}
         onClose={() => setDownloadInfoDoc(null)}
-        title="Document details"
-        footer={<Button onClick={() => setDownloadInfoDoc(null)}>OK</Button>}
+        title="No file attached"
+        footer={
+          <>
+            {canManage && downloadInfoDoc ? (
+              <Button
+                variant="secondary"
+                onClick={() => {
+                  const doc = downloadInfoDoc
+                  setDownloadInfoDoc(null)
+                  if (doc) openEdit(doc)
+                }}
+              >
+                Attach file
+              </Button>
+            ) : null}
+            <Button onClick={() => setDownloadInfoDoc(null)}>OK</Button>
+          </>
+        }
       >
         {downloadInfoDoc ? (
           <div className="space-y-2 text-sm text-fg">
-            <p className="font-medium">{downloadInfoDoc.fileName}</p>
+            <p className="font-medium">{downloadInfoDoc.title}</p>
             <p className="text-muted">
-              This library stores document metadata only. File downloads will be available when storage
-              is configured. Contact your admin if you need this file right away.
+              This record has a name but no stored file, so there is nothing to preview or download.
+              {canManage
+                ? ' Edit it and attach the file, or upload a new document with the file included.'
+                : ' Ask HR or an admin to attach the file.'}
             </p>
           </div>
         ) : null}
@@ -638,7 +699,7 @@ export function DocumentLibraryPage() {
 
       <DocumentPreviewModal
         open={!!previewDoc}
-        onClose={() => setPreviewDoc(null)}
+        onClose={closePreview}
         title={previewDoc?.doc.title ?? 'Document'}
         fileName={previewDoc?.doc.fileName ?? 'file'}
         url={previewDoc?.url ?? null}

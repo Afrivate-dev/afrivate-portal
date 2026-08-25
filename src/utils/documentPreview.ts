@@ -6,6 +6,7 @@ export type DocumentPreviewKind =
   | 'html'
   | 'docx'
   | 'image'
+  | 'text'
   | 'download'
 
 export const MAX_MEMO_ATTACHMENT_BYTES = 50 * 1024 * 1024
@@ -35,6 +36,7 @@ export function detectDocumentPreviewKind(fileName: string, url: string): Docume
   if (ext === 'html' || ext === 'htm') return 'html'
   if (ext === 'docx') return 'docx'
   if (['png', 'jpg', 'jpeg', 'gif', 'webp', 'svg', 'avif', 'bmp'].includes(ext)) return 'image'
+  if (['txt', 'md', 'csv', 'json', 'log'].includes(ext)) return 'text'
   // Legacy .doc / Excel / PowerPoint: download only (no third-party Office Online for private files)
   return 'download'
 }

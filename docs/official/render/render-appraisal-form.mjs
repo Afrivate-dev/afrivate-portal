@@ -1,15 +1,17 @@
 /**
- * Redesigned AfriVate Performance Appraisal Form (DOCX).
- * Source structure from AfriVate Appraisal Form Template.
+ * AFRI-PAF-01 Performance Appraisal Form → HTML + PDF + DOCX
  * Run: node docs/official/render/render-appraisal-form.mjs
  */
-import { copyFile, writeFile } from 'node:fs/promises'
+import { chromium } from 'playwright'
+import { copyFile, mkdir, readFile, writeFile } from 'node:fs/promises'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
 import {
   AlignmentType,
   BorderStyle,
   Document,
+  Footer,
+  ImageRun,
   Packer,
   Paragraph,
   Table,
@@ -20,13 +22,133 @@ import {
   ShadingType,
   VerticalAlign,
 } from 'docx'
+import { GUIDE_CSS } from './brandedGuide.mjs'
+import { appraisalFormBody } from './content/appraisal-form-body.mjs'
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url))
-const outDir = path.resolve(__dirname, '..', 'policies')
-const outPath = path.join(outDir, 'Afrivate-Performance-Appraisal-Form.docx')
-const downloadsPath = path.resolve(
-  'C:/Users/DELL/Downloads/AfriVate-Performance-Appraisal-Form.docx',
-)
+const officialRoot = path.resolve(__dirname, '..')
+const outDir = path.join(officialRoot, 'policies')
+const logoPath = path.resolve(officialRoot, 'brand', 'afrivate-logo-long-purple.png')
+const logoUrl = `file:///${logoPath.replace(/\\/g, '/')}`
+const downloadsDir = path.resolve('C:/Users/DELL/Downloads')
+const outBase = 'Afrivate-Performance-Appraisal-Form'
+
+const extraCss = `
+  .fine {
+    font-size: 9.5pt;
+    color: var(--muted);
+    font-style: italic;
+  }
+  table.form th.num, table.form td.num {
+    text-align: center;
+    width: 14%;
+    white-space: nowrap;
+  }
+  td.fill {
+    height: 28px;
+    background: #fff;
+  }
+  td.fill-kpi { height: 36px; }
+  td.fill-lg { height: 44px; }
+  td.preset { color: var(--muted); }
+  td.hint {
+    color: var(--muted);
+    font-style: italic;
+    font-size: 9pt;
+  }
+  tr.total td { background: var(--soft); }
+  .comment {
+    min-height: 78px;
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    margin: 0 0 14px;
+  }
+  .comment-sm { min-height: 52px; }
+  .line {
+    display: inline-block;
+    min-width: 88px;
+    border-bottom: 1px solid var(--ink);
+    padding: 0 8px;
+  }
+  .sign-block { margin-top: 8px; }
+  .sign-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin: 16px 0 18px;
+  }
+  .sign-card {
+    border-top: 1px solid #bbb;
+    padding-top: 10px;
+  }
+  .sign-card .who { font-weight: 700; margin: 0 0 10px; }
+  .sign-card p { margin: 0 0 8px; font-size: 10pt; }
+  .form-sign { break-inside: avoid-page; }
+  .hr-box {
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 8px 0 16px;
+    break-inside: avoid-page;
+  }
+  .hr-box p { margin: 6px 0 0; }
+`
+
+const html = `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>AfriVate Performance Appraisal Form</title>
+  <style>${GUIDE_CSS}${extraCss}</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="${logoUrl}" alt="AfriVate" />
+      </div>
+      <div class="chip">Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092</div>
+    </div>
+    <h1>Performance Appraisal Form</h1>
+    <section class="meta">
+      <div><strong>Document Code</strong><span>AFRI-PAF-01</span></div>
+      <div><strong>Status</strong><span>Official form — complete and record in the Portal</span></div>
+      <div><strong>Cycle</strong><span>January – June 2026 · Mid-year review</span></div>
+      <div><strong>Applies To</strong><span>All AfriVate Team Members under review</span></div>
+      <div><strong>Owner</strong><span>People &amp; Culture</span></div>
+      <div><strong>Related</strong><span>AFRI-SWP · AFRI-ICEF-01 · AFRI-TLOP-01 · AFRI-ORG-01</span></div>
+      <div><strong>Contact</strong><span>hr@afrivate.org</span></div>
+    </section>
+    ${appraisalFormBody}
+  </div>
+</body>
+</html>`
+
+await mkdir(outDir, { recursive: true })
+const htmlPath = path.join(outDir, `${outBase}.html`)
+const pdfPath = path.join(outDir, `${outBase}.pdf`)
+const docxPath = path.join(outDir, `${outBase}.docx`)
+await writeFile(htmlPath, html, 'utf8')
+
+const browser = await chromium.launch()
+const page = await browser.newPage()
+await page.goto(`file:///${htmlPath.replace(/\\/g, '/')}`, { waitUntil: 'networkidle' })
+await page.pdf({
+  path: pdfPath,
+  format: 'A4',
+  printBackground: true,
+  displayHeaderFooter: true,
+  headerTemplate: '<div></div>',
+  footerTemplate: `
+    <div style="width:100%;font-size:9px;color:#666;padding:0 18mm;display:flex;justify-content:space-between;font-family:Segoe UI, Arial, sans-serif;">
+      <span>hr@afrivate.org · AFRI-PAF-01 · Internal appraisal form</span>
+      <span>RC: 9210092 · Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+    </div>`,
+  margin: { top: '14mm', right: '14mm', bottom: '16mm', left: '16mm' },
+})
+await browser.close()
 
 const PURPLE = '8D4087'
 const SOFT = 'F8F3F8'
@@ -34,9 +156,15 @@ const LINE = 'EBDCEB'
 const INK = '1F1F1F'
 const MUTED = '5F5F5F'
 const CONTENT_W = 10080
-
 const thin = { style: BorderStyle.SINGLE, size: 6, color: LINE }
+const none = { style: BorderStyle.NONE, size: 0, color: 'FFFFFF' }
 const borders = { top: thin, bottom: thin, left: thin, right: thin }
+const noBorders = { top: none, bottom: none, left: none, right: none }
+const logoBuffer = await readFile(logoPath)
+const metaW = [2520, 2520, 2520, 2520]
+const ratingW = [2200, 1400, 6480]
+const kpiW = [5040, 1260, 1890, 1890]
+const summaryW = [3360, 3360, 3360]
 
 function p(text, opts = {}) {
   const {
@@ -64,10 +192,11 @@ function cell(text, opts = {}) {
     color = INK,
     size = 18,
     italics = false,
+    borders: cellBorders = borders,
   } = opts
   const lines = Array.isArray(text) ? text : [text]
   return new TableCell({
-    borders,
+    borders: cellBorders,
     width: { size: width, type: WidthType.DXA },
     shading: shade ? { type: ShadingType.CLEAR, fill: shade } : undefined,
     verticalAlign: VerticalAlign.CENTER,
@@ -114,10 +243,14 @@ function sectionTitle(text) {
   })
 }
 
-const metaW = [2520, 2520, 2520, 2520]
-const ratingW = [2200, 1400, 6480]
-const kpiW = [5040, 1260, 1890, 1890]
-const summaryW = [3360, 3360, 3360]
+function metaRow(label, value) {
+  return new TableRow({
+    children: [
+      cell(label, { width: 2520, shade: SOFT, bold: true, size: 17 }),
+      cell(value, { width: 7560, size: 17, color: MUTED }),
+    ],
+  })
+}
 
 const doc = new Document({
   sections: [
@@ -125,14 +258,85 @@ const doc = new Document({
       properties: {
         page: {
           size: { width: 11906, height: 16838 },
-          margin: { top: 720, right: 720, bottom: 720, left: 720 },
+          margin: { top: 720, right: 720, bottom: 900, left: 720 },
         },
       },
+      footers: {
+        default: new Footer({
+          children: [
+            new Paragraph({
+              spacing: { after: 0 },
+              children: [
+                new TextRun({
+                  text: 'hr@afrivate.org  ·  AFRI-PAF-01  ·  portal.afrivate.org          AfriVate Technologies Ltd  ·  RC: 9210092',
+                  size: 16,
+                  color: MUTED,
+                  font: 'Calibri',
+                }),
+              ],
+            }),
+          ],
+        }),
+      },
       children: [
-        p('AFRIVATE TECHNOLOGIES LTD · RC: 9210092', {
-          size: 16,
-          color: MUTED,
-          spacingAfter: 40,
+        new Table({
+          width: { size: CONTENT_W, type: WidthType.DXA },
+          columnWidths: [6300, 3780],
+          rows: [
+            new TableRow({
+              children: [
+                new TableCell({
+                  borders: noBorders,
+                  width: { size: 6300, type: WidthType.DXA },
+                  verticalAlign: VerticalAlign.CENTER,
+                  children: [
+                    new Paragraph({
+                      spacing: { after: 0, before: 0 },
+                      children: [
+                        new ImageRun({
+                          type: 'png',
+                          data: logoBuffer,
+                          transformation: { width: 154, height: 49 },
+                        }),
+                      ],
+                    }),
+                  ],
+                }),
+                new TableCell({
+                  borders: noBorders,
+                  width: { size: 3780, type: WidthType.DXA },
+                  verticalAlign: VerticalAlign.CENTER,
+                  children: [
+                    p('Official Document', {
+                      size: 16,
+                      color: MUTED,
+                      align: AlignmentType.RIGHT,
+                      spacingAfter: 0,
+                    }),
+                    p('AfriVate Technologies Ltd', {
+                      size: 16,
+                      color: MUTED,
+                      align: AlignmentType.RIGHT,
+                      spacingAfter: 0,
+                    }),
+                    p('RC: 9210092', {
+                      size: 16,
+                      color: MUTED,
+                      align: AlignmentType.RIGHT,
+                      spacingAfter: 0,
+                    }),
+                  ],
+                }),
+              ],
+            }),
+          ],
+        }),
+        new Paragraph({
+          border: {
+            bottom: { style: BorderStyle.SINGLE, size: 18, color: PURPLE, space: 4 },
+          },
+          spacing: { after: 160, before: 60 },
+          children: [new TextRun({ text: ' ', size: 4, font: 'Calibri' })],
         }),
         p('PERFORMANCE APPRAISAL FORM', {
           bold: true,
@@ -147,25 +351,34 @@ const doc = new Document({
           align: AlignmentType.CENTER,
           spacingAfter: 160,
         }),
-
+        new Table({
+          width: { size: CONTENT_W, type: WidthType.DXA },
+          columnWidths: [2520, 7560],
+          rows: [
+            metaRow('Document Code', 'AFRI-PAF-01'),
+            metaRow('Status', 'Official form — complete and record in the Portal'),
+            metaRow('Applies To', 'All AfriVate Team Members under review'),
+            metaRow('Owner', 'People & Culture'),
+            metaRow('Related', 'AFRI-SWP · AFRI-ICEF-01 · AFRI-TLOP-01 · AFRI-ORG-01'),
+            metaRow('Contact', 'hr@afrivate.org'),
+          ],
+        }),
         p(
-          'This evaluation links role expectations to actual performance. Its purpose is professional development—identifying strengths and improvement areas—and to help management assess performance and plan career-development interventions.',
-          { size: 18, spacingAfter: 160 },
+          'This evaluation links role expectations to actual performance. Complete it in discussion with the Team Member. Record the outcome in the AfriVate Portal. Slack does not replace the Portal record. This form does not create employment or any right to pay.',
+          { size: 18, spacingBefore: 160, spacingAfter: 160 },
         ),
 
-        sectionTitle('1. Employee details'),
+        sectionTitle('1. Team Member details'),
         new Table({
           width: { size: CONTENT_W, type: WidthType.DXA },
           columnWidths: metaW,
           rows: [
             new TableRow({
-              children: ['Employee name', 'Supervisor / manager', 'Job title / grade', 'Time in role'].map(
+              children: ['Team Member name', 'Supervisor / Team Lead', 'Job title', 'Time in role'].map(
                 (t, i) => cell(t, { width: metaW[i], shade: SOFT, bold: true, size: 16 }),
               ),
             }),
-            new TableRow({
-              children: metaW.map((w) => blankCell(w)),
-            }),
+            new TableRow({ children: metaW.map((w) => blankCell(w)) }),
             new TableRow({
               children: ['Appraisal period', 'Date of review', 'Department / team', 'Engagement type'].map(
                 (t, i) => cell(t, { width: metaW[i], shade: SOFT, bold: true, size: 16 }),
@@ -176,9 +389,9 @@ const doc = new Document({
                 cell('Jan – Jun 2026', { width: metaW[0], size: 18, color: MUTED }),
                 blankCell(metaW[1]),
                 blankCell(metaW[2]),
-                cell('Employee / Volunteer / Contractor', {
+                cell('Internal Contributor / Employee / Volunteer / Contractor', {
                   width: metaW[3],
-                  size: 16,
+                  size: 15,
                   color: MUTED,
                   italics: true,
                 }),
@@ -227,7 +440,7 @@ const doc = new Document({
                 cell('Needs PIP', { width: ratingW[0], bold: true, size: 17 }),
                 cell('51–59', { width: ratingW[1], center: true, bold: true, size: 17 }),
                 cell(
-                  'Performance requires a formal Performance Improvement Plan (typically three months). Strong improvement may support retention; escalate per SWP if not.',
+                  'Performance requires a formal Performance Improvement Plan (typically three months). Strong improvement may support retention; escalate per AFRI-SWP if not.',
                   { width: ratingW[2], size: 16 },
                 ),
               ],
@@ -247,7 +460,7 @@ const doc = new Document({
                 cell('Termination band', { width: ratingW[0], bold: true, size: 17 }),
                 cell('0–25', { width: ratingW[1], center: true, bold: true, size: 17 }),
                 cell(
-                  'Unacceptable performance. Subject to fair review and applicable policy; termination may be considered.',
+                  'Unacceptable performance. Subject to fair review and applicable policy; end of engagement or termination may be considered.',
                   { width: ratingW[2], size: 16 },
                 ),
               ],
@@ -289,10 +502,13 @@ const doc = new Document({
             }),
           ],
         }),
-        p(
-          'Aligned with AfriVate SWP appraisal structure: 60% deliverables & output · 40% professional / soft skills.',
-          { size: 16, italics: true, color: MUTED, spacingBefore: 80, spacingAfter: 80 },
-        ),
+        p('Aligned with AFRI-SWP: 60% deliverables and output · 40% professional / soft skills.', {
+          size: 16,
+          italics: true,
+          color: MUTED,
+          spacingBefore: 80,
+          spacingAfter: 80,
+        }),
 
         sectionTitle('4. Part A — Core competencies (60%)'),
         p(
@@ -428,8 +644,8 @@ const doc = new Document({
           { size: 17, spacingBefore: 120, spacingAfter: 80 },
         ),
 
-        sectionTitle('7. Comments & development'),
-        p('Supervisor / line manager — comments & recommendation', {
+        sectionTitle('7. Comments and development'),
+        p('Supervisor / Team Lead — comments and recommendation', {
           bold: true,
           size: 18,
           spacingAfter: 60,
@@ -439,21 +655,23 @@ const doc = new Document({
           columnWidths: [CONTENT_W],
           rows: [new TableRow({ children: [blankCell(CONTENT_W, 4)] })],
         }),
-
-        p('Appraisee comment', { bold: true, size: 18, spacingBefore: 160, spacingAfter: 60 }),
+        p('Team Member comment', { bold: true, size: 18, spacingBefore: 160, spacingAfter: 60 }),
         new Table({
           width: { size: CONTENT_W, type: WidthType.DXA },
           columnWidths: [CONTENT_W],
           rows: [new TableRow({ children: [blankCell(CONTENT_W, 3)] })],
         }),
-
-        p('Senior manager comment', { bold: true, size: 18, spacingBefore: 160, spacingAfter: 60 }),
+        p('Pillar Head / senior manager comment', {
+          bold: true,
+          size: 18,
+          spacingBefore: 160,
+          spacingAfter: 60,
+        }),
         new Table({
           width: { size: CONTENT_W, type: WidthType.DXA },
           columnWidths: [CONTENT_W],
           rows: [new TableRow({ children: [blankCell(CONTENT_W, 3)] })],
         }),
-
         p(
           'What can improve performance? (Beyond training — e.g. attention to detail, timely submissions, escalation habits)',
           { bold: true, size: 18, spacingBefore: 160, spacingAfter: 60 },
@@ -463,15 +681,13 @@ const doc = new Document({
           columnWidths: [CONTENT_W],
           rows: [new TableRow({ children: [blankCell(CONTENT_W, 3)] })],
         }),
-
         p('Training needs', { bold: true, size: 18, spacingBefore: 160, spacingAfter: 60 }),
         new Table({
           width: { size: CONTENT_W, type: WidthType.DXA },
           columnWidths: [CONTENT_W],
           rows: [new TableRow({ children: [blankCell(CONTENT_W, 2)] })],
         }),
-
-        p('People & Culture (HR) comment', {
+        p('People & Culture comment', {
           bold: true,
           size: 18,
           spacingBefore: 160,
@@ -494,8 +710,8 @@ const doc = new Document({
           rows: [
             new TableRow({
               children: [
-                cell('Employee', { width: 5040, shade: SOFT, bold: true }),
-                cell('Manager / line supervisor / HOD', { width: 5040, shade: SOFT, bold: true }),
+                cell('Team Member', { width: 5040, shade: SOFT, bold: true }),
+                cell('Manager / Team Lead / Pillar Head', { width: 5040, shade: SOFT, bold: true }),
               ],
             }),
             new TableRow({
@@ -512,7 +728,6 @@ const doc = new Document({
             }),
           ],
         }),
-
         p('', { spacingAfter: 160 }),
         new Table({
           width: { size: CONTENT_W, type: WidthType.DXA },
@@ -522,7 +737,7 @@ const doc = new Document({
               children: [
                 cell(
                   [
-                    'HR use only',
+                    'People & Culture use only',
                     'Recorded in Portal: ☐ Yes   ☐ Pending',
                     'Follow-up: ☐ None   ☐ Coaching   ☐ PIP   ☐ Other _______________',
                     'HR signature / date: ________________________________',
@@ -533,9 +748,8 @@ const doc = new Document({
             }),
           ],
         }),
-
         p(
-          'Document code: AFRI-PAF-01 · Pair with Portal appraisals & SWP progressive discipline. Internal use.',
+          'Document code: AFRI-PAF-01 · Pair with Portal appraisals and AFRI-SWP progressive discipline. Internal use.',
           { size: 15, color: MUTED, spacingBefore: 200 },
         ),
       ],
@@ -544,12 +758,20 @@ const doc = new Document({
 })
 
 const buffer = await Packer.toBuffer(doc)
-await writeFile(outPath, buffer)
-try {
-  await copyFile(outPath, downloadsPath)
-  console.log('Wrote', outPath)
-  console.log('Also copied to', downloadsPath)
-} catch {
-  console.log('Wrote', outPath)
-  console.log('Could not copy to Downloads (file may be open).')
+await writeFile(docxPath, buffer)
+
+console.log('Wrote', htmlPath)
+console.log('Wrote', pdfPath)
+console.log('Wrote', docxPath)
+
+for (const [src, name] of [
+  [pdfPath, `${outBase}.pdf`],
+  [docxPath, 'AfriVate-Performance-Appraisal-Form.docx'],
+]) {
+  try {
+    await copyFile(src, path.join(downloadsDir, name))
+    console.log('Also copied', name, 'to Downloads')
+  } catch {
+    console.log('Could not copy', name, 'to Downloads (file may be open).')
+  }
 }

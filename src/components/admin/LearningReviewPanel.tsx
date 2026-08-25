@@ -8,9 +8,8 @@ import { Button } from '@/components/ui/Button'
 import { Textarea } from '@/components/ui/Textarea'
 import { Badge } from '@/components/ui/Badge'
 import { fmtDate, isHR } from '@/utils/helpers'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
-import { supabase } from '@/lib/supabase'
-import { getPortalFileDownloadUrl } from '@/lib/supabase/fileStorage'
+import { resolveWorkspaceFilePreview } from '@/lib/storeWorkspaceFile'
+import { notifyError } from '@/lib/notify'
 
 /** HR panel to approve or reject pending Alison course submissions. */
 export function LearningReviewPanel() {
@@ -25,9 +24,12 @@ export function LearningReviewPanel() {
   if (pending.length === 0) return null
 
   const openCertificate = async (path: string) => {
-    if (!isSupabaseAuthEnabled() || !supabase) return
-    const url = await getPortalFileDownloadUrl(supabase, path)
-    if (url) window.open(url, '_blank', 'noopener,noreferrer')
+    const resolved = await resolveWorkspaceFilePreview(path)
+    if (!resolved || !('url' in resolved) || !resolved.url) {
+      notifyError(resolved && 'error' in resolved ? resolved.error : 'Could not open this certificate.')
+      return
+    }
+    window.open(resolved.url, '_blank', 'noopener,noreferrer')
   }
 
   return (

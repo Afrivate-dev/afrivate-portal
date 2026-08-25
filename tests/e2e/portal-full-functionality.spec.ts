@@ -318,9 +318,34 @@ test.describe('Full portal — admin session', () => {
     const opened = await clickIfVisible(page, /upload|add document|new document/i)
     if (opened) {
       await expect(page.getByRole('dialog')).toBeVisible()
-      await expect(page.getByText(/attach file|file name|title/i).first()).toBeVisible()
+      await expect(page.getByText(/file|title/i).first()).toBeVisible()
       await closeDialogIfOpen(page)
     }
+  })
+
+  test('documents: upload a file and preview it', async ({ page }) => {
+    await page.goto('/documents')
+    await page.getByRole('button', { name: /upload document/i }).click()
+    const form = page.getByRole('dialog').filter({ hasText: /upload document/i })
+    await expect(form).toBeVisible()
+    const title = `E2E handbook ${Date.now()}`
+    await form.getByLabel(/^title$/i).fill(title)
+    await form.locator('input[type="file"]').setInputFiles({
+      name: 'handbook.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('AfriVate staff handbook for e2e'),
+    })
+    await form.getByRole('button', { name: /save document/i }).click()
+    const confirm = page.getByRole('dialog').filter({ hasText: /add this file|upload file/i })
+    await expect(confirm).toBeVisible({ timeout: 10_000 })
+    await confirm.getByRole('button', { name: /^upload$/i }).click()
+    const card = page.locator('li').filter({ hasText: title })
+    await expect(card).toBeVisible({ timeout: 10_000 })
+    await expect(card.getByRole('button', { name: /^preview$/i })).toBeVisible()
+    await card.getByRole('button', { name: /^preview$/i }).click()
+    await expect(page.getByText(/afrivate staff handbook for e2e/i).first()).toBeVisible({
+      timeout: 10_000,
+    })
   })
 
   test('events: open create modal', async ({ page }) => {
