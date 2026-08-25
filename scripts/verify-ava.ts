@@ -3,8 +3,13 @@
  * Run: npx tsx --tsconfig tsconfig.app.json scripts/verify-ava.ts
  */
 import { localAvaRespond } from '../src/lib/ava/localFallback'
-import { sanitizeSuggestedActions } from '../src/lib/ava/avaDrafts'
+import {
+  applyAvaSuggestedActions,
+  peekAvaDraft,
+  sanitizeSuggestedActions,
+} from '../src/lib/ava/avaDrafts'
 import { normalizeAvaDisplayText, parseAvaModelText } from '../src/lib/ava/parseResponse'
+import { draftsOfKind, isNotePayload, isTaskPayload, readComposerDraftsStore } from '../src/lib/composerDrafts'
 import type { AvaUserContext } from '../src/lib/ava/types'
 
 let failed = 0
@@ -202,6 +207,50 @@ assert(
   'create-task request inserts a task draft with title and due date',
 )
 
+const multiTasks = localAvaRespond(
+  [
+    {
+      role: 'user',
+      content: 'Help me create tasks titled Prep kit, Call vendor, and Write report',
+    },
+  ],
+  ctx,
+)
+assert(
+  multiTasks.suggestedActions?.filter(
+    (a) => a.type === 'insert_draft' && a.kind === 'task',
+  ).length === 3,
+  'multiple task titles produce multiple insert_draft actions',
+)
+
+const noteDrafts = localAvaRespond(
+  [{ role: 'user', content: 'Draft notes titled Standup agenda and Onboarding FAQ' }],
+  ctx,
+)
+assert(
+  noteDrafts.suggestedActions?.filter((a) => a.type === 'insert_draft' && a.kind === 'note')
+    .length === 2,
+  'multiple note titles produce multiple note drafts',
+)
+
+const noteKind = sanitizeSuggestedActions([
+  {
+    type: 'insert_draft',
+    label: 'Review note draft',
+    path: '/notes',
+    kind: 'note',
+    mode: 'insert',
+    fields: { title: 'Kickoff', text: 'Agenda and owners' },
+  },
+])
+assert(
+  noteKind?.[0]?.type === 'insert_draft' &&
+    noteKind[0].kind === 'note' &&
+    noteKind[0].fields.title === 'Kickoff' &&
+    noteKind[0].fields.body === 'Agenda and owners',
+  'note insert_draft aliases body from text',
+)
+
 const aliasedTask = sanitizeSuggestedActions([
   {
     type: 'insert_draft',
@@ -257,6 +306,127 @@ const hrCtx: AvaUserContext = {
 const hr = localAvaRespond([{ role: 'user', content: 'Where do I review approvals?' }], hrCtx)
 assert(hr.suggestedActions?.[0]?.path === '/admin', 'HR guidance navigates to Admin')
 assert(/never completes/i.test(hr.reply), 'HR guidance states AVA never completes actions')
+
+const leaveNamedTask = localAvaRespond(
+  [{ role: 'user', content: 'Help me create a task titled Leave handover' }],
+  ctx,
+)
+assert(
+  leaveNamedTask.suggestedActions?.some(
+    (a) => a.type === 'insert_draft' && a.kind === 'task' && /handover/i.test(a.fields.title),
+  ),
+  'task titled Leave handover is a task draft, not a leave draft',
+)
+
+const multiJson = JSON.stringify({
+  reply: 'I saved two task drafts.',
+  suggestedActions: [
+    {
+      type: 'insert_draft',
+      label: 'Review task: A',
+      path: '/tasks',
+      kind: 'task',
+      mode: 'insert',
+      fields: { title: 'Task A' },
+    },
+    {
+      type: 'insert_draft',
+      label: 'Review task: B',
+      path: '/tasks',
+      kind: 'task',
+      mode: 'insert',
+      fields: { title: 'Task B' },
+    },
+  ],
+})
+const parsedMulti = parseAvaModelText(multiJson, 'gemini')
+assert(
+  parsedMulti.suggestedActions?.filter((a) => a.type === 'insert_draft' && a.kind === 'task').length === 2,
+  'parser keeps multiple insert_draft actions',
+)
+
+function memoryStorage() {
+  const mem = new Map<string, string>()
+  return {
+    getItem: (k: string) => (mem.has(k) ? mem.get(k)! : null),
+    setItem: (k: string, v: string) => {
+      mem.set(k, String(v))
+    },
+    removeItem: (k: string) => {
+      mem.delete(k)
+    },
+    clear: () => mem.clear(),
+    key: (i: number) => [...mem.keys()][i] ?? null,
+    get length() {
+      return mem.size
+    },
+  }
+}
+const localStorage = memoryStorage()
+const sessionStorage = memoryStorage()
+const win = {
+  localStorage,
+  sessionStorage,
+  dispatchEvent: () => true,
+  addEventListener: () => {},
+  removeEventListener: () => {},
+}
+Object.defineProperty(globalThis, 'window', { value: win, configurable: true })
+Object.defineProperty(globalThis, 'localStorage', { value: localStorage, configurable: true })
+Object.defineProperty(globalThis, 'sessionStorage', { value: sessionStorage, configurable: true })
+
+const persisted = applyAvaSuggestedActions([
+  {
+    type: 'insert_draft',
+    label: 'Review task: Kit',
+    path: '/tasks',
+    kind: 'task',
+    mode: 'insert',
+    fields: { title: 'Kit', dueDate: '2026-08-28' },
+  },
+  {
+    type: 'insert_draft',
+    label: 'Review task: Vendor',
+    path: '/tasks',
+    kind: 'task',
+    mode: 'insert',
+    fields: { title: 'Vendor' },
+  },
+  {
+    type: 'insert_draft',
+    label: 'Review note: Agenda',
+    path: '/notes',
+    kind: 'note',
+    mode: 'insert',
+    fields: { title: 'Agenda', body: 'Stand-up notes' },
+  },
+])
+const store = readComposerDraftsStore()
+const taskDrafts = draftsOfKind(store, 'task')
+const noteDraftsStore = draftsOfKind(store, 'note')
+assert(taskDrafts.length === 2, 'applyInsertDraft saves multiple task drafts to composer store')
+assert(taskDrafts.every((d) => isTaskPayload(d.payload)), 'saved task drafts have task payloads')
+assert(noteDraftsStore.length === 1 && isNotePayload(noteDraftsStore[0].payload), 'applyInsertDraft saves a note draft')
+assert(!peekAvaDraft('task'), 'task insert does not open a one-shot form draft')
+assert(
+  persisted?.every((a) => a.type !== 'insert_draft' || a.path.startsWith('/')),
+  'applied drafts keep review paths',
+)
+
+const weeklyPersist = applyAvaSuggestedActions([
+  {
+    type: 'insert_draft',
+    label: 'Review weekly update draft',
+    path: '/checkin',
+    kind: 'weekly_update',
+    mode: 'insert',
+    fields: { completed: 'Shipped drafts', nextWeek: 'QA', hoursWorked: '40' },
+  },
+])
+assert(
+  weeklyPersist?.[0]?.type === 'insert_draft' && peekAvaDraft('weekly_update')?.fields.completed === 'Shipped drafts',
+  'weekly insert still fills the live form draft',
+)
 
 if (failed) {
   console.error(`\n${failed} assertion(s) failed`)

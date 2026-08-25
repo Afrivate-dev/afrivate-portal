@@ -5,7 +5,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { askAva, isAvaEnabled } from '@/lib/ava/avaClient'
-import { applyAvaSuggestedActions, getAvaPageDraft } from '@/lib/ava/avaDrafts'
+import { applyAvaSuggestedActions, getAvaPageDraft, isComposerSavedDraftKind } from '@/lib/ava/avaDrafts'
 import { notifySuccess } from '@/lib/notify'
 import { normalizeAvaDisplayText } from '@/lib/ava/parseResponse'
 import { buildAvaUserContext } from '@/lib/ava/buildContext'
@@ -256,15 +256,25 @@ export function AvaFab() {
           .map((m) => ({ role: m.role, content: m.content }))
         const res = await askAva({ messages: apiMessages, context })
         const suggestedActions = applyAvaSuggestedActions(res.suggestedActions)
-        const draftAction = suggestedActions?.find(
+        const draftActions = (suggestedActions ?? []).filter(
           (a): a is AvaInsertDraftAction => a.type === 'insert_draft',
         )
-        if (draftAction) {
-          notifySuccess('AVA filled a draft for you. Review it, then submit it yourself.')
+        if (draftActions.length) {
+          const saved = draftActions.filter(
+            (a) => a.mode !== 'refine' && isComposerSavedDraftKind(a.kind),
+          )
+          const n = saved.length || draftActions.length
+          notifySuccess(
+            n === 1
+              ? saved.length
+                ? 'AVA saved a draft. Open it from Drafts when you are ready, then submit it yourself.'
+                : 'AVA filled a draft for you. Review it, then submit it yourself.'
+              : `AVA saved ${n} drafts. Review them, then submit them yourself.`,
+          )
           closePanel()
-          const destPath = draftAction.path.split('?')[0]
-          if (location.pathname !== destPath || draftAction.path.includes('?')) {
-            navigate(draftAction.path)
+          const dest = (saved[0] ?? draftActions[0]).path.split('?')[0]
+          if (location.pathname !== dest) {
+            navigate(dest)
           }
         }
         setMessages((prev) => [
@@ -480,9 +490,9 @@ export function AvaFab() {
                     ) : null}
                     {m.role === 'assistant' && m.suggestedActions?.length ? (
                       <div className="mt-2.5 flex flex-col gap-1.5">
-                        {m.suggestedActions.map((a) => (
+                        {m.suggestedActions.map((a, i) => (
                           <Link
-                            key={`${a.path}-${a.label}`}
+                            key={`${a.type}-${a.path}-${a.label}-${i}`}
                             to={a.path}
                             onClick={closePanel}
                             className={cn(

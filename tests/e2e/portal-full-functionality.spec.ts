@@ -577,17 +577,107 @@ test.describe('Full portal — admin session', () => {
       await expect(page).toHaveURL(/\/tasks/)
     })
 
-    test('creates a task draft and opens the form to review', async ({ page }) => {
+    test('saves a task draft to the Drafts column', async ({ page }) => {
       const dialog = await openAva(page)
       await dialog.getByLabel(/message ava/i).fill(
         'Help me create a task titled Prepare onboarding kit due 2026-08-28',
       )
       await dialog.getByRole('button', { name: /^send$/i }).click()
       await expect(page).toHaveURL(/\/tasks/, { timeout: 15_000 })
+      await expect(page.getByRole('heading', { name: /^drafts$/i })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText(/prepare onboarding kit/i).first()).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+      await page.getByText(/prepare onboarding kit/i).first().click()
       const form = page.getByRole('dialog').filter({ hasText: /new item|edit item/i })
-      await expect(form).toBeVisible({ timeout: 15_000 })
+      await expect(form).toBeVisible({ timeout: 10_000 })
       await expect(form.getByLabel(/title/i)).toHaveValue(/onboarding kit/i)
       await expect(form.getByRole('button', { name: /^create$/i })).toBeVisible()
+    })
+
+    test('saves multiple task drafts without opening a form', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill(
+        'Help me create tasks titled Prep kit, Call vendor, and Write report',
+      )
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/tasks/, { timeout: 15_000 })
+      await expect(page.getByRole('heading', { name: /^drafts$/i })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText(/prep kit/i).first()).toBeVisible()
+      await expect(page.getByText(/call vendor/i).first()).toBeVisible()
+      await expect(page.getByText(/write report/i).first()).toBeVisible()
+      await expect(page.getByRole('dialog')).toHaveCount(0)
+    })
+
+    test('saves multiple note drafts on Notes', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill(
+        'Draft notes titled Standup agenda and Onboarding FAQ',
+      )
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/notes/, { timeout: 15_000 })
+      await expect(page.getByRole('heading', { name: /saved drafts/i })).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText(/standup agenda/i).first()).toBeVisible()
+      await expect(page.getByText(/onboarding faq/i).first()).toBeVisible()
+    })
+
+    test('creates a real task from a Drafts card', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill(
+        'Help me create a task titled Functional draft kit due 2026-08-28',
+      )
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/tasks/, { timeout: 15_000 })
+      await page.getByText(/functional draft kit/i).first().click()
+      const form = page.getByRole('dialog').filter({ hasText: /new item|edit item/i })
+      await expect(form).toBeVisible({ timeout: 10_000 })
+      await expect(form.getByLabel(/title/i)).toHaveValue(/functional draft kit/i)
+      await expect(form.getByLabel(/due date/i)).toHaveValue('2026-08-28')
+      await form.getByRole('button', { name: /^create$/i }).click()
+      const confirm = page.getByRole('dialog').filter({ hasText: /save this task|save task/i })
+      await expect(confirm).toBeVisible()
+      await confirm.getByRole('button', { name: /create task/i }).click()
+      await expect(form).toBeHidden({ timeout: 10_000 })
+      await expect(page.getByRole('heading', { name: /^up next$/i })).toBeVisible()
+      await expect(page.getByText(/functional draft kit/i).first()).toBeVisible()
+      await expect(page.getByText(/ava can save several here/i)).toBeVisible()
+    })
+
+    test('saves a draft while already on My work', async ({ page }) => {
+      await page.goto('/tasks')
+      await expect(page.getByRole('heading', { name: /^drafts$/i })).toBeVisible()
+      await page.getByRole('button', { name: /^open ava$|^ava$/i }).click()
+      const dialog = page.getByRole('dialog', { name: /ava/i })
+      await expect(dialog).toBeVisible()
+      await dialog.getByLabel(/message ava/i).fill('Help me create a task titled Already here draft')
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page.getByText(/already here draft/i).first()).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByRole('dialog').filter({ hasText: /new item|edit item/i })).toHaveCount(0)
+      await page.getByRole('button', { name: /delete draft already here draft/i }).click()
+      await expect(page.getByText(/already here draft/i)).toHaveCount(0)
+    })
+
+    test('resumes a note draft into a page', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill('Draft a note titled Standup agenda')
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/notes/, { timeout: 15_000 })
+      await expect(page.getByRole('heading', { name: /saved drafts/i })).toBeVisible({ timeout: 15_000 })
+      await page.getByRole('button', { name: /^resume$/i }).first().click()
+      await expect(page.getByRole('heading', { name: /saved drafts/i })).toHaveCount(0)
+      await expect(page.getByLabel(/^title$/i)).toHaveValue(/standup agenda/i)
+    })
+
+    test('weekly update draft still fills the form', async ({ page }) => {
+      const dialog = await openAva(page)
+      await dialog.getByLabel(/message ava/i).fill(
+        'Help me draft my weekly update: shipped the portal mobile pass',
+      )
+      await dialog.getByRole('button', { name: /^send$/i }).click()
+      await expect(page).toHaveURL(/\/checkin/, { timeout: 15_000 })
+      await expect(page.getByLabel(/what did i complete this week/i)).toHaveValue(
+        /shipped the portal mobile pass/i,
+        { timeout: 15_000 },
+      )
     })
 
     test('Slack rule answer and Escape closes panel', async ({ page }) => {

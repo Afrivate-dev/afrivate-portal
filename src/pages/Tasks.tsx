@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from 'react'
+import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import {
   Plus,
@@ -16,6 +16,7 @@ import {
   Settings2,
   Pencil,
   X,
+  FilePenLine,
 } from 'lucide-react'
 import {
   addDays,
@@ -45,6 +46,8 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { cn, fmtDate, isAdmin, isHR, isOverdue, relativeTime } from '@/utils/helpers'
 import { pages, actions } from '@/content/copy'
+import { useComposerDrafts } from '@/hooks/useComposerDrafts'
+import { isTaskPayload, type ComposerDraft, type TaskDraftPayload } from '@/lib/composerDrafts'
 import type { Task, TaskCategory, TaskPriority, TaskStatus, User } from '@/types'
 
 type ViewMode = 'board' | 'week' | 'list'
@@ -172,6 +175,24 @@ const draftFromTask = (t: Task): TaskDraft => ({
   assigneeIds: t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : []),
 })
 
+function formFromTaskPayload(p: TaskDraftPayload, fallbackCategory: string): TaskDraft {
+  const status: TaskStatus =
+    p.status === 'in_progress' || p.status === 'blocked' ? p.status : 'todo'
+  const priority: TaskPriority =
+    p.priority === 'high' || p.priority === 'low' ? p.priority : 'medium'
+  return {
+    ...emptyDraft,
+    title: p.title,
+    description: p.description,
+    status,
+    priority,
+    category: p.category || fallbackCategory,
+    dueDate: p.dueDate,
+    blockers: p.blockers,
+    estimatedHours: p.estimatedHours,
+  }
+}
+
 export function TasksPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
@@ -179,6 +200,7 @@ export function TasksPage() {
     tasks, users, createTask, updateTask, deleteTask,
     taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
   } = useData()
+  const { byKind, deleteDraft, getById } = useComposerDrafts()
 
   // Build dynamic lookup map — same shape as the old CATEGORY_LABEL constant
   const CATEGORY_LABEL = useMemo(
@@ -187,11 +209,13 @@ export function TasksPage() {
   )
 
   const [searchParams, setSearchParams] = useSearchParams()
+  const openedDraftParam = useRef<string | null>(null)
   const [view, setView] = useState<ViewMode>('board')
   const [scope, setScope] = useState<ScopeMode>('all')
   const [weekOffset, setWeekOffset] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<TaskDraft>(emptyDraft)
+  const [composerDraftId, setComposerDraftId] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
   const [deleteTaskId, setDeleteTaskId] = useState<string | null>(null)
   const [search, setSearch] = useState('')
@@ -217,6 +241,31 @@ export function TasksPage() {
     return () => cancelAnimationFrame(frameId)
   }, [searchParams, setSearchParams, tasks])
 
+  useEffect(() => {
+    const draftId = searchParams.get('draft')
+    if (!draftId) {
+      openedDraftParam.current = null
+      return
+    }
+    if (openedDraftParam.current === draftId) return
+    const saved = getById(draftId)
+    if (!saved) return
+    openedDraftParam.current = draftId
+    if (saved.kind === 'task' && isTaskPayload(saved.payload)) {
+      setDraft(formFromTaskPayload(saved.payload, taskCategories[0]?.id ?? ''))
+      setComposerDraftId(saved.id)
+      setFormOpen(true)
+    }
+    setSearchParams(
+      (prev) => {
+        const next = new URLSearchParams(prev)
+        next.delete('draft')
+        return next
+      },
+      { replace: true },
+    )
+  }, [searchParams, setSearchParams, getById, taskCategories])
+
   useAvaPageDraft(
     'task',
     {
@@ -233,13 +282,12 @@ export function TasksPage() {
   )
 
   useAvaFormDraft('task', (d) => {
+    if (d.mode === 'insert') return
     setDraft((prev) => {
-      const creating = d.mode === 'insert' || !formOpen
-      const base = creating ? { ...emptyDraft, category: taskCategories[0]?.id ?? '' } : prev
       const status = d.fields.status
       const priority = d.fields.priority
       return {
-        ...base,
+        ...prev,
         ...(d.fields.title ? { title: d.fields.title } : {}),
         ...(d.fields.description ? { description: d.fields.description } : {}),
         ...(status === 'todo' || status === 'in_progress' || status === 'blocked' ? { status } : {}),
@@ -248,7 +296,6 @@ export function TasksPage() {
         ...(d.fields.blockers ? { blockers: d.fields.blockers } : {}),
         ...(d.fields.estimatedHours ? { estimatedHours: d.fields.estimatedHours } : {}),
         ...(d.fields.category ? { category: d.fields.category } : {}),
-        ...(creating ? { id: undefined } : {}),
       }
     })
     setFormOpen(true)
@@ -315,6 +362,16 @@ export function TasksPage() {
     return copy
   }, [myTasks, search, statusFilter, priorityFilter, sort])
 
+  const visibleDrafts = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    if (!q) return byKind.task
+    return byKind.task.filter((d) => {
+      const p = isTaskPayload(d.payload) ? d.payload : null
+      const hay = `${d.label} ${p?.title ?? ''} ${p?.description ?? ''}`.toLowerCase()
+      return hay.includes(q)
+    })
+  }, [byKind.task, search])
+
   const filtersActive =
     !!search.trim() || statusFilter !== 'all' || priorityFilter !== 'all' || scope !== 'all'
 
@@ -342,7 +399,10 @@ export function TasksPage() {
       done: [],
       blocked: [],
     }
-    filteredTasks.forEach((t) => out[t.status].push(t))
+    filteredTasks.forEach((t) => {
+      const status = t.status in out ? t.status : 'todo'
+      out[status].push(t)
+    })
     return out
   }, [filteredTasks])
 
@@ -381,17 +441,30 @@ export function TasksPage() {
   }, [filteredTasks, weekDays])
 
   const openCreate = () => {
+    setComposerDraftId(null)
     setDraft({ ...emptyDraft, category: taskCategories[0]?.id ?? '' })
     setFormOpen(true)
   }
 
   const openEdit = (t: Task) => {
+    setComposerDraftId(null)
     setDraft(draftFromTask(t))
     setFormOpen(true)
   }
 
+  const resumeComposerDraft = useCallback(
+    (saved: ComposerDraft) => {
+      if (saved.kind !== 'task' || !isTaskPayload(saved.payload)) return
+      setDraft(formFromTaskPayload(saved.payload, taskCategories[0]?.id ?? ''))
+      setComposerDraftId(saved.id)
+      setFormOpen(true)
+    },
+    [taskCategories],
+  )
+
   const closeForm = () => {
     setFormOpen(false)
+    setComposerDraftId(null)
     setDraft(emptyDraft)
   }
 
@@ -434,6 +507,7 @@ export function TasksPage() {
         assigneeId: draft.assigneeIds[0] ?? undefined,
       })
     }
+    if (composerDraftId) deleteDraft(composerDraftId)
     closeForm()
   }
 
@@ -616,7 +690,7 @@ export function TasksPage() {
 
       {/* Board view */}
       {view === 'board' ? (
-        filteredTasks.length === 0 && myTasks.length > 0 ? (
+        filteredTasks.length === 0 && myTasks.length > 0 && visibleDrafts.length === 0 ? (
           <EmptyState
             icon={Search}
             title={T.filteredEmptyTitle}
@@ -628,7 +702,31 @@ export function TasksPage() {
             }
           />
         ) : (
-          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-5">
+            <div className="flex flex-col">
+              <div className="mb-2 flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  <FilePenLine className="h-4 w-4 text-muted" />
+                  <h3 className="text-sm font-semibold text-fg">{T.statusDrafts}</h3>
+                  <Badge tone="muted">{visibleDrafts.length}</Badge>
+                </div>
+              </div>
+              <div className="space-y-2.5 rounded-lg bg-surface-2/40 p-2.5">
+                {visibleDrafts.length === 0 ? (
+                  <p className="px-2 py-6 text-center text-xs text-muted">{T.draftsEmpty}</p>
+                ) : (
+                  visibleDrafts.map((d) => (
+                    <TaskDraftCard
+                      key={d.id}
+                      draft={d}
+                      categoryLabel={CATEGORY_LABEL}
+                      onResume={() => resumeComposerDraft(d)}
+                      onDelete={() => deleteDraft(d.id)}
+                    />
+                  ))
+                )}
+              </div>
+            </div>
             {STATUS_ORDER.map((status) => {
               const meta = statusUi(status)
               const items = grouped[status]
@@ -666,7 +764,7 @@ export function TasksPage() {
 
       {/* List view (grouped by due) */}
       {view === 'list' ? (
-        filteredTasks.length === 0 && myTasks.length > 0 ? (
+        filteredTasks.length === 0 && myTasks.length > 0 && visibleDrafts.length === 0 ? (
           <EmptyState
             icon={Search}
             title={T.filteredEmptyTitle}
@@ -683,6 +781,26 @@ export function TasksPage() {
               <LayoutList className="h-4 w-4" />
               {T.list}
             </div>
+            {visibleDrafts.length > 0 ? (
+              <section>
+                <h3 className="mb-2 flex items-center gap-2 text-sm font-semibold text-fg">
+                  {T.statusDrafts}
+                  <Badge tone="muted">{visibleDrafts.length}</Badge>
+                </h3>
+                <p className="mb-2 text-xs text-muted">{T.draftsHint}</p>
+                <div className="space-y-2">
+                  {visibleDrafts.map((d) => (
+                    <TaskDraftCard
+                      key={d.id}
+                      draft={d}
+                      categoryLabel={CATEGORY_LABEL}
+                      onResume={() => resumeComposerDraft(d)}
+                      onDelete={() => deleteDraft(d.id)}
+                    />
+                  ))}
+                </div>
+              </section>
+            ) : null}
             {listSections.map(({ key, label, tasks: sectionTasks }) =>
               sectionTasks.length === 0 ? null : (
                 <section key={key}>
@@ -711,6 +829,26 @@ export function TasksPage() {
       {/* Week view */}
       {view === 'week' ? (
         <Card padding="md">
+          {visibleDrafts.length > 0 ? (
+            <div className="mb-6 space-y-2">
+              <h3 className="flex items-center gap-2 text-sm font-semibold text-fg">
+                <FilePenLine className="h-4 w-4 text-muted" />
+                {T.statusDrafts}
+                <Badge tone="muted">{visibleDrafts.length}</Badge>
+              </h3>
+              <div className="grid gap-2 sm:grid-cols-2 xl:grid-cols-3">
+                {visibleDrafts.map((d) => (
+                  <TaskDraftCard
+                    key={d.id}
+                    draft={d}
+                    categoryLabel={CATEGORY_LABEL}
+                    onResume={() => resumeComposerDraft(d)}
+                    onDelete={() => deleteDraft(d.id)}
+                  />
+                ))}
+              </div>
+            </div>
+          ) : null}
           <div className="mb-4 flex items-center justify-between gap-3">
             <button
               onClick={() => setWeekOffset((v) => v - 1)}
@@ -904,7 +1042,7 @@ export function TasksPage() {
             </table>
           </div>
 
-          {myTasks.length === 0 ? (
+          {myTasks.length === 0 && visibleDrafts.length === 0 ? (
             <EmptyState
               icon={ListChecks}
               title={T.emptyTasksTitle}
@@ -1362,6 +1500,50 @@ export function TasksPage() {
           </p>
         </div>
       </Modal>
+    </div>
+  )
+}
+
+function TaskDraftCard({
+  draft,
+  categoryLabel,
+  onResume,
+  onDelete,
+}: {
+  draft: ComposerDraft
+  categoryLabel: Record<string, string>
+  onResume: () => void
+  onDelete: () => void
+}) {
+  const p = isTaskPayload(draft.payload) ? draft.payload : null
+  const title = p?.title || draft.label
+  return (
+    <div className="rounded-md border border-dashed border-border bg-surface p-3">
+      <button type="button" onClick={onResume} className="block w-full text-left ring-focus">
+        <p className="line-clamp-2 text-sm font-medium text-fg">{title}</p>
+        <div className="mt-2 flex flex-wrap items-center gap-1.5">
+          <Badge tone="muted">{T.statusDrafts}</Badge>
+          {p?.priority ? (
+            <Badge tone={priorityTone(p.priority)}>{priorityLabel(p.priority)}</Badge>
+          ) : null}
+          {p?.category ? <Badge tone="muted">{categoryLabel[p.category] ?? p.category}</Badge> : null}
+        </div>
+        <div className="mt-2 flex items-center justify-between gap-2 text-[11px] text-muted">
+          <span>{p?.dueDate ? `Due ${fmtDate(p.dueDate)}` : T.noDue}</span>
+          <span>Updated {relativeTime(draft.updatedAt)}</span>
+        </div>
+      </button>
+      <div className="mt-2 flex justify-end">
+        <Button
+          size="sm"
+          variant="ghost"
+          type="button"
+          onClick={onDelete}
+          aria-label={`Delete draft ${title}`}
+        >
+          <Trash2 className="h-3.5 w-3.5" />
+        </Button>
+      </div>
     </div>
   )
 }
