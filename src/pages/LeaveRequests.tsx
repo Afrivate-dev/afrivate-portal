@@ -50,9 +50,7 @@ import { cn, fmtDate, firstName, isHR, isLead, relativeTime } from '@/utils/help
 import { managesPeople } from '@/lib/orgStructure'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
-import { supabase } from '@/lib/supabase'
-import { uploadPortalFile } from '@/lib/supabase/fileStorage'
+import { storeWorkspaceFile } from '@/lib/storeWorkspaceFile'
 import { useConfirm } from '@/context/useConfirm'
 import { notifyError } from '@/lib/notify'
 import { confirms, pages } from '@/content/copy'
@@ -294,13 +292,9 @@ export function LeaveRequestsPage() {
   const attachSupportingDoc = useCallback(
     async (file: File) => {
       if (!user) return
-      if (!isSupabaseAuthEnabled() || !supabase) {
-        notifyError('File upload requires Supabase. Connect your portal or ask an administrator.')
-        return
-      }
       setUploadingDoc(true)
       try {
-        const uploaded = await uploadPortalFile(supabase, 'leave', file, user.id)
+        const uploaded = await storeWorkspaceFile(file, 'leave', user.id)
         if ('error' in uploaded) {
           notifyError(uploaded.error)
           return

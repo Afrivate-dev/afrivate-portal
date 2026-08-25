@@ -1,9 +1,7 @@
 import { useState } from 'react'
 import { Eye, Paperclip } from 'lucide-react'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
-import { isSupabaseAuthEnabled } from '@/lib/authMode'
-import { supabase } from '@/lib/supabase'
-import { getPortalFileSignedUrl } from '@/lib/supabase/fileStorage'
+import { resolveWorkspaceFilePreview } from '@/lib/storeWorkspaceFile'
 import { notifyError } from '@/lib/notify'
 import { canViewLeaveSupportingDoc } from '@/utils/leaveSupportingDocAccess'
 import type { LeaveRequest, User } from '@/types'
@@ -29,18 +27,21 @@ export function LeaveSupportingDoc({
       notifyError('This attachment was recorded by name only — no file is stored yet.')
       return
     }
-    if (!isSupabaseAuthEnabled() || !supabase) {
-      notifyError('File preview requires Supabase storage.')
-      return
-    }
     setLoading(true)
-    const url = await getPortalFileSignedUrl(supabase, request.supportingDocPath)
+    const resolved = await resolveWorkspaceFilePreview(
+      request.supportingDocPath,
+      request.supportingDocName,
+    )
     setLoading(false)
-    if (!url) {
-      notifyError('Could not load this document. Try again or contact an administrator.')
+    if (!resolved || !('url' in resolved) || !resolved.url) {
+      notifyError(
+        resolved && 'error' in resolved
+          ? resolved.error
+          : 'Could not load this document. Try again or contact an administrator.',
+      )
       return
     }
-    setPreviewUrl(url)
+    setPreviewUrl(resolved.url)
     setOpen(true)
   }
 

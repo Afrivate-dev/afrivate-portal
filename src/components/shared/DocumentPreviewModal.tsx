@@ -130,6 +130,39 @@ function PdfOpenFallback({ resolved, fileName }: { resolved: string; fileName: s
   )
 }
 
+function TextPreview({ resolved, fileName }: { resolved: string; fileName: string }) {
+  const [text, setText] = useState<string | null>(null)
+  const [error, setError] = useState('')
+
+  useEffect(() => {
+    let cancelled = false
+    void (async () => {
+      try {
+        const raw = await fetchAsText(resolved)
+        if (!cancelled) setText(raw)
+      } catch {
+        if (!cancelled) setError('Could not load this file for preview.')
+      }
+    })()
+    return () => {
+      cancelled = true
+    }
+  }, [resolved])
+
+  if (error) {
+    return <DownloadFallback resolved={resolved} fileName={fileName} message={error} />
+  }
+  if (text === null) {
+    return <p className="py-12 text-center text-sm text-muted">Loading preview…</p>
+  }
+
+  return (
+    <pre className="max-h-[min(70vh,720px)] overflow-auto whitespace-pre-wrap break-words rounded-md border border-border bg-white p-4 font-mono text-sm text-zinc-900">
+      {text || '(empty file)'}
+    </pre>
+  )
+}
+
 function HtmlPreview({
   resolved,
   url,
@@ -328,6 +361,8 @@ function DocumentPreviewBody({
           alt={title}
           className="mx-auto max-h-[70vh] w-auto max-w-full rounded-md object-contain"
         />
+      ) : kind === 'text' ? (
+        <TextPreview resolved={resolved} fileName={fileName} />
       ) : (
         <DownloadFallback
           resolved={resolved}

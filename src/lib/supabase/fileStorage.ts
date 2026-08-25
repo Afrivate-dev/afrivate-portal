@@ -48,8 +48,16 @@ export async function uploadPortalFile(
   file: File,
   userId: string,
 ): Promise<{ path: string; sizeLabel: string } | { error: string }> {
+  if (!file.size) return { error: 'That file is empty. Choose another file.' }
+  if (file.size > 50 * 1024 * 1024) return { error: 'Files must be 50 MB or smaller.' }
+
+  // Storage RLS matches folder[2] to auth.uid() — never use a portal profile id here.
+  const { data: authData } = await client.auth.getUser()
+  const uid = authData.user?.id || userId
+  if (!uid) return { error: 'Sign in again to upload files.' }
+
   const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
-  const path = `${folder}/${userId}/${Date.now()}-${sanitizeFileName(file.name || `file.${ext}`)}`
+  const path = `${folder}/${uid}/${Date.now()}-${sanitizeFileName(file.name || `file.${ext}`)}`
 
   const contentType = file.type || guessMimeFromName(file.name)
 
