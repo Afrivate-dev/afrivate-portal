@@ -268,8 +268,12 @@ export interface EventItem {
   endTime?: string
   location?: string
   audience: 'all' | string
-  /** Workspace-created vs JSON / iCal feed (see hosting ical-json.php). */
-  source?: 'workspace' | 'external'
+  /** Workspace-created vs JSON / iCal feed vs autosaved people moments. */
+  source?: 'workspace' | 'external' | 'people_ops'
+  /** Stable upsert key e.g. birthday:{userId}, newhire:{userId}:day7 */
+  externalKey?: string
+  /** Person this people-ops event is about. */
+  subjectUserId?: string
 }
 
 export type NoteBlockType =

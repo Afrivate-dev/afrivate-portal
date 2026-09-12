@@ -3,10 +3,13 @@ import type {
   AppraisalScores,
   DisciplineEmployeeLevel,
   DisciplineSeverity,
-  EmployeePersonalFields,
   EmployeeProfile,
   PipTemplate,
 } from '@/types/hr'
+import {
+  computeQuestionnaireCompleteness,
+  emptyPersonnelQuestionnaire,
+} from '@/lib/personnelFile'
 
 export function computeAppraisalOverall(scores: AppraisalScores): number {
   return Math.round(scores.outputScore * 0.6 + scores.softSkillsScore * 0.4)
@@ -35,38 +38,8 @@ export function appraisalBandLabel(band: AppraisalBand): string {
   }
 }
 
-const PERSONAL_KEYS: (keyof EmployeePersonalFields)[] = [
-  'preferredName',
-  'legalName',
-  'personalEmail',
-  'phone',
-  'workLocation',
-  'addressCountry',
-  'pronouns',
-  'linkedinUrl',
-  'bio',
-  'skills',
-  'emergencyContact',
-  'nextOfKinNotes',
-]
-
 export function computeProfileCompleteness(profile: Partial<EmployeeProfile>): number {
-  let filled = 0
-  let total = PERSONAL_KEYS.length + 5
-  for (const key of PERSONAL_KEYS) {
-    const v = profile[key]
-    if (key === 'skills' && Array.isArray(v) && v.length > 0) filled += 1
-    else if (key === 'emergencyContact' && v && typeof v === 'object') {
-      const ec = v as EmployeeProfile['emergencyContact']
-      if (ec?.name && ec?.phone) filled += 1
-    } else if (typeof v === 'string' && v.trim()) filled += 1
-  }
-  if (profile.engagementType) filled += 1
-  if (profile.employmentStatus) filled += 1
-  if (profile.startDate) filled += 1
-  if (profile.contractTermsSummary?.trim()) filled += 1
-  if (profile.payrollSetupComplete) filled += 1
-  return Math.round((filled / total) * 100)
+  return computeQuestionnaireCompleteness(profile)
 }
 
 export function defaultPipDurationDays(
@@ -207,5 +180,6 @@ export function emptyEmployeeProfile(userId: string): Omit<EmployeeProfile, 'id'
     hrRequestsUpdate: false,
     archived: false,
     profileCompleteness: 0,
+    questionnaire: emptyPersonnelQuestionnaire(),
   }
 }

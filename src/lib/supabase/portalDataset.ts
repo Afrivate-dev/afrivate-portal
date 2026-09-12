@@ -406,16 +406,21 @@ export function rowToInbox(r: Record<string, unknown>): InboxNotification {
 }
 
 export function rowToEvent(r: Record<string, unknown>): EventItem {
+  const sourceRaw = r.source ? String(r.source) : 'workspace'
+  const source: EventItem['source'] =
+    sourceRaw === 'external' || sourceRaw === 'people_ops' ? sourceRaw : 'workspace'
   return {
     id: String(r.id),
     title: String(r.title ?? ''),
     description: r.description ? String(r.description) : undefined,
-    date: String(r.event_date),
+    date: String(r.event_date).slice(0, 10),
     startTime: r.start_time ? String(r.start_time) : undefined,
     endTime: r.end_time ? String(r.end_time) : undefined,
     location: r.location ? String(r.location) : undefined,
     audience: String(r.audience ?? 'all') as EventItem['audience'],
-    source: (r.source ? String(r.source) : 'workspace') as EventItem['source'],
+    source,
+    externalKey: r.external_key ? String(r.external_key) : undefined,
+    subjectUserId: r.subject_user_id ? String(r.subject_user_id) : undefined,
   }
 }
 

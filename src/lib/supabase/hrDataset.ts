@@ -14,6 +14,7 @@ import type {
   OkrKeyResult,
   OneOnOneLog,
   OnboardingMilestone,
+  PeopleEscalation,
   PulseQuestion,
   PulseResponse,
   PulseSurvey,
@@ -371,6 +372,41 @@ export function rowToGrievance(r: Record<string, unknown>): Grievance {
   }
 }
 
+export function rowToPeopleEscalation(r: Record<string, unknown>): PeopleEscalation {
+  return {
+    id: String(r.id),
+    openedAt: String(r.opened_at),
+    raisedBy: String(r.raised_by),
+    subject: String(r.subject ?? ''),
+    category: String(r.category) as PeopleEscalation['category'],
+    severity: String(r.severity) as PeopleEscalation['severity'],
+    ownerId: r.owner_id ? String(r.owner_id) : undefined,
+    status: String(r.status ?? 'open') as PeopleEscalation['status'],
+    dueAt: r.due_at ? String(r.due_at).slice(0, 10) : undefined,
+    relatedLinks: r.related_links ? String(r.related_links) : undefined,
+    resolutionNotes: r.resolution_notes ? String(r.resolution_notes) : undefined,
+    closedAt: r.closed_at ? String(r.closed_at) : undefined,
+  }
+}
+
+export function peopleEscalationToRow(e: PeopleEscalation): Record<string, unknown> {
+  return {
+    id: e.id,
+    opened_at: e.openedAt,
+    raised_by: e.raisedBy,
+    subject: e.subject,
+    category: e.category,
+    severity: e.severity,
+    owner_id: e.ownerId ?? null,
+    status: e.status,
+    due_at: e.dueAt || null,
+    related_links: e.relatedLinks ?? null,
+    resolution_notes: e.resolutionNotes ?? null,
+    closed_at: e.closedAt ?? null,
+    updated_at: new Date().toISOString(),
+  }
+}
+
 export function rowToOnboardingMilestone(r: Record<string, unknown>): OnboardingMilestone {
   return {
     id: String(r.id),
@@ -412,6 +448,7 @@ export interface HrDataset {
   jobCandidates: JobCandidate[]
   exitInterviews: ExitInterview[]
   grievances: Grievance[]
+  peopleEscalations: PeopleEscalation[]
   onboardingMilestones: OnboardingMilestone[]
   quarterlyAwards: QuarterlyAward[]
 }
@@ -433,6 +470,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     candidatesRes,
     exitRes,
     grievancesRes,
+    escalationsRes,
     milestonesRes,
     awardsRes,
   ] = await Promise.all([
@@ -451,9 +489,16 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     client.from('portal_job_candidates').select('*').order('updated_at', { ascending: false }),
     client.from('portal_exit_interviews').select('*').order('created_at', { ascending: false }),
     client.from('portal_grievances').select('*').order('created_at', { ascending: false }),
+    client.from('portal_people_escalations').select('*').order('opened_at', { ascending: false }),
     client.from('portal_onboarding_milestones').select('*'),
     client.from('portal_quarterly_awards').select('*').order('created_at', { ascending: false }),
   ])
+
+  const escalationsMissing =
+    !!escalationsRes.error &&
+    String(escalationsRes.error.message ?? '')
+      .toLowerCase()
+      .includes('portal_people_escalations')
 
   const err =
     surveysRes.error ||
@@ -471,6 +516,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     candidatesRes.error ||
     exitRes.error ||
     grievancesRes.error ||
+    (!escalationsMissing ? escalationsRes.error : null) ||
     milestonesRes.error ||
     awardsRes.error
 
@@ -495,6 +541,7 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     jobCandidates: map(candidatesRes.data, rowToJobCandidate),
     exitInterviews: map(exitRes.data, rowToExitInterview),
     grievances: map(grievancesRes.data, rowToGrievance),
+    peopleEscalations: escalationsRes.error ? [] : map(escalationsRes.data, rowToPeopleEscalation),
     onboardingMilestones: map(milestonesRes.data, rowToOnboardingMilestone),
     quarterlyAwards: map(awardsRes.data, rowToQuarterlyAward),
   }

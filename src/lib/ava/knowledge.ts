@@ -40,7 +40,7 @@ export const AVA_KNOWLEDGE = `
 ## Getting started (onboarding)
 Open Getting started (/onboarding). Watch welcome videos and complete the first-week checklist (profile, My info, Slack, Resources acknowledgements, first tasks, OKRs, weekly update, learning). Home shows video progress for the first 30 days. Some checklist items tick themselves when you complete the related Portal action.
 People & Culture run new joiners with AFRI-ONB-01 (Onboarding Kit). The joiner-facing handbook is AFRI-EOH-01. Slack coordinates; Portal records. WhatsApp is not for onboarding steps.
-Required acknowledgements in Resources within seven official work days: AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, and AFRI-ICEF-01 if unpaid. Team Leads also acknowledge AFRI-TLOP-01 and AFRI-DOA-01.
+Required acknowledgements in Resources within seven official work days: AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, AFRI-ODR-01, AFRI-PDP-01 (Penalty & Disciplinary Policy / CBP), and AFRI-ICEF-01 if unpaid. Team Leads also acknowledge AFRI-TLOP-01 and AFRI-DOA-01.
 
 ## How to request leave
 1. Open People → Time off (/people/leave).
@@ -61,10 +61,18 @@ Open People → Learning. Complete the assigned Alison course, then submit cours
 Open People → Surveys. Complete open surveys. One response per person.
 
 ## My info
-Open People → My info. Update personal contact and emergency details. Employment status and HR-only fields are managed under Admin → Employees.
+Open People → My info. This is the personnel questionnaire (identity, contact, emergency, employment, government IDs, banking, education, experience, skills, and compliance). Date of birth, legal name, phone, and emergency contact name + phone are required. Photograph is updated on Directory profile, not on this form. HR/Admin export one, several, or all files from Admin → Employee files.
+
+## Calendar
+Open Calendar (/events). Team leads can add events. Birthdays, work anniversaries, and new-hire check-ins (Day 1 / 7 / 30 / 60 / 90) are autosaved from employee start date and date of birth. Date of birth and start date are required for active people (People → My info, and Admin → Employee files). frank mirrors the same titles onto AfriVate Google Calendar — there is no Portal↔Google API sync.
+
+## Escalation log vs Speak up
+- Speak up (/people/growth?tab=grievance) is confidential grievances. Unchanged.
+- Operational People ops escalations (people / delivery / access / pay question) live under Admin → People ops. HR/Admin only.
 
 ## Resources & policy acknowledgement
 Open Resources (/documents). Read policies and complete required acknowledgements. Home and People may show reminder banners.
+Required acknowledgements in Resources within seven official work days: AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, AFRI-ODR-01, AFRI-PDP-01 (Penalty & Disciplinary Policy / CBP), and AFRI-ICEF-01 if you are an unpaid Internal Contributor (ICEF is the default unpaid engagement framework). Team Leads also acknowledge AFRI-TLOP-01 and AFRI-DOA-01.
 
 ## Appraisals (HR)
 Formal appraisals: 60% output / deliverables and 40% behavioural competencies. Recorded under Admin → Employees. Portal is the record; printable appraisal forms may be used as worksheets.

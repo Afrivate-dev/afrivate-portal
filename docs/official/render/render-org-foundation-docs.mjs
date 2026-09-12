@@ -316,7 +316,7 @@ const odrBody = `
     <li>AFRI-SWP — Standard Work Process</li>
     <li>AFRI-ORG-01 — Organisational Structure &amp; Role Charters</li>
     <li>AFRI-DOA-01 — Delegation of Authority</li>
-    <li>Specialist policies (including AFRI-ICEF-01, AFRI-VCC, AFRI-LAP-01)</li>
+    <li>Specialist policies (including AFRI-ICEF-01, AFRI-VCC, AFRI-LAP-01, AFRI-PDP-01)</li>
     <li>Playbooks and handbooks (AFRI-TLOP-01, AFRI-EOH-01, AFRI-ONB-01, AFRI-PUG-01 / AFRI-PUG-02 / AFRI-PUG-03)</li>
     <li>Portal Memos — operational instructions only; they cannot silently repeal a higher instrument</li>
   </ol>
@@ -332,6 +332,7 @@ const odrBody = `
       <tr><td>AFRI-ICEF-01</td><td>Internal Contributor Engagement Framework</td><td>People &amp; Culture</td><td>Internal unpaid Contributors</td><td>In force</td></tr>
       <tr><td>AFRI-VCC</td><td>Volunteer Code of Conduct</td><td>People &amp; Culture</td><td>External volunteers &amp; partner collaborators</td><td>In force</td></tr>
       <tr><td>AFRI-LAP-01</td><td>Leave and Absence Policy</td><td>People &amp; Culture</td><td>All Team Members within scope of LAP</td><td>In force</td></tr>
+      <tr><td>AFRI-PDP-01</td><td>Penalty &amp; Disciplinary Policy</td><td>CEO / People &amp; Culture</td><td>All Team Members, Team Leads, Pillar Heads</td><td>In force</td></tr>
       <tr><td>AFRI-EOH-01</td><td>Team Member Onboarding Handbook</td><td>People &amp; Culture</td><td>New and existing Team Members</td><td>In force</td></tr>
       <tr><td>AFRI-ONB-01</td><td>New Team Member Onboarding Kit</td><td>People &amp; Culture</td><td>People &amp; Culture, Team Leads, new joiners (process)</td><td>In force (operational playbook; not a policy)</td></tr>
       <tr><td>AFRI-TLOP-01</td><td>Team Lead Operational Playbook</td><td>People &amp; Culture</td><td>Team Leads</td><td>In force</td></tr>
@@ -339,6 +340,8 @@ const odrBody = `
       <tr><td>AFRI-PUG-02</td><td>Portal User Guide (Staff)</td><td>People &amp; Culture / Product</td><td>Team members</td><td>In force (procedural guide; not a policy)</td></tr>
       <tr><td>AFRI-PUG-03</td><td>Portal User Guide (Team Leads)</td><td>People &amp; Culture / Product</td><td>Team leads and assistant leads</td><td>In force (procedural guide; not a policy)</td></tr>
       <tr><td>AFRI-ODR-01</td><td>Official Document Register</td><td>People &amp; Culture</td><td>All</td><td>In force</td></tr>
+      <tr><td>AFRI-PAF-01</td><td>Performance Appraisal Form</td><td>People &amp; Culture</td><td>Team Leads, People &amp; Culture</td><td>In force (form; not a policy)</td></tr>
+      <tr><td>AFRI-MPA-01</td><td>Monthly Performance Appraisal Form</td><td>People &amp; Culture</td><td>Team Leads and Team Members</td><td>In force (form; not a policy)</td></tr>
     </tbody>
   </table>
 
@@ -370,7 +373,7 @@ const odrBody = `
   </table>
 
   <h2>7. Minimum operating set</h2>
-  <p>AfriVate treats the following as the minimum set every Internal Contributor must acknowledge before or within seven (7) official work days of access: AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01, AFRI-LAP-01, and AFRI-EOH-01. Team Leads must also acknowledge AFRI-TLOP-01 and AFRI-DOA-01. Pillar Heads must acknowledge AFRI-DOA-01.</p>
+  <p>AfriVate treats the following as the minimum set every Internal Contributor must acknowledge before or within seven (7) official work days of access: AFRI-SWP, AFRI-ORG-01, AFRI-ICEF-01, AFRI-LAP-01, AFRI-EOH-01, and AFRI-PDP-01. Team Leads must also acknowledge AFRI-TLOP-01 and AFRI-DOA-01. Pillar Heads must acknowledge AFRI-DOA-01.</p>
 
   ${commonClosing('AFRI-ODR-01', 'All registered instruments')}
 `

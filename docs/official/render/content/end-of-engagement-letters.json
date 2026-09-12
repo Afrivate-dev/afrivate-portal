@@ -1,0 +1,35 @@
+{
+  "letterDate": "8 September 2026",
+  "from": "Emmanuel Okpiaifo, Human Resources Manager, AfriVate Technologies Ltd",
+  "kicker": "Unpaid Internal Contributor — Immediate effect",
+  "documentReference": "Issued under AFRI-ICEF-01 · Related: AFRI-SWP · AFRI-PDP-01 · AFRI-EOH-01",
+  "footer": "Document Reference: Issued under AFRI-ICEF-01 · Related: AFRI-SWP · AFRI-PDP-01 · AFRI-EOH-01 · Confidential people document · AfriVate Technologies Ltd · RC: 9210092",
+  "notice": "This letter serves as formal notice that your engagement as an unpaid Internal Contributor with AfriVate Technologies Ltd, under the AfriVate Internal Contributor Engagement Framework (AFRI-ICEF-01), is being brought to an end with immediate effect.",
+  "groundsIntro": "This decision follows your continued unresponsiveness on official AfriVate communication channels — including Slack and the AfriVate Portal — for a period exceeding two (2) weeks. Despite reasonable attempts by your Team Lead and People & Culture to reach you, no update, acknowledgement, or explanation was received within this period. This conduct constitutes a breach of the following AfriVate policies:",
+  "grounds": [
+    "AFRI-ICEF-01 (Internal Contributor Engagement Framework), §5 – Contributor Obligations, which requires you to meet commitments, keep Portal records accurate, and acknowledge official Slack messages within four (4) hours on official work days during core hours;",
+    "AFRI-SWP (Standard Work Process), §6.1 – the four-hour Slack acknowledgement rule, §7.2 – keeping Portal tasks and Weekly check-ins current, and §12 – Discipline and Corrective Action, under which prolonged, unexplained disengagement is treated as a conduct trigger;",
+    "AFRI-PDP-01 (Penalty & Disciplinary Policy), §6.1 – Attendance, Availability, and Leave, which classifies prolonged, unexplained disengagement from Portal and Slack activity during an active Agreed Capacity period as a Category C offense warranting suspension review and, on continuation, end of engagement; and",
+    "AFRI-EOH-01 (Team Member Onboarding Handbook), §5 – Communication Standards, and §7 – Performance, KPIs, and Reporting, which require timely Portal updates and Weekly check-ins even where progress is limited."
+  ],
+  "surviving": "Please note that your confidentiality obligations and the assignment of intellectual property in any Work Product under AFRI-ICEF-01 §5.4 and §6 survive the end of this engagement. You remain prohibited from disclosing any AfriVate Confidential Information to a third party without prior written authorisation from AfriVate. A breach of this obligation may result in AfriVate taking appropriate legal action against you.",
+  "financial": "As this engagement was unpaid internal contribution and did not constitute a contract of employment, no severance, notice pay, salary, stipend, or other financial entitlement arises from this end of engagement, consistent with AFRI-ICEF-01's binding status disclaimer.",
+  "closing": "AfriVate appreciates your prior contributions and wishes you success in your future endeavours.",
+  "letters": [
+    {
+      "slug": "Alex-Dominion",
+      "fullName": "Alex Dominion",
+      "firstName": "Alex"
+    },
+    {
+      "slug": "Adesoye-Dorcas",
+      "fullName": "Adesoye Dorcas",
+      "firstName": "Adesoye"
+    },
+    {
+      "slug": "Endurance-Owie",
+      "fullName": "Endurance Owie",
+      "firstName": "Endurance"
+    }
+  ]
+}

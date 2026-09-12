@@ -26,6 +26,8 @@ import { PolicyAcknowledgmentPanel } from '@/components/admin/PolicyAcknowledgme
 import { HrKpiExport } from '@/components/admin/HrKpiExport'
 import { PulseSurveyTemplateManager } from '@/components/admin/PulseSurveyTemplateManager'
 import { HrOperatingRhythmCard } from '@/components/admin/HrOperatingRhythmCard'
+import { PeopleMomentsWidget } from '@/components/admin/PeopleMomentsWidget'
+import { PeopleEscalationLog } from '@/pages/admin/PeopleEscalationLog'
 import { PortalLabelsSection } from '@/pages/admin/PortalLabelsSection'
 import { Badge } from '@/components/ui/Badge'
 import { useState } from 'react'
@@ -129,6 +131,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <StatCard label="1:1 rate" value={metrics.oneOnOneRate != null ? `${metrics.oneOnOneRate}%` : '—'} hint="Target 90%" />
         <StatCard label="Pending leave" value={String(metrics.pendingLeave)} />
         <StatCard label="Open grievances" value={String(metrics.openGrievances)} />
+        <StatCard label="Open escalations" value={String(metrics.openEscalations)} />
         <StatCard label="Learning reviews" value={String(metrics.pendingLearningReviews)} />
         <StatCard label="Active surveys" value={String(metrics.activeSurveys)} />
         <StatCard label="Attrition (12 mo)" value={metrics.attritionRate != null ? `${metrics.attritionRate}%` : '—'} hint="Target <15%" />
@@ -149,6 +152,10 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
       </div>
 
       <HrOperatingRhythmCard />
+
+      <PeopleMomentsWidget />
+
+      <PeopleEscalationLog />
 
       <div className="grid gap-4 lg:grid-cols-2">
         <Card padding="md">

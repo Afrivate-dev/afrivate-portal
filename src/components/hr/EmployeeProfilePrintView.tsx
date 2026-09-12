@@ -6,6 +6,7 @@ import type {
   PerformanceImprovementPlan,
 } from '@/types/hr'
 import { DISCIPLINE_STEP_LABELS, DISCIPLINE_TRIGGER_LABELS } from '@/lib/hrPeopleOps'
+import { emptyPersonnelQuestionnaire, STAFF_EMPLOYMENT_TYPE_LABEL } from '@/lib/personnelFile'
 
 type Props = {
   user: User
@@ -25,6 +26,9 @@ export function EmployeeProfilePrintView({
   includeDiscipline,
 }: Props) {
   const displayName = profile.preferredName || profile.legalName || user.name
+  const q = profile.questionnaire ?? emptyPersonnelQuestionnaire()
+  const dash = (v?: string) => (v && v.trim() ? v : '—')
+  const yesNo = (v?: boolean) => (v == null ? '—' : v ? 'Yes' : 'No')
 
   return (
     <div className="employee-print-sheet mx-auto max-w-[800px] bg-white p-8 text-[#1f1f1f]">
@@ -56,14 +60,21 @@ export function EmployeeProfilePrintView({
         <Grid
           rows={[
             ['Legal name', profile.legalName || user.name],
-            ['Preferred name', profile.preferredName || '—'],
+            ['Preferred name', dash(profile.preferredName)],
             ['Work email', user.email],
-            ['Personal email', profile.personalEmail || '—'],
+            ['Personal email', dash(profile.personalEmail)],
             ['Phone', profile.phone || user.phone || '—'],
+            ['Alternative phone', dash(q.altPhone)],
             ['Location', profile.workLocation || user.workLocation || '—'],
-            ['Country', profile.addressCountry || '—'],
-            ['Pronouns', profile.pronouns || '—'],
-            ['LinkedIn', profile.linkedinUrl || '—'],
+            ['Residential address', dash(q.residentialAddress)],
+            ['Country', dash(profile.addressCountry)],
+            ['Date of birth', dash(profile.dateOfBirth)],
+            ['Gender', dash(q.gender)],
+            ['Marital status', dash(q.maritalStatus)],
+            ['Nationality', dash(q.nationality)],
+            ['National ID / Passport', dash(q.nationalId)],
+            ['Pronouns', dash(profile.pronouns)],
+            ['LinkedIn', dash(profile.linkedinUrl)],
           ]}
         />
       </Section>
@@ -71,10 +82,11 @@ export function EmployeeProfilePrintView({
       <Section title="Emergency contact">
         <Grid
           rows={[
-            ['Name', profile.emergencyContact?.name || '—'],
-            ['Phone', profile.emergencyContact?.phone || '—'],
-            ['Relationship', profile.emergencyContact?.relationship || '—'],
-            ['Next of kin notes', profile.nextOfKinNotes || '—'],
+            ['Name', dash(profile.emergencyContact?.name)],
+            ['Phone', dash(profile.emergencyContact?.phone)],
+            ['Relationship', dash(profile.emergencyContact?.relationship)],
+            ['Address', dash(profile.emergencyContact?.address)],
+            ['Next of kin notes', dash(profile.nextOfKinNotes)],
           ]}
         />
       </Section>
@@ -82,14 +94,59 @@ export function EmployeeProfilePrintView({
       <Section title="Employment">
         <Grid
           rows={[
+            ['Employee ID', dash(q.employeeId)],
+            ['Job title (stated)', dash(q.statedJobTitle)],
+            ['Job title (portal)', user.jobTitle || '—'],
+            ['Department (stated)', dash(q.statedDepartment)],
+            ['Department (portal)', user.department || '—'],
+            ['Reporting manager (stated)', dash(q.statedManagerName)],
+            ['Employment type', q.staffEmploymentType ? STAFF_EMPLOYMENT_TYPE_LABEL[q.staffEmploymentType] : '—'],
             ['Engagement', profile.engagementType],
             ['Status', profile.employmentStatus],
             ['Start date', profile.startDate || user.joinedAt?.slice(0, 10) || '—'],
-            ['Probation end', profile.probationEndDate || '—'],
-            ['Confirmation', profile.confirmationDate || '—'],
+            ['Probation end', dash(profile.probationEndDate)],
+            ['Confirmation', dash(profile.confirmationDate)],
             ['Payroll setup', profile.payrollSetupComplete ? 'Complete' : 'Pending'],
-            ['Contract / terms', profile.contractTermsSummary || '—'],
+            ['Contract / terms', dash(profile.contractTermsSummary)],
             ['Skills', (profile.skills ?? []).join(', ') || '—'],
+          ]}
+        />
+      </Section>
+
+      <Section title="Government, banking & compliance">
+        <Grid
+          rows={[
+            ['Tax ID', dash(q.taxId)],
+            ['NIN / national insurance', dash(q.nationalInsuranceNumber)],
+            ['Visa / work permit', dash(q.visaStatus)],
+            ['Right to work', dash(q.rightToWorkNotes)],
+            ['Licenses / certs', dash(q.licensesCerts)],
+            ['Bank name', dash(q.bankName)],
+            ['Account number', dash(q.bankAccountNumber)],
+            ['Account holder', dash(q.bankAccountHolder)],
+            ['Payment method', dash(q.paymentMethod)],
+            ['Tax filing', dash(q.taxFilingStatus)],
+            ['Pension', dash(q.pensionDetails)],
+            ['Signed contract', yesNo(q.signedContract)],
+            ['Received handbook', yesNo(q.receivedHandbook)],
+            ['Onboarding training', yesNo(q.completedOnboardingTraining)],
+            ['Signature', dash(q.acknowledgementName)],
+            ['Signed at', dash(q.acknowledgementSignedAt)],
+          ]}
+        />
+      </Section>
+
+      <Section title="Education, experience & skills">
+        <Grid
+          rows={[
+            ['Highest education', dash(q.highestEducation)],
+            ['Professional certifications', dash(q.professionalCertifications)],
+            ['Education', q.education.map((e) => [e.institution, e.qualification, e.yearCompleted].filter(Boolean).join(' · ')).filter(Boolean).join('; ') || '—'],
+            ['Work experience', q.workExperience.map((e) => [e.employer, e.jobTitle].filter(Boolean).join(' · ')).filter(Boolean).join('; ') || '—'],
+            ['References', q.references.map((e) => [e.name, e.contact].filter(Boolean).join(' · ')).filter(Boolean).join('; ') || '—'],
+            ['Languages', q.languages.map((e) => [e.language, e.proficiency].filter(Boolean).join(' · ')).filter(Boolean).join('; ') || '—'],
+            ['Software / tools', dash(q.softwareTools)],
+            ['Specialization', dash(q.specialization)],
           ]}
         />
       </Section>

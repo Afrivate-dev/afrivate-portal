@@ -3,6 +3,11 @@
  */
 import { useCallback, useMemo } from 'react'
 import { DataContext, type DataContextValue, usersAwaitingApproval } from '@/context/dataContextShared'
+import {
+  cancelFuturePeopleMoments,
+  mergePeopleMomentEvents,
+  todayYmd,
+} from '@/lib/peopleMomentEvents'
 import { useAuth } from '@/context/AuthContext'
 import { useLocalStorage } from '@/hooks/useLocalStorage'
 import {
@@ -102,9 +107,14 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   /* ------------------------------- Users -------------------------------- */
   const updateUser = useCallback(
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    (id: string, patch: Partial<User>, _onError?: (msg: string) => void) =>
-      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u))),
-    [setUsers],
+    (id: string, patch: Partial<User>, _onError?: (msg: string) => void) => {
+      setUsers((prev) => prev.map((u) => (u.id === id ? { ...u, ...patch } : u)))
+      if (patch.active === false) {
+        const today = todayYmd()
+        setEvents((prev) => cancelFuturePeopleMoments(prev, id, today))
+      }
+    },
+    [setUsers, setEvents],
   )
 
   const addUser = useCallback<DataContextValue['addUser']>(
@@ -687,6 +697,18 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setEvents],
   )
 
+  const applyPeopleMomentSync: DataContextValue['applyPeopleMomentSync'] = useCallback(
+    (profile, person) => {
+      setEvents((prev) => mergePeopleMomentEvents(prev, profile, person, todayYmd()))
+    },
+    [setEvents],
+  )
+
+  const refreshPeopleMomentCalendar: DataContextValue['refreshPeopleMomentCalendar'] = useCallback(
+    async () => undefined,
+    [],
+  )
+
   const [teams, setTeams] = useLocalStorage<WorkspaceTeam[]>('av-teams', seedTeams)
   const [departments, setDepartments] = useLocalStorage<Department[]>('av-departments', [])
 
@@ -1059,6 +1081,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       sendInboxNotifications,
       events,
       addEvent,
+      applyPeopleMomentSync,
+      refreshPeopleMomentCalendar,
       teams,
       addTeam,
       updateTeam,
@@ -1123,7 +1147,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       documents, addDocument, updateDocument, deleteDocument,
       recognition, recognitionComments, giveRecognition, deleteRecognition, toggleRecognitionReaction, addRecognitionComment,
       inbox, markInboxRead, markAllInboxRead,
-      events, addEvent,
+      events, addEvent, applyPeopleMomentSync, refreshPeopleMomentCalendar,
       teams, addTeam, updateTeam, deleteTeam,
       departments, addDepartment, updateDepartment, deleteDepartment,
       assignUserToDepartment, removeOrganizationUser, setUserTeamMembership,

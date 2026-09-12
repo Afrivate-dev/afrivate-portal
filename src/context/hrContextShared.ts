@@ -22,6 +22,7 @@ import type {
   Okr,
   OneOnOneLog,
   OnboardingMilestone,
+  PeopleEscalation,
   PerformanceImprovementPlan,
   PipTemplate,
   PulseResponse,
@@ -35,6 +36,7 @@ export interface HrMetrics {
   ldCompletionRate: number | null
   oneOnOneRate: number | null
   openGrievances: number
+  openEscalations: number
   pendingLearningReviews: number
   activeSurveys: number
   headcount: number
@@ -140,6 +142,13 @@ export interface HrContextValue {
   grievances: Grievance[]
   submitGrievance: (g: Omit<Grievance, 'id' | 'status' | 'hrNote' | 'createdAt'>) => void
   updateGrievance: (id: string, patch: Partial<Grievance>) => void
+
+  peopleEscalations: PeopleEscalation[]
+  addPeopleEscalation: (
+    e: Omit<PeopleEscalation, 'id' | 'openedAt' | 'closedAt'> & { id?: string },
+  ) => void
+  updatePeopleEscalation: (id: string, patch: Partial<PeopleEscalation>) => void
+  deletePeopleEscalation: (id: string) => void
 
   onboardingMilestones: OnboardingMilestone[]
   setMilestoneCompleted: (id: string, completed: boolean) => void

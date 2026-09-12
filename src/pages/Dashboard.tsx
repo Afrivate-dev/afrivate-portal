@@ -25,8 +25,6 @@ import {
   isDueToday,
   relativeTime,
   roleLabel,
-  isHR,
-  isAdmin,
 } from '@/utils/helpers'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { userSeesAnnouncement, unreadAnnouncementsFor } from '@/lib/announcementVisibility'
@@ -41,6 +39,7 @@ import {
 } from '@/utils/documentPreview'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import { externalToEventItem } from '@/utils/calendarAdapters'
+import { eventVisibleToUser } from '@/lib/peopleMomentEvents'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -79,11 +78,7 @@ export function DashboardPage() {
         const now = new Date()
         const in7 = new Date()
         in7.setDate(in7.getDate() + 7)
-        return (
-          d >= now &&
-          d <= in7 &&
-          (e.audience === 'all' || e.audience === user.department || isHR(user) || isAdmin(user))
-        )
+        return d >= now && d <= in7 && eventVisibleToUser(e, user, users)
       }).length,
       unread: unreadAnnouncementsFor(announcements, user).length,
     }
@@ -92,15 +87,13 @@ export function DashboardPage() {
   const todaysEvents = useMemo(() => {
     const todayStr = format(new Date(), 'yyyy-MM-dd')
     const local = events.filter(
-      (e) =>
-        e.date === todayStr &&
-        (e.audience === 'all' || e.audience === user?.department || isHR(user) || isAdmin(user)),
+      (e) => e.date === todayStr && user && eventVisibleToUser(e, user, users),
     )
     const ext = externalEvents
       .filter((e) => isSameDay(parseISO(e.start), new Date()))
       .map(externalToEventItem)
     return [...local, ...ext]
-  }, [events, externalEvents])
+  }, [events, externalEvents, user, users])
 
   const recentAnnouncements = useMemo(
     () => announcements.filter((a) => userSeesAnnouncement(a, user)).slice(0, 3),

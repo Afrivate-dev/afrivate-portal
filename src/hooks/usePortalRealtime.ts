@@ -60,6 +60,7 @@ export const PORTAL_HR_LIVE_TABLES = [
   'portal_job_candidates',
   'portal_exit_interviews',
   'portal_grievances',
+  'portal_people_escalations',
   'portal_onboarding_milestones',
   'portal_quarterly_awards',
   'portal_employee_profiles',

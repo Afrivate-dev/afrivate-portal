@@ -21,6 +21,7 @@ import type {
   LearningSubmission,
   Okr,
   OnboardingMilestone,
+  PeopleEscalation,
   PulseSurvey,
   QuarterlyAward,
 } from '@/types/hr'
@@ -50,7 +51,7 @@ const SEED_SURVEY: PulseSurvey = {
 
 export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, teams, departments, leaveRequests, documents, recognition, tasks } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition, tasks, applyPeopleMomentSync } = useData()
 
   const [pulseSurveys, setPulseSurveys] = useLocalStorage<PulseSurvey[]>('av-hr-pulse-surveys', [SEED_SURVEY])
   const [pulseResponses, setPulseResponses] = useLocalStorage<HrContextValue['pulseResponses']>('av-hr-pulse-responses', [])
@@ -74,6 +75,10 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
   const [jobCandidates, setJobCandidates] = useLocalStorage<JobCandidate[]>('av-hr-candidates', [])
   const [exitInterviews, setExitInterviews] = useLocalStorage<HrContextValue['exitInterviews']>('av-hr-exit', [])
   const [grievances, setGrievances] = useLocalStorage<Grievance[]>('av-hr-grievances', [])
+  const [peopleEscalations, setPeopleEscalations] = useLocalStorage<PeopleEscalation[]>(
+    'av-hr-people-escalations',
+    [],
+  )
   const [onboardingMilestones, setOnboardingMilestones] = useLocalStorage<OnboardingMilestone[]>('av-hr-milestones', [])
   const [quarterlyAwards, setQuarterlyAwards] = useLocalStorage<QuarterlyAward[]>('av-hr-awards', [])
 
@@ -83,6 +88,12 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     oneOnOneLogs,
     users,
     teams,
+    onEmployeeProfileWritten: (row) => {
+      applyPeopleMomentSync(
+        row,
+        users.find((u) => u.id === row.userId),
+      )
+    },
   })
 
   const submitPulseResponse = useCallback(
@@ -396,6 +407,40 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
     setGrievances((prev) => prev.map((g) => (g.id === id ? { ...g, ...patch } : g)))
   }, [setGrievances])
 
+  const addPeopleEscalation = useCallback(
+    (e: Omit<PeopleEscalation, 'id' | 'openedAt' | 'closedAt'> & { id?: string }) => {
+      const now = new Date().toISOString()
+      const row: PeopleEscalation = {
+        ...e,
+        id: e.id || 'esc_' + uid(),
+        openedAt: now,
+        closedAt: e.status === 'closed' ? now : undefined,
+      }
+      setPeopleEscalations((prev) => [row, ...prev])
+    },
+    [setPeopleEscalations],
+  )
+
+  const updatePeopleEscalation = useCallback(
+    (id: string, patch: Partial<PeopleEscalation>) => {
+      setPeopleEscalations((prev) =>
+        prev.map((row) => {
+          if (row.id !== id) return row
+          const next = { ...row, ...patch }
+          if (patch.status === 'closed' && !next.closedAt) next.closedAt = new Date().toISOString()
+          if (patch.status && patch.status !== 'closed') next.closedAt = undefined
+          return next
+        }),
+      )
+    },
+    [setPeopleEscalations],
+  )
+
+  const deletePeopleEscalation = useCallback(
+    (id: string) => setPeopleEscalations((prev) => prev.filter((e) => e.id !== id)),
+    [setPeopleEscalations],
+  )
+
   const setMilestoneCompleted = useCallback((id: string, completed: boolean) => {
     setOnboardingMilestones((prev) =>
       prev.map((m) =>
@@ -427,6 +472,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
           learningSubmissions,
           oneOnOneLogs,
           grievances,
+          peopleEscalations,
           users,
           leaveRequests,
           exitInterviews,
@@ -451,6 +497,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       learningSubmissions,
       oneOnOneLogs,
       grievances,
+      peopleEscalations,
       users,
       teams,
       departments,
@@ -518,6 +565,10 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       grievances,
       submitGrievance,
       updateGrievance,
+      peopleEscalations,
+      addPeopleEscalation,
+      updatePeopleEscalation,
+      deletePeopleEscalation,
       onboardingMilestones,
       setMilestoneCompleted,
       seedOnboardingMilestones,
@@ -538,6 +589,7 @@ export function LocalHrProvider({ children }: { children: React.ReactNode }) {
       createFeedbackCycle, updateFeedbackCycle, submitFeedback,
       jobRequisitions, jobCandidates, addJobRequisition, updateJobRequisition, addJobCandidate, addJobCandidatesBatch, updateJobCandidate, removeJobCandidates,
       exitInterviews, addExitInterview, grievances, submitGrievance, updateGrievance,
+      peopleEscalations, addPeopleEscalation, updatePeopleEscalation, deletePeopleEscalation,
       onboardingMilestones, setMilestoneCompleted, seedOnboardingMilestones, quarterlyAwards, addQuarterlyAward,
       peopleOps,
       getMetrics,

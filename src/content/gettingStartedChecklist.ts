@@ -11,7 +11,7 @@ export const DEFAULT_GETTING_STARTED_CHECKLIST: OnboardingChecklistItem[] = [
   },
   {
     id: 'ck_myinfo',
-    label: 'Complete My Info (including emergency contact)',
+    label: 'Complete the personnel questionnaire (My info)',
     link: '/people/my-info',
     order: 2,
   },
@@ -110,7 +110,7 @@ const META: Record<string, GettingStartedChecklistMeta> = {
     cta: 'View memos',
   },
   ck_myinfo: {
-    description: 'People & Culture needs a usable phone number and emergency contact on file.',
+    description: 'People & Culture needs the personnel questionnaire: date of birth, phone, emergency contact, and the rest of My info.',
     cta: 'Open My info',
   },
   ck_slack: {
@@ -119,7 +119,7 @@ const META: Record<string, GettingStartedChecklistMeta> = {
   },
   ck_policies: {
     description:
-      'Acknowledge AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, and AFRI-ICEF-01 if you are an Internal Contributor — within seven official work days.',
+      'Acknowledge AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, AFRI-ODR-01, AFRI-PDP-01 (Penalty & Disciplinary Policy / CBP), and AFRI-ICEF-01 if you are an Internal Contributor — within seven official work days.',
     cta: 'Open resources',
   },
   ck_tasks: {

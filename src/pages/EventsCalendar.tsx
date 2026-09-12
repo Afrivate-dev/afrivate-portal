@@ -41,6 +41,7 @@ import { departmentSelectOptions } from '@/lib/departments'
 import { pages } from '@/content/copy'
 import { notifySuccess } from '@/lib/notify'
 import { isEventPayload, type ComposerDraft, type EventDraftPayload } from '@/lib/composerDrafts'
+import { eventVisibleToUser, peopleMomentKindFromKey, peopleMomentKindLabel } from '@/lib/peopleMomentEvents'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
@@ -90,6 +91,7 @@ export function EventsCalendarPage() {
   const { externalEvents, status: externalStatus } = useExternalCalendarEvents(icalJsonUrl)
 
   const [view, setView] = useState<ViewMode>('list')
+  const [peopleFilter, setPeopleFilter] = useState<'all' | 'birthday' | 'anniversary' | 'newhire'>('all')
   const [formOpen, setFormOpen] = useState(false)
   const [draft, setDraft] = useState<EventDraft>(emptyDraft)
   const [composerDraftId, setComposerDraftId] = useState<string | undefined>()
@@ -159,10 +161,12 @@ export function EventsCalendarPage() {
 
   const visibleEvents = useMemo(() => {
     if (!user) return []
-    return events.filter(
-      (e) => e.audience === 'all' || e.audience === user.department,
-    )
-  }, [events, user])
+    return events.filter((e) => {
+      if (!eventVisibleToUser(e, user, users)) return false
+      if (peopleFilter === 'all') return true
+      return peopleMomentKindFromKey(e.externalKey) === peopleFilter
+    })
+  }, [events, user, users, peopleFilter])
 
   const mergedForList = useMemo(() => {
     const extItems = externalEvents.map(externalToEventItem)
@@ -371,6 +375,27 @@ export function EventsCalendarPage() {
         ]}
       />
 
+      <div className="flex flex-wrap gap-2">
+        {(
+          [
+            ['all', 'All'],
+            ['birthday', 'Birthdays'],
+            ['anniversary', 'Anniversaries'],
+            ['newhire', 'New hire check-ins'],
+          ] as const
+        ).map(([id, label]) => (
+          <Button
+            key={id}
+            type="button"
+            size="sm"
+            variant={peopleFilter === id ? 'primary' : 'secondary'}
+            onClick={() => setPeopleFilter(id)}
+          >
+            {label}
+          </Button>
+        ))}
+      </div>
+
       {/* LIST VIEW */}
       {view === 'list' ? (
         mergedForList.length === 0 ? (
@@ -379,8 +404,10 @@ export function EventsCalendarPage() {
             title="No events yet"
             description={
               canManage
-                ? 'Add the first event to get started.'
-                : 'Check back later — events will appear here.'
+                ? peopleFilter === 'all'
+                  ? 'People moments appear when start date or date of birth is saved on employee files. You can also add a manual event.'
+                  : 'No matching people-calendar events in this filter.'
+                : 'Birthdays and work anniversaries appear here once People & Culture save dates of birth and start dates.'
             }
           />
         ) : (
@@ -743,6 +770,11 @@ function DayGroup({
                   {e.source === 'external' ? (
                     <Badge tone="brand" className="text-[10px]">
                       {W.externalBadge}
+                    </Badge>
+                  ) : null}
+                  {peopleMomentKindFromKey(e.externalKey) ? (
+                    <Badge tone="muted" className="text-[10px]">
+                      {peopleMomentKindLabel(peopleMomentKindFromKey(e.externalKey)!)}
                     </Badge>
                   ) : null}
                 </p>

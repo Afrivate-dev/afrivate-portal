@@ -1,41 +1,55 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useAvaFormDraft, useAvaPageDraft } from '@/hooks/useAvaDraft'
 import { useAuth } from '@/context/AuthContext'
+import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
-import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
-import { Textarea } from '@/components/ui/Textarea'
-import { notifySuccess } from '@/lib/notify'
+import { PersonnelQuestionnaireForm } from '@/components/people/PersonnelQuestionnaireForm'
+import { notifySuccess, notifyError } from '@/lib/notify'
+import {
+  emptyPersonnelQuestionnaire,
+  personalFieldsFromProfile,
+} from '@/lib/personnelFile'
 import type { EmployeePersonalFields } from '@/types/hr'
 
 export function PeopleMyInfoPage() {
   const { user } = useAuth()
+  const { users } = useData()
   const { employeeProfiles, ensureEmployeeProfile, saveEmployeePersonalFields } = useHr()
-  const [draft, setDraft] = useState<EmployeePersonalFields>({})
+  const [draft, setDraft] = useState<EmployeePersonalFields>({
+    questionnaire: emptyPersonnelQuestionnaire(),
+  })
   const [skillsText, setSkillsText] = useState('')
+
+  const managerName = useMemo(
+    () => (user?.reportsToId ? users.find((u) => u.id === user.reportsToId)?.name : undefined),
+    [user?.reportsToId, users],
+  )
 
   useEffect(() => {
     if (!user) return
     const profile = ensureEmployeeProfile(user.id)
+    const fields = personalFieldsFromProfile(profile)
+    const q = fields.questionnaire ?? emptyPersonnelQuestionnaire()
     setDraft({
-      preferredName: profile.preferredName,
-      legalName: profile.legalName ?? user.name,
-      personalEmail: profile.personalEmail,
-      phone: profile.phone ?? user.phone,
-      workLocation: profile.workLocation ?? user.workLocation,
-      addressCountry: profile.addressCountry,
-      dateOfBirth: profile.dateOfBirth,
-      pronouns: profile.pronouns ?? user.pronouns,
-      linkedinUrl: profile.linkedinUrl ?? user.linkedinUrl,
-      bio: profile.bio ?? user.bio,
-      skills: profile.skills ?? user.skills,
-      emergencyContact: profile.emergencyContact,
-      nextOfKinNotes: profile.nextOfKinNotes,
+      ...fields,
+      legalName: fields.legalName || user.name,
+      phone: fields.phone || user.phone,
+      workLocation: fields.workLocation || user.workLocation,
+      pronouns: fields.pronouns || user.pronouns,
+      linkedinUrl: fields.linkedinUrl || user.linkedinUrl,
+      bio: fields.bio || user.bio,
+      skills: fields.skills ?? user.skills,
+      startDate: fields.startDate || user.joinedAt?.slice(0, 10),
+      questionnaire: {
+        ...q,
+        statedJobTitle: q.statedJobTitle || user.jobTitle,
+        statedDepartment: q.statedDepartment || user.department,
+        statedManagerName: q.statedManagerName || managerName,
+      },
     })
-    setSkillsText((profile.skills ?? user.skills ?? []).join(', '))
-  }, [user, ensureEmployeeProfile])
+    setSkillsText((fields.skills ?? user.skills ?? []).join(', '))
+  }, [user, ensureEmployeeProfile, managerName])
 
   useAvaPageDraft(
     'my_info',
@@ -82,6 +96,7 @@ export function PeopleMyInfoPage() {
           phone: d.fields.emergencyContactPhone || prev.emergencyContact?.phone || '',
           relationship:
             d.fields.emergencyContactRelationship || prev.emergencyContact?.relationship || '',
+          address: prev.emergencyContact?.address,
         }
       }
       return next
@@ -94,150 +109,67 @@ export function PeopleMyInfoPage() {
   const profile = employeeProfiles.find((p) => p.userId === user.id)
 
   const save = () => {
+    const legalName = draft.legalName?.trim()
+    const phone = draft.phone?.trim()
+    const emergencyName = draft.emergencyContact?.name?.trim()
+    const emergencyPhone = draft.emergencyContact?.phone?.trim()
+    if (!legalName) {
+      notifyError('Full legal name is required.')
+      return
+    }
+    if (!draft.dateOfBirth) {
+      notifyError('Date of birth is required.')
+      return
+    }
+    if (!phone) {
+      notifyError('Personal phone number is required.')
+      return
+    }
+    if (!emergencyName || !emergencyPhone) {
+      notifyError('Emergency contact name and phone are required.')
+      return
+    }
+    const q = draft.questionnaire ?? emptyPersonnelQuestionnaire()
+    const acknowledgementSignedAt =
+      q.acknowledgementName?.trim() && !q.acknowledgementSignedAt
+        ? new Date().toISOString().slice(0, 10)
+        : q.acknowledgementSignedAt
     saveEmployeePersonalFields(user.id, {
       ...draft,
+      legalName,
+      phone,
+      emergencyContact: {
+        name: emergencyName,
+        phone: emergencyPhone,
+        relationship: draft.emergencyContact?.relationship ?? '',
+        address: draft.emergencyContact?.address,
+      },
       skills: skillsText
         .split(',')
         .map((s) => s.trim())
         .filter(Boolean),
+      questionnaire: { ...q, acknowledgementSignedAt },
     })
-    notifySuccess('Your info was saved.')
+    notifySuccess('Your personnel questionnaire was saved.')
   }
 
   return (
     <div className="av-contain space-y-6">
       <PageHeader
         title="My info"
-        description="Update personal and contact details. Job and contract fields are managed by People & Culture."
+        description="Fill this personnel questionnaire and save. People & Culture and administrators can export the file for payroll, onboarding, and records."
       />
-
-      {profile?.hrRequestsUpdate ? (
-        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          People & Culture has asked you to review and update your personal information.
-        </div>
-      ) : null}
-
-      <Card className="space-y-4 p-5">
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input
-            label="Preferred name"
-            value={draft.preferredName ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, preferredName: e.target.value }))}
-          />
-          <Input
-            label="Legal name"
-            value={draft.legalName ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, legalName: e.target.value }))}
-          />
-          <Input
-            label="Personal email"
-            type="email"
-            value={draft.personalEmail ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, personalEmail: e.target.value }))}
-          />
-          <Input
-            label="Phone"
-            value={draft.phone ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, phone: e.target.value }))}
-          />
-          <Input
-            label="Work location"
-            value={draft.workLocation ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, workLocation: e.target.value }))}
-          />
-          <Input
-            label="Country"
-            value={draft.addressCountry ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, addressCountry: e.target.value }))}
-          />
-          <Input
-            label="Date of birth"
-            type="date"
-            value={draft.dateOfBirth ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, dateOfBirth: e.target.value }))}
-          />
-          <Input
-            label="Pronouns"
-            value={draft.pronouns ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, pronouns: e.target.value }))}
-          />
-          <Input
-            label="LinkedIn URL"
-            value={draft.linkedinUrl ?? ''}
-            onChange={(e) => setDraft((d) => ({ ...d, linkedinUrl: e.target.value }))}
-            className="sm:col-span-2"
-          />
-        </div>
-        <Textarea
-          label="Bio"
-          value={draft.bio ?? ''}
-          onChange={(e) => setDraft((d) => ({ ...d, bio: e.target.value }))}
-          rows={3}
-        />
-        <Input
-          label="Skills (comma-separated)"
-          value={skillsText}
-          onChange={(e) => setSkillsText(e.target.value)}
-        />
-        <div className="grid gap-4 sm:grid-cols-3">
-          <Input
-            label="Emergency contact name"
-            value={draft.emergencyContact?.name ?? ''}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                emergencyContact: {
-                  name: e.target.value,
-                  phone: d.emergencyContact?.phone ?? '',
-                  relationship: d.emergencyContact?.relationship ?? '',
-                },
-              }))
-            }
-          />
-          <Input
-            label="Emergency contact phone"
-            value={draft.emergencyContact?.phone ?? ''}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                emergencyContact: {
-                  name: d.emergencyContact?.name ?? '',
-                  phone: e.target.value,
-                  relationship: d.emergencyContact?.relationship ?? '',
-                },
-              }))
-            }
-          />
-          <Input
-            label="Relationship"
-            value={draft.emergencyContact?.relationship ?? ''}
-            onChange={(e) =>
-              setDraft((d) => ({
-                ...d,
-                emergencyContact: {
-                  name: d.emergencyContact?.name ?? '',
-                  phone: d.emergencyContact?.phone ?? '',
-                  relationship: e.target.value,
-                },
-              }))
-            }
-          />
-        </div>
-        <Textarea
-          label="Next of kin notes"
-          value={draft.nextOfKinNotes ?? ''}
-          onChange={(e) => setDraft((d) => ({ ...d, nextOfKinNotes: e.target.value }))}
-          rows={2}
-        />
-        <div className="av-action-row items-stretch sm:items-center sm:justify-between">
-          <p className="text-sm text-[var(--color-muted)]">
-            Profile completeness: {profile?.profileCompleteness ?? 0}%
-          </p>
-          <Button type="button" onClick={save}>
-            Save my info
-          </Button>
-        </div>
-      </Card>
+      <PersonnelQuestionnaireForm
+        user={user}
+        managerName={managerName}
+        draft={draft}
+        skillsText={skillsText}
+        completeness={profile?.profileCompleteness ?? 0}
+        hrRequestsUpdate={profile?.hrRequestsUpdate}
+        onChangeDraft={setDraft}
+        onChangeSkillsText={setSkillsText}
+        onSave={save}
+      />
     </div>
   )
 }

@@ -4,6 +4,10 @@ Internal staff portal for AfriVate Technologies Ltd. Built with React + TypeScri
 
 Intended to be deployed at `portal.afrivate.org`. See **`SUPABASE_SETUP.md`** for the go-live guide.
 
+**Full system picture** (every capability, the stack, AVA, Admin, hiring, integrations): [`docs/PORTAL_MASTER_WALKTHROUGH.md`](docs/PORTAL_MASTER_WALKTHROUGH.md).
+
+Day-to-day how-to: [`docs/PORTAL_USER_GUIDE.md`](docs/PORTAL_USER_GUIDE.md). AVA operators: [`docs/AVA_SETUP_GUIDE.md`](docs/AVA_SETUP_GUIDE.md).
+
 ---
 
 ## Tech Stack

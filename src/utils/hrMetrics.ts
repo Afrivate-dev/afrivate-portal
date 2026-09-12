@@ -8,6 +8,7 @@ import type {
   LearningSubmission,
   Okr,
   OneOnOneLog,
+  PeopleEscalation,
   PulseResponse,
   PulseSurvey,
 } from '@/types/hr'
@@ -35,6 +36,7 @@ export type HrMetricsInput = {
   learningSubmissions: LearningSubmission[]
   oneOnOneLogs: OneOnOneLog[]
   grievances: Grievance[]
+  peopleEscalations?: PeopleEscalation[]
   users: User[]
   leaveRequests: LeaveRequest[]
   exitInterviews: ExitInterview[]
@@ -100,6 +102,7 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     learningSubmissions,
     oneOnOneLogs,
     grievances,
+    peopleEscalations = [],
     users,
     leaveRequests,
     exitInterviews,
@@ -277,6 +280,11 @@ export function computeHrMetrics(input: HrMetricsInput, options?: HrMetricsOptio
     ldCompletionRate,
     oneOnOneRate,
     openGrievances: scopedGrievances.filter((g) => g.status !== 'resolved').length,
+    openEscalations: peopleEscalations.filter((e) => {
+      if (e.status === 'closed') return false
+      if (!memberIds) return true
+      return scopedUserIds.has(e.raisedBy) || (e.ownerId ? scopedUserIds.has(e.ownerId) : false)
+    }).length,
     pendingLearningReviews: scopedLearningSubmissions.filter((s) => s.status === 'pending').length,
     activeSurveys: openActiveSurveys.length,
     headcount,

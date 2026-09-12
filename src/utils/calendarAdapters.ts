@@ -4,6 +4,21 @@ import type { ExternalCalendarEvent } from '@/hooks/useExternalCalendarEvents'
 import type { EventItem } from '@/types'
 
 export function workspaceEventToFc(e: EventItem): EventInput {
+  const kind = e.externalKey?.startsWith('birthday:')
+    ? 'birthday'
+    : e.externalKey?.startsWith('anniversary:')
+      ? 'anniversary'
+      : e.externalKey?.startsWith('newhire:')
+        ? 'newhire'
+        : null
+  const colors =
+    kind === 'birthday'
+      ? { backgroundColor: 'rgba(141, 64, 135, 0.18)', borderColor: '#8D4087', textColor: '#8D4087' }
+      : kind === 'anniversary'
+        ? { backgroundColor: 'rgba(49, 125, 52, 0.15)', borderColor: '#317D34', textColor: '#317D34' }
+        : kind === 'newhire'
+          ? { backgroundColor: 'rgba(37, 99, 235, 0.12)', borderColor: '#2563eb', textColor: '#1d4ed8' }
+          : {}
   const hasTime = Boolean(e.startTime?.trim())
   if (hasTime) {
     return {
@@ -11,6 +26,7 @@ export function workspaceEventToFc(e: EventItem): EventInput {
       title: e.title,
       start: `${e.date}T${e.startTime}:00`,
       end: e.endTime ? `${e.date}T${e.endTime}:00` : undefined,
+      ...colors,
       extendedProps: { origin: 'workspace' as const, item: e },
     }
   }
@@ -19,6 +35,7 @@ export function workspaceEventToFc(e: EventItem): EventInput {
     title: e.title,
     allDay: true,
     start: e.date,
+    ...colors,
     extendedProps: { origin: 'workspace' as const, item: e },
   }
 }

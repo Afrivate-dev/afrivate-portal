@@ -1,0 +1,320 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>Social Media Manager &amp; Content Creator — Take-Home Exercise</title>
+  <style>
+  :root {
+    --purple: #8d4087;
+    --ink: #1f1f1f;
+    --muted: #5f5f5f;
+    --line: #ebdceb;
+    --soft: #f8f3f8;
+  }
+  * { box-sizing: border-box; }
+  html, body {
+    margin: 0;
+    padding: 0;
+    color: var(--ink);
+    font-family: Inter, Segoe UI, Arial, sans-serif;
+    font-size: 10.5pt;
+    line-height: 1.58;
+    background: #fff;
+  }
+  .shell { position: relative; padding: 0 4px; }
+  .brand-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 16px;
+    padding-bottom: 12px;
+    border-bottom: 2px solid var(--purple);
+    margin-bottom: 18px;
+  }
+  .brand { display: flex; align-items: center; gap: 12px; }
+  .brand img {
+    width: 154px;
+    height: 49px;
+    object-fit: contain;
+    object-position: left center;
+  }
+  .chip {
+    text-align: right;
+    font-size: 10px;
+    color: var(--muted);
+    line-height: 1.45;
+  }
+  h1 {
+    font-size: 17px;
+    line-height: 1.3;
+    margin: 0 0 14px;
+    text-align: center;
+    text-transform: uppercase;
+    letter-spacing: 0.02em;
+  }
+  .meta {
+    display: grid;
+    gap: 8px;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 10px;
+    padding: 12px 14px;
+    margin: 0 0 20px;
+  }
+  .meta div {
+    display: grid;
+    grid-template-columns: 140px 1fr;
+    gap: 8px;
+  }
+  .meta span { color: var(--muted); }
+  h2 {
+    font-size: 12px;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    color: var(--purple);
+    margin: 22px 0 10px;
+    padding-bottom: 6px;
+    border-bottom: 1px solid var(--line);
+    break-after: avoid-page;
+  }
+  h3 {
+    font-size: 11.2px;
+    margin: 14px 0 6px;
+    color: var(--ink);
+    break-after: avoid-page;
+  }
+  h4 {
+    font-size: 10.8px;
+    margin: 12px 0 6px;
+    color: var(--purple);
+    break-after: avoid-page;
+  }
+  p { margin: 0 0 10px; }
+  ul, ol {
+    margin: 0 0 12px;
+    padding-left: 20px;
+  }
+  li {
+    margin: 0 0 6px;
+    break-inside: avoid-page;
+  }
+  .note {
+    background: var(--soft);
+    border-left: 3px solid var(--purple);
+    padding: 11px 13px;
+    margin: 10px 0 16px;
+  }
+  .path {
+    display: inline-block;
+    background: var(--soft);
+    border: 1px solid var(--line);
+    border-radius: 6px;
+    padding: 2px 8px;
+    font-size: 9.5pt;
+    color: var(--muted);
+    margin: 0 0 8px;
+  }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    margin: 0 0 14px;
+    font-size: 9.8pt;
+  }
+  tr { break-inside: avoid-page; }
+  th, td {
+    border: 1px solid var(--line);
+    padding: 7px 9px;
+    text-align: left;
+    vertical-align: top;
+  }
+  th {
+    background: var(--soft);
+    color: var(--purple);
+    font-weight: 700;
+  }
+  .footer-note {
+    margin-top: 28px;
+    padding-top: 12px;
+    border-top: 1px solid var(--line);
+    font-size: 9.5pt;
+    color: var(--muted);
+    font-style: italic;
+  }
+  code {
+    font-family: Consolas, Monaco, monospace;
+    font-size: 9pt;
+    background: var(--soft);
+    padding: 1px 4px;
+    border-radius: 3px;
+  }
+  strong { font-weight: 700; }
+
+  .sign-block { margin-top: 28px; break-inside: avoid-page; }
+  .sign-row { display: grid; grid-template-columns: 1fr 1fr; gap: 28px; margin-top: 16px; }
+  .sign-card { border-top: 1px solid #bbb; padding-top: 10px; }
+  .sign-card .who { font-weight: 700; margin-top: 28px; }
+  .sign-card .role { color: var(--muted); font-size: 10.5px; }
+  td.fill { height: 28px; background: #fff; }
+  td.fill-lg { height: 44px; background: #fff; }
+  table.form th.num, table.form td.num { text-align: center; width: 22%; white-space: nowrap; }
+  tr.total td { background: var(--soft); }
+  .comment, .comment-sm {
+    border: 1px solid var(--line);
+    border-radius: 8px;
+    background: #fff;
+    margin: 0 0 14px;
+  }
+  .comment { min-height: 78px; }
+  .comment-sm { min-height: 52px; }
+  .line {
+    display: inline-block;
+    min-width: 160px;
+    border-bottom: 1px solid var(--ink);
+    padding: 0 8px;
+  }
+</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="file:///C:/Users/DELL/Desktop/CODE/Afrivate/afrivate-portal/docs/official/brand/afrivate-logo-long-purple.png" alt="AfriVate" />
+      </div>
+      <div class="chip">Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092</div>
+    </div>
+    <h1>Social Media Manager &amp; Content Creator — Take-Home Exercise</h1>
+    <section class="meta"><div><strong>Document Code</strong><span>AFRI-SMM-EX-01</span></div><div><strong>Status</strong><span>Hiring exercise — not a policy</span></div><div><strong>Audience</strong><span>Social Media Manager &amp; Content Creator candidates</span></div><div><strong>Suggested time</strong><span>3–4 hours</span></div><div><strong>Deadline</strong><span>Within 24 hours of receipt</span></div><div><strong>Submit to</strong><span>afrivatehr@gmail.com</span></div><div><strong>Owner</strong><span>People &amp; Culture / Brand &amp; Communications</span></div></section>
+    
+      <div class="note"><strong>How to use:</strong> Send this brief to Social Media Manager &amp; Content Creator candidates after a successful screen. A focused, well-reasoned submission is worth more than volume. Suggested time is a guideline, not a cap.</div>
+
+      <p>Thank you for your interest in the Social Media Manager &amp; Content Creator role at AfriVate Technologies Ltd. This exercise is designed to give us a realistic picture of how you think, plan, create, and make decisions — not only how much content you can produce. Please read the brief carefully before starting.</p>
+
+      <table>
+        <thead><tr><th>Item</th><th>Detail</th></tr></thead>
+        <tbody>
+          <tr><td><strong>Suggested time</strong></td><td>3–4 hours (guideline, not a strict cap)</td></tr>
+          <tr><td><strong>Deadline</strong></td><td>Within 24 hours of receiving this exercise</td></tr>
+          <tr><td><strong>Format</strong></td><td>One PDF or Word document covering all written parts, plus any separate content files where relevant</td></tr>
+          <tr><td><strong>Submit to</strong></td><td>afrivatehr@gmail.com</td></tr>
+          <tr><td><strong>Subject line</strong></td><td>SMM TAKE-HOME — [YOUR FULL NAME]</td></tr>
+        </tbody>
+      </table>
+
+      <div class="note">We are not evaluating how much content you can produce. We are evaluating thinking, creativity, strategic judgement, understanding of digital audiences, and the ability to turn ideas into effective content.</div>
+
+      <h2>1. About AfriVate</h2>
+      <p>AfriVate Technologies Ltd builds platforms and programmes that connect African Pathfinders (talent) with Enablers (organisations) through volunteering, internships, mentorship, micro-tasks, remote work, and related opportunities — elevating life and professional growth across Africa.</p>
+      <p>Our mission is practical: create technology and operating systems that improve how African talent is discovered, developed, and connected to opportunity. Our audience is largely young, digitally engaged, ambitious, and proud of African identity and progress.</p>
+      <h3>Brand voice</h3>
+      <ul>
+        <li><strong>Innovation · Elevation · Technology</strong> — the AfriVate tagline.</li>
+        <li><strong>Excellence:</strong> Work meets stated success criteria. Completion without quality is not success.</li>
+        <li><strong>Ownership:</strong> Outcomes, communication, and accurate reporting — not only effort.</li>
+        <li><strong>Professionalism:</strong> Clear, respectful, and specific. Avoid hype that AfriVate cannot stand behind.</li>
+      </ul>
+      <p>Visual identity is purple-led (#8d4087), clean, and modern. Content should feel African, ambitious, and useful — not generic “tech startup” filler.</p>
+
+      <h2>2. What we are evaluating</h2>
+      <p>Please do not spend more than the suggested time. A focused, well-reasoned submission is worth more to us than a large volume of content.</p>
+      <table>
+        <thead><tr><th>Criterion</th><th>Weight</th></tr></thead>
+        <tbody>
+          <tr><td>Content strategy</td><td>20%</td></tr>
+          <tr><td>Creativity and originality</td><td>15%</td></tr>
+          <tr><td>Content execution</td><td>20%</td></tr>
+          <tr><td>Copywriting and communication</td><td>15%</td></tr>
+          <tr><td>Analytics and decision-making</td><td>15%</td></tr>
+          <tr><td>Community-building thinking</td><td>10%</td></tr>
+          <tr><td>Attention to detail</td><td>5%</td></tr>
+        </tbody>
+      </table>
+
+      <h2>3. Part 1 — Social media strategy</h2>
+      <p>Using the brief above, develop a short social media strategy for AfriVate that includes:</p>
+      <ul>
+        <li>3–4 content pillars</li>
+        <li>The target audience for each pillar (or overall, if shared)</li>
+        <li>The purpose of each content pillar (why it exists, what it achieves)</li>
+        <li>Recommended platforms and why they fit AfriVate’s audience</li>
+        <li>What you believe AfriVate should be known for online</li>
+      </ul>
+      <p>This section should demonstrate that you can think beyond “posting content”. We want strategic reasoning.</p>
+
+      <h2>4. Part 2 — 4-day content calendar</h2>
+      <p>Build a 4-day content calendar for AfriVate. Official AfriVate work days are Monday to Thursday; you may plan for those four days or for a typical social calendar — say which you chose. For each day, include:</p>
+      <ul>
+        <li>Date</li>
+        <li>Platform</li>
+        <li>Content format (for example Reel, carousel, static post, story)</li>
+        <li>Topic</li>
+        <li>Hook</li>
+        <li>Caption / concept</li>
+        <li>Objective (for example awareness, engagement, education, conversion)</li>
+        <li>Call to action (CTA)</li>
+      </ul>
+      <p>A table format is preferred. This section shows whether you can translate strategy into day-to-day execution.</p>
+
+      <h2>5. Part 3 — Create actual content</h2>
+      <p>Please create the following two pieces of content. We are evaluating concept and thinking, not design polish. Wireframe-level mockups, annotated sketches, or simple slide layouts are acceptable — do not spend extra time making these pixel-perfect.</p>
+      <h3>5.1 Instagram / LinkedIn carousel</h3>
+      <p><strong>Topic:</strong> “5 Ways Technology Can Improve Everyday Life in Africa”</p>
+      <p>Sketch the carousel slides (low-fidelity mockups, sketches, or a simple slide layout) together with the caption you would post alongside it.</p>
+      <h3>5.2 Short-form video concept</h3>
+      <p>Create a 30–60 second Reel / TikTok / Short concept explaining AfriVate or one of its core values (Innovation, Elevation, Technology — or Excellence, Ownership, Professionalism).</p>
+      <p>You do not need to film yourself. You may submit either:</p>
+      <ul>
+        <li>A full concept including script, shot-by-shot direction, and caption, or</li>
+        <li>A finished video, if you prefer to produce one</li>
+      </ul>
+
+      <h2>6. Part 4 — Copywriting</h2>
+      <p>AfriVate is making the following announcement:</p>
+      <div class="note"><strong>Sample announcement:</strong> “AfriVate is opening a new Pathfinder intake — volunteering, internship, mentorship, and remote-work opportunities with Enablers building tech solutions to everyday problems across Africa.”</div>
+      <p>Based on this announcement, write:</p>
+      <ul>
+        <li>A LinkedIn caption</li>
+        <li>An Instagram caption</li>
+        <li>A strong call to action (CTA)</li>
+      </ul>
+      <p>We are looking for evidence that you understand different platforms require different tones and structures.</p>
+
+      <h2>7. Part 5 — Analytics and decision-making</h2>
+      <p>Below is a small (fictional) dataset showing the performance of four recent AfriVate posts:</p>
+      <table>
+        <thead>
+          <tr><th>Content</th><th>Reach</th><th>Engagement</th><th>Shares</th><th>Saves</th></tr>
+        </thead>
+        <tbody>
+          <tr><td>Founder video</td><td>4,800</td><td>420</td><td>86</td><td>51</td></tr>
+          <tr><td>Educational carousel</td><td>7,200</td><td>690</td><td>142</td><td>183</td></tr>
+          <tr><td>Company announcement</td><td>3,100</td><td>180</td><td>21</td><td>12</td></tr>
+          <tr><td>Team / people post</td><td>5,600</td><td>510</td><td>97</td><td>74</td></tr>
+        </tbody>
+      </table>
+      <p>Based on this data, please answer:</p>
+      <ul>
+        <li>Which content would you produce more of, and why?</li>
+        <li>Which would you change or discontinue, and why?</li>
+        <li>What do these numbers suggest about the audience?</li>
+        <li>What would you test over the next 30 days to improve performance?</li>
+      </ul>
+
+      <h2>8. Part 6 — Community building</h2>
+      <p>AfriVate wants to build a community around young Africans interested in technology, innovation, digital careers, and solutions to African challenges.</p>
+      <p>Propose three practical ways you would grow and engage this community over the next 30 days.</p>
+      <p>This helps us distinguish someone who can actually manage a community from someone who simply knows the terminology.</p>
+
+      <h2>9. Submission</h2>
+      <ul>
+        <li>Combine Parts 1, 2, 4, 5, and 6 into a single PDF or Word document, clearly labelled by section.</li>
+        <li>Part 3 content (carousel, video concept) can be included in the same document or attached as separate files.</li>
+        <li>Name your files clearly, for example <code>Ada_Okeke_AfriVate_SMM_Exercise.pdf</code>.</li>
+        <li>Submit within 24 hours of receiving this exercise to <strong>afrivatehr@gmail.com</strong> with subject <strong>SMM TAKE-HOME — [YOUR FULL NAME]</strong>.</li>
+      </ul>
+      <p>If you have any questions or run into a blocker, email afrivatehr@gmail.com — we would rather you ask than guess.</p>
+      <p>We’re excited to see how you think. Good luck.</p>
+      <p class="footer-note">Document Code AFRI-SMM-EX-01 · Hiring exercise (not a policy) · Owner: People &amp; Culture / Brand &amp; Communications · Submit: afrivatehr@gmail.com</p>
+
+  </div>
+</body>
+</html>

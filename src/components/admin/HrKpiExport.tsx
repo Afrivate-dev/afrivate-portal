@@ -18,6 +18,7 @@ export function HrKpiExport({ metrics }: { metrics: HrMetrics }) {
       ['1:1 rate', formatMetric(metrics.oneOnOneRate, '%')],
       ['Pending leave', String(metrics.pendingLeave)],
       ['Open grievances', String(metrics.openGrievances)],
+      ['Open escalations', String(metrics.openEscalations)],
       ['Pending learning reviews', String(metrics.pendingLearningReviews)],
       ['Active surveys', String(metrics.activeSurveys)],
       ['Attrition rate (12 mo)', formatMetric(metrics.attritionRate, '%')],

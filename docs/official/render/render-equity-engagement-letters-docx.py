@@ -1,5 +1,6 @@
 """Branded DOCX companions for core team engagement and equity letters."""
 import json
+import sys
 from pathlib import Path
 from shutil import copyfile
 
@@ -91,6 +92,10 @@ def bullet(doc, text):
     return p
 
 
+def pick(letter, key):
+    return letter[key] if key in letter else DATA[key]
+
+
 def write_letter(letter):
     doc = Document()
     for section in doc.sections:
@@ -101,7 +106,7 @@ def write_letter(letter):
         footer = section.footer
         footer.is_linked_to_previous = False
         fp = footer.paragraphs[0]
-        r = fp.add_run("hr@afrivate.org  ·  portal.afrivate.org          AfriVate Technologies Ltd  ·  RC: 9210092")
+        r = fp.add_run("afrivatehr@gmail.com  ·  portal.afrivate.org          AfriVate Technologies Ltd  ·  RC: 9210092")
         set_run(r, size=8, color=MUTED)
 
     header = doc.add_table(rows=1, cols=2)
@@ -124,6 +129,7 @@ def write_letter(letter):
     para(doc, "Core Team Engagement and Equity Letter", size=16, bold=True, align="center", space_after=2, all_caps=True)
     para(doc, letter["kicker"], size=10, color=MUTED, align="center", space_after=12)
 
+    doc_ref = pick(letter, "documentReference")
     meta = [
         ("To", letter["fullName"]),
         ("From", DATA["from"]),
@@ -132,8 +138,8 @@ def write_letter(letter):
         ("Reports to", letter["reportsTo"]),
         ("Location", "Remote"),
         ("Start Date", DATA["startDate"]),
-        ("Date", DATA["letterDate"]),
-        ("Document Reference", DATA["documentReference"]),
+        ("Date", letter.get("letterDate", DATA["letterDate"])),
+        ("Document Reference", doc_ref),
     ]
     mt = doc.add_table(rows=len(meta), cols=2)
     no_table_borders(mt)
@@ -148,35 +154,47 @@ def write_letter(letter):
         pb = b.paragraphs[0]
         pb.paragraph_format.space_after = Pt(2)
         pb.paragraph_format.space_before = Pt(2)
-        color = PURPLE if k == "Start Date" else MUTED
-        set_run(pb.add_run(v), size=10, bold=(k == "Start Date"), color=color)
+        color = PURPLE if "[" in str(v) else MUTED
+        set_run(pb.add_run(v), size=10, bold=("[" in str(v)), color=color)
 
     doc.add_paragraph()
-    para(doc, f"Written instrument: {DATA['documentReference']}.", size=10, color=MUTED, space_after=12)
+    para(doc, f"Written instrument: {doc_ref}.", size=10, color=MUTED, space_after=12)
     para(doc, f"Dear {letter['firstName']},", size=11, bold=True, space_after=8)
     para(doc, letter["opening"])
 
-    heading(doc, "1. Nature of This Engagement")
-    para(doc, DATA["clause1a"])
-    para(doc, DATA["clause1b"])
+    n = 1
+    heading(doc, f"{n}. Nature of This Engagement")
+    para(doc, pick(letter, "clause1a"))
+    para(doc, pick(letter, "clause1b"))
+    n += 1
 
-    heading(doc, "2. Duration")
+    heading(doc, f"{n}. Duration")
     para(doc, letter["duration"])
+    n += 1
 
-    heading(doc, "3. Working Structure and Agreed Capacity")
+    heading(doc, f"{n}. Working Structure and Agreed Capacity")
     para(doc, letter["working"])
+    n += 1
 
-    heading(doc, "4. Key Responsibilities")
+    heading(doc, f"{n}. Key Responsibilities")
     for item in letter["responsibilities"]:
         bullet(doc, item)
     para(doc, letter["classD"])
+    n += 1
 
-    heading(doc, "5. Compensation and Support")
-    para(doc, DATA["clause5a"])
-    para(doc, DATA["clause5b"])
+    if letter.get("authorityA"):
+        heading(doc, f"{n}. {letter.get('authorityHeading', 'Authority as Team Lead')}")
+        para(doc, letter["authorityA"])
+        para(doc, letter["authorityB"])
+        n += 1
 
-    heading(doc, "6. Equity Participation")
-    para(doc, DATA["clause6intro"])
+    heading(doc, f"{n}. Compensation and Support")
+    para(doc, pick(letter, "clause5a"))
+    para(doc, pick(letter, "clause5b"))
+    n += 1
+
+    heading(doc, f"{n}. Equity Participation")
+    para(doc, pick(letter, "clause6intro"))
     et = doc.add_table(rows=1 + len(DATA["clause6terms"]), cols=2)
     hdr = et.rows[0].cells
     shade_cell(hdr[0], SOFT)
@@ -187,33 +205,41 @@ def write_letter(letter):
         a, b = et.rows[i].cells
         set_run(a.paragraphs[0].add_run(k), size=10, bold=True)
         set_run(b.paragraphs[0].add_run(v), size=10)
-    para(doc, DATA["clause6close"], space_before=8)
+    para(doc, pick(letter, "clause6close"), space_before=8)
+    n += 1
 
-    heading(doc, "7. Confidentiality and Data Protection")
+    heading(doc, f"{n}. Confidentiality and Data Protection")
     para(doc, letter["confidentiality"])
+    n += 1
 
-    heading(doc, "8. Intellectual Property")
-    para(doc, DATA["clause8"])
+    heading(doc, f"{n}. Intellectual Property")
+    para(doc, pick(letter, "clause8"))
+    n += 1
 
-    heading(doc, "9. Portfolio Use")
+    heading(doc, f"{n}. Portfolio Use")
     para(doc, letter["portfolio"])
+    n += 1
 
-    heading(doc, "10. Ending the Engagement")
+    heading(doc, f"{n}. Ending the Engagement")
     bullet(doc, letter["clause10a"])
-    bullet(doc, DATA["clause10b"])
-    bullet(doc, DATA["clause10c"])
+    bullet(doc, pick(letter, "clause10b"))
+    bullet(doc, pick(letter, "clause10c"))
+    n += 1
 
-    heading(doc, "11. Governing Policies")
-    para(doc, DATA["clause11"])
+    heading(doc, f"{n}. Governing Policies")
+    para(doc, pick(letter, "clause11"))
+    n += 1
 
-    heading(doc, "12. Not a Promise of Continued or Paid Employment")
-    para(doc, DATA["clause12"])
+    heading(doc, f"{n}. Not a Promise of Continued or Paid Employment")
+    para(doc, pick(letter, "clause12"))
+    n += 1
 
-    heading(doc, "13. Effect if This Relationship Is Later Recharacterised")
-    para(doc, DATA["clause13"])
+    heading(doc, f"{n}. Effect if This Relationship Is Later Recharacterised")
+    para(doc, pick(letter, "clause13"))
+    n += 1
 
-    heading(doc, "14. Acceptance")
-    para(doc, DATA["clause14"])
+    heading(doc, f"{n}. Acceptance")
+    para(doc, pick(letter, "clause14"))
     para(doc, "Sincerely,", space_after=18)
 
     sig = doc.add_table(rows=1, cols=2)
@@ -235,7 +261,7 @@ def write_letter(letter):
         p2.paragraph_format.space_after = Pt(0)
         set_run(p2.add_run(label), size=9, color=MUTED)
 
-    para(doc, DATA["footer"], size=9, color=MUTED, space_before=16)
+    para(doc, pick(letter, "footer"), size=9, color=MUTED, space_before=16)
 
     OUT_DIR.mkdir(parents=True, exist_ok=True)
     out = OUT_DIR / f"Afrivate-Core-Team-Engagement-Equity-Letter-{letter['slug']}.docx"
@@ -246,5 +272,10 @@ def write_letter(letter):
     print("copied", dl)
 
 
-for letter in DATA["letters"]:
+slug_filter = sys.argv[1] if len(sys.argv) > 1 else None
+letters = [letter for letter in DATA["letters"] if letter["slug"] == slug_filter] if slug_filter else DATA["letters"]
+if slug_filter and not letters:
+    raise SystemExit(f'No equity letter with slug "{slug_filter}"')
+
+for letter in letters:
     write_letter(letter)

@@ -14,6 +14,7 @@ import {
   defaultPipDurationDays,
   emptyEmployeeProfile,
 } from '@/lib/hrPeopleOps'
+import { emptyPersonnelQuestionnaire } from '@/lib/personnelFile'
 import { uid } from '@/utils/helpers'
 import type {
   DisciplineCase,
@@ -81,6 +82,7 @@ export function useLocalPeopleOpsHr(deps: {
   users: Array<{ id: string; role: string }>
   teams: Array<{ leadUserId?: string; asstLeadUserId?: string; memberIds: string[] }>
   persist?: PeopleOpsPersist
+  onEmployeeProfileWritten?: (row: EmployeeProfile) => void
 }) {
   const [employeeProfiles, setEmployeeProfiles] = useLocalStorage<EmployeeProfile[]>(
     'av-hr-employee-profiles',
@@ -111,6 +113,8 @@ export function useLocalPeopleOpsHr(deps: {
   const persist = deps.persist
   const persistRef = useRef(persist)
   persistRef.current = persist
+  const onWrittenRef = useRef(deps.onEmployeeProfileWritten)
+  onWrittenRef.current = deps.onEmployeeProfileWritten
   const disciplineCasesRef = useRef(disciplineCases)
   disciplineCasesRef.current = disciplineCases
   const pipsRef = useRef(performanceImprovementPlans)
@@ -168,7 +172,12 @@ export function useLocalPeopleOpsHr(deps: {
   const ensureEmployeeProfile = useCallback(
     (userId: string) => {
       const existing = employeeProfiles.find((p) => p.userId === userId && !p.archived)
-      if (existing) return existing
+      if (existing) {
+        return {
+          ...existing,
+          questionnaire: existing.questionnaire ?? emptyPersonnelQuestionnaire(),
+        }
+      }
       return {
         ...emptyEmployeeProfile(userId),
         id: `epr_${userId}`,
@@ -205,6 +214,7 @@ export function useLocalPeopleOpsHr(deps: {
             }
         row.profileCompleteness = computeProfileCompleteness(row)
         persistRow('employeeProfile', row)
+        onWrittenRef.current?.(row)
         if (existing) return prev.map((p) => (p.userId === userId ? row : p))
         return [...prev, row]
       })
@@ -242,6 +252,7 @@ export function useLocalPeopleOpsHr(deps: {
         }
         row.profileCompleteness = computeProfileCompleteness(row)
         persistRow('employeeProfile', row)
+        onWrittenRef.current?.(row)
         if (existing) return prev.map((p) => (p.id === existing.id || p.userId === profile.userId ? row : p))
         return [...prev, row]
       })
@@ -270,6 +281,7 @@ export function useLocalPeopleOpsHr(deps: {
             lastHrUpdateAt: now,
           }
           persistRow('employeeProfile', row)
+          onWrittenRef.current?.(row)
           return row
         }),
       )

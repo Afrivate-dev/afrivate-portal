@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from 'react'
 import {
   Archive,
   ClipboardList,
+  Download,
   FileText,
   Printer,
   Search,
@@ -27,6 +28,12 @@ import {
   DISCIPLINE_TRIGGER_LABELS,
   emptyEmployeeProfile,
 } from '@/lib/hrPeopleOps'
+import { activeEmploymentNeedsDates } from '@/lib/peopleMomentEvents'
+import {
+  buildPersonnelCsv,
+  downloadPersonnelCsv,
+  personnelCsvFilename,
+} from '@/lib/personnelFile'
 import { notifySuccess, notifyError } from '@/lib/notify'
 import { isAdmin, isHR, isLead } from '@/utils/helpers'
 import { managedReportIds } from '@/utils/hrMetrics'
@@ -77,6 +84,7 @@ export function EmployeeHubSection() {
   const [tab, setTab] = useState<HubTab>('directory')
   const [q, setQ] = useState('')
   const [selectedUserId, setSelectedUserId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [includeDisciplinePdf, setIncludeDisciplinePdf] = useState(false)
   const [printOpen, setPrintOpen] = useState(false)
 
@@ -90,7 +98,7 @@ export function EmployeeHubSection() {
     return map
   }, [hr.employeeProfiles])
 
-  const rows = useMemo(() => {
+  const directoryPeople = useMemo(() => {
     return users
       .filter((u) => u.active)
       .map((u) => {
@@ -103,13 +111,23 @@ export function EmployeeHubSection() {
         }
         return { user: u, profile: p }
       })
-      .filter(({ user: u, profile: p }) => {
-        if (p.archived) return false
-        const hay = `${u.name} ${u.email} ${u.department} ${u.jobTitle} ${p.engagementType}`.toLowerCase()
-        return !q || hay.includes(q.toLowerCase())
-      })
+      .filter(({ profile: p }) => !p.archived)
       .sort((a, b) => a.user.name.localeCompare(b.user.name))
-  }, [users, profilesByUser, q])
+  }, [users, profilesByUser])
+
+  const rows = useMemo(() => {
+    return directoryPeople.filter(({ user: u, profile: p }) => {
+      const hay = `${u.name} ${u.email} ${u.department} ${u.jobTitle} ${p.engagementType}`.toLowerCase()
+      return !q || hay.includes(q.toLowerCase())
+    })
+  }, [directoryPeople, q])
+
+  const missingPeopleDates = useMemo(() => {
+    return rows.filter(
+      ({ profile: p }) =>
+        activeEmploymentNeedsDates(p.employmentStatus) && (!p.startDate || !p.dateOfBirth),
+    )
+  }, [rows])
 
   const selectedUser = users.find((u) => u.id === selectedUserId)
   const selectedProfile = selectedUserId
@@ -121,13 +139,37 @@ export function EmployeeHubSection() {
     setSelectedUserId(userId)
   }
 
+  const exportPersonnel = (ids: string[] | 'all', label: string) => {
+    const source =
+      ids === 'all' ? directoryPeople : directoryPeople.filter((r) => ids.includes(r.user.id))
+    if (source.length === 0) {
+      notifyError(ids === 'all' ? 'No people to export.' : 'Select at least one person.')
+      return
+    }
+    const csv = buildPersonnelCsv(
+      source.map(({ user: u, profile: p }) => ({
+        profile: profilesByUser.get(u.id) ?? p,
+        user: u,
+        managerName: users.find((x) => x.id === u.reportsToId)?.name,
+      })),
+    )
+    downloadPersonnelCsv(csv, personnelCsvFilename(label))
+    notifySuccess(`Exported ${source.length} ${source.length === 1 ? 'person' : 'people'}.`)
+  }
+
+  const visibleIds = rows.map((r) => r.user.id)
+  const allVisibleSelected = visibleIds.length > 0 && visibleIds.every((id) => selectedIds.includes(id))
+  const toggleSelected = (id: string, checked: boolean) => {
+    setSelectedIds((prev) => (checked ? [...new Set([...prev, id])] : prev.filter((x) => x !== id)))
+  }
+
   return (
     <div className="av-contain space-y-4">
       <div className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="text-lg font-semibold text-[var(--color-ink)]">Employee files</h2>
           <p className="text-sm text-[var(--color-muted)]">
-            Profiles, improvement plans, conduct, reviews, and leaving checklists.
+            Profiles, improvement plans, conduct, reviews, leaving checklists, and personnel CSV export.
           </p>
         </div>
         <div className="flex flex-wrap gap-2 text-sm">
@@ -164,7 +206,26 @@ export function EmployeeHubSection() {
                 onChange={(e) => setQ(e.target.value)}
               />
             </div>
+            <Button
+              type="button"
+              variant="secondary"
+              size="sm"
+              onClick={() => exportPersonnel(selectedIds, 'selected')}
+            >
+              <Download className="h-4 w-4" />
+              Export selected{selectedIds.length ? ` (${selectedIds.length})` : ''}
+            </Button>
+            <Button type="button" variant="secondary" size="sm" onClick={() => exportPersonnel('all', 'all')}>
+              <Download className="h-4 w-4" />
+              Export all
+            </Button>
           </div>
+          {missingPeopleDates.length > 0 ? (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-900">
+              {missingPeopleDates.length} active {missingPeopleDates.length === 1 ? 'person is' : 'people are'} missing
+              start date or date of birth — required for the people calendar.
+            </div>
+          ) : null}
           <ul className="space-y-3 lg:hidden">
             {rows.map(({ user: u, profile: p }) => (
               <li
@@ -172,34 +233,54 @@ export function EmployeeHubSection() {
                 className="rounded-lg border border-[var(--color-line)] p-3"
               >
                 <div className="flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="font-medium text-[var(--color-ink)]">{u.name}</div>
-                    <div className="truncate text-xs text-[var(--color-muted)]">{u.email}</div>
-                    <div className="mt-1 text-xs text-[var(--color-muted)]">
-                      {u.jobTitle || u.role} · {p.engagementType} · {p.employmentStatus}
+                  <label className="flex min-w-0 items-start gap-2">
+                    <input
+                      type="checkbox"
+                      className="mt-1"
+                      checked={selectedIds.includes(u.id)}
+                      onChange={(e) => toggleSelected(u.id, e.target.checked)}
+                    />
+                    <div className="min-w-0">
+                      <div className="font-medium text-[var(--color-ink)]">{u.name}</div>
+                      <div className="truncate text-xs text-[var(--color-muted)]">{u.email}</div>
+                      <div className="mt-1 text-xs text-[var(--color-muted)]">
+                        {u.jobTitle || u.role} · {p.engagementType} · {p.employmentStatus}
+                      </div>
+                      <div className="mt-1 flex flex-wrap items-center gap-2">
+                        <DutyStatusBadge
+                          viewer={user}
+                          subject={u}
+                          hasActivePip={hr.performanceImprovementPlans.some(
+                            (pip) => pip.subjectUserId === u.id && !pip.outcome,
+                          )}
+                        />
+                        <span className="text-xs text-[var(--color-muted)]">
+                          {p.profileCompleteness}% complete
+                        </span>
+                        {activeEmploymentNeedsDates(p.employmentStatus) && (!p.dateOfBirth || !p.startDate) ? (
+                          <Badge tone="warning">Dates needed</Badge>
+                        ) : null}
+                      </div>
                     </div>
-                    <div className="mt-1 flex flex-wrap items-center gap-2">
-                      <DutyStatusBadge
-                        viewer={user}
-                        subject={u}
-                        hasActivePip={hr.performanceImprovementPlans.some(
-                          (pip) => pip.subjectUserId === u.id && !pip.outcome,
-                        )}
-                      />
-                      <span className="text-xs text-[var(--color-muted)]">
-                        {p.profileCompleteness}% complete
-                      </span>
-                    </div>
+                  </label>
+                  <div className="flex shrink-0 flex-col gap-2">
+                    <Button
+                      type="button"
+                      variant="secondary"
+                      size="sm"
+                      onClick={() => openDossier(u.id)}
+                    >
+                      Profile
+                    </Button>
+                    <Button
+                      type="button"
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => exportPersonnel([u.id], u.name)}
+                    >
+                      CSV
+                    </Button>
                   </div>
-                  <Button
-                    type="button"
-                    variant="secondary"
-                    size="sm"
-                    className="shrink-0"
-                    onClick={() => openDossier(u.id)}
-                  >
-                    Profile
-                  </Button>
                 </div>
               </li>
             ))}
@@ -208,6 +289,20 @@ export function EmployeeHubSection() {
             <table className="w-full min-w-[820px] text-left text-sm">
               <thead>
                 <tr className="border-b border-[var(--color-line)] text-[var(--color-muted)]">
+                  <th className="py-2 pr-3 font-medium">
+                    <input
+                      type="checkbox"
+                      aria-label="Select all visible"
+                      checked={allVisibleSelected}
+                      onChange={(e) => {
+                        if (e.target.checked) {
+                          setSelectedIds((prev) => [...new Set([...prev, ...visibleIds])])
+                        } else {
+                          setSelectedIds((prev) => prev.filter((id) => !visibleIds.includes(id)))
+                        }
+                      }}
+                    />
+                  </th>
                   <th className="py-2 pr-3 font-medium">Name</th>
                   <th className="py-2 pr-3 font-medium">Role</th>
                   <th className="py-2 pr-3 font-medium">Engagement</th>
@@ -220,6 +315,14 @@ export function EmployeeHubSection() {
               <tbody>
                 {rows.map(({ user: u, profile: p }) => (
                   <tr key={u.id} className="border-b border-[var(--color-line)]/60">
+                    <td className="py-2 pr-3">
+                      <input
+                        type="checkbox"
+                        aria-label={`Select ${u.name}`}
+                        checked={selectedIds.includes(u.id)}
+                        onChange={(e) => toggleSelected(u.id, e.target.checked)}
+                      />
+                    </td>
                     <td className="py-2 pr-3">
                       <div className="font-medium">{u.name}</div>
                       <div className="text-xs text-[var(--color-muted)]">{u.email}</div>
@@ -238,9 +341,19 @@ export function EmployeeHubSection() {
                     </td>
                     <td className="py-2 pr-3">{p.profileCompleteness}%</td>
                     <td className="py-2">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id)}>
-                        Open profile
-                      </Button>
+                      <div className="flex flex-wrap gap-2">
+                        <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id)}>
+                          Open profile
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="sm"
+                          onClick={() => exportPersonnel([u.id], u.name)}
+                        >
+                          CSV
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -406,11 +519,19 @@ function DossierModal({
 
   useEffect(() => {
     setDraft({ ...profile })
-  }, [profile.id, profile.updatedAt, profile.userId, profile.engagementType, profile.employmentStatus, profile.startDate, profile.probationEndDate, profile.confirmationDate, profile.payrollSetupComplete, profile.hrRequestsUpdate, profile.contractTermsSummary, profile.hrPrivateNotes])
+  }, [profile.id, profile.updatedAt, profile.userId, profile.engagementType, profile.employmentStatus, profile.startDate, profile.dateOfBirth, profile.probationEndDate, profile.confirmationDate, profile.payrollSetupComplete, profile.hrRequestsUpdate, profile.contractTermsSummary, profile.hrPrivateNotes])
 
   if (!u) return null
 
   const save = () => {
+    if (activeEmploymentNeedsDates(draft.employmentStatus) && !draft.startDate) {
+      notifyError('Start date is required for active people.')
+      return
+    }
+    if (activeEmploymentNeedsDates(draft.employmentStatus) && !draft.dateOfBirth) {
+      notifyError('Date of birth is required for active people.')
+      return
+    }
     hr.saveEmployeeProfileHr({ ...draft, userId })
     notifySuccess('Profile saved')
   }
@@ -484,6 +605,21 @@ function DossierModal({
             type="button"
             variant="secondary"
             onClick={() => {
+              const managerName = users.find((x) => x.id === u.reportsToId)?.name
+              downloadPersonnelCsv(
+                buildPersonnelCsv([{ profile, user: u, managerName }]),
+                personnelCsvFilename(u.name),
+              )
+              notifySuccess('Exported CSV.')
+            }}
+          >
+            <Download className="mr-2 h-4 w-4" />
+            Export CSV
+          </Button>
+          <Button
+            type="button"
+            variant="secondary"
+            onClick={() => {
               hr.archiveEmployeeProfile(userId, true)
               notifySuccess('Profile archived')
               onClose()
@@ -552,8 +688,18 @@ function DossierModal({
           <Input
             label="Start date"
             type="date"
+            required={activeEmploymentNeedsDates(draft.employmentStatus)}
+            hint="Required for active people. Drives work anniversary and Day 1/7/30/60/90 check-ins."
             value={draft.startDate ?? ''}
             onChange={(e) => setDraft((d) => ({ ...d, startDate: e.target.value }))}
+          />
+          <Input
+            label="Date of birth"
+            type="date"
+            required={activeEmploymentNeedsDates(draft.employmentStatus)}
+            hint="Required for active people. Drives the birthday calendar."
+            value={draft.dateOfBirth ?? ''}
+            onChange={(e) => setDraft((d) => ({ ...d, dateOfBirth: e.target.value }))}
           />
           <Input
             label="Probation end"
@@ -600,6 +746,7 @@ function DossierModal({
         <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-soft)]/40 p-3 text-sm">
           <div className="mb-2 font-medium">Employee-submitted personal fields</div>
           <p>Phone: {profile.phone || '—'} · Personal email: {profile.personalEmail || '—'}</p>
+          <p>Date of birth: {profile.dateOfBirth || '—'}</p>
           <p>
             Emergency: {profile.emergencyContact?.name || '—'} ({profile.emergencyContact?.phone || '—'})
           </p>

@@ -18,6 +18,7 @@ import { supabase } from '@/lib/supabase'
 import {
   checklistToRow,
   fetchPortalDataset,
+  isMissingColumnError,
   persistPortalTask,
   readStringArray,
   rowToAnnouncement,
@@ -315,6 +316,13 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         onError?.(errorMsg)
         await reloadData()
         return
+      }
+
+      if ('active' in patch) {
+        const { error: syncErr } = await client.rpc('portal_sync_people_moment_events', {
+          p_user_id: id,
+        })
+        if (syncErr) console.warn('[data] people calendar sync', syncErr.message)
       }
 
       await reloadData()
@@ -1267,10 +1275,10 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
   const addEvent: DataContextValue['addEvent'] = useCallback(
     (e) => {
-      const ev: EventItem = { ...e, id: 'e_' + uid() }
+      const ev: EventItem = { ...e, id: e.externalKey ? `pom:${e.externalKey}` : 'e_' + uid() }
       setEvents((prev) => [...prev, ev])
       void (async () => {
-        const { error } = await client.from('portal_events').insert({
+        const payload: Record<string, unknown> = {
           id: ev.id,
           title: ev.title,
           description: ev.description ?? null,
@@ -1280,10 +1288,46 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           location: ev.location ?? null,
           audience: ev.audience,
           source: ev.source ?? 'workspace',
-        })
-        if (error) reportDataError('add calendar event', error)
+          external_key: ev.externalKey ?? null,
+          subject_user_id: ev.subjectUserId ?? null,
+        }
+        const first = await client.from('portal_events').insert(payload)
+        if (
+          first.error &&
+          (isMissingColumnError(first.error, 'external_key') ||
+            isMissingColumnError(first.error, 'subject_user_id'))
+        ) {
+          delete payload.external_key
+          delete payload.subject_user_id
+          const { error } = await client.from('portal_events').insert(payload)
+          if (error) reportDataError('add calendar event', error)
+        } else if (first.error) {
+          reportDataError('add calendar event', first.error)
+        }
         await reloadData()
       })()
+    },
+    [client, reloadData],
+  )
+
+  const applyPeopleMomentSync: DataContextValue['applyPeopleMomentSync'] = useCallback(
+    (profile) => {
+      void (async () => {
+        const { error } = await client.rpc('portal_sync_people_moment_events', {
+          p_user_id: profile.userId,
+        })
+        if (error) console.warn('[data] people calendar sync', error.message)
+        await reloadData()
+      })()
+    },
+    [client, reloadData],
+  )
+
+  const refreshPeopleMomentCalendar: DataContextValue['refreshPeopleMomentCalendar'] = useCallback(
+    async () => {
+      const { error } = await client.rpc('portal_sync_all_people_moment_events')
+      if (error) console.warn('[data] people calendar refresh', error.message)
+      await reloadData()
     },
     [client, reloadData],
   )
@@ -1595,6 +1639,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       sendInboxNotifications,
       events,
       addEvent,
+      applyPeopleMomentSync,
+      refreshPeopleMomentCalendar,
       teams,
       addTeam: async (t) => {
         const id = 'team_' + uid()
@@ -1792,6 +1838,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       sendInboxNotifications,
       events,
       addEvent,
+      applyPeopleMomentSync,
+      refreshPeopleMomentCalendar,
       teams,
       departments,
       pendingUsersList,

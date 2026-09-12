@@ -8,6 +8,8 @@
 **Status:** Phase 1–4 implemented (UI + edge function + local fallback). Deploy `ava-chat` and set `GEMINI_API_KEY` for cloud answers.  
 **Date:** August 2026
 
+Portal-wide walkthrough (AVA in context of the whole product): [`PORTAL_MASTER_WALKTHROUGH.md`](PORTAL_MASTER_WALKTHROUGH.md) §14.
+
 ---
 
 ## Deploy AVA (operators)

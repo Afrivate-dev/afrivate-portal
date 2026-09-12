@@ -31,6 +31,7 @@ import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
 import { userSeesAnnouncement, userCanSeeTask, isHR, isLead } from '@/utils/helpers'
 import { managesPeople } from '@/lib/orgStructure'
+import { eventVisibleToUser } from '@/lib/peopleMomentEvents'
 import { managedReportIds } from '@/utils/hrMetrics'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { labelForConfigId } from '@/lib/portalConfig'
@@ -105,10 +106,11 @@ export function SearchPage() {
   const eventHits = useMemo(() => {
     if (!user || !q) return []
     return events.filter((e) => {
+      if (user && !eventVisibleToUser(e, user, users)) return false
       const hay = `${e.title} ${e.description ?? ''} ${e.location ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [events, user, q])
+  }, [events, user, users, q])
 
   const leaveHits = useMemo(() => {
     if (!user || !q) return []

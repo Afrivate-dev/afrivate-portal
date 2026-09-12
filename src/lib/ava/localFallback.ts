@@ -452,7 +452,7 @@ export function localAvaRespond(
         source: 'local',
         links,
         suggestedActions: actions,
-        reply: 'Tell me which My info fields to draft (bio, emergency contact, skills). I will insert them — you save them yourself.',
+        reply: 'Tell me which My info fields to draft (bio, emergency contact, skills). I will insert them — you save the personnel questionnaire yourself.',
       }
     }
     links.push({ label: 'My info', path: '/people/my-info' })
@@ -461,7 +461,7 @@ export function localAvaRespond(
       source: 'local',
       links,
       suggestedActions: actions,
-      reply: 'I have inserted draft text on **My info**. Review it, then press **Save my info**. AVA cannot save your profile for you.',
+      reply: 'I have inserted draft text on **My info**. Review the personnel questionnaire, then press **Save questionnaire**. AVA cannot save your profile for you.',
     }
   }
 
@@ -488,6 +488,47 @@ export function localAvaRespond(
       ]
         .filter(Boolean)
         .join('\n'),
+    }
+  }
+
+  if (includesAny(q, ['speak up', 'grievance', 'escalation log', 'escalation'])) {
+    citations.push('Portal User Guide')
+    if (includesAny(q, ['speak up', 'grievance'])) {
+      links.push({ label: 'Speak up', path: '/people/growth?tab=grievance' })
+      return {
+        source: 'local',
+        citations,
+        links,
+        reply: [
+          '**Speak up** is the confidential grievance channel (People → Growth → Speak up).',
+          '',
+          'Operational People ops issues (delivery, access, pay questions) are logged separately by HR under **Admin → People ops**. They are not the same as Speak up.',
+        ].join('\n'),
+      }
+    }
+    links.push({ label: 'People ops', path: '/admin?tab=hr' })
+    return {
+      source: 'local',
+      citations,
+      links,
+      reply:
+        'The **People ops escalation log** is an operational tracker for HR (people / delivery / access / pay question). It is not Speak up. Confidential grievances stay on Speak up.',
+    }
+  }
+
+  if (includesAny(q, ['birthday', 'anniversary', 'new hire check-in', 'people calendar'])) {
+    citations.push('Portal User Guide')
+    links.push({ label: 'Calendar', path: '/events' })
+    links.push({ label: 'My info', path: '/people/my-info' })
+    return {
+      source: 'local',
+      citations,
+      links,
+      reply: [
+        'The Portal calendar autosaves **birthdays**, **work anniversaries**, and **new-hire check-ins** (Day 1 / 7 / 30 / 60 / 90) from employee files.',
+        '',
+        'Date of birth and start date are required for active people. Save them on **People → My info** (DOB) and **Admin → Employee files** (start date). frank mirrors the same titles onto AfriVate Google Calendar by hand — there is no Google sync in Portal.',
+      ].join('\n'),
     }
   }
 

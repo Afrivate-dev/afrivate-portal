@@ -11,7 +11,7 @@ import {
   fetchFeedbackTemplates,
   insertFeedbackTemplate,
 } from '@/lib/feedbackConfig'
-import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow, stripOptionalCandidateColumns } from '@/lib/supabase/hrDataset'
+import { fetchHrDataset, isMissingCandidateColumnError, jobCandidatePatchToRow, jobCandidateToRow, peopleEscalationToRow, stripOptionalCandidateColumns } from '@/lib/supabase/hrDataset'
 import { toPgDate } from '@/lib/supabase/portalDataset'
 import { notifyError } from '@/lib/notify'
 import { friendlyErrorMessage } from '@/lib/userMessages'
@@ -48,6 +48,7 @@ import type {
   LearningSubmission,
   Okr,
   OnboardingMilestone,
+  PeopleEscalation,
   PulseSurvey,
   QuarterlyAward,
 } from '@/types/hr'
@@ -202,7 +203,8 @@ const DEFAULT_MILESTONES = (userId: string): OnboardingMilestone[] => [
 
 export function SupabaseHrProvider({ children }: { children: React.ReactNode }) {
   const { user } = useAuth()
-  const { users, teams, departments, leaveRequests, documents, recognition, tasks } = useData()
+  const { users, teams, departments, leaveRequests, documents, recognition, tasks, applyPeopleMomentSync } =
+    useData()
   const client = supabase!
 
   const [hrStatus, setHrStatus] = useState<'ready' | 'loading'>('loading')
@@ -222,6 +224,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
   const [jobCandidates, setJobCandidates] = useState<JobCandidate[]>([])
   const [exitInterviews, setExitInterviews] = useState<HrContextValue['exitInterviews']>([])
   const [grievances, setGrievances] = useState<Grievance[]>([])
+  const [peopleEscalations, setPeopleEscalations] = useState<PeopleEscalation[]>([])
   const [onboardingMilestones, setOnboardingMilestones] = useState<OnboardingMilestone[]>([])
   const [quarterlyAwards, setQuarterlyAwards] = useState<QuarterlyAward[]>([])
   const [teamPulseAggregates, setTeamPulseAggregates] = useState<{
@@ -278,6 +281,12 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     users,
     teams,
     persist: persistPeopleOps,
+    onEmployeeProfileWritten: (row) => {
+      applyPeopleMomentSync(
+        row,
+        users.find((u) => u.id === row.userId),
+      )
+    },
   })
   const peopleOpsRef = useRef(peopleOps)
   peopleOpsRef.current = peopleOps
@@ -306,6 +315,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         setJobCandidates([])
         setExitInterviews([])
         setGrievances([])
+        setPeopleEscalations([])
         setOnboardingMilestones([])
         setQuarterlyAwards([])
         setTeamPulseAggregates(null)
@@ -337,6 +347,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         setJobCandidates(d.jobCandidates)
         setExitInterviews(d.exitInterviews)
         setGrievances(d.grievances)
+        setPeopleEscalations(d.peopleEscalations)
         setOnboardingMilestones(d.onboardingMilestones)
         setQuarterlyAwards(d.quarterlyAwards)
         if (user && isLead(user) && !isHR(user)) {
@@ -1219,6 +1230,67 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     [client, grievances, reloadHr],
   )
 
+  const addPeopleEscalation = useCallback(
+    (e: Omit<PeopleEscalation, 'id' | 'openedAt' | 'closedAt'> & { id?: string }) => {
+      const now = new Date().toISOString()
+      const row: PeopleEscalation = {
+        ...e,
+        id: e.id || 'esc_' + uid(),
+        openedAt: now,
+        closedAt: e.status === 'closed' ? now : undefined,
+      }
+      setPeopleEscalations((prev) => [row, ...prev])
+      void (async () => {
+        const { error } = await client.from('portal_people_escalations').insert(peopleEscalationToRow(row))
+        if (error) reportHrError('add escalation', error)
+        await reloadHr()
+      })()
+    },
+    [client, reloadHr],
+  )
+
+  const updatePeopleEscalation = useCallback(
+    (id: string, patch: Partial<PeopleEscalation>) => {
+      setPeopleEscalations((prev) =>
+        prev.map((row) => {
+          if (row.id !== id) return row
+          const next = { ...row, ...patch }
+          if (patch.status === 'closed' && !next.closedAt) next.closedAt = new Date().toISOString()
+          if (patch.status && patch.status !== 'closed') next.closedAt = undefined
+          return next
+        }),
+      )
+      void (async () => {
+        const cur = peopleEscalations.find((x) => x.id === id)
+        if (!cur) return
+        const next = { ...cur, ...patch }
+        if (patch.status === 'closed' && !next.closedAt) next.closedAt = new Date().toISOString()
+        if (patch.status && patch.status !== 'closed') next.closedAt = undefined
+        const payload = peopleEscalationToRow(next)
+        delete payload.id
+        const { error } = await client
+          .from('portal_people_escalations')
+          .update(payload)
+          .eq('id', id)
+        if (error) reportHrError('update escalation', error)
+        await reloadHr()
+      })()
+    },
+    [client, peopleEscalations, reloadHr],
+  )
+
+  const deletePeopleEscalation = useCallback(
+    (id: string) => {
+      setPeopleEscalations((prev) => prev.filter((e) => e.id !== id))
+      void (async () => {
+        const { error } = await client.from('portal_people_escalations').delete().eq('id', id)
+        if (error) reportHrError('delete escalation', error)
+        await reloadHr()
+      })()
+    },
+    [client, reloadHr],
+  )
+
   const setMilestoneCompleted = useCallback(
     (id: string, completed: boolean) => {
       const completedAt = completed ? new Date().toISOString() : undefined
@@ -1302,6 +1374,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
           learningSubmissions,
           oneOnOneLogs,
           grievances,
+          peopleEscalations,
           users,
           leaveRequests,
           exitInterviews,
@@ -1327,6 +1400,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       learningSubmissions,
       oneOnOneLogs,
       grievances,
+      peopleEscalations,
       users,
       teams,
       departments,
@@ -1394,6 +1468,10 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       grievances,
       submitGrievance,
       updateGrievance,
+      peopleEscalations,
+      addPeopleEscalation,
+      updatePeopleEscalation,
+      deletePeopleEscalation,
       onboardingMilestones,
       setMilestoneCompleted,
       seedOnboardingMilestones,
@@ -1453,6 +1531,10 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       grievances,
       submitGrievance,
       updateGrievance,
+      peopleEscalations,
+      addPeopleEscalation,
+      updatePeopleEscalation,
+      deletePeopleEscalation,
       onboardingMilestones,
       setMilestoneCompleted,
       seedOnboardingMilestones,

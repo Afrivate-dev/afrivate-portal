@@ -235,6 +235,26 @@ export interface ExitInterview {
   createdAt: string
 }
 
+export type PeopleEscalationCategory = 'people' | 'delivery' | 'access' | 'pay_question' | 'other'
+export type PeopleEscalationSeverity = 'low' | 'medium' | 'high' | 'critical'
+export type PeopleEscalationStatus = 'open' | 'in_progress' | 'waiting' | 'closed'
+
+/** Operational People ops log — not Speak up / grievances. */
+export interface PeopleEscalation {
+  id: string
+  openedAt: string
+  raisedBy: string
+  subject: string
+  category: PeopleEscalationCategory
+  severity: PeopleEscalationSeverity
+  ownerId?: string
+  status: PeopleEscalationStatus
+  dueAt?: string
+  relatedLinks?: string
+  resolutionNotes?: string
+  closedAt?: string
+}
+
 export type GrievanceStatus = 'open' | 'reviewing' | 'resolved'
 
 export interface Grievance {
@@ -280,6 +300,78 @@ export interface EmployeeEmergencyContact {
   name: string
   phone: string
   relationship: string
+  address?: string
+}
+
+export type StaffEmploymentType = 'full_time' | 'part_time' | 'contract' | 'intern'
+
+export interface EducationRecord {
+  id: string
+  institution: string
+  qualification: string
+  level?: string
+  yearCompleted?: string
+}
+
+export interface WorkExperienceRecord {
+  id: string
+  employer: string
+  jobTitle: string
+  startDate?: string
+  endDate?: string
+  reasonForLeaving?: string
+}
+
+export interface ReferenceRecord {
+  id: string
+  name: string
+  relationship: string
+  contact: string
+}
+
+export interface LanguageRecord {
+  id: string
+  language: string
+  proficiency: string
+}
+
+/** Employee-submitted personnel file (My info questionnaire). */
+export interface PersonnelQuestionnaire {
+  gender?: string
+  maritalStatus?: string
+  nationality?: string
+  nationalId?: string
+  residentialAddress?: string
+  altPhone?: string
+  employeeId?: string
+  staffEmploymentType?: StaffEmploymentType
+  statedJobTitle?: string
+  statedDepartment?: string
+  statedManagerName?: string
+  taxId?: string
+  nationalInsuranceNumber?: string
+  visaStatus?: string
+  rightToWorkNotes?: string
+  licensesCerts?: string
+  bankName?: string
+  bankAccountNumber?: string
+  bankAccountHolder?: string
+  paymentMethod?: string
+  taxFilingStatus?: string
+  pensionDetails?: string
+  highestEducation?: string
+  professionalCertifications?: string
+  education: EducationRecord[]
+  workExperience: WorkExperienceRecord[]
+  references: ReferenceRecord[]
+  languages: LanguageRecord[]
+  softwareTools?: string
+  specialization?: string
+  signedContract?: boolean
+  receivedHandbook?: boolean
+  completedOnboardingTraining?: boolean
+  acknowledgementName?: string
+  acknowledgementSignedAt?: string
 }
 
 /** 1:1 with User.id — hybrid personal (employee) + HR-only fields. */
@@ -300,6 +392,7 @@ export interface EmployeeProfile {
   skills?: string[]
   emergencyContact?: EmployeeEmergencyContact
   nextOfKinNotes?: string
+  questionnaire: PersonnelQuestionnaire
   /** HR-only */
   engagementType: EngagementType
   employmentStatus: EmploymentStatus
@@ -321,21 +414,26 @@ export interface EmployeeProfile {
 }
 
 /** Fields employees may update via My Info. */
-export type EmployeePersonalFields = Pick<
-  EmployeeProfile,
-  | 'preferredName'
-  | 'legalName'
-  | 'personalEmail'
-  | 'phone'
-  | 'workLocation'
-  | 'addressCountry'
-  | 'dateOfBirth'
-  | 'pronouns'
-  | 'linkedinUrl'
-  | 'bio'
-  | 'skills'
-  | 'emergencyContact'
-  | 'nextOfKinNotes'
+export type EmployeePersonalFields = Partial<
+  Pick<
+    EmployeeProfile,
+    | 'preferredName'
+    | 'legalName'
+    | 'personalEmail'
+    | 'phone'
+    | 'workLocation'
+    | 'addressCountry'
+    | 'dateOfBirth'
+    | 'pronouns'
+    | 'linkedinUrl'
+    | 'bio'
+    | 'skills'
+    | 'emergencyContact'
+    | 'nextOfKinNotes'
+    | 'questionnaire'
+    | 'startDate'
+    | 'probationEndDate'
+  >
 >
 
 /* ─── Progressive discipline & PIP (SWP §9) ─── */

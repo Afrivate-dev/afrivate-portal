@@ -8,6 +8,8 @@ import type {
   OffboardingChecklist,
   PerformanceImprovementPlan,
 } from '@/types/hr'
+import { emptyPersonnelQuestionnaire, parsePersonnelQuestionnaire } from '@/lib/personnelFile'
+import { isMissingColumnError } from '@/lib/supabase/portalDataset'
 
 let peopleOpsWriteDepth = 0
 
@@ -64,9 +66,11 @@ export function rowToEmployeeProfile(r: Record<string, unknown>): EmployeeProfil
             name: asString((ec as Record<string, unknown>).name),
             phone: asString((ec as Record<string, unknown>).phone),
             relationship: asString((ec as Record<string, unknown>).relationship),
+            address: asIso((ec as Record<string, unknown>).address),
           }
         : undefined,
     nextOfKinNotes: asIso(r.next_of_kin_notes),
+    questionnaire: parsePersonnelQuestionnaire(r.questionnaire),
     engagementType: asString(r.engagement_type, 'employee') as EmployeeProfile['engagementType'],
     employmentStatus: asString(r.employment_status, 'active') as EmployeeProfile['employmentStatus'],
     startDate: asIso(r.start_date)?.slice(0, 10),
@@ -104,6 +108,7 @@ export function employeeProfileToRow(p: EmployeeProfile): Record<string, unknown
     skills: p.skills ?? [],
     emergency_contact: p.emergencyContact ?? null,
     next_of_kin_notes: p.nextOfKinNotes ?? null,
+    questionnaire: p.questionnaire ?? emptyPersonnelQuestionnaire(),
     engagement_type: p.engagementType,
     employment_status: p.employmentStatus,
     start_date: p.startDate || null,
@@ -350,8 +355,23 @@ export async function upsertPeopleOpsRow(
   table: string,
   row: Record<string, unknown>,
 ): Promise<{ error: { message: string } | null }> {
-  const { error } = await client.from(table).upsert(row)
-  return { error }
+  let payload: Record<string, unknown> = row
+  for (let attempt = 0; attempt < 2; attempt++) {
+    const { error } = await client.from(table).upsert(payload)
+    if (!error) return { error: null }
+    if (
+      table === 'portal_employee_profiles' &&
+      isMissingColumnError(error, 'questionnaire') &&
+      'questionnaire' in payload
+    ) {
+      const next = { ...payload }
+      delete next.questionnaire
+      payload = next
+      continue
+    }
+    return { error }
+  }
+  return { error: { message: 'Could not save employee profile' } }
 }
 
 export function isPeopleOpsDatasetEmpty(d: PeopleOpsDataset): boolean {

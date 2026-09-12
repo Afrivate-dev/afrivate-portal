@@ -153,6 +153,7 @@ const css = `
 `
 
 function letterHtml(letter) {
+  const letterDate = letter.letterDate || data.letterDate
   const duties = letter.responsibilities.map((item) => `<li>${esc(item)}</li>`).join('')
   const terms = data.clause6terms
     .map(([k, v]) => `<tr><td><strong>${esc(k)}</strong></td><td>${esc(v)}</td></tr>`)
@@ -183,8 +184,8 @@ function letterHtml(letter) {
       <div><strong>Department</strong><span>${esc(letter.department)}</span></div>
       <div><strong>Reports to</strong><span>${esc(letter.reportsTo)}</span></div>
       <div><strong>Location</strong><span>Remote</span></div>
-      <div><strong>Start Date</strong><span class="fill-in">${esc(data.startDate)}</span></div>
-      <div><strong>Date</strong><span>${esc(data.letterDate)}</span></div>
+      <div><strong>Start Date</strong><span class="${data.startDate.includes('[') ? 'fill-in' : ''}">${esc(data.startDate)}</span></div>
+      <div><strong>Date</strong><span class="${letterDate.includes('[') ? 'fill-in' : ''}">${esc(letterDate)}</span></div>
       <div><strong>Document Reference</strong><span>${esc(data.documentReference)}</span></div>
     </section>
 
@@ -271,11 +272,19 @@ function letterHtml(letter) {
 </html>`
 }
 
+const slugFilter = process.argv[2]
+const letters = slugFilter
+  ? data.letters.filter((letter) => letter.slug === slugFilter)
+  : data.letters
+if (slugFilter && letters.length === 0) {
+  throw new Error(`No equity letter with slug "${slugFilter}"`)
+}
+
 await mkdir(outDir, { recursive: true })
 const browser = await chromium.launch()
 const page = await browser.newPage()
 
-for (const letter of data.letters) {
+for (const letter of letters) {
   const base = `Afrivate-Core-Team-Engagement-Equity-Letter-${letter.slug}`
   const htmlPath = path.join(outDir, `${base}.html`)
   const pdfPath = path.join(outDir, `${base}.pdf`)
@@ -290,7 +299,7 @@ for (const letter of data.letters) {
     headerTemplate: '<div></div>',
     footerTemplate: `
       <div style="width:100%;font-size:9px;color:#666;padding:0 18mm;display:flex;justify-content:space-between;font-family:Segoe UI, Arial, sans-serif;">
-        <span>hr@afrivate.org · portal.afrivate.org</span>
+        <span>afrivatehr@gmail.com · portal.afrivate.org</span>
         <span>RC: 9210092 · Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
       </div>`,
     margin: { top: '14mm', right: '14mm', bottom: '16mm', left: '16mm' },

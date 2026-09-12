@@ -9,6 +9,8 @@
 
 This is the **full** how-to guide for AfriVate Team Space (all roles, including Admin). It is written in plain English.
 
+For the complete product + technology walkthrough (architecture, stack, AVA internals, Admin labels, hiring ATS, integrations), see [PORTAL_MASTER_WALKTHROUGH.md](PORTAL_MASTER_WALKTHROUGH.md) (AFRI-PMW-01).
+
 **Role-specific guides (give people the one that matches their login):**
 - Staff / ordinary team members — [AFRI-PUG-02](PORTAL_USER_GUIDE_STAFF.md) · [PDF](official/policies/Afrivate-Portal-User-Guide-Staff.pdf)
 - Team leads and assistant leads — [AFRI-PUG-03](PORTAL_USER_GUIDE_TEAM_LEAD.md) · [PDF](official/policies/Afrivate-Portal-User-Guide-Team-Lead.pdf)

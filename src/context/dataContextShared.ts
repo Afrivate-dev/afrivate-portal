@@ -19,6 +19,7 @@ import type {
   WeeklyCheckIn,
   WorkspaceTeam,
 } from '@/types'
+import type { PeopleMomentProfile } from '@/lib/peopleMomentEvents'
 
 /** True when account has never been approved (new signup), vs deactivated staff. */
 export function isFirstTimePendingUser(u: User): boolean {
@@ -97,6 +98,10 @@ export interface DataContextValue {
 
   events: EventItem[]
   addEvent: (e: Omit<EventItem, 'id'>) => void
+  /** Upsert birthday / anniversary / new-hire check-ins from an employee file. */
+  applyPeopleMomentSync: (profile: PeopleMomentProfile, user?: User) => void
+  /** HR: rebuild people-moment events for everyone (no-op in local mock until profiles are passed via apply). */
+  refreshPeopleMomentCalendar: () => Promise<void>
 
   teams: WorkspaceTeam[]
   addTeam: (t: Omit<WorkspaceTeam, 'id' | 'memberIds'>) => void
