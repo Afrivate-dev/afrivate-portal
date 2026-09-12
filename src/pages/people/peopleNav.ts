@@ -19,12 +19,12 @@ export interface PeopleNavItem {
 
 /** Sub-navigation inside People hub — keeps main sidebar uncluttered. */
 export const peopleNavItems: PeopleNavItem[] = [
-  { to: '/people', label: 'Overview', icon: LayoutGrid, end: true },
   { to: '/people/leave', label: 'Time off', icon: CalendarDays },
+  { to: '/people/directory', label: 'Directory', icon: Users },
+  { to: '/people', label: 'Overview', icon: LayoutGrid, end: true },
   { to: '/people/shout-outs', label: 'Shout-outs', icon: Heart },
   { to: '/people/learning', label: 'Learning', icon: GraduationCap },
   { to: '/people/surveys', label: 'Surveys', icon: BarChart3 },
   { to: '/people/growth', label: 'Growth', icon: TrendingUp },
   { to: '/people/my-info', label: 'My info', icon: IdCard },
-  { to: '/people/directory', label: 'Directory', icon: Users },
 ]

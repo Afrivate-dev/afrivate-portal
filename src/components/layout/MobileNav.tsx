@@ -1,22 +1,18 @@
 import { NavLink } from 'react-router-dom'
 import { Menu } from 'lucide-react'
-import { visibleNavItems } from '@/config/nav'
 import { cn } from '@/utils/helpers'
-import { useAuth } from '@/context/AuthContext'
+import { useDailyNav } from '@/hooks/useDailyNav'
 
 interface MobileNavProps {
   onOpenDrawer: () => void
 }
 
 export function MobileNav({ onOpenDrawer }: MobileNavProps) {
-  const { user, role } = useAuth()
-  const bottomItems = visibleNavItems(user, role)
-    .filter((i) => i.showInBottomBar)
-    .slice(0, 4)
+  const { bottom } = useDailyNav()
 
   return (
     <nav className="sticky bottom-0 z-30 grid w-full max-w-full grid-cols-5 border-t border-border bg-surface/95 pb-[env(safe-area-inset-bottom)] backdrop-blur-md lg:hidden">
-      {bottomItems.map((item) => (
+      {bottom.slice(0, 4).map((item) => (
         <NavLink
           key={item.to}
           to={item.to}
@@ -33,6 +29,7 @@ export function MobileNav({ onOpenDrawer }: MobileNavProps) {
         </NavLink>
       ))}
       <button
+        type="button"
         onClick={onOpenDrawer}
         className="flex h-14 flex-col items-center justify-center gap-1 text-[11px] font-medium text-muted hover:text-fg"
       >

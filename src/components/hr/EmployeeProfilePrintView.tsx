@@ -72,7 +72,6 @@ export function EmployeeProfilePrintView({
             ['Gender', dash(q.gender)],
             ['Marital status', dash(q.maritalStatus)],
             ['Nationality', dash(q.nationality)],
-            ['National ID / Passport', dash(q.nationalId)],
             ['Pronouns', dash(profile.pronouns)],
             ['LinkedIn', dash(profile.linkedinUrl)],
           ]}
@@ -94,7 +93,6 @@ export function EmployeeProfilePrintView({
       <Section title="Employment">
         <Grid
           rows={[
-            ['Employee ID', dash(q.employeeId)],
             ['Job title (stated)', dash(q.statedJobTitle)],
             ['Job title (portal)', user.jobTitle || '—'],
             ['Department (stated)', dash(q.statedDepartment)],
@@ -113,20 +111,13 @@ export function EmployeeProfilePrintView({
         />
       </Section>
 
-      <Section title="Government, banking & compliance">
+      <Section title="Banking & compliance">
         <Grid
           rows={[
-            ['Tax ID', dash(q.taxId)],
-            ['NIN / national insurance', dash(q.nationalInsuranceNumber)],
-            ['Visa / work permit', dash(q.visaStatus)],
-            ['Right to work', dash(q.rightToWorkNotes)],
-            ['Licenses / certs', dash(q.licensesCerts)],
             ['Bank name', dash(q.bankName)],
             ['Account number', dash(q.bankAccountNumber)],
             ['Account holder', dash(q.bankAccountHolder)],
             ['Payment method', dash(q.paymentMethod)],
-            ['Tax filing', dash(q.taxFilingStatus)],
-            ['Pension', dash(q.pensionDetails)],
             ['Signed contract', yesNo(q.signedContract)],
             ['Received handbook', yesNo(q.receivedHandbook)],
             ['Onboarding training', yesNo(q.completedOnboardingTraining)],

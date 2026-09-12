@@ -1,14 +1,15 @@
 ﻿import { useEffect } from 'react'
 import { NavLink, Link } from 'react-router-dom'
 import { X, LogOut, ShieldCheck, Rocket } from 'lucide-react'
-import { visibleNavItems } from '@/config/nav'
 import { cn, roleLabel, firstName } from '@/utils/helpers'
 import { useAuth } from '@/context/AuthContext'
 import { useConfirm } from '@/context/useConfirm'
+import { useDailyNav } from '@/hooks/useDailyNav'
 import { confirms, actions } from '@/content/copy'
 import { Avatar } from '@/components/ui/Avatar'
 import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
 import { isSuspended } from '@/lib/dutyStatus'
+import type { NavItem } from '@/config/nav'
 
 interface DrawerProps {
   open: boolean
@@ -16,10 +17,10 @@ interface DrawerProps {
 }
 
 export function Drawer({ open, onClose }: DrawerProps) {
-  const { user, role, logout } = useAuth()
+  const { user, logout } = useAuth()
   const confirm = useConfirm()
+  const { primary, more } = useDailyNav()
   const showLaunchChecklist = canAccessRevivalLaunchChecklist(user) && !isSuspended(user)
-  const items = visibleNavItems(user, role)
 
   useEffect(() => {
     if (!open) return
@@ -51,7 +52,7 @@ export function Drawer({ open, onClose }: DrawerProps) {
             <img src="/afrivate-icon-white.svg" alt="AfriVate" className="hidden h-8 w-auto dark:block" />
             <div className="flex flex-col leading-tight">
               <span className="font-heading text-sm font-bold text-fg">AfriVate</span>
-              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">Portal</span>
+              <span className="text-[10px] font-semibold uppercase tracking-wider text-muted">Team space</span>
             </div>
           </a>
           <button
@@ -73,47 +74,43 @@ export function Drawer({ open, onClose }: DrawerProps) {
 
         <nav className="flex-1 overflow-y-auto px-3 py-4 scrollbar-thin">
           <ul className="space-y-0.5">
-            {items
-              .map((item) => (
-                <li key={item.to}>
-                  <NavLink
-                    to={item.to}
-                    end={item.to === '/'}
-                    onClick={onClose}
-                    className={({ isActive }) =>
-                      cn(
-                        'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
-                        isActive
-                          ? 'bg-accent/10 text-accent'
-                          : 'text-fg hover:bg-surface-2',
-                      )
-                    }
-                  >
-                    <item.icon className="h-[18px] w-[18px]" />
-                    {item.label}
-                  </NavLink>
-                </li>
-              ))}
-            {showLaunchChecklist ? (
-              <li>
-                <NavLink
-                  to="/launch-checklist"
-                  onClick={onClose}
-                  className={({ isActive }) =>
-                    cn(
-                      'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
-                      isActive
-                        ? 'bg-accent/10 text-accent'
-                        : 'text-fg hover:bg-surface-2',
-                    )
-                  }
-                >
-                  <Rocket className="h-[18px] w-[18px]" />
-                  Launch checklist
-                </NavLink>
+            {primary.map((item) => (
+              <li key={item.to}>
+                <DrawerNav item={item} onClose={onClose} />
               </li>
-            ) : null}
+            ))}
           </ul>
+          {more.length > 0 || showLaunchChecklist ? (
+            <>
+              <p className="mb-1 mt-5 px-3 text-[10px] font-semibold uppercase tracking-wider text-muted">
+                More
+              </p>
+              <ul className="space-y-0.5">
+                {more.map((item) => (
+                  <li key={item.to}>
+                    <DrawerNav item={item} onClose={onClose} />
+                  </li>
+                ))}
+                {showLaunchChecklist ? (
+                  <li>
+                    <NavLink
+                      to="/launch-checklist"
+                      onClick={onClose}
+                      className={({ isActive }) =>
+                        cn(
+                          'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
+                          isActive ? 'bg-accent/10 text-accent' : 'text-fg hover:bg-surface-2',
+                        )
+                      }
+                    >
+                      <Rocket className="h-[18px] w-[18px]" />
+                      Launch checklist
+                    </NavLink>
+                  </li>
+                ) : null}
+              </ul>
+            </>
+          ) : null}
         </nav>
 
         <div className="border-t border-border">
@@ -144,5 +141,24 @@ export function Drawer({ open, onClose }: DrawerProps) {
         </div>
       </aside>
     </div>
+  )
+}
+
+function DrawerNav({ item, onClose }: { item: NavItem; onClose: () => void }) {
+  return (
+    <NavLink
+      to={item.to}
+      end={item.to === '/'}
+      onClick={onClose}
+      className={({ isActive }) =>
+        cn(
+          'flex items-center gap-3 rounded-md px-3 py-3 text-sm font-medium transition-colors',
+          isActive ? 'bg-accent/10 text-accent' : 'text-fg hover:bg-surface-2',
+        )
+      }
+    >
+      <item.icon className="h-[18px] w-[18px]" />
+      {item.label}
+    </NavLink>
   )
 }

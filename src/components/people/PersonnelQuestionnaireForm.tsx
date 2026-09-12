@@ -192,11 +192,6 @@ export function PersonnelQuestionnaireForm({
             onChange={(e) => setQ({ nationality: e.target.value })}
           />
           <Input
-            label="National ID / Passport number"
-            value={q.nationalId ?? ''}
-            onChange={(e) => setQ({ nationalId: e.target.value })}
-          />
-          <Input
             label="Pronouns (optional)"
             value={draft.pronouns ?? ''}
             onChange={(e) => setField('pronouns', e.target.value)}
@@ -307,11 +302,6 @@ export function PersonnelQuestionnaireForm({
             onChange={(e) => setQ({ statedDepartment: e.target.value })}
           />
           <Input
-            label="Employee ID (if assigned)"
-            value={q.employeeId ?? ''}
-            onChange={(e) => setQ({ employeeId: e.target.value })}
-          />
-          <Input
             label="Date of hire"
             type="date"
             hint="Used for work anniversary and new-hire check-ins."
@@ -348,36 +338,7 @@ export function PersonnelQuestionnaireForm({
       </Card>
 
       <Card className="space-y-4">
-        <SectionHead n={5} title="Government & legal documentation" />
-        <div className="grid gap-4 sm:grid-cols-2">
-          <Input label="Tax identification number" value={q.taxId ?? ''} onChange={(e) => setQ({ taxId: e.target.value })} />
-          <Input
-            label="Social security / national insurance number (NIN)"
-            value={q.nationalInsuranceNumber ?? ''}
-            onChange={(e) => setQ({ nationalInsuranceNumber: e.target.value })}
-          />
-          <Input
-            label="Work permit / visa status"
-            value={q.visaStatus ?? ''}
-            onChange={(e) => setQ({ visaStatus: e.target.value })}
-          />
-        </div>
-        <Textarea
-          label="Right-to-work documentation"
-          rows={2}
-          value={q.rightToWorkNotes ?? ''}
-          onChange={(e) => setQ({ rightToWorkNotes: e.target.value })}
-        />
-        <Textarea
-          label="Licenses or certifications required for the role"
-          rows={2}
-          value={q.licensesCerts ?? ''}
-          onChange={(e) => setQ({ licensesCerts: e.target.value })}
-        />
-      </Card>
-
-      <Card className="space-y-4">
-        <SectionHead n={6} title="Compensation & banking" />
+        <SectionHead n={5} title="Compensation & banking" />
         <p className="text-xs text-muted">
           Visible to you and to HR/Admin only. Used for payroll — not shown on the staff directory.
         </p>
@@ -400,22 +361,11 @@ export function PersonnelQuestionnaireForm({
             value={q.paymentMethod ?? ''}
             onChange={(e) => setQ({ paymentMethod: e.target.value || undefined })}
           />
-          <Input
-            label="Tax filing status / allowances"
-            value={q.taxFilingStatus ?? ''}
-            onChange={(e) => setQ({ taxFilingStatus: e.target.value })}
-          />
         </div>
-        <Textarea
-          label="Pension / retirement scheme enrollment"
-          rows={2}
-          value={q.pensionDetails ?? ''}
-          onChange={(e) => setQ({ pensionDetails: e.target.value })}
-        />
       </Card>
 
       <Card className="space-y-4">
-        <SectionHead n={7} title="Education & qualifications" />
+        <SectionHead n={6} title="Education & qualifications" />
         <Select
           label="Highest level of education completed"
           options={EDUCATION_LEVEL_OPTIONS}
@@ -493,7 +443,7 @@ export function PersonnelQuestionnaireForm({
       </Card>
 
       <Card className="space-y-4">
-        <SectionHead n={8} title="Work experience" />
+        <SectionHead n={7} title="Work experience" />
         <ListHead
           title="Previous employers"
           onAdd={() => setQ({ workExperience: [...q.workExperience, newExperienceRow()] })}
@@ -626,7 +576,7 @@ export function PersonnelQuestionnaireForm({
       </Card>
 
       <Card className="space-y-4">
-        <SectionHead n={9} title="Skills & competencies" />
+        <SectionHead n={8} title="Skills & competencies" />
         <Input
           label="Key technical skills (comma-separated)"
           value={skillsText}
@@ -695,7 +645,7 @@ export function PersonnelQuestionnaireForm({
       </Card>
 
       <Card className="space-y-4">
-        <SectionHead n={13} title="Compliance & acknowledgements" />
+        <SectionHead n={9} title="Compliance & acknowledgements" />
         <div className="grid gap-4 sm:grid-cols-3">
           <YesNo
             label="Signed the employment contract?"

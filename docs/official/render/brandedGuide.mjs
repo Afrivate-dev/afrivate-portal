@@ -159,6 +159,125 @@ export const GUIDE_CSS = `
   strong { font-weight: 700; }
 `
 
+/** Signature blocks used on most official instruments. Include with GUIDE_CSS. */
+export const SIGN_CSS = `
+  .sign-block {
+    margin-top: 32px;
+    break-inside: avoid-page;
+  }
+  .sign-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 28px;
+    margin-top: 18px;
+  }
+  .sign-card {
+    border-top: 1px solid #bbb;
+    padding-top: 10px;
+  }
+  .sign-card .who { font-weight: 700; margin-top: 30px; }
+  .sign-card .role { color: var(--muted); font-size: 10.5px; }
+`
+
+export const BRAND = {
+  purple: '#8d4087',
+  ink: '#1f1f1f',
+  muted: '#5f5f5f',
+  line: '#ebdceb',
+  soft: '#f8f3f8',
+  rc: '9210092',
+  legalName: 'AfriVate Technologies Ltd',
+  contact: 'hr@afrivate.org',
+  portal: 'portal.afrivate.org',
+  chipHtml: 'Official Document<br/>AfriVate Technologies Ltd<br/>RC: 9210092',
+  logoFile: 'docs/official/brand/afrivate-logo-long-purple.png',
+}
+
+/**
+ * Official document shell: logo row, purple rule, centred uppercase title, meta card, body.
+ * @param {{ title: string, metaRows: [string, string][], body: string, extraCss?: string }} spec
+ */
+export function wrapOfficialDocument({ title, metaRows, body, extraCss = '' }) {
+  const meta = metaRows
+    .map(([k, v]) => `<div><strong>${k}</strong><span>${v}</span></div>`)
+    .join('')
+  return `<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <title>${title}</title>
+  <style>${GUIDE_CSS}${SIGN_CSS}${extraCss}</style>
+</head>
+<body>
+  <div class="shell">
+    <div class="brand-row">
+      <div class="brand">
+        <img src="${logoUrl}" alt="AfriVate" />
+      </div>
+      <div class="chip">${BRAND.chipHtml}</div>
+    </div>
+    <h1>${title}</h1>
+    <section class="meta">${meta}</section>
+    ${body}
+  </div>
+</body>
+</html>`
+}
+
+/**
+ * Write HTML + A4 PDF and copy the PDF to Downloads.
+ * @param {{ title: string, metaRows: [string, string][], body: string, extraCss?: string, outDir: string, outBase: string, footerLeft?: string, copyToDownloads?: boolean }} spec
+ */
+export async function renderOfficialDocument(spec) {
+  const {
+    title,
+    metaRows,
+    body,
+    extraCss = '',
+    outDir: dest,
+    outBase,
+    footerLeft = 'hr@afrivate.org · portal.afrivate.org',
+    copyToDownloads = true,
+  } = spec
+  await mkdir(dest, { recursive: true })
+  const html = wrapOfficialDocument({ title, metaRows, body, extraCss })
+  const htmlPath = path.join(dest, `${outBase}.html`)
+  const pdfPath = path.join(dest, `${outBase}.pdf`)
+  await writeFile(htmlPath, html, 'utf8')
+  const browser = await chromium.launch()
+  try {
+    const page = await browser.newPage()
+    await page.goto(`file:///${htmlPath.replace(/\\/g, '/')}`, { waitUntil: 'networkidle' })
+    await page.pdf({
+      path: pdfPath,
+      format: 'A4',
+      printBackground: true,
+      displayHeaderFooter: true,
+      headerTemplate: '<div></div>',
+      footerTemplate: `
+    <div style="width:100%;font-size:9px;color:#666;padding:0 18mm;display:flex;justify-content:space-between;font-family:Segoe UI, Arial, sans-serif;">
+      <span>${footerLeft}</span>
+      <span>RC: 9210092 · Page <span class="pageNumber"></span> of <span class="totalPages"></span></span>
+    </div>`,
+      margin: { top: '14mm', right: '14mm', bottom: '16mm', left: '16mm' },
+    })
+  } finally {
+    await browser.close()
+  }
+  console.log('Wrote', htmlPath)
+  console.log('Wrote', pdfPath)
+  if (copyToDownloads !== false) {
+    const downloadsPath = path.resolve(`C:/Users/DELL/Downloads/${outBase}.pdf`)
+    try {
+      await copyFile(pdfPath, downloadsPath)
+      console.log('Also copied to', downloadsPath)
+    } catch {
+      console.log('Could not copy to Downloads (file may be open).')
+    }
+  }
+  return { htmlPath, pdfPath }
+}
+
 export function brandedHtml({ title, code, audience, lastUpdated, body }) {
   return `<!doctype html>
 <html lang="en">

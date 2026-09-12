@@ -8,6 +8,8 @@ import {
   Megaphone,
   ArrowRight,
   AlertCircle,
+  Users,
+  IdCard,
 } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
@@ -22,12 +24,17 @@ import { managesPeople } from '@/lib/orgStructure'
 import { DutyStatusBadge } from '@/components/shared/DutyStatusBadge'
 import { canViewDutyStatus, effectiveDutyStatus } from '@/lib/dutyStatus'
 
-const quickLinks = [
-  { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request and track time off' },
+const dailyLinks = [
+  { to: '/people/leave', label: 'Time off', icon: CalendarDays, desc: 'Request time off and see what’s been approved.' },
+  { to: '/people/directory', label: 'Directory', icon: Users, desc: 'Find a teammate, email, and who they report to.' },
+]
+
+const moreLinks = [
   { to: '/people/shout-outs', label: 'Shout-outs', icon: Heart, desc: 'Celebrate great work' },
   { to: '/people/learning', label: 'Learning', icon: GraduationCap, desc: 'Courses and certificates' },
   { to: '/people/surveys', label: 'Surveys', icon: BarChart3, desc: 'Short team check-ins' },
   { to: '/people/growth', label: 'Growth', icon: TrendingUp, desc: 'Goals, 1:1s, and development' },
+  { to: '/people/my-info', label: 'My info', icon: IdCard, desc: 'Your personnel questionnaire' },
 ]
 
 export function PeopleOverviewPage() {
@@ -38,6 +45,7 @@ export function PeopleOverviewPage() {
   if (!user) return null
 
   const teamScope = (isLead(user) || managesPeople(user, teams, departments)) && !isHR(user)
+  const showOps = isHR(user) || teamScope
   const metrics = teamScope ? getMetrics({ teamScope: true }) : getMetrics()
   const directReports = teamScope ? managedReportIds(user, users, teams, departments).size : 0
   const digestMemos = announcements.filter((a) => a.memoCategory === 'digest').slice(0, 3)
@@ -58,12 +66,56 @@ export function PeopleOverviewPage() {
     <div className="av-contain space-y-6">
       <PageHeader
         title="People"
-        description="Time off, learning, feedback, and culture — all in one place."
+        description={
+          showOps
+            ? 'Time off and the directory first. Team digest and what needs a look sit below.'
+            : 'Start with time off and the directory. Learning, growth, and the rest are here when you need them.'
+        }
       />
 
       <PeopleActionBanners />
 
-      {dutyPeople.length > 0 ? (
+      {myLeavePending > 0 ? (
+        <Link
+          to="/people/leave"
+          className="flex items-center gap-2 rounded-lg border border-warning/30 bg-warning/5 px-4 py-3 text-sm text-fg ring-focus hover:bg-warning/10"
+        >
+          <AlertCircle className="h-4 w-4 shrink-0 text-warning" />
+          <span className="flex-1">
+            You have {myLeavePending} time-off request{myLeavePending === 1 ? '' : 's'} waiting for review.
+          </span>
+          <ArrowRight className="h-4 w-4 text-muted" />
+        </Link>
+      ) : null}
+
+      <div className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+        {dailyLinks.map((link) => (
+          <Link key={link.to} to={link.to} className="group ring-focus">
+            <Card padding="md" hoverable className="h-full">
+              <link.icon className="h-6 w-6 text-accent" />
+              <p className="mt-2 text-base font-semibold text-fg group-hover:text-accent">{link.label}</p>
+              <p className="mt-0.5 text-sm text-muted">{link.desc}</p>
+            </Card>
+          </Link>
+        ))}
+      </div>
+
+      <div>
+        <p className="mb-2 text-[10px] font-semibold uppercase tracking-wider text-muted">More in People</p>
+        <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-3">
+          {moreLinks.map((link) => (
+            <Link key={link.to} to={link.to} className="group ring-focus">
+              <Card padding="md" hoverable className="h-full">
+                <link.icon className="h-5 w-5 text-accent" />
+                <p className="mt-2 text-sm font-semibold text-fg group-hover:text-accent">{link.label}</p>
+                <p className="mt-0.5 text-xs text-muted">{link.desc}</p>
+              </Card>
+            </Link>
+          ))}
+        </div>
+      </div>
+
+      {showOps && dutyPeople.length > 0 ? (
         <Card padding="md">
           <h2 className="text-sm font-semibold text-fg">Improvement plans and suspensions</h2>
           <p className="mt-1 text-xs text-muted">
@@ -92,19 +144,7 @@ export function PeopleOverviewPage() {
         </Card>
       ) : null}
 
-      <div className="grid grid-cols-1 gap-3 min-[400px]:grid-cols-2 lg:grid-cols-3 xl:grid-cols-5">
-        {quickLinks.map((link) => (
-          <Link key={link.to} to={link.to} className="group ring-focus">
-            <Card padding="md" hoverable className="h-full">
-              <link.icon className="h-5 w-5 text-accent" />
-              <p className="mt-2 text-sm font-semibold text-fg group-hover:text-accent">{link.label}</p>
-              <p className="mt-0.5 text-xs text-muted">{link.desc}</p>
-            </Card>
-          </Link>
-        ))}
-      </div>
-
-      {digestMemos.length > 0 ? (
+      {digestMemos.length > 0 && showOps ? (
         <Card padding="md">
           <div className="mb-3 flex items-center gap-2">
             <Megaphone className="h-4 w-4 text-accent" />
@@ -126,7 +166,7 @@ export function PeopleOverviewPage() {
         </Card>
       ) : null}
 
-      {(isHR(user) || teamScope) && (
+      {showOps ? (
         <Card padding="md">
           <h2 className="text-sm font-semibold text-fg">
             {isHR(user) ? 'Team snapshot' : 'My team snapshot'}
@@ -167,13 +207,6 @@ export function PeopleOverviewPage() {
             </Link>
           ) : null}
         </Card>
-      )}
-
-      {myLeavePending > 0 ? (
-        <p className="flex items-center gap-2 text-xs text-muted">
-          <AlertCircle className="h-3.5 w-3.5" />
-          You have {myLeavePending} time-off request{myLeavePending === 1 ? '' : 's'} waiting for review.
-        </p>
       ) : null}
     </div>
   )

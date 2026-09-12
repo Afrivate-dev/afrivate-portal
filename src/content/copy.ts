@@ -175,12 +175,15 @@ export const pages = {
   },
   home: {
     title: 'Home',
-    subtitle:
-      "Your week at a glance — deadlines, time off, company updates, and what's on today.",
+    subtitle: 'What to do this week — then you can close the tab.',
     roleLine: (jobTitle: string, department: string) => `${jobTitle} · ${department}`,
     quickAddTask: 'New task',
     quickTimeOff: 'Request time off',
     quickWeekly: 'Weekly update',
+    thisWeek: 'This week',
+    thisWeekHint: 'Do the next thing, then you’re done.',
+    emptyWeekTitle: 'You’re clear this week',
+    emptyWeekBody: 'Open My work when something comes in, or write a note.',
     stats: {
       dueToday: 'Due today',
       dueTodayHint: "Open tasks with today's date",
@@ -188,16 +191,16 @@ export const pages = {
       pendingTimeOffHint: 'Waiting on approval',
       eventsThisWeek: 'This week',
       eventsThisWeekHint: 'Meetings & gatherings in the next 7 days',
-      newUpdates: 'New updates',
-      newUpdatesHint: "Company posts you haven't opened yet",
+      newUpdates: 'Unread memos',
+      newUpdatesHint: 'Memos you have not opened yet',
     },
     onboardingBanner: (watched: number, total: number) =>
       `You've completed ${watched} of ${total} welcome videos`,
     onboardingCta: 'Continue learning',
-    recentUpdates: 'Latest updates',
+    recentUpdates: 'Memos',
     todaySchedule: 'Today',
-    emptyUpdates: 'No updates yet',
-    emptyUpdatesBody: "When People & Culture posts news, it will show up here.",
+    emptyUpdates: 'No memos yet',
+    emptyUpdatesBody: 'When People & Culture posts a memo, it will show up here.',
     emptyDay: 'Nothing scheduled',
     emptyDayBody: 'Enjoy the calm — or add something on the calendar.',
     tipTitle: 'Small habits help the team',
@@ -472,7 +475,7 @@ export const pages = {
   people: {
     title: 'People',
     subtitle:
-      "Who's who at AfriVate — roles, teams, and how to reach coworkers on work email. Update your own photo and contact details so the directory stays useful for everyone.",
+      'Who’s who at AfriVate — roles, teams, and how to reach coworkers on work email. Update your own photo and contact details so the directory stays useful for everyone.',
     searchPlaceholder: 'Search by name, email, role, department, or skill…',
     allDepartments: 'All departments',
     directoryNote:

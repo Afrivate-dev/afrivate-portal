@@ -1,0 +1,16 @@
+---
+description: Locked AfriVate official-document branding. Apply whenever producing letters, forms, PDFs, Word files, memos, or branded docs.
+alwaysApply: true
+---
+
+# AfriVate official documents
+
+When the user wants a letter, form, memo, policy, handbook, guide, appraisal, scorecard, job post, engagement letter, PDF, Word/DOCX, or anything “branded” / “official”:
+
+1. Read `.cursor/skills/afrivate-official-branding/SKILL.md` and follow it.
+2. Use `docs/official/render/brandedGuide.mjs` (`renderOfficialDocument` / `GUIDE_CSS`). Do not invent colours, fonts, or a header.
+3. Logo is `docs/official/brand/afrivate-logo-long-purple.png`. Purple is `#8d4087` only.
+4. Deliver HTML + PDF (and DOCX if it must be filled in). Copy the PDF to Downloads.
+5. Say **Team Member**, not Employee, unless a paid contract exists. Slack coordinates; the Portal records.
+
+Do not ship markdown or unstyled HTML as the finished official document.

@@ -174,9 +174,9 @@ test.describe('Full portal — admin session', () => {
       /weekly|check/i,
       /getting started|onboarding/i,
       /notes/i,
-      /updates|announcements/i,
+      /memos|updates|announcements/i,
       /resources|documents/i,
-      /what's on|events/i,
+      /calendar|what's on|events/i,
       /workspace admin|admin/i,
     ]
     for (const name of links) {
@@ -186,6 +186,15 @@ test.describe('Full portal — admin session', () => {
         await expectMainOk(page)
       }
     }
+  })
+
+  test('home shows this week or a clear-week empty state', async ({ page }) => {
+    await page.goto('/')
+    await expectMainOk(page)
+    await expect(
+      page.getByRole('heading', { name: /this week/i }).or(page.getByRole('heading', { name: /you.re clear this week/i })),
+    ).toBeVisible()
+    await expect(page.locator('aside nav').getByText(/^more$/i).first()).toBeVisible()
   })
 
   test('top bar: theme, search, inbox', async ({ page }) => {
@@ -509,6 +518,15 @@ test.describe('Full portal — admin session', () => {
     await expect(
       page.getByRole('button', { name: /save/i }).or(page.getByText(/completeness|emergency/i)).first(),
     ).toBeVisible()
+    await expect(page.getByText(/government & legal documentation/i)).toHaveCount(0)
+    await expect(page.getByLabel(/tax identification/i)).toHaveCount(0)
+    await expect(page.getByLabel(/social security|national insurance number/i)).toHaveCount(0)
+    await expect(page.getByLabel(/work permit|visa status/i)).toHaveCount(0)
+    await expect(page.getByLabel(/right-to-work/i)).toHaveCount(0)
+    await expect(page.getByLabel(/national id|passport number/i)).toHaveCount(0)
+    await expect(page.getByLabel(/employee id/i)).toHaveCount(0)
+    await expect(page.getByLabel(/tax filing status/i)).toHaveCount(0)
+    await expect(page.getByLabel(/pension \/ retirement/i)).toHaveCount(0)
   })
 
   test('admin leave: all requests list visible', async ({ page }) => {
@@ -751,6 +769,10 @@ test.describe('Staff session (non-admin)', () => {
 
   test('staff people hub subnav', async ({ page }) => {
     await page.goto('/people')
+    await expect(page.getByRole('heading', { name: /^people$/i }).first()).toBeVisible()
+    await expect(page.getByText(/start with time off and the directory/i)).toBeVisible()
+    await expect(page.getByRole('link', { name: /^time off$/i }).first()).toBeVisible()
+    await expect(page.getByRole('link', { name: /^directory$/i }).first()).toBeVisible()
     for (const path of [
       '/people/leave',
       '/people/shout-outs',

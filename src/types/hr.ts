@@ -340,25 +340,16 @@ export interface PersonnelQuestionnaire {
   gender?: string
   maritalStatus?: string
   nationality?: string
-  nationalId?: string
   residentialAddress?: string
   altPhone?: string
-  employeeId?: string
   staffEmploymentType?: StaffEmploymentType
   statedJobTitle?: string
   statedDepartment?: string
   statedManagerName?: string
-  taxId?: string
-  nationalInsuranceNumber?: string
-  visaStatus?: string
-  rightToWorkNotes?: string
-  licensesCerts?: string
   bankName?: string
   bankAccountNumber?: string
   bankAccountHolder?: string
   paymentMethod?: string
-  taxFilingStatus?: string
-  pensionDetails?: string
   highestEducation?: string
   professionalCertifications?: string
   education: EducationRecord[]

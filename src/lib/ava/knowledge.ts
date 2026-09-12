@@ -22,19 +22,12 @@ export const AVA_KNOWLEDGE = `
 
 
 ## Main navigation
-- Home (/) — overview and action banners
+- Home (/) — this week: what to do next (tasks, weekly update, time off, memos). Same Home for staff, leads, and People & Culture — the cards change by role.
 - My work (/tasks) — tasks (board / list / week). Unsaved drafts sit in a Drafts column until you create them.
-- Inbox (/inbox) — notifications
-- People (/people) — Time off, Shout-outs, Learning, Surveys, Growth, My info, Directory
-- Search (/search)
-- Weekly update (/checkin)
-- Getting started (/onboarding)
-- Notes (/notes)
-- Memos (/announcements)
-- Resources (/documents)
-- Calendar (/events)
-- Admin (/admin) — HR and Admin only
-- Phone bottom bar: Home, My work, Inbox, People, More.
+- People (/people) — Time off and Directory first; Overview, Shout-outs, Learning, Surveys, Growth, My info are one tap away.
+- Inbox (/inbox) — notifications (also in the primary nav when you have unread items)
+- More — Search, Weekly update (primary near Friday or when yours is due), Getting started (first 30 days only), Notes, Memos, Resources, Calendar, Admin (HR/Admin only)
+- Phone bottom bar: Home, My work, People, Inbox or Memos if unread, More.
 - Top bar: dark/light mode, search, availability (Available / Away / Busy / Focusing), inbox bell, profile menu (My profile, Account & security, Sign out).
 
 ## Getting started (onboarding)
@@ -61,7 +54,7 @@ Open People → Learning. Complete the assigned Alison course, then submit cours
 Open People → Surveys. Complete open surveys. One response per person.
 
 ## My info
-Open People → My info. This is the personnel questionnaire (identity, contact, emergency, employment, government IDs, banking, education, experience, skills, and compliance). Date of birth, legal name, phone, and emergency contact name + phone are required. Photograph is updated on Directory profile, not on this form. HR/Admin export one, several, or all files from Admin → Employee files.
+Open People → My info. This is the personnel questionnaire (identity, contact, emergency, employment, banking, education, experience, skills, and compliance). Date of birth, legal name, phone, and emergency contact name + phone are required. Photograph is updated on Directory profile, not on this form. HR/Admin export one, several, or all files from Admin → Employee files. The form does not collect national ID / passport, employee ID, tax IDs, NIN, visa, tax filing status, or pension enrollment.
 
 ## Calendar
 Open Calendar (/events). Team leads can add events. Birthdays, work anniversaries, and new-hire check-ins (Day 1 / 7 / 30 / 60 / 90) are autosaved from employee start date and date of birth. Date of birth and start date are required for active people (People → My info, and Admin → Employee files). frank mirrors the same titles onto AfriVate Google Calendar — there is no Portal↔Google API sync.
