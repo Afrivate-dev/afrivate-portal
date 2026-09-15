@@ -37,10 +37,11 @@ export function ConfirmProvider({ children }: { children: React.ReactNode }) {
         zClass="z-[200]"
         footer={
           <>
-            <Button variant="ghost" onClick={() => close(false)}>
+            <Button type="button" variant="ghost" onClick={() => close(false)}>
               {state?.cancelLabel ?? actions.cancel}
             </Button>
             <Button
+              type="button"
               variant={state?.destructive ? 'danger' : 'primary'}
               onClick={() => close(true)}
             >

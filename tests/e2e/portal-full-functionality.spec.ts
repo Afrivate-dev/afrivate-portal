@@ -529,6 +529,81 @@ test.describe('Full portal — admin session', () => {
     await expect(page.getByLabel(/pension \/ retirement/i)).toHaveCount(0)
   })
 
+  test('people my-info saves into employee files', async ({ page }) => {
+    await page.goto('/people/my-info')
+    await expectMainOk(page)
+    await page.getByRole('textbox', { name: 'Full legal name', exact: true }).fill('E2E Admin Legal')
+    await page.getByLabel(/date of birth/i).first().fill('1990-05-15')
+    await page.getByLabel(/personal phone number/i).fill('+2348000000099')
+    await page.getByLabel(/full name of emergency contact/i).fill('Ada Contact')
+    await page.getByLabel(/^phone number$/i).fill('+2348000000088')
+    await page.getByLabel(/^nationality$/i).fill('Nigerian')
+    await page.getByLabel(/^bank name$/i).fill('Access Bank')
+    await page.getByRole('button', { name: /save questionnaire/i }).click()
+    await expect(page.getByText(/personnel questionnaire was saved/i)).toBeVisible({ timeout: 10_000 })
+
+    const stored = await page.evaluate(() => {
+      const raw = localStorage.getItem('av-hr-employee-profiles')
+      return raw
+        ? (JSON.parse(raw) as Array<{
+            phone?: string
+            legalName?: string
+            questionnaire?: { nationality?: string; bankName?: string }
+          }>)
+        : []
+    })
+    expect(
+      stored.some(
+        (p) =>
+          p.phone === '+2348000000099' &&
+          p.legalName === 'E2E Admin Legal' &&
+          p.questionnaire?.nationality === 'Nigerian' &&
+          p.questionnaire?.bankName === 'Access Bank',
+      ),
+    ).toBeTruthy()
+
+    await page.goto('/admin?section=employees')
+    await expect(page.getByRole('heading', { name: /employee files/i })).toBeVisible()
+    await page.getByRole('button', { name: /open profile|^profile$/i }).first().click()
+    const dialog = page.getByRole('dialog')
+    await expect(dialog).toBeVisible()
+    await expect(dialog.getByText(/personnel questionnaire \(my info\)/i)).toBeVisible()
+    await expect(dialog.getByText('E2E Admin Legal')).toBeVisible()
+    await expect(dialog.getByText('+2348000000099')).toBeVisible()
+    await expect(dialog.getByText('Nigerian')).toBeVisible()
+    await expect(dialog.getByText('Access Bank')).toBeVisible()
+    await expect(dialog.getByRole('button', { name: /export csv/i })).toBeVisible()
+    await expect(dialog.getByRole('button', { name: /export pdf/i })).toBeVisible()
+
+    const [download] = await Promise.all([
+      page.waitForEvent('download'),
+      dialog.getByRole('button', { name: /export csv/i }).click(),
+    ])
+    expect(download.suggestedFilename()).toMatch(/afrivate-personnel/i)
+  })
+
+  test('documents: cancel does not keep the upload', async ({ page }) => {
+    await page.goto('/documents')
+    await page.getByRole('button', { name: /upload document/i }).click()
+    const form = page.getByRole('dialog').filter({ hasText: /upload document/i })
+    await expect(form).toBeVisible()
+    const title = `Cancelled handbook ${Date.now()}`
+    await form.getByLabel(/^title$/i).fill(title)
+    await form.locator('input[type="file"]').setInputFiles({
+      name: 'cancelled.txt',
+      mimeType: 'text/plain',
+      buffer: Buffer.from('should not be stored'),
+    })
+    await form.getByRole('button', { name: /save document/i }).click()
+    const confirm = page.getByRole('dialog').filter({ hasText: /add this file|upload file/i })
+    await expect(confirm).toBeVisible({ timeout: 10_000 })
+    await confirm.getByRole('button', { name: /^cancel$/i }).click()
+    await expect(confirm).toBeHidden()
+    await form.getByRole('button', { name: /^cancel$/i }).click()
+    await expect(form).toBeHidden()
+    await expect(page.getByText(title)).toHaveCount(0)
+  })
+
   test('admin leave: all requests list visible', async ({ page }) => {
     await page.goto('/admin')
     const leaveTab = page.getByRole('button', { name: /^leave$/i }).first()

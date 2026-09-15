@@ -1,4 +1,4 @@
-import { useMemo, useState, useEffect } from 'react'
+import { useMemo, useState, useEffect, useRef } from 'react'
 import { useSearchParams } from 'react-router-dom'
 import {
   Search,
@@ -159,6 +159,8 @@ export function DocumentLibraryPage() {
   const [uploading, setUploading] = useState(false)
   const [pickingFile, setPickingFile] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const uploadSessionRef = useRef(0)
+  const ignoreSubmitUntilRef = useRef(0)
 
   useEffect(() => {
     if (!surfaceDocId) {
@@ -216,11 +218,26 @@ export function DocumentLibraryPage() {
 
   if (!user) return null
 
+  const discardUpload = () => {
+    uploadSessionRef.current += 1
+    ignoreSubmitUntilRef.current = Date.now() + 500
+    setUploadOpen(false)
+    setEditDocId(null)
+    setUploadFile(null)
+    setPickingFile(false)
+    setUploading(false)
+    setFormError(null)
+    setDraft(emptyDraft(documentCategories[0]?.id ?? 'policies'))
+  }
+
   const openUpload = () => {
+    uploadSessionRef.current += 1
     setDraft(emptyDraft(documentCategories[0]?.id ?? 'policies'))
     setUploadFile(null)
     setEditDocId(null)
     setFormError(null)
+    setPickingFile(false)
+    setUploading(false)
     setUploadOpen(true)
   }
 
@@ -237,6 +254,9 @@ export function DocumentLibraryPage() {
     setEditDocId(doc.id)
     setUploadFile(null)
     setFormError(null)
+    uploadSessionRef.current += 1
+    setPickingFile(false)
+    setUploading(false)
     setUploadOpen(true)
   }
 
@@ -245,9 +265,11 @@ export function DocumentLibraryPage() {
       setUploadFile(null)
       return
     }
+    const session = uploadSessionRef.current
     setFormError(null)
     setPickingFile(true)
     const ready = await readUploadFile(file)
+    if (session !== uploadSessionRef.current) return
     setPickingFile(false)
     if ('error' in ready) {
       setUploadFile(null)
@@ -265,11 +287,13 @@ export function DocumentLibraryPage() {
 
   const submitUpload = async (e?: React.FormEvent | React.MouseEvent) => {
     e?.preventDefault()
+    if (Date.now() < ignoreSubmitUntilRef.current) return
     if (uploading || pickingFile) return
     if (!draft.title.trim()) {
       setFormError('Add a title before saving.')
       return
     }
+    const session = uploadSessionRef.current
     if (editDocId) {
       let filePath: string | undefined
       let fileSize: string | undefined
@@ -279,6 +303,10 @@ export function DocumentLibraryPage() {
         setFormError(null)
         try {
           const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+          if (session !== uploadSessionRef.current) {
+            if (!('error' in uploaded)) await removeWorkspaceFile(uploaded.path)
+            return
+          }
           if ('error' in uploaded) {
             setFormError(uploaded.error)
             notifyError(uploaded.error)
@@ -286,13 +314,18 @@ export function DocumentLibraryPage() {
           }
           const existing = documents.find((d) => d.id === editDocId)
           await removeWorkspaceFile(existing?.filePath)
+          if (session !== uploadSessionRef.current) {
+            await removeWorkspaceFile(uploaded.path)
+            return
+          }
           filePath = uploaded.path
           fileSize = uploaded.sizeLabel
           fileName = uploadFile.name
         } finally {
-          setUploading(false)
+          if (session === uploadSessionRef.current) setUploading(false)
         }
       }
+      if (session !== uploadSessionRef.current) return
       updateDocument(editDocId, {
         title: draft.title.trim(),
         description: draft.description.trim() || undefined,
@@ -319,11 +352,18 @@ export function DocumentLibraryPage() {
       message: confirms.uploadDocument,
       confirmLabel: 'Upload',
     })
-    if (!ok) return
+    if (!ok || session !== uploadSessionRef.current) {
+      ignoreSubmitUntilRef.current = Date.now() + 500
+      return
+    }
     setUploading(true)
     setFormError(null)
     try {
       const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+      if (session !== uploadSessionRef.current) {
+        if (!('error' in uploaded)) await removeWorkspaceFile(uploaded.path)
+        return
+      }
       if ('error' in uploaded) {
         setFormError(uploaded.error)
         notifyError(uploaded.error)
@@ -345,7 +385,7 @@ export function DocumentLibraryPage() {
       setUploadFile(null)
       notifySuccess('Document uploaded. Open it from Preview.')
     } finally {
-      setUploading(false)
+      if (session === uploadSessionRef.current) setUploading(false)
     }
   }
 
@@ -557,10 +597,7 @@ export function DocumentLibraryPage() {
       {/* Upload modal */}
       <Modal
         open={uploadOpen}
-        onClose={() => {
-          setUploadOpen(false)
-          setEditDocId(null)
-        }}
+        onClose={discardUpload}
         title={editDocId ? 'Edit document' : 'Upload document'}
         closeOnBackdrop={false}
         description={
@@ -571,8 +608,8 @@ export function DocumentLibraryPage() {
         size="lg"
         footer={
           <>
-            <Button variant="ghost" type="button" onClick={() => { setUploadOpen(false); setEditDocId(null) }}>
-              Cancel
+            <Button variant="ghost" type="button" onClick={discardUpload}>
+              {uploading ? 'Cancel upload' : 'Cancel'}
             </Button>
             <Button
               type="submit"

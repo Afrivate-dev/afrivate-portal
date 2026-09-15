@@ -14,6 +14,7 @@ import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { useHr } from '@/context/HrContext'
 import { EmployeeProfilePrintView } from '@/components/hr/EmployeeProfilePrintView'
+import { PersonnelQuestionnaireReadout } from '@/components/hr/PersonnelQuestionnaireReadout'
 import { Badge } from '@/components/ui/Badge'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -743,15 +744,7 @@ function DossierModal({
           rows={3}
         />
 
-        <div className="rounded-lg border border-[var(--color-line)] bg-[var(--color-soft)]/40 p-3 text-sm">
-          <div className="mb-2 font-medium">Employee-submitted personal fields</div>
-          <p>Phone: {profile.phone || '—'} · Personal email: {profile.personalEmail || '—'}</p>
-          <p>Date of birth: {profile.dateOfBirth || '—'}</p>
-          <p>
-            Emergency: {profile.emergencyContact?.name || '—'} ({profile.emergencyContact?.phone || '—'})
-          </p>
-          <p>Completeness: {profile.profileCompleteness}%</p>
-        </div>
+        <PersonnelQuestionnaireReadout profile={profile} />
 
         <PersonDisciplineBlock
           subjectUserId={userId}
