@@ -32,7 +32,7 @@ export function Sidebar() {
   const showLaunchChecklist = canAccessRevivalLaunchChecklist(user) && !isSuspended(user)
 
   return (
-    <aside className="hidden h-screen w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
+    <aside className="sticky top-0 hidden h-dvh w-60 shrink-0 flex-col border-r border-border bg-surface lg:flex">
       <div className="flex h-16 items-center border-b border-border px-5">
         <a href="https://afrivate.org" className="flex items-center gap-2.5">
           <img src="/afrivate-icon.svg" alt="AfriVate" className="h-8 w-auto dark:hidden" />

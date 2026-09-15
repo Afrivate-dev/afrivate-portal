@@ -130,14 +130,43 @@ export function PersonnelQuestionnaireForm({
   }
 
   return (
-    <div className="space-y-6 pb-28">
+    <div className="space-y-6 pb-32">
       {hrRequestsUpdate ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
           People & Culture has asked you to review and update this questionnaire.
         </div>
       ) : null}
 
-      <Card className="space-y-4">
+      <nav
+        aria-label="Questionnaire sections"
+        className="av-scroll-x sticky top-16 z-10 -mx-1 bg-bg/95 py-1.5 backdrop-blur-md"
+      >
+        <div className="flex w-max gap-1.5 px-1">
+          {(
+            [
+              ['my-info-personal', '1. Personal'],
+              ['my-info-contact', '2. Contact'],
+              ['my-info-emergency', '3. Emergency'],
+              ['my-info-employment', '4. Employment'],
+              ['my-info-banking', '5. Banking'],
+              ['my-info-education', '6. Education'],
+              ['my-info-experience', '7. Experience'],
+              ['my-info-skills', '8. Skills'],
+              ['my-info-compliance', '9. Compliance'],
+            ] as const
+          ).map(([id, label]) => (
+            <a
+              key={id}
+              href={`#${id}`}
+              className="inline-flex min-h-[36px] shrink-0 items-center rounded-full border border-border bg-surface px-3 py-1.5 text-xs font-medium text-fg ring-focus"
+            >
+              {label}
+            </a>
+          ))}
+        </div>
+      </nav>
+
+      <Card id="my-info-personal" className="space-y-4 scroll-mt-24">
         <SectionHead n={1} title="Personal information" />
         <div className="flex flex-wrap items-center gap-4 rounded-lg border border-border bg-surface-2/60 p-3">
           <Avatar name={user.name} src={user.avatarUrl} size="lg" />
@@ -199,7 +228,7 @@ export function PersonnelQuestionnaireForm({
         </div>
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-contact" className="space-y-4 scroll-mt-20">
         <SectionHead n={2} title="Contact details" />
         <Textarea
           label="Residential address"
@@ -241,7 +270,7 @@ export function PersonnelQuestionnaireForm({
         <p className="text-xs text-muted">Work email on file: {user.email}</p>
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-emergency" className="space-y-4 scroll-mt-20">
         <SectionHead n={3} title="Emergency contact" />
         <div className="grid gap-4 sm:grid-cols-2">
           <Input
@@ -275,7 +304,7 @@ export function PersonnelQuestionnaireForm({
         />
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-employment" className="space-y-4 scroll-mt-20">
         <SectionHead n={4} title="Employment details" />
         <div className="rounded-lg border border-border bg-surface-2/60 p-3 text-sm">
           <p className="text-xs font-semibold uppercase tracking-wide text-muted">On file in Portal</p>
@@ -337,7 +366,7 @@ export function PersonnelQuestionnaireForm({
         </div>
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-banking" className="space-y-4 scroll-mt-20">
         <SectionHead n={5} title="Compensation & banking" />
         <p className="text-xs text-muted">
           Visible to you and to HR/Admin only. Used for payroll — not shown on the staff directory.
@@ -364,7 +393,7 @@ export function PersonnelQuestionnaireForm({
         </div>
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-education" className="space-y-4 scroll-mt-20">
         <SectionHead n={6} title="Education & qualifications" />
         <Select
           label="Highest level of education completed"
@@ -442,7 +471,7 @@ export function PersonnelQuestionnaireForm({
         />
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-experience" className="space-y-4 scroll-mt-20">
         <SectionHead n={7} title="Work experience" />
         <ListHead
           title="Previous employers"
@@ -575,7 +604,7 @@ export function PersonnelQuestionnaireForm({
         )}
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-skills" className="space-y-4 scroll-mt-20">
         <SectionHead n={8} title="Skills & competencies" />
         <Input
           label="Key technical skills (comma-separated)"
@@ -644,7 +673,7 @@ export function PersonnelQuestionnaireForm({
         <Textarea label="Bio (optional)" rows={3} value={draft.bio ?? ''} onChange={(e) => setField('bio', e.target.value)} />
       </Card>
 
-      <Card className="space-y-4">
+      <Card id="my-info-compliance" className="space-y-4 scroll-mt-20">
         <SectionHead n={9} title="Compliance & acknowledgements" />
         <div className="grid gap-4 sm:grid-cols-3">
           <YesNo
@@ -678,10 +707,10 @@ export function PersonnelQuestionnaireForm({
         </div>
       </Card>
 
-      <div className="sticky bottom-[4.75rem] z-20 rounded-xl border border-border bg-surface/95 p-3 shadow-elevated backdrop-blur-md lg:bottom-4">
+      <div className="sticky bottom-[calc(5rem+env(safe-area-inset-bottom))] z-20 rounded-xl border border-border bg-surface/95 p-3 shadow-elevated backdrop-blur-md lg:bottom-4">
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
           <p className="text-sm text-muted">Questionnaire completeness: {completeness}%</p>
-          <Button type="button" onClick={onSave}>
+          <Button type="button" onClick={onSave} className="w-full sm:w-auto">
             Save questionnaire
           </Button>
         </div>

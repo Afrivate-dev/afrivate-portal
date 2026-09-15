@@ -67,6 +67,7 @@ const ROUTES = [
   '/recognition',
   '/people/directory',
   '/people/growth',
+  '/people/my-info',
   '/notes',
   '/inbox',
   '/admin',
@@ -98,6 +99,19 @@ test.describe('Responsive — no horizontal page overflow', () => {
     const menu = page.getByRole('menu')
     await expect(menu).toBeVisible()
     await expect(menu.getByLabel(/your availability/i)).toBeVisible()
+  })
+
+  test('people my-info later sections are reachable', async ({ page, isMobile }) => {
+    test.skip(!isMobile, 'phone/tablet projects only')
+    await page.goto('/people/my-info')
+    await expect(page.locator('main')).toBeVisible({ timeout: 15_000 })
+    await expect(page.locator('#my-info-personal')).toBeVisible()
+    await expect(page.getByRole('navigation', { name: /questionnaire sections/i })).toBeVisible()
+    const last = page.locator('#my-info-compliance')
+    await last.scrollIntoViewIfNeeded()
+    await expect(last).toBeInViewport()
+    await expect(page.getByText(/compliance & acknowledgements/i).first()).toBeInViewport()
+    await expectNoHorizontalOverflow(page)
   })
 
   test('events schedule defaults to list on phone', async ({ page }) => {

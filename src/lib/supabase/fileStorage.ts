@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import { readUploadFile } from '@/lib/readUploadFile'
 
 export const PORTAL_FILES_BUCKET = 'portal-files'
 
@@ -48,7 +49,6 @@ export async function uploadPortalFile(
   file: File,
   userId: string,
 ): Promise<{ path: string; sizeLabel: string } | { error: string }> {
-  if (!file.size) return { error: 'That file is empty. Choose another file.' }
   if (file.size > 50 * 1024 * 1024) return { error: 'Files must be 50 MB or smaller.' }
 
   // Storage RLS matches folder[2] to auth.uid() — never use a portal profile id here.
@@ -56,12 +56,16 @@ export async function uploadPortalFile(
   const uid = authData.user?.id || userId
   if (!uid) return { error: 'Sign in again to upload files.' }
 
-  const ext = file.name.includes('.') ? file.name.split('.').pop() : 'bin'
-  const path = `${folder}/${uid}/${Date.now()}-${sanitizeFileName(file.name || `file.${ext}`)}`
+  const ready = await readUploadFile(file)
+  if ('error' in ready) return ready
+  if (ready.size > 50 * 1024 * 1024) return { error: 'Files must be 50 MB or smaller.' }
 
-  const contentType = file.type || guessMimeFromName(file.name)
+  const ext = ready.name.includes('.') ? ready.name.split('.').pop() : 'bin'
+  const path = `${folder}/${uid}/${Date.now()}-${sanitizeFileName(ready.name || `file.${ext}`)}`
 
-  const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, file, {
+  const contentType = ready.type || guessMimeFromName(ready.name)
+
+  const { error } = await client.storage.from(PORTAL_FILES_BUCKET).upload(path, ready, {
     cacheControl: '3600',
     upsert: false,
     contentType: contentType || undefined,
@@ -74,7 +78,7 @@ export async function uploadPortalFile(
     return { error: error.message }
   }
 
-  return { path, sizeLabel: formatFileSize(file.size) }
+  return { path, sizeLabel: formatFileSize(ready.size) }
 }
 
 /** Upload a tiny probe object to verify ATS storage RLS before a long sync. */

@@ -37,25 +37,28 @@
 
   html {
     overflow-x: clip;
+    overflow-y: auto;
     max-width: 100%;
   }
 
   html,
   body,
   #root {
-    height: 100%;
+    min-height: 100%;
     max-width: 100%;
   }
 
   body {
     @apply bg-bg text-fg font-sans antialiased;
     overflow-x: clip;
+    overflow-y: auto;
     font-feature-settings: 'cv11', 'ss01';
   }
 
   #root {
     min-width: 0;
     overflow-x: clip;
+    overflow-y: auto;
   }
 
   * {
@@ -99,9 +102,12 @@
     @apply focus:outline-none focus-visible:ring-2 focus-visible:ring-accent focus-visible:ring-offset-2 focus-visible:ring-offset-bg;
   }
 
-  /** Prevent flex/grid children from forcing horizontal page scroll */
+  /** Prevent flex/grid children from forcing horizontal page scroll.
+   *  Do not set overflow-x: clip here — if overflow-x is clip and overflow-y
+   *  is visible, CSS computes overflow-y to clip too, which hides long pages
+   *  (My info questionnaire) on mobile instead of letting them scroll. */
   .av-contain {
-    @apply min-w-0 max-w-full overflow-x-clip;
+    @apply min-w-0 max-w-full;
   }
 
   /** Scrollable region for wide tables on small screens */

@@ -37,6 +37,7 @@ import { ManageLabelCategoriesModal } from '@/components/shared/ManageLabelCateg
 import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
 import { useHr } from '@/context/HrContext'
 import { formatFileSize } from '@/lib/supabase/fileStorage'
+import { readUploadFile } from '@/lib/readUploadFile'
 import { removeWorkspaceFile, resolveWorkspaceFilePreview, storeWorkspaceFile } from '@/lib/storeWorkspaceFile'
 import { notifyError, notifySuccess } from '@/lib/notify'
 import { DocumentPreviewModal } from '@/components/shared/DocumentPreviewModal'
@@ -156,6 +157,8 @@ export function DocumentLibraryPage() {
   } | null>(null)
   const [uploadFile, setUploadFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
+  const [pickingFile, setPickingFile] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
 
   useEffect(() => {
     if (!surfaceDocId) {
@@ -217,6 +220,7 @@ export function DocumentLibraryPage() {
     setDraft(emptyDraft(documentCategories[0]?.id ?? 'policies'))
     setUploadFile(null)
     setEditDocId(null)
+    setFormError(null)
     setUploadOpen(true)
   }
 
@@ -232,29 +236,62 @@ export function DocumentLibraryPage() {
     })
     setEditDocId(doc.id)
     setUploadFile(null)
+    setFormError(null)
     setUploadOpen(true)
   }
 
-  const submitUpload = async (e: React.FormEvent) => {
-    e.preventDefault()
-    if (!draft.title.trim()) return
+  const applyPickedFile = async (file: File | null) => {
+    if (!file) {
+      setUploadFile(null)
+      return
+    }
+    setFormError(null)
+    setPickingFile(true)
+    const ready = await readUploadFile(file)
+    setPickingFile(false)
+    if ('error' in ready) {
+      setUploadFile(null)
+      setFormError(ready.error)
+      notifyError(ready.error)
+      return
+    }
+    setUploadFile(ready)
+    setDraft((prev) => ({
+      ...prev,
+      fileName: ready.name,
+      title: prev.title.trim() ? prev.title : ready.name.replace(/\.[^.]+$/, ''),
+    }))
+  }
+
+  const submitUpload = async (e?: React.FormEvent | React.MouseEvent) => {
+    e?.preventDefault()
+    if (uploading || pickingFile) return
+    if (!draft.title.trim()) {
+      setFormError('Add a title before saving.')
+      return
+    }
     if (editDocId) {
       let filePath: string | undefined
       let fileSize: string | undefined
       let fileName: string | undefined
       if (uploadFile) {
         setUploading(true)
-        const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
-        setUploading(false)
-        if ('error' in uploaded) {
-          notifyError(uploaded.error)
-          return
+        setFormError(null)
+        try {
+          const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+          if ('error' in uploaded) {
+            setFormError(uploaded.error)
+            notifyError(uploaded.error)
+            return
+          }
+          const existing = documents.find((d) => d.id === editDocId)
+          await removeWorkspaceFile(existing?.filePath)
+          filePath = uploaded.path
+          fileSize = uploaded.sizeLabel
+          fileName = uploadFile.name
+        } finally {
+          setUploading(false)
         }
-        const existing = documents.find((d) => d.id === editDocId)
-        await removeWorkspaceFile(existing?.filePath)
-        filePath = uploaded.path
-        fileSize = uploaded.sizeLabel
-        fileName = uploadFile.name
       }
       updateDocument(editDocId, {
         title: draft.title.trim(),
@@ -272,7 +309,9 @@ export function DocumentLibraryPage() {
       return
     }
     if (!uploadFile) {
-      notifyError('Attach the file you want to store. A file name alone is not enough.')
+      const msg = 'Attach the file you want to store. A file name alone is not enough.'
+      setFormError(msg)
+      notifyError(msg)
       return
     }
     const ok = await confirm({
@@ -282,28 +321,32 @@ export function DocumentLibraryPage() {
     })
     if (!ok) return
     setUploading(true)
-    const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
-    if ('error' in uploaded) {
-      notifyError(uploaded.error)
+    setFormError(null)
+    try {
+      const uploaded = await storeWorkspaceFile(uploadFile, 'documents', user.id)
+      if ('error' in uploaded) {
+        setFormError(uploaded.error)
+        notifyError(uploaded.error)
+        return
+      }
+      addDocument({
+        title: draft.title.trim(),
+        description: draft.description.trim() || undefined,
+        category: draft.category,
+        fileName: uploadFile.name,
+        fileSize: uploaded.sizeLabel,
+        filePath: uploaded.path,
+        uploadedById: user.id,
+        hrOnly: draft.hrOnly,
+        managementOnly: draft.managementOnly,
+        requiresAcknowledgment: draft.requiresAcknowledgment,
+      })
+      setUploadOpen(false)
+      setUploadFile(null)
+      notifySuccess('Document uploaded. Open it from Preview.')
+    } finally {
       setUploading(false)
-      return
     }
-    addDocument({
-      title: draft.title.trim(),
-      description: draft.description.trim() || undefined,
-      category: draft.category,
-      fileName: uploadFile.name,
-      fileSize: uploaded.sizeLabel,
-      filePath: uploaded.path,
-      uploadedById: user.id,
-      hrOnly: draft.hrOnly,
-      managementOnly: draft.managementOnly,
-      requiresAcknowledgment: draft.requiresAcknowledgment,
-    })
-    setUploadOpen(false)
-    setUploadFile(null)
-    setUploading(false)
-    notifySuccess('Document uploaded. Open it from Preview.')
   }
 
   const closePreview = () => {
@@ -531,13 +574,23 @@ export function DocumentLibraryPage() {
             <Button variant="ghost" type="button" onClick={() => { setUploadOpen(false); setEditDocId(null) }}>
               Cancel
             </Button>
-            <Button type="submit" form="upload-document-form" loading={uploading}>
-              {editDocId ? 'Save changes' : 'Save document'}
+            <Button
+              type="submit"
+              form="upload-document-form"
+              loading={uploading || pickingFile}
+              disabled={uploading || pickingFile}
+            >
+              {pickingFile ? 'Reading file…' : editDocId ? 'Save changes' : 'Save document'}
             </Button>
           </>
         }
       >
         <form id="upload-document-form" className="space-y-4" onSubmit={(e) => void submitUpload(e)}>
+          {formError ? (
+            <p className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger" role="alert">
+              {formError}
+            </p>
+          ) : null}
           <Input
             label="Title"
             required
@@ -580,33 +633,31 @@ export function DocumentLibraryPage() {
               <div className="flex flex-wrap items-center gap-2">
                 <input
                   type="file"
-                  className="block text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
+                  disabled={pickingFile || uploading}
+                  className="block max-w-full text-sm text-muted file:mr-3 file:rounded-md file:border-0 file:bg-surface-2 file:px-3 file:py-2 file:text-sm file:font-medium file:text-fg"
                   onChange={(e) => {
-                    const file = e.target.files?.[0] ?? null
-                    setUploadFile(file)
-                    if (file) {
-                      setDraft((prev) => ({
-                        ...prev,
-                        fileName: file.name,
-                        title: prev.title.trim() ? prev.title : file.name.replace(/\.[^.]+$/, ''),
-                      }))
-                    }
+                    const input = e.currentTarget
+                    const file = input.files?.[0] ?? null
+                    input.value = ''
+                    void applyPickedFile(file)
                   }}
                 />
-                <GoogleDrivePickerButton onPicked={(file) => {
-                  setUploadFile(file)
-                  setDraft((prev) => ({
-                    ...prev,
-                    fileName: file.name,
-                    title: prev.title.trim() ? prev.title : file.name.replace(/\.[^.]+$/, ''),
-                  }))
-                }} />
+                <GoogleDrivePickerButton
+                  disabled={pickingFile || uploading}
+                  onPicked={(file) => void applyPickedFile(file)}
+                />
               </div>
-              {uploadFile ? (
+              {pickingFile ? (
+                <p className="mt-1.5 text-xs text-muted">Reading the file on this device…</p>
+              ) : uploadFile ? (
                 <p className="mt-1.5 text-xs text-muted">
                   {uploadFile.name} · {formatFileSize(uploadFile.size)}
                 </p>
-              ) : null}
+              ) : (
+                <p className="mt-1.5 text-xs text-muted">
+                  On a phone, choose Browse and pick a copy saved on this device (not only in iCloud or Drive).
+                </p>
+              )}
             </div>
           <div className="space-y-2 rounded-md border border-border bg-surface-2/40 p-3">
             <p className="text-xs font-semibold uppercase tracking-wide text-muted">Visibility</p>

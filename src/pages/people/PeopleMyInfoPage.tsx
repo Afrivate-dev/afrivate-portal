@@ -154,7 +154,7 @@ export function PeopleMyInfoPage() {
   }
 
   return (
-    <div className="av-contain space-y-6">
+    <div className="min-w-0 max-w-full space-y-6">
       <PageHeader
         title="My info"
         description="Fill this personnel questionnaire and save. People & Culture and administrators can export the file for payroll, onboarding, and records."

@@ -9,8 +9,8 @@ export function PeopleLayout() {
 
   return (
     <div className="av-contain space-y-4 sm:space-y-6">
-      <div className="av-scroll-x w-full max-w-full border-b border-border pb-1">
-        <nav className="inline-flex w-max gap-1" aria-label="People sections">
+      <div className="w-full max-w-full border-b border-border pb-1">
+        <nav className="flex flex-wrap gap-1" aria-label="People sections">
           {peopleNavItems.map((item) => (
             <NavLink
               key={item.to}

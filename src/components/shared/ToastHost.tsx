@@ -32,7 +32,7 @@ export function ToastHost() {
 
   return (
     <div
-      className="pointer-events-none fixed bottom-20 right-4 z-[100] flex w-full max-w-sm flex-col gap-2 lg:bottom-6"
+      className="pointer-events-none fixed inset-x-4 bottom-24 z-[300] flex max-w-sm flex-col gap-2 sm:inset-x-auto sm:right-4 lg:bottom-6"
       aria-live="polite"
     >
       {toasts.map((t) => {

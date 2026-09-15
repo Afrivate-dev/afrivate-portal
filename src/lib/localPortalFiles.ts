@@ -1,3 +1,5 @@
+import { readUploadFile } from '@/lib/readUploadFile'
+
 export const LOCAL_PORTAL_FILE_PREFIX = 'local:'
 
 function formatFileSize(bytes: number): string {
@@ -44,16 +46,19 @@ export async function saveLocalPortalFile(
   if (typeof indexedDB === 'undefined') {
     return { error: 'This browser cannot store files locally.' }
   }
-  if (!file.size) return { error: 'That file is empty. Choose another file.' }
   if (file.size > 50 * 1024 * 1024) return { error: 'Files must be 50 MB or smaller.' }
 
-  const path = `${LOCAL_PORTAL_FILE_PREFIX}${folder}/${userId}/${Date.now()}-${sanitizeFileName(file.name)}`
+  const ready = await readUploadFile(file)
+  if ('error' in ready) return ready
+  if (ready.size > 50 * 1024 * 1024) return { error: 'Files must be 50 MB or smaller.' }
+
+  const path = `${LOCAL_PORTAL_FILE_PREFIX}${folder}/${userId}/${Date.now()}-${sanitizeFileName(ready.name)}`
   try {
     const db = await openDb()
     await new Promise<void>((resolve, reject) => {
       const tx = db.transaction(STORE, 'readwrite')
       tx.objectStore(STORE).put(
-        { blob: file, name: file.name, type: file.type } satisfies StoredFile,
+        { blob: ready, name: ready.name, type: ready.type } satisfies StoredFile,
         path,
       )
       tx.oncomplete = () => resolve()
@@ -64,7 +69,7 @@ export async function saveLocalPortalFile(
     const message = err instanceof Error ? err.message : 'Could not save the file on this device'
     return { error: message }
   }
-  return { path, sizeLabel: formatFileSize(file.size) }
+  return { path, sizeLabel: formatFileSize(ready.size) }
 }
 
 export async function getLocalPortalFileBlobUrl(
