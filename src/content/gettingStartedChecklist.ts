@@ -102,7 +102,7 @@ const META: Record<string, GettingStartedChecklistMeta> = {
     cta: 'Write check-in',
   },
   directory_complete: {
-    description: 'See who leads your department and how to reach them on work email. Tell People & Culture the same day if title or reports-to is wrong.',
+    description: 'See who leads your department and how to reach them on work email. Tell Human Resources the same day if title or reports-to is wrong.',
     cta: 'Browse people',
   },
   ck_memos: {
@@ -110,7 +110,7 @@ const META: Record<string, GettingStartedChecklistMeta> = {
     cta: 'View memos',
   },
   ck_myinfo: {
-    description: 'People & Culture needs a usable phone number and emergency contact on file.',
+    description: 'Human Resources needs a usable phone number and emergency contact on file.',
     cta: 'Open My info',
   },
   ck_slack: {
@@ -131,7 +131,7 @@ const META: Record<string, GettingStartedChecklistMeta> = {
     cta: 'Open Growth',
   },
   ck_learning: {
-    description: 'If People & Culture assigned a course, complete it and submit evidence in Learning. Skip this if nothing is assigned yet.',
+    description: 'If Human Resources assigned a course, complete it and submit evidence in Learning. Skip this if nothing is assigned yet.',
     cta: 'Open Learning',
   },
 }

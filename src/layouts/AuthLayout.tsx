@@ -23,7 +23,7 @@ export function AuthLayout() {
           <img src="/afrivate-icon-white.svg" alt="AfriVate" className="hidden h-10 w-auto dark:block" />
           <div className="flex flex-col leading-tight">
             <span className="font-heading text-lg font-bold text-fg">AfriVate</span>
-            <span className="text-[11px] text-muted">Elevating Africa</span>
+            <span className="text-[11px] text-muted">Elevating Life in Africa</span>
           </div>
         </a>
         <button

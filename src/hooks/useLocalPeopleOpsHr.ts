@@ -81,6 +81,14 @@ export function useLocalPeopleOpsHr(deps: {
   users: Array<{ id: string; role: string }>
   teams: Array<{ leadUserId?: string; asstLeadUserId?: string; memberIds: string[] }>
   persist?: PeopleOpsPersist
+  /**
+   * Current signed-in user. Used as the fallback `actor_id` on HR audit rows
+   * written by HR/admin actions against other employees — portal_hr_audit_log
+   * RLS requires `actor_id = auth.uid()`, so writing the subject's id (which
+   * the legacy code did) was being silently rejected and surfaced as a
+   * misleading "This change wasn't allowed" toast on save.
+   */
+  currentUserId?: string
 }) {
   const [employeeProfiles, setEmployeeProfiles] = useLocalStorage<EmployeeProfile[]>(
     'av-hr-employee-profiles',
@@ -152,10 +160,20 @@ export function useLocalPeopleOpsHr(deps: {
     enqueuePersist(() => persistRef.current?.[key]?.(row as never))
   }
 
+  const currentUserIdRef = useRef(deps.currentUserId)
+  currentUserIdRef.current = deps.currentUserId
+
   const appendHrAudit = useCallback(
     (entry: Omit<HrAuditEntry, 'id' | 'createdAt'>) => {
+      // portal_hr_audit_log RLS requires actor_id = auth.uid(). If an admin is
+      // acting on another user's record we must stamp the actor as the admin,
+      // not the subject — otherwise the insert is silently rejected and the UI
+      // shows an "access denied" toast while the real save already succeeded.
+      const viewerId = currentUserIdRef.current
+      const actorId = viewerId || entry.actorId
       const row: HrAuditEntry = {
         ...entry,
+        actorId,
         id: `aud_${uid()}`,
         createdAt: new Date().toISOString(),
       }

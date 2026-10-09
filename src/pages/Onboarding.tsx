@@ -211,7 +211,7 @@ export function OnboardingPage() {
       </div>
       {canSeeAdmin ? (
         <p className="text-xs text-muted">
-          People & Culture run this week with AFRI-ONB-01 (New Team Member Onboarding Kit). Upload the kit PDF to
+          Human Resources run this week with AFRI-ONB-01 (New Team Member Onboarding Kit). Upload the kit PDF to
           Resources for leads. The joiner-facing handbook remains AFRI-EOH-01.
         </p>
       ) : null}

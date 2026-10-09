@@ -40,7 +40,7 @@ export const roleTitles = {
   staff: 'Team member',
   assistant_lead: 'Assistant lead',
   team_lead: 'Team lead',
-  hr: 'People & Culture',
+  hr: 'Human Resources',
   admin: 'Administrator',
 } as const
 
@@ -129,7 +129,7 @@ export const confirms = {
   deleteEventTitle: 'Remove event',
   submitTask: 'Save this task?',
   submitTaskTitle: 'Save task',
-  requestAccess: 'Create your account and send an access request to People & Culture?',
+  requestAccess: 'Create your account and send an access request to Human Resources?',
   requestAccessTitle: 'Create account',
   uploadDocument: 'Add this file to the document library?',
   uploadDocumentTitle: 'Upload file',
@@ -164,7 +164,7 @@ export const pages = {
   requestAccess: {
     title: 'Request access',
     subtitle:
-      'Create your account here. We will notify People & Culture to review and approve you.',
+      'Create your account here. We will notify Human Resources to review and approve you.',
     submitLabel: 'Create account & request access',
     nameLabel: 'Your name',
     namePlaceholder: 'e.g. Emmanuel Okpiaifo',
@@ -197,7 +197,7 @@ export const pages = {
     recentUpdates: 'Latest updates',
     todaySchedule: 'Today',
     emptyUpdates: 'No updates yet',
-    emptyUpdatesBody: "When People & Culture posts news, it will show up here.",
+    emptyUpdatesBody: "When Human Resources posts news, it will show up here.",
     emptyDay: 'Nothing scheduled',
     emptyDayBody: 'Enjoy the calm — or add something on the calendar.',
     tipTitle: 'Small habits help the team',
@@ -448,7 +448,7 @@ export const pages = {
     emptyFeedTitle: 'No memos yet',
     emptyFeedBodyPoster: "Share the first memo when you're ready.",
     emptyFeedBodyMember:
-      "When People & Culture or your leads share urgent news, it'll show up here.",
+      "When Human Resources or your leads share urgent news, it'll show up here.",
     formNewTitle: 'New memo',
     formEditTitle: 'Edit memo',
     formTitleLabel: 'Title',
@@ -467,7 +467,7 @@ export const pages = {
     subtitle: 'See your balances, send a request, and track approvals in one place.',
     requestCta: 'New request',
     balancesExplainer:
-      'Balances show approved days this year. Your full leave policy is with People & Culture.',
+      'Balances show approved days this year. Your full leave policy is with Human Resources.',
   },
   people: {
     title: 'People',
@@ -497,7 +497,7 @@ export const pages = {
     noMatchesHint: 'Try another search or choose a different department.',
     editProfile: 'Edit my profile',
     profileEditIntro:
-      'Help teammates recognize you. Update your job title, photo, how to reach you, and a short intro. Department and reporting line are still managed by People & Culture.',
+      'Help teammates recognize you. Update your photo, how to reach you, and a short intro. Job title, department, and reporting line are managed by Human Resources.',
     jobTitle: 'Job title',
     jobTitleHint: 'What shows under your name in the directory and on memos.',
     profilePhotoSection: 'Profile photo',

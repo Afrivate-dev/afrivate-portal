@@ -43,7 +43,7 @@ export function PortalLabelsSection() {
           Labels and categories
         </h2>
         <p className="text-sm text-muted">
-          People & Culture can add, rename, or remove labels used across tasks, resources, shout-outs,
+          Human Resources can add, rename, or remove labels used across tasks, resources, shout-outs,
           awards, speak-up reports, memos, and exit interviews.
         </p>
       </div>

@@ -95,7 +95,7 @@ export function evaluateRevivalAutoRule(
       const courseNeedle = REVIVAL_ALISON_COURSE.title.toLowerCase()
       return ctx.learningAssignments.some((a) => {
         if (!a.active) return false
-        const url = a.alisonUrl.toLowerCase()
+        const url = (a.courseUrl || a.alisonUrl || '').toLowerCase()
         const title = a.title.toLowerCase()
         const isAlison = url.includes('alison.com')
         const isBusinessWriting =

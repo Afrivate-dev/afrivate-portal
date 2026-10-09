@@ -67,7 +67,7 @@ export function PeopleOverviewPage() {
         <Card padding="md">
           <h2 className="text-sm font-semibold text-fg">Improvement plans and suspensions</h2>
           <p className="mt-1 text-xs text-muted">
-            Visible to team leads, People & Culture, and administrators. Suspended people can read
+            Visible to team leads, Human Resources, and administrators. Suspended people can read
             Memos and Resources only.
           </p>
           <ul className="mt-3 divide-y divide-border">
@@ -133,7 +133,7 @@ export function PeopleOverviewPage() {
           </h2>
           {!isHR(user) ? (
             <p className="mt-1 text-xs text-muted">
-              Aggregated pulse scores for the people you manage only. Individual answers stay with People & Culture.
+              Aggregated pulse scores for the people you manage only. Individual answers stay with Human Resources.
               {directReports === 0
                 ? ' Assign a team lead / department head or reports-to in the directory so team metrics can populate.'
                 : null}

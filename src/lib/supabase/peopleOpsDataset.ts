@@ -358,12 +358,23 @@ export async function fetchPeopleOpsDataset(client: SupabaseClient): Promise<Peo
   }
 }
 
+/**
+ * Upserts a people-ops row. For portal_employee_profiles we deliberately resolve
+ * on the `user_id` UNIQUE constraint so a stale local `id` (e.g. the fallback
+ * `epr_<userId>` returned by `ensureEmployeeProfile` when the browser hasn't
+ * hydrated the real DB id yet) cannot create a duplicate row or get silently
+ * rejected by the constraint.
+ */
 export async function upsertPeopleOpsRow(
   client: SupabaseClient,
   table: string,
   row: Record<string, unknown>,
 ): Promise<{ error: { message: string } | null }> {
-  const { error } = await client.from(table).upsert(row)
+  const options =
+    table === 'portal_employee_profiles' ? { onConflict: 'user_id' } : undefined
+  const { error } = options
+    ? await client.from(table).upsert(row, options)
+    : await client.from(table).upsert(row)
   return { error }
 }
 

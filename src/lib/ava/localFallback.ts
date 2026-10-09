@@ -506,7 +506,7 @@ export function localAvaRespond(
         '1. Open the assigned Alison course.',
         '2. Complete the course.',
         '3. Submit the course name, completion date, and certificate in the Portal.',
-        '4. Await People & Culture review (pending / approved / rejected).',
+        '4. Await Human Resources review (pending / approved / rejected).',
         '',
         `Learning items pending for you: ${ctx.personal?.learningPending ?? 0}.`,
       ].join('\n'),
@@ -604,7 +604,7 @@ export function localAvaRespond(
       links,
       suggestedActions: actions,
       reply: [
-        'People & Culture tools live under **Admin**.',
+        'Human Resources tools live under **Admin**.',
         '',
         '- **Approvals** — access requests',
         '- **Leave** — organisation leave queue',

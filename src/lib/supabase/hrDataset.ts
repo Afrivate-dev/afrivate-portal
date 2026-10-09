@@ -51,13 +51,21 @@ export function rowToPulseResponse(r: Record<string, unknown>): PulseResponse {
 }
 
 export function rowToLearningAssignment(r: Record<string, unknown>): LearningAssignment {
+  const alisonUrl = r.alison_url ? String(r.alison_url) : ''
+  const courseUrl = r.course_url ? String(r.course_url) : alisonUrl
   return {
     id: String(r.id),
     title: String(r.title ?? ''),
-    alisonUrl: String(r.alison_url ?? ''),
+    courseUrl,
+    alisonUrl,
     description: r.description ? String(r.description) : undefined,
     dueDate: r.due_date ? String(r.due_date) : undefined,
     monthLabel: r.month_label ? String(r.month_label) : undefined,
+    platform: r.platform ? String(r.platform) : undefined,
+    durationMinutes:
+      r.duration_minutes != null && !Number.isNaN(Number(r.duration_minutes))
+        ? Number(r.duration_minutes)
+        : undefined,
     active: Boolean(r.active),
     createdAt: String(r.created_at),
   }

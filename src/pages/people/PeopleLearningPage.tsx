@@ -82,28 +82,42 @@ export function PeopleLearningPage() {
     <div className="av-contain space-y-6">
       <PageHeader
         title="Learning"
-        description="Complete courses on Alison, then submit your certificate here."
+        description="Open the course your team has assigned, then submit a short completion note (and optional certificate) here."
       />
 
       {current ? (
         <Card padding="md">
           <div className="flex flex-wrap items-start justify-between gap-3">
-            <div>
+            <div className="min-w-0 flex-1">
               <Badge tone="brand">{current.monthLabel ?? 'Current course'}</Badge>
               <h2 className="mt-2 text-lg font-semibold text-fg">{current.title}</h2>
-              {current.description ? <p className="mt-1 text-sm text-muted">{current.description}</p> : null}
-              {current.dueDate ? (
-                <p className="mt-2 text-xs text-muted">Due {fmtDate(current.dueDate)}</p>
+              {current.description ? (
+                <p className="mt-1 text-sm text-muted">{current.description}</p>
               ) : null}
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-muted">
+                {current.platform ? <span>Platform: {current.platform}</span> : null}
+                {current.durationMinutes ? (
+                  <span>
+                    Duration:{' '}
+                    {current.durationMinutes >= 60
+                      ? `~${Math.round(current.durationMinutes / 60)}h`
+                      : `${current.durationMinutes} min`}
+                  </span>
+                ) : null}
+                {current.dueDate ? <span>Due {fmtDate(current.dueDate)}</span> : null}
+              </div>
             </div>
-            <a
-              href={current.alisonUrl}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
-            >
-              Open on Alison <ExternalLink className="h-4 w-4" />
-            </a>
+            {current.courseUrl || current.alisonUrl ? (
+              <a
+                href={current.courseUrl || current.alisonUrl}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-md bg-accent px-4 py-2 text-sm font-medium text-white hover:bg-accent-hover"
+              >
+                {current.platform ? `Open on ${current.platform}` : 'Open course'}{' '}
+                <ExternalLink className="h-4 w-4" />
+              </a>
+            ) : null}
           </div>
 
           {submissionBlocked ? (
@@ -124,7 +138,7 @@ export function PeopleLearningPage() {
                   Your previous submission was not approved. Update your details and try again.
                 </p>
               ) : null}
-              <Input label="Course name" value={courseName} onChange={(e) => setCourseName(e.target.value)} placeholder="As shown on Alison" />
+              <Input label="Course name" value={courseName} onChange={(e) => setCourseName(e.target.value)} placeholder="As shown on the course page" />
               <Input label="Completed on" type="date" value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} />
               <p className="text-xs text-muted">Certificate optional — attach PDF or image if you have one.</p>
               <div className="flex flex-wrap gap-2">
@@ -145,7 +159,7 @@ export function PeopleLearningPage() {
           )}
         </Card>
       ) : (
-        <EmptyState icon={GraduationCap} title="No course assigned" description="HR will post the monthly Alison course here." />
+        <EmptyState icon={GraduationCap} title="No course assigned" description="Your team will post the next course here." />
       )}
 
       {mySubs.length > 0 ? (

@@ -91,7 +91,7 @@ const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Team member' },
   { value: 'assistant_lead', label: 'Assistant lead' },
   { value: 'team_lead', label: 'Team lead' },
-  { value: 'hr', label: 'People & Culture' },
+  { value: 'hr', label: 'Human Resources' },
   { value: 'admin', label: 'Administrator' },
 ]
 

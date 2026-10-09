@@ -50,7 +50,7 @@ Deno.serve(async (req) => {
 
     if (!profile?.role || !['admin', 'hr'].includes(profile.role)) {
       return new Response(
-        JSON.stringify({ error: 'Only administrators and People & Culture managers can invite users' }),
+        JSON.stringify({ error: 'Only administrators and Human Resources can invite users' }),
         {
           status: 403,
           headers: { ...corsHeaders, 'Content-Type': 'application/json' },

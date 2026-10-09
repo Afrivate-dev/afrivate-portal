@@ -12,7 +12,7 @@ export const AVA_KNOWLEDGE = `
 - Gmail (hr@afrivate.org) = official broadcasts and external/formal correspondence.
 - Alison = course delivery; proof of completion is submitted in the Portal.
 - Google Drive = master policy/contract copies; staff-facing copies live in Portal Resources.
-- WhatsApp = informal or emergency contact only. Never for leave, policy acknowledgements, appraisals, or formal People & Culture processes.
+- WhatsApp = informal or emergency contact only. Never for leave, policy acknowledgements, appraisals, or formal Human Resources processes.
 - A Slack message does not replace a required Portal submission, approval, acknowledgement, or update.
 
 ## Guides
@@ -39,7 +39,7 @@ export const AVA_KNOWLEDGE = `
 
 ## Getting started (onboarding)
 Open Getting started (/onboarding). Watch welcome videos and complete the first-week checklist (profile, My info, Slack, Resources acknowledgements, first tasks, OKRs, weekly update, learning). Home shows video progress for the first 30 days. Some checklist items tick themselves when you complete the related Portal action.
-People & Culture run new joiners with AFRI-ONB-01 (Onboarding Kit). The joiner-facing handbook is AFRI-EOH-01. Slack coordinates; Portal records. WhatsApp is not for onboarding steps.
+Human Resources run new joiners with AFRI-ONB-01 (Onboarding Kit). The joiner-facing handbook is AFRI-EOH-01. Slack coordinates; Portal records. WhatsApp is not for onboarding steps.
 Required acknowledgements in Resources within seven official work days: AFRI-SWP, AFRI-ORG-01, AFRI-LAP-01, AFRI-EOH-01, and AFRI-ICEF-01 if unpaid. Team Leads also acknowledge AFRI-TLOP-01 and AFRI-DOA-01.
 
 ## How to request leave

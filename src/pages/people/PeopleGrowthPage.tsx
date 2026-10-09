@@ -457,7 +457,7 @@ export function PeopleGrowthPage() {
             </>
           ) : (
             <Card padding="md">
-              <p className="text-sm text-muted">No feedback cycle is open. People & Culture runs these twice a year.</p>
+              <p className="text-sm text-muted">No feedback cycle is open. Human Resources runs these twice a year.</p>
               {isHR(user) ? (
                 <div className="mt-3 flex flex-wrap gap-2">
                   {feedbackTemplates.map((tpl) => (
@@ -547,7 +547,7 @@ export function PeopleGrowthPage() {
                 }))}
               />
               <Textarea label="Describe your concern" rows={4} value={grievanceBody} onChange={(e) => setGrievanceBody(e.target.value)} />
-              <Button onClick={submitGrievanceForm}>Send to People & Culture</Button>
+              <Button onClick={submitGrievanceForm}>Send to Human Resources</Button>
             </div>
           </Card>
           {myGrievances.length > 0 ? (

@@ -110,8 +110,8 @@ export function RequestAccessPage() {
     clearPendingAccessDraft()
     setSuccess(
       result.alreadyRequested
-        ? 'Account created. Your request is already with the team — People & Culture will review it soon.'
-        : 'Account created and request sent. People & Culture will email you when your access is approved.',
+        ? 'Account created. Your request is already with the team — Human Resources will review it soon.'
+        : 'Account created and request sent. Human Resources will email you when your access is approved.',
     )
     navigate('/', { replace: true })
   }

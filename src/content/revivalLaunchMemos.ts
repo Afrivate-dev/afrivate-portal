@@ -46,7 +46,7 @@ This memo marks the start of how we will work together going forward — clearer
 ---
 
 **Why this matters**
-AfriVate is building a People & Culture rhythm that is consistent, fair, and easy to follow. From today, the AfriVate Team Space portal is our system of record for people work. Email remains how we announce and reach everyone. Learning happens on Alison. Master documents live in Drive, with staff-facing copies in the portal.
+AfriVate is building a Human Resources rhythm that is consistent, fair, and easy to follow. From today, the AfriVate Team Space portal is our system of record for people work. Email remains how we announce and reach everyone. Learning happens on Alison. Master documents live in Drive, with staff-facing copies in the portal.
 
 Simple rule of thumb:
 - Needs a record, approval, or acknowledgment → **portal**

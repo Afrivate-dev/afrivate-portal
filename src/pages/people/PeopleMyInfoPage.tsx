@@ -108,12 +108,12 @@ export function PeopleMyInfoPage() {
     <div className="av-contain space-y-6">
       <PageHeader
         title="My info"
-        description="Update personal and contact details. Job and contract fields are managed by People & Culture."
+        description="Update personal and contact details. Job and contract fields are managed by Human Resources."
       />
 
       {profile?.hrRequestsUpdate ? (
         <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-900">
-          People & Culture has asked you to review and update your personal information.
+          Human Resources has asked you to review and update your personal information.
         </div>
       ) : null}
 
