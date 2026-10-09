@@ -1636,31 +1636,110 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       teams,
       addTeam: async (t) => {
         const id = 'team_' + uid()
-        await client.from('portal_teams').insert({ id, name: t.name, description: t.description, department_id: t.departmentId, lead_user_id: t.leadUserId, asst_lead_user_id: t.asstLeadUserId })
+        const { error } = await client.from('portal_teams').insert({
+          id,
+          name: t.name,
+          description: t.description ?? null,
+          department_id: t.departmentId ?? null,
+          lead_user_id: t.leadUserId ?? null,
+          asst_lead_user_id: t.asstLeadUserId ?? null,
+        })
+        if (error) {
+          reportDataError('add team', error)
+          return
+        }
         setTeams((prev) => [...prev, { ...t, id, memberIds: [] }])
+        await reloadData()
       },
       updateTeam: async (id, patch) => {
-        await client.from('portal_teams').update({ name: patch.name, description: patch.description, department_id: patch.departmentId, lead_user_id: patch.leadUserId, asst_lead_user_id: patch.asstLeadUserId }).eq('id', id)
+        // Build only the fields that were actually provided so a partial patch
+        // (e.g. renaming without touching lead) never nulls out other columns.
+        const row: Record<string, unknown> = {}
+        if (patch.name !== undefined) row.name = patch.name
+        if (patch.description !== undefined) row.description = patch.description ?? null
+        if (patch.departmentId !== undefined) row.department_id = patch.departmentId ?? null
+        if (patch.leadUserId !== undefined) row.lead_user_id = patch.leadUserId ?? null
+        if (patch.asstLeadUserId !== undefined) row.asst_lead_user_id = patch.asstLeadUserId ?? null
+        if (Object.keys(row).length === 0) return
+        const { data, error } = await client
+          .from('portal_teams')
+          .update(row)
+          .eq('id', id)
+          .select('id')
+        if (error) {
+          reportDataError('save team', error)
+          await reloadData()
+          return
+        }
+        if (!data?.length) {
+          // PostgREST returns 0 rows (no error) when RLS blocks the UPDATE.
+          // That used to be invisible — surface it so the admin knows.
+          notifyError("Team couldn't be saved — you may not have permission to update this team.")
+          await reloadData()
+          return
+        }
         setTeams((prev) => prev.map((t) => (t.id === id ? { ...t, ...patch } : t)))
+        await reloadData()
       },
       deleteTeam: async (id) => {
-        await client.from('portal_teams').delete().eq('id', id)
+        const { error } = await client.from('portal_teams').delete().eq('id', id)
+        if (error) {
+          reportDataError('delete team', error)
+          return
+        }
         setTeams((prev) => prev.filter((t) => t.id !== id))
+        await reloadData()
       },
       departments,
       addDepartment: async (d) => {
         const id = 'dept_' + uid()
         const now = new Date().toISOString()
-        await client.from('portal_departments').insert({ id, name: d.name, description: d.description, head_user_id: d.headUserId, created_at: now })
+        const { error } = await client.from('portal_departments').insert({
+          id,
+          name: d.name,
+          description: d.description ?? null,
+          head_user_id: d.headUserId ?? null,
+          created_at: now,
+        })
+        if (error) {
+          reportDataError('add department', error)
+          return
+        }
         setDepartments((prev) => [...prev, { ...d, id, createdAt: now }])
+        await reloadData()
       },
       updateDepartment: async (id, patch) => {
-        await client.from('portal_departments').update({ name: patch.name, description: patch.description, head_user_id: patch.headUserId }).eq('id', id)
+        const row: Record<string, unknown> = {}
+        if (patch.name !== undefined) row.name = patch.name
+        if (patch.description !== undefined) row.description = patch.description ?? null
+        if (patch.headUserId !== undefined) row.head_user_id = patch.headUserId ?? null
+        if (Object.keys(row).length === 0) return
+        const { data, error } = await client
+          .from('portal_departments')
+          .update(row)
+          .eq('id', id)
+          .select('id')
+        if (error) {
+          reportDataError('save department', error)
+          await reloadData()
+          return
+        }
+        if (!data?.length) {
+          notifyError("Department couldn't be saved — you may not have permission to update it.")
+          await reloadData()
+          return
+        }
         setDepartments((prev) => prev.map((d) => (d.id === id ? { ...d, ...patch } : d)))
+        await reloadData()
       },
       deleteDepartment: async (id) => {
-        await client.from('portal_departments').delete().eq('id', id)
+        const { error } = await client.from('portal_departments').delete().eq('id', id)
+        if (error) {
+          reportDataError('delete department', error)
+          return
+        }
         setDepartments((prev) => prev.filter((d) => d.id !== id))
+        await reloadData()
       },
       assignUserToDepartment: async (userId, departmentId) => {
         const result = await rpcAssignUserToDepartment(client, userId, departmentId)

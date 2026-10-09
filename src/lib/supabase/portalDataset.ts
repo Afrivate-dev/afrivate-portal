@@ -521,6 +521,12 @@ export async function fetchPortalDataset(client: SupabaseClient): Promise<Portal
       name: String(row.name ?? ''),
       description: row.description ? String(row.description) : undefined,
       memberIds: memberMap.get(id) ?? [],
+      // These columns exist since 20260602_departments_teams_approvals.sql.
+      // Omitting them was the reason "department and lead come back blank
+      // on reload" after Admin > Teams save — the write itself was fine.
+      departmentId: row.department_id ? String(row.department_id) : undefined,
+      leadUserId: row.lead_user_id ? String(row.lead_user_id) : undefined,
+      asstLeadUserId: row.asst_lead_user_id ? String(row.asst_lead_user_id) : undefined,
     }
   })
 
