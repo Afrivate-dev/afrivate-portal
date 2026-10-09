@@ -154,21 +154,33 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setCheckIns(d.checkIns)
       setAnnouncements(d.announcements)
       setLeaveRequests(d.leaveRequests)
-      const { data: commentRows } = await client
-        .from('portal_leave_comments')
-        .select('*')
-        .order('created_at', { ascending: true })
-      if (commentRows) {
-        setLeaveComments(commentRows.map((r) => rowToLeaveComment(r as Record<string, unknown>)))
+      try {
+        const { data: commentRows, error: commentErr } = await client
+          .from('portal_leave_comments')
+          .select('*')
+          .order('created_at', { ascending: true })
+        if (commentErr) {
+          console.warn('[data] leave comments load failed:', commentErr.message)
+        } else if (commentRows) {
+          setLeaveComments(commentRows.map((r) => rowToLeaveComment(r as Record<string, unknown>)))
+        }
+      } catch (e) {
+        console.warn('[data] leave comments threw:', e instanceof Error ? e.message : e)
       }
-      const { data: recCommentRows } = await client
-        .from('portal_recognition_comments')
-        .select('*')
-        .order('created_at', { ascending: true })
-      if (recCommentRows) {
-        setRecognitionComments(
-          recCommentRows.map((r) => rowToRecognitionComment(r as Record<string, unknown>)),
-        )
+      try {
+        const { data: recCommentRows, error: recCommentErr } = await client
+          .from('portal_recognition_comments')
+          .select('*')
+          .order('created_at', { ascending: true })
+        if (recCommentErr) {
+          console.warn('[data] recognition comments load failed:', recCommentErr.message)
+        } else if (recCommentRows) {
+          setRecognitionComments(
+            recCommentRows.map((r) => rowToRecognitionComment(r as Record<string, unknown>)),
+          )
+        }
+      } catch (e) {
+        console.warn('[data] recognition comments threw:', e instanceof Error ? e.message : e)
       }
       setOnboardingVideos(d.onboardingVideos)
       setOnboardingChecklist(d.onboardingChecklist)
@@ -178,15 +190,28 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       setInbox(d.inbox)
       setEvents(d.events)
       setTeams(d.teams)
-      // Load departments
-      const { data: depts } = await client.from('portal_departments').select('*').order('name')
-      if (depts) setDepartments(depts.map((r: Record<string, unknown>) => ({
-        id: r.id as string,
-        name: r.name as string,
-        description: r.description as string | undefined,
-        headUserId: r.head_user_id as string | undefined,
-        createdAt: r.created_at as string,
-      })))
+      // Load departments (independent — never block the whole portal)
+      try {
+        const { data: depts, error: deptErr } = await client
+          .from('portal_departments')
+          .select('*')
+          .order('name')
+        if (deptErr) {
+          console.warn('[data] departments load failed:', deptErr.message)
+        } else if (depts) {
+          setDepartments(
+            depts.map((r: Record<string, unknown>) => ({
+              id: r.id as string,
+              name: r.name as string,
+              description: r.description as string | undefined,
+              headUserId: r.head_user_id as string | undefined,
+              createdAt: r.created_at as string,
+            })),
+          )
+        }
+      } catch (e) {
+        console.warn('[data] departments threw:', e instanceof Error ? e.message : e)
+      }
 
       const { data: accessRows, error: accessErr } = await client
         .from('portal_access_requests')
@@ -242,6 +267,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           console.warn('[data] access requests load failed:', accessErr.message)
         }
       }
+      // Access requests are an admin feature — a 401/403 here must not stall the
+      // whole portal for staff, so this already handles errors via `accessErr`.
       setAccessRequests(loadedAccess)
 
       // Overlay requested job titles only when profile still has the old "Staff" placeholder
@@ -257,11 +284,22 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         )
       }
 
+      // Surface the first-encountered per-panel error (if any) as a soft warning —
+      // every panel is still rendered; failing tables render empty with console
+      // warnings and the user sees a top-of-page notice.
+      const firstErr = Object.values(d.errors ?? {})[0]
+      setDataError(firstErr ?? null)
       setDataStatus('ready')
       hasLoadedOnceRef.current = true
     } catch (e) {
-      setDataStatus('error')
+      // We should rarely reach here now (per-query errors are swallowed), but
+      // keep a hard failure path for completely offline / init failures.
+      console.warn('[data] reloadData threw:', e)
       setDataError(e instanceof Error ? e.message : 'Failed to load data')
+      // Still flip to ready so the shell renders and the user can retry; the
+      // top-level banner surfaces the error.
+      setDataStatus('ready')
+      hasLoadedOnceRef.current = true
     }
   }, [client, userId])
 

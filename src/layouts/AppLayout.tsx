@@ -66,7 +66,7 @@ function AppShell({
 
 export function AppLayout() {
   const { user, logout, reconcileUser, authReady, profileLoadFailed, profileError, refreshUser } = useAuth()
-  const { dataStatus, reloadData, users } = useData()
+  const { dataStatus, dataError, reloadData, users } = useData()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -113,12 +113,17 @@ export function AppLayout() {
     return <Navigate to="/login" replace />
   }
 
+  // Prefer the auth-level profile warning; fall back to a partial-data warning
+  // so the user knows something couldn't load (e.g. missing RLS grants on a
+  // single table) without blocking the whole portal.
   const profileWarning =
     profileLoadFailed && user
       ? profileError
         ? `Some profile details could not be loaded (${profileError}). You can still use the portal.`
         : 'Some profile details could not be loaded. You can still use the portal.'
-      : null
+      : dataStatus === 'ready' && dataError
+        ? `Some portal data could not be loaded (${dataError}). The rest of the portal is available.`
+        : null
 
   const dutyBanner =
     user && isSuspended(user) ? (

@@ -319,21 +319,34 @@ function mapRows<T>(rows: unknown[] | null, fn: (r: Record<string, unknown>) => 
 }
 
 export async function fetchPeopleOpsDataset(client: SupabaseClient): Promise<PeopleOpsDataset | null> {
+  type QueryResult = { data: unknown[] | null; error: { message: string } | null }
+  const safe = async (label: string, q: PromiseLike<QueryResult>): Promise<QueryResult> => {
+    try {
+      const res = await q
+      if (res.error) {
+        console.warn(`[hr] people ops ${label}:`, res.error.message)
+        return { data: null, error: res.error }
+      }
+      return res
+    } catch (e) {
+      console.warn(`[hr] people ops ${label} threw:`, e instanceof Error ? e.message : e)
+      return { data: null, error: { message: e instanceof Error ? e.message : String(e) } }
+    }
+  }
+
   const [profiles, cases, pips, appraisals, audit, offboarding] = await Promise.all([
-    client.from('portal_employee_profiles').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_discipline_cases').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_pips').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_appraisals').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_hr_audit_log').select('*').order('created_at', { ascending: false }).limit(200),
-    client.from('portal_offboarding_checklists').select('*').order('updated_at', { ascending: false }),
+    safe('employee_profiles', client.from('portal_employee_profiles').select('*').order('updated_at', { ascending: false })),
+    safe('discipline_cases', client.from('portal_discipline_cases').select('*').order('updated_at', { ascending: false })),
+    safe('pips', client.from('portal_pips').select('*').order('updated_at', { ascending: false })),
+    safe('appraisals', client.from('portal_appraisals').select('*').order('updated_at', { ascending: false })),
+    safe('hr_audit_log', client.from('portal_hr_audit_log').select('*').order('created_at', { ascending: false }).limit(200)),
+    safe('offboarding', client.from('portal_offboarding_checklists').select('*').order('updated_at', { ascending: false })),
   ])
 
-  const firstErr =
-    profiles.error || cases.error || pips.error || appraisals.error || audit.error || offboarding.error
-  if (firstErr) {
-    console.warn('[hr] people ops fetch:', firstErr.message)
-    return null
-  }
+  // Only treat the whole fetch as null if EVERY query failed (likely signed-out
+  // or complete outage). Otherwise return what we have so panels render.
+  const allFailed = [profiles, cases, pips, appraisals, audit, offboarding].every((r) => r.error)
+  if (allFailed) return null
 
   return {
     employeeProfiles: mapRows(profiles.data, rowToEmployeeProfile),
