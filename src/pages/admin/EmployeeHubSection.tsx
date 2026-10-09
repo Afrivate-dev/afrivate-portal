@@ -396,22 +396,51 @@ function DossierModal({
   setIncludeDisciplinePdf: (v: boolean) => void
   actorId: string
 }) {
-  const { users } = useData()
+  const { users, departments, updateUser, assignUserToDepartment } = useData()
   const { user: viewer } = useAuth()
   const hr = useHr()
   const { setDutyStatus } = useDutyStatusActions()
   const u = users.find((x) => x.id === userId)
   const profile = hr.ensureEmployeeProfile(userId)
+  const canEditJobAndDept = Boolean(viewer && (isHR(viewer) || isAdmin(viewer)))
   const [draft, setDraft] = useState({ ...profile })
+  // Job title / department live on `profiles` (not on portal_employee_profiles),
+  // but we edit them from the same dialog so HR has one place to work.
+  const currentDeptId = useMemo(
+    () => departments.find((d) => d.name === u?.department)?.id ?? '',
+    [departments, u?.department],
+  )
+  const [jobDraft, setJobDraft] = useState({
+    jobTitle: u?.jobTitle ?? '',
+    departmentId: currentDeptId,
+  })
 
   useEffect(() => {
     setDraft({ ...profile })
   }, [profile.id, profile.updatedAt, profile.userId, profile.engagementType, profile.employmentStatus, profile.startDate, profile.probationEndDate, profile.confirmationDate, profile.payrollSetupComplete, profile.hrRequestsUpdate, profile.contractTermsSummary, profile.hrPrivateNotes])
 
+  useEffect(() => {
+    setJobDraft({ jobTitle: u?.jobTitle ?? '', departmentId: currentDeptId })
+  }, [u?.id, u?.jobTitle, currentDeptId])
+
   if (!u) return null
 
-  const save = () => {
+  const save = async () => {
     hr.saveEmployeeProfileHr({ ...draft, userId })
+    if (canEditJobAndDept) {
+      const nextJobTitle = jobDraft.jobTitle.trim()
+      if (nextJobTitle !== (u.jobTitle ?? '').trim()) {
+        updateUser(userId, { jobTitle: nextJobTitle }, (errMsg) => notifyError(errMsg))
+      }
+      // Department changes go through the dedicated RPC so dept head →
+      // reports_to_id propagation and team assignments stay consistent.
+      if (jobDraft.departmentId && jobDraft.departmentId !== currentDeptId) {
+        const result = await assignUserToDepartment(userId, jobDraft.departmentId)
+        if (!result.ok) {
+          notifyError(result.error ?? "Department couldn't be updated.")
+        }
+      }
+    }
     notifySuccess('Profile saved')
   }
 
@@ -438,7 +467,7 @@ function DossierModal({
           <Button type="button" variant="secondary" onClick={onClose}>
             Close
           </Button>
-          <Button type="button" onClick={save}>
+          <Button type="button" onClick={() => void save()}>
             Save profile
           </Button>
         </>
@@ -466,7 +495,7 @@ function DossierModal({
                   {shownDuty === 'suspended'
                     ? 'This person can sign in and read Updates and Resources only.'
                     : shownDuty === 'pip'
-                      ? 'An improvement plan is visible to team leads, People & Culture, and administrators.'
+                      ? 'An improvement plan is visible to team leads, Human Resources, and administrators.'
                       : 'This case stays on the profile until it is closed.'}
                 </p>
               </div>
@@ -507,7 +536,7 @@ function DossierModal({
             <div>
               <p className="text-sm font-medium">Improvement plan or suspension</p>
               <p className="text-xs text-[var(--color-muted)]">
-                Visible to team leads, People & Culture, and administrators. Suspended people can
+                Visible to team leads, Human Resources, and administrators. Suspended people can
                 sign in and read Memos and Resources only.
               </p>
             </div>
@@ -520,6 +549,31 @@ function DossierModal({
             options={DUTY_STATUS_OPTIONS}
           />
         </div>
+
+        {canEditJobAndDept ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            <Input
+              label="Job title"
+              value={jobDraft.jobTitle}
+              onChange={(e) =>
+                setJobDraft((j) => ({ ...j, jobTitle: e.target.value.slice(0, 120) }))
+              }
+              placeholder="e.g. Product Designer"
+              hint="Shown on the directory and PDFs. Only Human Resources and admins can change this."
+            />
+            <Select
+              label="Department"
+              value={jobDraft.departmentId}
+              onChange={(e) => setJobDraft((j) => ({ ...j, departmentId: e.target.value }))}
+              options={[
+                ...(jobDraft.departmentId
+                  ? []
+                  : [{ value: '', label: 'Select a department…' }]),
+                ...departments.map((d) => ({ value: d.id, label: d.name })),
+              ]}
+            />
+          </div>
+        ) : null}
 
         <div className="grid gap-3 sm:grid-cols-2">
           <Select
