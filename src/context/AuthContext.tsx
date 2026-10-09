@@ -121,15 +121,38 @@ function isRpcMissing(error: { message: string; code?: string }): boolean {
   )
 }
 
+/** 8s cap on profile reads — above this the whole app sits on "Checking your session…". */
+const PROFILE_LOAD_TIMEOUT_MS = 8_000
+
+async function withTimeout<T>(
+  promise: PromiseLike<T>,
+  ms: number,
+  label: string,
+): Promise<T> {
+  return await new Promise<T>((resolve, reject) => {
+    const timer = setTimeout(() => reject(new Error(`${label} timed out after ${ms}ms`)), ms)
+    Promise.resolve(promise).then(
+      (value) => {
+        clearTimeout(timer)
+        resolve(value)
+      },
+      (err) => {
+        clearTimeout(timer)
+        reject(err)
+      },
+    )
+  })
+}
+
 async function loadProfileRowFromTable(
   client: SupabaseClient,
   userId: string,
 ): Promise<{ row: ProfileRow | null; error?: string }> {
-  const { data: row, error } = await client
-    .from('profiles')
-    .select(PROFILE_CORE_SELECT)
-    .eq('id', userId)
-    .maybeSingle()
+  const { data: row, error } = await withTimeout(
+    client.from('profiles').select(PROFILE_CORE_SELECT).eq('id', userId).maybeSingle(),
+    PROFILE_LOAD_TIMEOUT_MS,
+    'profiles select',
+  ).catch((e) => ({ data: null, error: { code: 'TIMEOUT', message: e instanceof Error ? e.message : String(e) } }))
 
   if (error) {
     if (error.code === 'PGRST116') return { row: null }
@@ -156,7 +179,19 @@ async function loadProfileRow(
   client: SupabaseClient,
   userId: string,
 ): Promise<{ row: ProfileRow | null; error?: string }> {
-  const { data: rpcData, error: rpcError } = await client.rpc('get_my_portal_profile')
+  const rpcResult = await withTimeout(
+    client.rpc('get_my_portal_profile'),
+    PROFILE_LOAD_TIMEOUT_MS,
+    'get_my_portal_profile',
+  ).catch((e) => ({
+    data: null,
+    error: { code: 'TIMEOUT', message: e instanceof Error ? e.message : String(e) },
+  }))
+
+  const { data: rpcData, error: rpcError } = rpcResult as {
+    data: unknown
+    error: { code?: string; message: string } | null
+  }
 
   if (!rpcError) {
     const row = parseProfileRpcPayload(rpcData)
@@ -185,9 +220,14 @@ async function loadSupabasePortalUser(
   const { row, error } = await loadProfileRow(client, base.id)
 
   if (error) {
-    if (attempt < 2) {
-      await client.auth.refreshSession()
-      await new Promise((r) => setTimeout(r, 250 * (attempt + 1)))
+    // One retry only. The second attempt also uses PROFILE_LOAD_TIMEOUT_MS, so the
+    // worst case stays under ~20s and the UI falls back to session metadata instead
+    // of hanging on "Checking your session…" indefinitely.
+    if (attempt < 1) {
+      await client.auth.refreshSession().catch(() => {
+        /* refresh may fail with network issues; the retry still has value */
+      })
+      await new Promise((r) => setTimeout(r, 200))
       return loadSupabasePortalUser(client, session, attempt + 1)
     }
     console.warn('[auth] profiles read:', error)
@@ -318,13 +358,36 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     let cancelled = false
 
     const syncFromSession = (session: Session | null) => {
-      void loadSupabasePortalUser(sb, session).then((result) => {
-        if (cancelled) return
-        applyPortalUser(result)
-        if (result.user) recordSessionActivity()
-        setAuthReady(true)
-      })
+      void loadSupabasePortalUser(sb, session)
+        .then((result) => {
+          if (cancelled) return
+          applyPortalUser(result)
+          if (result.user) recordSessionActivity()
+        })
+        .catch((e) => {
+          // Never leave the UI stuck on "Checking your session…" if something
+          // throws unexpectedly — fall back to the raw session.
+          console.warn('[auth] syncFromSession failed:', e)
+          if (cancelled) return
+          applyPortalUser({
+            user: sessionToPortalUser(session),
+            profileLoadFailed: true,
+            profileError: e instanceof Error ? e.message : String(e),
+          })
+        })
+        .finally(() => {
+          if (cancelled) return
+          setAuthReady(true)
+        })
     }
+
+    // Safety: force authReady after a maximum delay so we never block the UI
+    // on "Checking your session…" indefinitely when the auth client is slow
+    // (e.g. flaky network, Supabase outage).
+    const readyFallback = window.setTimeout(() => {
+      if (cancelled) return
+      setAuthReady(true)
+    }, 12_000)
 
     const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
       // Mobile file/camera pickers often fire auth noise with a null session.
@@ -350,6 +413,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
     return () => {
       cancelled = true
+      window.clearTimeout(readyFallback)
       sub.subscription.unsubscribe()
     }
   }, [supabaseMode, applyPortalUser])
