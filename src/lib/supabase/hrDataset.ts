@@ -416,7 +416,39 @@ export interface HrDataset {
   quarterlyAwards: QuarterlyAward[]
 }
 
-export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset> {
+/**
+ * Resilient HR dataset loader. Each query runs independently and failures are
+ * logged + collected into `errors` instead of throwing — so if a non-HR role
+ * can't read e.g. portal_job_candidates (RLS) or the ATS table hits a transient
+ * connection reset, the rest of the HR panels still render.
+ */
+export async function fetchHrDataset(
+  client: SupabaseClient,
+): Promise<HrDataset & { errors: Partial<Record<keyof HrDataset, string>> }> {
+  const errors: Partial<Record<keyof HrDataset, string>> = {}
+
+  type QueryResult = { data: unknown[] | null; error: { message: string } | null }
+
+  const safe = async <K extends keyof HrDataset>(
+    key: K,
+    q: PromiseLike<QueryResult>,
+  ): Promise<QueryResult> => {
+    try {
+      const res = await q
+      if (res.error) {
+        errors[key] = res.error.message
+        console.warn(`[hr] ${key} load failed:`, res.error.message)
+        return { data: null, error: res.error }
+      }
+      return res
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      errors[key] = message
+      console.warn(`[hr] ${key} load threw:`, message)
+      return { data: null, error: { message } }
+    }
+  }
+
   const [
     surveysRes,
     responsesRes,
@@ -436,45 +468,26 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     milestonesRes,
     awardsRes,
   ] = await Promise.all([
-    client.from('portal_pulse_surveys').select('*').order('created_at', { ascending: false }),
-    client.from('portal_pulse_responses').select('*').order('submitted_at', { ascending: false }),
-    client.from('portal_learning_assignments').select('*').order('created_at', { ascending: false }),
-    client.from('portal_learning_submissions').select('*').order('submitted_at', { ascending: false }),
-    client.from('portal_document_acknowledgments').select('*').order('acknowledged_at', { ascending: false }),
-    client.from('portal_okrs').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_one_on_one_logs').select('*').order('created_at', { ascending: false }),
-    client.from('portal_idps').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_feedback_cycles').select('*').order('year', { ascending: false }),
-    client.from('portal_feedback_entries').select('*').order('submitted_at', { ascending: false }),
-    client.from('portal_feedback_assignments').select('*').order('created_at', { ascending: false }),
-    client.from('portal_job_requisitions').select('*').order('created_at', { ascending: false }),
-    client.from('portal_job_candidates').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_exit_interviews').select('*').order('created_at', { ascending: false }),
-    client.from('portal_grievances').select('*').order('created_at', { ascending: false }),
-    client.from('portal_onboarding_milestones').select('*'),
-    client.from('portal_quarterly_awards').select('*').order('created_at', { ascending: false }),
+    safe('pulseSurveys', client.from('portal_pulse_surveys').select('*').order('created_at', { ascending: false })),
+    safe('pulseResponses', client.from('portal_pulse_responses').select('*').order('submitted_at', { ascending: false })),
+    safe('learningAssignments', client.from('portal_learning_assignments').select('*').order('created_at', { ascending: false })),
+    safe('learningSubmissions', client.from('portal_learning_submissions').select('*').order('submitted_at', { ascending: false })),
+    safe('documentAcknowledgments', client.from('portal_document_acknowledgments').select('*').order('acknowledged_at', { ascending: false })),
+    safe('okrs', client.from('portal_okrs').select('*').order('updated_at', { ascending: false })),
+    safe('oneOnOneLogs', client.from('portal_one_on_one_logs').select('*').order('created_at', { ascending: false })),
+    safe('idps', client.from('portal_idps').select('*').order('updated_at', { ascending: false })),
+    safe('feedbackCycles', client.from('portal_feedback_cycles').select('*').order('year', { ascending: false })),
+    safe('feedbackEntries', client.from('portal_feedback_entries').select('*').order('submitted_at', { ascending: false })),
+    safe('feedbackAssignments', client.from('portal_feedback_assignments').select('*').order('created_at', { ascending: false })),
+    safe('jobRequisitions', client.from('portal_job_requisitions').select('*').order('created_at', { ascending: false })),
+    // Cap large result sets so a huge ATS table does not time out the whole
+    // HR load; UI pages that need more can paginate per-request.
+    safe('jobCandidates', client.from('portal_job_candidates').select('*').order('updated_at', { ascending: false }).limit(500)),
+    safe('exitInterviews', client.from('portal_exit_interviews').select('*').order('created_at', { ascending: false })),
+    safe('grievances', client.from('portal_grievances').select('*').order('created_at', { ascending: false })),
+    safe('onboardingMilestones', client.from('portal_onboarding_milestones').select('*')),
+    safe('quarterlyAwards', client.from('portal_quarterly_awards').select('*').order('created_at', { ascending: false })),
   ])
-
-  const err =
-    surveysRes.error ||
-    responsesRes.error ||
-    assignmentsRes.error ||
-    submissionsRes.error ||
-    acksRes.error ||
-    okrsRes.error ||
-    o1Res.error ||
-    idpsRes.error ||
-    cyclesRes.error ||
-    entriesRes.error ||
-    assignRes.error ||
-    jobsRes.error ||
-    candidatesRes.error ||
-    exitRes.error ||
-    grievancesRes.error ||
-    milestonesRes.error ||
-    awardsRes.error
-
-  if (err) throw new Error(err.message)
 
   const map = <T>(rows: unknown[] | null, fn: (r: Record<string, unknown>) => T) =>
     (rows ?? []).map((r) => fn(r as Record<string, unknown>))
@@ -497,5 +510,6 @@ export async function fetchHrDataset(client: SupabaseClient): Promise<HrDataset>
     grievances: map(grievancesRes.data, rowToGrievance),
     onboardingMilestones: map(milestonesRes.data, rowToOnboardingMilestone),
     quarterlyAwards: map(awardsRes.data, rowToQuarterlyAward),
+    errors,
   }
 }

@@ -435,7 +435,42 @@ export interface PortalDataset {
   teams: WorkspaceTeam[]
 }
 
-export async function fetchPortalDataset(client: SupabaseClient): Promise<PortalDataset> {
+export type PortalDatasetErrors = Partial<Record<keyof PortalDataset | 'teamMembers', string>>
+
+export interface PortalDatasetResult extends PortalDataset {
+  errors: PortalDatasetErrors
+}
+
+/**
+ * Resilient dataset loader. Each query runs independently and failures are
+ * collected into `errors` instead of throwing — so a 401/403 on one newer
+ * table (e.g. missing RLS grant) does NOT hang the whole portal.
+ */
+export async function fetchPortalDataset(client: SupabaseClient): Promise<PortalDatasetResult> {
+  const errors: PortalDatasetErrors = {}
+
+  type QueryResult = { data: unknown[] | null; error: { message: string } | null }
+
+  const safe = async <K extends keyof PortalDatasetErrors>(
+    key: K,
+    q: PromiseLike<QueryResult>,
+  ): Promise<QueryResult> => {
+    try {
+      const res = await q
+      if (res.error) {
+        errors[key] = res.error.message
+        console.warn(`[data] ${key} load failed:`, res.error.message)
+        return { data: null, error: res.error }
+      }
+      return res
+    } catch (e) {
+      const message = e instanceof Error ? e.message : String(e)
+      errors[key] = message
+      console.warn(`[data] ${key} load threw:`, message)
+      return { data: null, error: { message } }
+    }
+  }
+
   const [
     profilesRes,
     tasksRes,
@@ -452,39 +487,21 @@ export async function fetchPortalDataset(client: SupabaseClient): Promise<Portal
     teamsRes,
     membersRes,
   ] = await Promise.all([
-    client.from('profiles').select('*').order('name'),
-    client.from('portal_tasks').select('*').order('updated_at', { ascending: false }),
-    client.from('portal_weekly_check_ins').select('*').order('submitted_at', { ascending: false }),
-    client.from('portal_announcements').select('*').order('posted_at', { ascending: false }),
-    client.from('portal_leave_requests').select('*').order('submitted_at', { ascending: false }),
-    client.from('portal_onboarding_videos').select('*').order('sort_order'),
-    client.from('portal_onboarding_checklist').select('*').order('sort_order'),
-    client.from('portal_onboarding_progress').select('*'),
-    client.from('portal_documents').select('*').order('uploaded_at', { ascending: false }),
-    client.from('portal_recognition_posts').select('*').order('created_at', { ascending: false }),
-    client.from('portal_inbox_notifications').select('*').order('created_at', { ascending: false }),
-    client.from('portal_events').select('*').order('event_date'),
-    client.from('portal_teams').select('*').order('name'),
-    client.from('portal_team_members').select('team_id, user_id'),
+    safe('users', client.from('profiles').select('*').order('name')),
+    safe('tasks', client.from('portal_tasks').select('*').order('updated_at', { ascending: false })),
+    safe('checkIns', client.from('portal_weekly_check_ins').select('*').order('submitted_at', { ascending: false })),
+    safe('announcements', client.from('portal_announcements').select('*').order('posted_at', { ascending: false })),
+    safe('leaveRequests', client.from('portal_leave_requests').select('*').order('submitted_at', { ascending: false })),
+    safe('onboardingVideos', client.from('portal_onboarding_videos').select('*').order('sort_order')),
+    safe('onboardingChecklist', client.from('portal_onboarding_checklist').select('*').order('sort_order')),
+    safe('onboardingProgress', client.from('portal_onboarding_progress').select('*')),
+    safe('documents', client.from('portal_documents').select('*').order('uploaded_at', { ascending: false })),
+    safe('recognition', client.from('portal_recognition_posts').select('*').order('created_at', { ascending: false })),
+    safe('inbox', client.from('portal_inbox_notifications').select('*').order('created_at', { ascending: false })),
+    safe('events', client.from('portal_events').select('*').order('event_date')),
+    safe('teams', client.from('portal_teams').select('*').order('name')),
+    safe('teamMembers', client.from('portal_team_members').select('team_id, user_id')),
   ])
-
-  const err =
-    profilesRes.error ||
-    tasksRes.error ||
-    checkInsRes.error ||
-    annRes.error ||
-    leaveRes.error ||
-    vidRes.error ||
-    clRes.error ||
-    progRes.error ||
-    docRes.error ||
-    recRes.error ||
-    inboxRes.error ||
-    eventsRes.error ||
-    teamsRes.error ||
-    membersRes.error
-
-  if (err) throw new Error(err.message)
 
   const memberMap = new Map<string, string[]>()
   for (const m of membersRes.data ?? []) {
@@ -521,5 +538,6 @@ export async function fetchPortalDataset(client: SupabaseClient): Promise<Portal
     inbox: (inboxRes.data ?? []).map((r) => rowToInbox(r as Record<string, unknown>)),
     events: (eventsRes.data ?? []).map((r) => rowToEvent(r as Record<string, unknown>)),
     teams,
+    errors,
   }
 }

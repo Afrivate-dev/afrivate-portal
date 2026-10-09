@@ -322,7 +322,54 @@ Broadcast + presence (current) is fine for internal MVP. Move to **`postgres_cha
 
 ---
 
-## 10. Support inside this repo
+## 10. Oct 2026 production outage fix (apply once per project)
+
+**Symptoms (what the browser console looked like):**
+
+- `GET …/rest/v1/portal_task_categories` → **401 "permission denied for table portal_task_categories"**
+- `GET …/rest/v1/portal_hr_audit_log` → **403** (row-level security)
+- `GET …/rest/v1/portal_job_candidates` → **ERR_CONNECTION_CLOSED**
+- Pages stuck on **"Checking your session…"** then **"Loading your portal…"**
+- Repeated redirects to `/login` after a short period, even in the same tab
+
+**Fix — database (manual, run once per Supabase project):**
+
+1. Open the Supabase Dashboard → **SQL Editor** → **New query**.
+2. Paste and run **`supabase/migrations/20261009_portal_data_access_hardening.sql`** in full. It is idempotent and safe to re-run; no rows are modified.
+3. The migration re-asserts RLS + `GRANT`s for `portal_task_categories`, `portal_hr_audit_log`, `portal_job_candidates`, and loops over every `portal_*` table to make sure the `authenticated` role can `SELECT/INSERT/UPDATE/DELETE` where its RLS policy allows. HR-only tables (`portal_hr_audit_log`, `portal_job_candidates`, …) keep their HR+ `USING` clauses, so staff still cannot read HR data.
+4. It also re-grants `EXECUTE` on `public.get_my_portal_profile()` and sets a 5 s per-call `statement_timeout` on that function, so a slow DB start can no longer hang the sign-in flow.
+
+**Fix — frontend (already in this build):**
+
+- `src/lib/supabase.ts` now stores the Supabase session in **`localStorage`** (not `sessionStorage`) and no longer wipes `sb-*-auth-token` entries on every page load. Sessions now persist across tab closes and token refreshes.
+- `src/lib/sessionPolicy.ts` idle timeout raised from **10 minutes** to **12 hours** — security intent (overnight sign-out) kept, but no more surprise sign-outs after a short break.
+- `src/lib/supabase.ts` wraps the global `fetch` with a **15 s** abort so a hung REST call can never freeze the UI.
+- `src/context/AuthContext.tsx` bounds `get_my_portal_profile()` + fallback `profiles` reads with an 8 s timeout, catches unexpected errors, and sets `authReady=true` within 12 s regardless.
+- `src/lib/supabase/portalDataset.ts`, `src/lib/supabase/hrDataset.ts`, and `src/lib/supabase/peopleOpsDataset.ts` are now resilient: each query runs independently; a failing table degrades its own panel instead of blocking the whole portal, and `AppLayout` surfaces the first per-panel error as a soft warning banner.
+
+**Fix — Vercel environment (verify, no change required unless missing):**
+
+| Variable | Value |
+|----------|-------|
+| `VITE_SUPABASE_URL` | `https://<project-ref>.supabase.co` |
+| `VITE_SUPABASE_ANON_KEY` | JWT anon key (starts with `eyJ…`) from Project Settings → API |
+| `VITE_USE_SUPABASE_AUTH` | `true` |
+| `VITE_USE_SUPABASE_DATA` | `true` |
+
+Set them in **Vercel → Project → Settings → Environment Variables** (Production, Preview, and Development as needed) and **redeploy** so Vite inlines the new values. There is no server-side `.env` to edit.
+
+**One-time user impact:** this build persists sessions in `localStorage`. Users who were signed in via the old `sessionStorage`-only build will be redirected to `/login` once on their next visit, then stay signed in from then on.
+
+**Verifying the fix:**
+
+1. Sign in with the admin account. `/` should render in a second or two (no more 20 s "Checking your session…" wait).
+2. In the browser console, you should see no uncaught errors. If any `portal_*` table still has a missing grant, you will see a warning like `[data] <section> load failed: permission denied for table …` and a yellow banner across the top — the rest of the portal still works.
+3. Close the tab, re-open the portal, and confirm you are still signed in. Leave it idle; you will stay signed in for the full idle window (default 12 h) and only sign out after real inactivity.
+4. HR-only pages (ATS, HR audit) are only visible to HR/admin accounts — a staff account that opens them sees "No data" or a non-sensitive empty state, never the HR rows.
+
+---
+
+## 11. Support inside this repo
 
 | What | Where |
 |------|--------|
