@@ -82,7 +82,7 @@ export function PrivacyNoticePage() {
             <h2 className="text-lg font-semibold text-fg">4. Who can see your data</h2>
             <ul className="ml-4 list-disc space-y-1 text-sm text-fg/80">
               <li>Your name, job title, and department are visible to all active portal users</li>
-              <li>Your time-off requests and weekly updates are visible to your team leads and People & Culture</li>
+              <li>Your time-off requests and weekly updates are visible to your team leads and Human Resources</li>
               <li>Task details you create or are assigned to are visible to other team members</li>
               <li>Administrators can view all data within the portal for operational purposes</li>
               <li>

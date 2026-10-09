@@ -101,7 +101,7 @@ export function PendingApprovalScreen({
         if (result.ok) {
           clearPendingAccessDraft()
           setStatus('pending')
-          setSuccess('Access request sent. People & Culture will review your account shortly.')
+          setSuccess('Access request sent. Human Resources will review your account shortly.')
         }
       }
     }
@@ -149,7 +149,7 @@ export function PendingApprovalScreen({
     setSuccess(
       result.alreadyRequested
         ? 'Your request is already with the team — an administrator will review it soon.'
-        : 'Access request sent. People & Culture will review your account shortly.',
+        : 'Access request sent. Human Resources will review your account shortly.',
     )
   }
 
@@ -207,7 +207,7 @@ export function PendingApprovalScreen({
           <div className="flex items-start gap-2 rounded-lg border border-danger/30 bg-danger/10 px-4 py-3 text-left text-sm text-danger">
             <XCircle className="mt-0.5 h-4 w-4 shrink-0" />
             <span>
-              Contact People & Culture if you believe this is a mistake, or submit a new request.
+              Contact Human Resources if you believe this is a mistake, or submit a new request.
             </span>
           </div>
           <Button

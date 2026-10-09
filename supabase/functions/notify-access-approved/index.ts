@@ -110,7 +110,7 @@ Deno.serve(async (req) => {
       <p>Hi ${name},</p>
       <p>Good news — your AfriVate employee portal account has been approved.</p>
       <p>You can sign in here: <a href="${loginUrl}">${loginUrl}</a></p>
-      <p>— AfriVate People &amp; Culture</p>
+      <p>— AfriVate Human Resources</p>
     `
 
     const res = await fetch('https://api.resend.com/emails', {

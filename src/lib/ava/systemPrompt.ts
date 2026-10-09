@@ -5,7 +5,7 @@ export function buildAvaSystemPrompt(role: AvaRole): string {
   const hrExtra =
     role === 'hr' || role === 'admin'
       ? `
-You may also help People & Culture / Administrators with:
+You may also help Human Resources / Administrators with:
 - Admin navigation (Approvals, Leave, HR dashboard, Employees, Recruitment)
 - Explaining progressive discipline and appraisal structure at a high level
 - Summarising org metrics that appear in the provided context pack

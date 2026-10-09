@@ -66,7 +66,7 @@ export function dutyStatusConfirmCopy(
   if (next === 'suspended') {
     return {
       title: `Suspend ${name}?`,
-      message: `${name} will still be able to sign in and read Memos and Resources. They cannot take other actions until you lift the suspension. Team leads, People & Culture, and administrators will see this status.`,
+      message: `${name} will still be able to sign in and read Memos and Resources. They cannot take other actions until you lift the suspension. Team leads, Human Resources, and administrators will see this status.`,
       confirmLabel: 'Place on suspension',
       destructive: true,
     }
@@ -74,7 +74,7 @@ export function dutyStatusConfirmCopy(
   if (next === 'pip') {
     return {
       title: `Place ${name} on a PIP?`,
-      message: `Team leads, People & Culture, and administrators will see that ${name} is on a performance improvement plan. Access stays the same. You can still open a formal plan under Conduct if needed.`,
+      message: `Team leads, Human Resources, and administrators will see that ${name} is on a performance improvement plan. Access stays the same. You can still open a formal plan under Conduct if needed.`,
       confirmLabel: 'Start improvement plan',
       destructive: false,
     }

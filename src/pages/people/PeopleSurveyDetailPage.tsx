@@ -105,7 +105,7 @@ export function PeopleSurveyDetailPage() {
         title={survey.title}
         description={
           survey.description ??
-          'Your answers are stored securely. People & Culture sees team totals only — not your name next to scores.'
+          'Your answers are stored securely. Human Resources sees team totals only — not your name next to scores.'
         }
       />
 
