@@ -257,7 +257,13 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
       },
       audit: async (row) => {
         const { error } = await upsertPeopleOpsRow(client, 'portal_hr_audit_log', hrAuditToRow(row))
-        if (error) reportHrError('save HR audit', error)
+        if (error) {
+          // Don't scare the user with a toast — the audit entry is a
+          // best-effort record and the user already got the "Saved" feedback.
+          // A failing audit insert almost always means actor_id did not match
+          // auth.uid(); the local HR audit list still has the entry.
+          console.warn('[hr] save HR audit:', error.message)
+        }
       },
       offboarding: async (row) => {
         const { error } = await upsertPeopleOpsRow(
@@ -278,6 +284,7 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
     users,
     teams,
     persist: persistPeopleOps,
+    currentUserId: user?.id,
   })
   const peopleOpsRef = useRef(peopleOps)
   peopleOpsRef.current = peopleOps
@@ -511,20 +518,56 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
 
   const addLearningAssignment = useCallback(
     (a: Omit<LearningAssignment, 'id' | 'createdAt'>) => {
-      const row: LearningAssignment = { ...a, id: 'learn_' + uid(), createdAt: new Date().toISOString() }
+      const url = (a.courseUrl || a.alisonUrl || '').trim()
+      const row: LearningAssignment = {
+        ...a,
+        courseUrl: url,
+        alisonUrl: a.alisonUrl || url,
+        id: 'learn_' + uid(),
+        createdAt: new Date().toISOString(),
+      }
       setLearningAssignments((prev) => [
         ...prev.map((x) => (x.active ? { ...x, active: false } : x)),
         row,
       ])
       void (async () => {
-        const { error } = await client.rpc('portal_create_learning_assignment', {
-          p_id: row.id,
-          p_title: row.title,
-          p_alison_url: row.alisonUrl,
-          p_description: row.description ?? null,
-          p_due_date: toPgDate(row.dueDate),
-          p_month_label: row.monthLabel ?? null,
-        })
+        // Deactivate any currently-active assignment (the legacy RPC does this
+        // atomically; the direct path replicates that step so there is never
+        // more than one active course for staff to see at a time).
+        const { error: deactivateErr } = await client
+          .from('portal_learning_assignments')
+          .update({ active: false })
+          .eq('active', true)
+        if (deactivateErr) {
+          reportHrError('add learning assignment', deactivateErr)
+          await reloadHr()
+          return
+        }
+        const insertRow: Record<string, unknown> = {
+          id: row.id,
+          title: row.title,
+          // Keep legacy alison_url populated so older browser tabs still open
+          // the link; course_url is the canonical column going forward.
+          alison_url: url,
+          course_url: url,
+          description: row.description ?? null,
+          due_date: toPgDate(row.dueDate),
+          month_label: row.monthLabel ?? null,
+          platform: row.platform ?? null,
+          duration_minutes: row.durationMinutes ?? null,
+          active: true,
+        }
+        let { error } = await client.from('portal_learning_assignments').insert(insertRow)
+        // Older schemas (pre-20261010 migration) don't have course_url /
+        // platform / duration_minutes columns. Retry without them so admins
+        // can still assign courses before the migration is applied.
+        if (error && /course_url|platform|duration_minutes/i.test(error.message)) {
+          const legacyRow = { ...insertRow }
+          delete legacyRow.course_url
+          delete legacyRow.platform
+          delete legacyRow.duration_minutes
+          ;({ error } = await client.from('portal_learning_assignments').insert(legacyRow))
+        }
         if (error) reportHrError('add learning assignment', error)
         await reloadHr()
       })()
@@ -539,17 +582,32 @@ export function SupabaseHrProvider({ children }: { children: React.ReactNode }) 
         const cur = learningAssignments.find((a) => a.id === id)
         if (!cur) return
         const next = { ...cur, ...patch }
-        const { error } = await client
+        const url = (next.courseUrl || next.alisonUrl || '').trim()
+        const row: Record<string, unknown> = {
+          title: next.title,
+          alison_url: url,
+          course_url: url,
+          description: next.description ?? null,
+          due_date: toPgDate(next.dueDate),
+          month_label: next.monthLabel ?? null,
+          platform: next.platform ?? null,
+          duration_minutes: next.durationMinutes ?? null,
+          active: next.active,
+        }
+        let { error } = await client
           .from('portal_learning_assignments')
-          .update({
-            title: next.title,
-            alison_url: next.alisonUrl,
-            description: next.description ?? null,
-            due_date: toPgDate(next.dueDate),
-            month_label: next.monthLabel ?? null,
-            active: next.active,
-          })
+          .update(row)
           .eq('id', id)
+        if (error && /course_url|platform|duration_minutes/i.test(error.message)) {
+          const legacy = { ...row }
+          delete legacy.course_url
+          delete legacy.platform
+          delete legacy.duration_minutes
+          ;({ error } = await client
+            .from('portal_learning_assignments')
+            .update(legacy)
+            .eq('id', id))
+        }
         if (error) reportHrError('update learning assignment', error)
         await reloadHr()
       })()
