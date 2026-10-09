@@ -44,10 +44,22 @@ export interface PulseResponse {
 export interface LearningAssignment {
   id: string
   title: string
+  /**
+   * Canonical learning URL. Historically only Alison was supported, so legacy
+   * code / column names use `alisonUrl` / `alison_url`. The frontend always
+   * reads from `courseUrl` first and falls back to `alisonUrl` when a row has
+   * not yet been migrated to the new column.
+   */
+  courseUrl: string
+  /** @deprecated kept so historic rows still render. */
   alisonUrl: string
   description?: string
   dueDate?: string
   monthLabel?: string
+  /** e.g. 'Alison', 'YouTube', 'Coursera'. Optional free-text. */
+  platform?: string
+  /** Optional time estimate in minutes (120 = "~2 hours"). */
+  durationMinutes?: number
   active: boolean
   createdAt: string
 }

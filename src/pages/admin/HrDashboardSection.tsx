@@ -36,6 +36,12 @@ import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
 import { REVIVAL_ALISON_COURSE } from '@/content/revivalLaunchChecklist'
 import type { CandidateStage, QuarterlyAward } from '@/types/hr'
 
+/** Default due date (today + 30d, ISO date). Lives outside the component so
+ *  `useState` can lazy-init without the react-hooks purity rule tripping. */
+function defaultDueDate(): string {
+  return new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10)
+}
+
 export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
   const { user } = useAuth()
   const {
@@ -72,7 +78,11 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
     addQuarterlyAward,
   } = useHr()
   const [courseTitle, setCourseTitle] = useState<string>(REVIVAL_ALISON_COURSE.title)
-  const [alisonUrl, setAlisonUrl] = useState<string>(REVIVAL_ALISON_COURSE.url)
+  const [courseUrl, setCourseUrl] = useState<string>(REVIVAL_ALISON_COURSE.url)
+  const [coursePlatform, setCoursePlatform] = useState<string>(REVIVAL_ALISON_COURSE.provider)
+  const [courseDescription, setCourseDescription] = useState<string>('')
+  const [courseDueDate, setCourseDueDate] = useState<string>(() => defaultDueDate())
+  const [courseDurationMinutes, setCourseDurationMinutes] = useState<string>('')
   const [awardWinner, setAwardWinner] = useState('')
   const [awardCategory, setAwardCategory] = useState('')
   const [jobTitle, setJobTitle] = useState('')
@@ -154,23 +164,74 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
         <Card padding="md">
           <div className="mb-3 flex items-center gap-2">
             <GraduationCap className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">Assign Alison course</h3>
+            <h3 className="text-sm font-semibold text-fg">Assign a course</h3>
           </div>
           <div className="space-y-3">
-            <Input label="Course title" value={courseTitle} onChange={(e) => setCourseTitle(e.target.value)} />
-            <Input label="Alison URL" value={alisonUrl} onChange={(e) => setAlisonUrl(e.target.value)} />
+            <Input
+              label="Course title"
+              value={courseTitle}
+              onChange={(e) => setCourseTitle(e.target.value)}
+            />
+            <Input
+              label="Course link"
+              placeholder="https://… (Alison, YouTube, Coursera, your own doc, anything)"
+              value={courseUrl}
+              onChange={(e) => setCourseUrl(e.target.value)}
+            />
+            <Textarea
+              label="Short description (optional)"
+              rows={2}
+              value={courseDescription}
+              onChange={(e) => setCourseDescription(e.target.value)}
+              placeholder="One or two sentences on what staff will learn or how to approach the course."
+            />
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Input
+                label="Due date"
+                type="date"
+                value={courseDueDate}
+                onChange={(e) => setCourseDueDate(e.target.value)}
+              />
+              <Input
+                label="Platform (optional)"
+                placeholder="e.g. Alison, YouTube"
+                value={coursePlatform}
+                onChange={(e) => setCoursePlatform(e.target.value)}
+              />
+            </div>
+            <Input
+              label="Duration (optional, minutes)"
+              type="number"
+              min={0}
+              placeholder="e.g. 180"
+              value={courseDurationMinutes}
+              onChange={(e) => setCourseDurationMinutes(e.target.value)}
+            />
             <Button
               size="sm"
-              disabled={!courseTitle.trim()}
+              disabled={!courseTitle.trim() || !courseUrl.trim()}
               onClick={() => {
+                const durationMinutes = courseDurationMinutes.trim()
+                  ? Math.max(0, Math.floor(Number(courseDurationMinutes) || 0))
+                  : undefined
                 addLearningAssignment({
                   title: courseTitle.trim(),
-                  alisonUrl: alisonUrl.trim(),
+                  courseUrl: courseUrl.trim(),
+                  alisonUrl: courseUrl.trim(),
                   active: true,
                   monthLabel: new Date().toLocaleString('en', { month: 'long', year: 'numeric' }),
-                  dueDate: new Date(Date.now() + 30 * 86400000).toISOString().slice(0, 10),
+                  dueDate: courseDueDate || defaultDueDate(),
+                  description: courseDescription.trim() || undefined,
+                  platform: coursePlatform.trim() || undefined,
+                  durationMinutes,
                 })
                 setCourseTitle('')
+                setCourseUrl('')
+                setCourseDescription('')
+                setCoursePlatform('')
+                setCourseDurationMinutes('')
+                setCourseDueDate(defaultDueDate())
+                notifySuccess('Course assigned')
               }}
             >
               Assign course
