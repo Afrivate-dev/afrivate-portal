@@ -1,16 +1,18 @@
 /**
- * Sign out after this much time without mouse, keyboard, or touch activity.
+ * Sign out after this much time of real foreground inactivity.
  *
- * Previously 10 minutes, which combined with the old sessionStorage-only
- * auth storage caused "Constant sign-outs" after very short periods. The
- * Supabase session itself now persists in localStorage; this guard is the
- * only reason a user is logged out mid-day. 12h keeps the security intent
- * (idle machines sign out overnight) without surprising normal workdays.
+ * Previously 12 h — which combined with the fact that the client ticked
+ * even while the browser tab was hidden meant that leaving a tab open
+ * over a weekend reliably signed the user out. The guard now also pauses
+ * while the tab is hidden (see `useAutoLogout`), so this threshold only
+ * counts time the user actually had the portal in front of them. 14 days
+ * is a safe outer bound — Supabase's refresh-token expiry remains the
+ * real security boundary.
  */
-export const SESSION_IDLE_MS = 12 * 60 * 60 * 1000
+export const SESSION_IDLE_MS = 14 * 24 * 60 * 60 * 1000
 
 /** How often open tabs re-check the shared last-activity timestamp. */
-export const SESSION_IDLE_CHECK_MS = 60_000
+export const SESSION_IDLE_CHECK_MS = 5 * 60 * 1000
 
 export const SESSION_ACTIVITY_KEY = 'av-last-activity-at'
 

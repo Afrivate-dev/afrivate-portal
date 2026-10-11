@@ -42,11 +42,27 @@ export const supabase: SupabaseClient | null =
         global: {
           // Supabase defaults to no timeout; a hung REST call would otherwise
           // leave the UI stuck on "Loading your portal…". Abort individual
-          // requests after 15s so the resilient loader can surface a per-panel
-          // warning instead of blocking the whole page.
+          // requests after 20 s so the resilient loader can surface a
+          // per-panel warning instead of blocking the whole page.
+          //
+          // Auth and Realtime endpoints are exempt — we never want to cancel
+          // a token refresh (that would sign the user out) or interrupt a
+          // long-polling realtime connection.
           fetch: (input, init) => {
+            const url =
+              typeof input === 'string'
+                ? input
+                : input instanceof URL
+                  ? input.href
+                  : (input as Request).url
+            const isAuthOrRealtime =
+              typeof url === 'string' &&
+              (url.includes('/auth/v1/') || url.includes('/realtime/'))
+            if (isAuthOrRealtime) {
+              return fetch(input, init)
+            }
             const controller = new AbortController()
-            const timer = setTimeout(() => controller.abort(), 15_000)
+            const timer = setTimeout(() => controller.abort(), 20_000)
             const signal = init?.signal
             if (signal) {
               if (signal.aborted) controller.abort()
