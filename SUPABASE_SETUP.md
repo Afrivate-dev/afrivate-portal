@@ -369,7 +369,42 @@ Set them in **Vercel → Project → Settings → Environment Variables** (Produ
 
 ---
 
-## 11. Support inside this repo
+## 11. Oct 2026 — Task categories open to any team member (apply once per project)
+
+Follows the Oct 2026 outage work in §10. The task Category dropdown on `/tasks`
+is no longer dev-only, and any signed-in team member can add a new category
+inline from the task form. HR and admin still rename or remove categories.
+
+**Manual SQL** — Supabase Dashboard → SQL Editor → New query. Idempotent; safe
+to re-run.
+
+1. **`supabase/migrations/20261012_task_categories_company_wide.sql`**
+   - Loosens the INSERT policy on `portal_task_categories` from
+     `is_lead_or_above()` → any authenticated user, so staff can add categories
+     inline.
+   - Tightens UPDATE and DELETE from `is_lead_or_above()` → `is_hr_or_admin()`,
+     so renames / deletes are HR/admin-only.
+   - Adds a case-insensitive `UNIQUE` index on `label` (only when no duplicate
+     labels already exist) so parallel inline-add races produce one row, not
+     two.
+   - Seeds the full company-wide default set (General, Human Resources,
+     Operations, Finance, Communications, Marketing and Media, Partnerships
+     and Outreach, Records, Learning and Development, Design, Product,
+     Frontend, Backend) and keeps the historical dev-focused ids
+     (`react`, `wordpress`, `performance`, `nodejs`, `freelance`, `other`) so
+     existing tasks continue to render with sensible labels.
+
+If the UNIQUE index step is skipped because of existing duplicate labels, no
+functionality breaks — admins can clean up duplicates under
+**Admin → Settings → Portal labels** and re-run the migration.
+
+**No new Vercel env vars.** The frontend changes rely only on the migration
+above plus the auth / dataset fixes already in production from PR #78 and the
+admin follow-ups from PR #79.
+
+---
+
+## 12. Support inside this repo
 
 | What | Where |
 |------|--------|

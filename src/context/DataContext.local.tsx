@@ -49,14 +49,27 @@ import type {
 } from '@/types'
 import type { PulseSurveyTemplate } from '@/types/hr'
 
+/** Company-wide defaults; mirrors `DataContext.supabase.tsx`. */
 const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
-  { id: 'react',       label: 'React / Frontend' },
-  { id: 'wordpress',   label: 'WordPress' },
-  { id: 'performance', label: 'Performance' },
-  { id: 'nodejs',      label: 'Node.js' },
-  { id: 'freelance',   label: 'Freelance' },
-  { id: 'admin',       label: 'Operations' },
-  { id: 'other',       label: 'Other' },
+  { id: 'general',            label: 'General' },
+  { id: 'human_resources',    label: 'Human Resources' },
+  { id: 'admin',              label: 'Operations' },
+  { id: 'finance',            label: 'Finance' },
+  { id: 'communications',     label: 'Communications' },
+  { id: 'marketing_media',    label: 'Marketing and Media' },
+  { id: 'partnerships',       label: 'Partnerships and Outreach' },
+  { id: 'records',            label: 'Records' },
+  { id: 'learning_dev',       label: 'Learning and Development' },
+  { id: 'design',             label: 'Design' },
+  { id: 'product',            label: 'Product' },
+  { id: 'frontend',           label: 'Frontend' },
+  { id: 'backend',            label: 'Backend' },
+  { id: 'react',              label: 'React / Frontend' },
+  { id: 'wordpress',          label: 'WordPress' },
+  { id: 'performance',        label: 'Performance' },
+  { id: 'nodejs',             label: 'Node.js' },
+  { id: 'freelance',          label: 'Freelance' },
+  { id: 'other',              label: 'Other' },
 ]
 import { newlyMentionedUserIds, uid } from '@/utils/helpers'
 import {
@@ -897,9 +910,28 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     'av-task-categories',
     DEFAULT_TASK_CATEGORIES,
   )
-  const addTaskCategory = useCallback((label: string) => {
-    setTaskCategories((prev) => [...prev, { id: 'cat_' + uid(), label }])
-  }, [setTaskCategories])
+  const addTaskCategory = useCallback(
+    async (rawLabel: string): Promise<{ id: string; created: boolean }> => {
+      const label = rawLabel.trim()
+      if (!label) return { id: 'general', created: false }
+      const lower = label.toLowerCase()
+      let resolvedId = ''
+      let created = false
+      setTaskCategories((prev) => {
+        const existing = prev.find((c) => c.label.trim().toLowerCase() === lower)
+        if (existing) {
+          resolvedId = existing.id
+          return prev
+        }
+        const id = 'cat_' + uid()
+        resolvedId = id
+        created = true
+        return [...prev, { id, label }]
+      })
+      return { id: resolvedId || 'general', created }
+    },
+    [setTaskCategories],
+  )
   const updateTaskCategory = useCallback((id: string, label: string) => {
     setTaskCategories((prev) => prev.map((c) => (c.id === id ? { ...c, label } : c)))
   }, [setTaskCategories])
