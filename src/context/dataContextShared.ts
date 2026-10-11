@@ -132,9 +132,15 @@ export interface DataContextValue {
   /** HR/admin — decline a first-time access request. */
   denyUser: (id: string, note?: string) => Promise<{ ok: boolean; error?: string }>
 
-  /** Task categories — managed by HR and admin. */
+  /** Task categories — any signed-in user can add; HR and admin can rename/delete. */
   taskCategories: TaskCategoryItem[]
-  addTaskCategory: (label: string) => void
+  /**
+   * Dedupes case-insensitively against existing categories. Returns the final
+   * id (new or existing) and whether a new row was created, so the task form
+   * can immediately select the right value without waiting for the next
+   * realtime reload.
+   */
+  addTaskCategory: (label: string) => Promise<{ id: string; created: boolean }>
   updateTaskCategory: (id: string, label: string) => void
   deleteTaskCategory: (id: string) => void
 

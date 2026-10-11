@@ -123,6 +123,29 @@ function exactTimestamp(iso: string): string {
 
 // CATEGORIES and CATEGORY_LABEL are now built dynamically from DataContext.taskCategories
 
+/**
+ * Pick a sensible default category for a new task. Prefers a category whose
+ * label matches the creator's department (case-insensitive). Falls back to
+ * the stable `general` id, and finally to the first available category if
+ * `general` has somehow been deleted.
+ */
+function pickDefaultCategoryId(
+  categories: { id: string; label: string }[],
+  department: string | undefined,
+): string {
+  if (department && department.trim()) {
+    const needle = department.trim().toLowerCase()
+    const byDept = categories.find((c) => c.label.trim().toLowerCase() === needle)
+    if (byDept) return byDept.id
+  }
+  const general = categories.find((c) => c.id === 'general')
+  if (general) return general.id
+  return categories[0]?.id ?? ''
+}
+
+/** Sentinel value used by the task-form Category <select> for the inline-add row. */
+const ADD_CATEGORY_SENTINEL = '__add_new_category__'
+
 type DueBucket = 'overdue' | 'today' | 'this_week' | 'later' | 'none'
 
 function dueBucket(task: Task): DueBucket {
@@ -229,6 +252,33 @@ export function TasksPage() {
   const [editCatId, setEditCatId] = useState<string | null>(null)
   const [editCatLabel, setEditCatLabel] = useState('')
 
+  // Inline "Add new category…" dialog from the task form.
+  const [addCatOpen, setAddCatOpen] = useState(false)
+  const [newCategoryLabel, setNewCategoryLabel] = useState('')
+  const [addCatBusy, setAddCatBusy] = useState(false)
+  const [addCatError, setAddCatError] = useState<string | null>(null)
+
+  const handleCreateCategoryInline = async () => {
+    const label = newCategoryLabel.trim()
+    if (!label) return
+    if (label.length > 60) {
+      setAddCatError('Keep category names under 60 characters.')
+      return
+    }
+    setAddCatBusy(true)
+    setAddCatError(null)
+    try {
+      const result = await addTaskCategory(label)
+      setDraft((d) => ({ ...d, category: result.id as TaskCategory }))
+      setAddCatOpen(false)
+      setNewCategoryLabel('')
+    } catch (e) {
+      setAddCatError(e instanceof Error ? e.message : 'Could not add this category.')
+    } finally {
+      setAddCatBusy(false)
+    }
+  }
+
   useEffect(() => {
     const openId = searchParams.get('open')
     if (!openId) return
@@ -252,7 +302,7 @@ export function TasksPage() {
     if (!saved) return
     openedDraftParam.current = draftId
     if (saved.kind === 'task' && isTaskPayload(saved.payload)) {
-      setDraft(formFromTaskPayload(saved.payload, taskCategories[0]?.id ?? ''))
+      setDraft(formFromTaskPayload(saved.payload, pickDefaultCategoryId(taskCategories, user?.department)))
       setComposerDraftId(saved.id)
       setFormOpen(true)
     }
@@ -264,7 +314,7 @@ export function TasksPage() {
       },
       { replace: true },
     )
-  }, [searchParams, setSearchParams, getById, taskCategories])
+  }, [searchParams, setSearchParams, getById, taskCategories, user?.department])
 
   useAvaPageDraft(
     'task',
@@ -442,7 +492,7 @@ export function TasksPage() {
 
   const openCreate = () => {
     setComposerDraftId(null)
-    setDraft({ ...emptyDraft, category: taskCategories[0]?.id ?? '' })
+    setDraft({ ...emptyDraft, category: pickDefaultCategoryId(taskCategories, user?.department) })
     setFormOpen(true)
   }
 
@@ -455,11 +505,11 @@ export function TasksPage() {
   const resumeComposerDraft = useCallback(
     (saved: ComposerDraft) => {
       if (saved.kind !== 'task' || !isTaskPayload(saved.payload)) return
-      setDraft(formFromTaskPayload(saved.payload, taskCategories[0]?.id ?? ''))
+      setDraft(formFromTaskPayload(saved.payload, pickDefaultCategoryId(taskCategories, user?.department)))
       setComposerDraftId(saved.id)
       setFormOpen(true)
     },
-    [taskCategories],
+    [taskCategories, user?.department],
   )
 
   const closeForm = () => {
@@ -1141,8 +1191,20 @@ export function TasksPage() {
             <Select
               label={T.formCategoryLabel}
               value={draft.category}
-              onChange={(e) => setDraft({ ...draft, category: e.target.value as TaskCategory })}
-              options={taskCategories.map((c) => ({ value: c.id, label: c.label }))}
+              onChange={(e) => {
+                const next = e.target.value
+                if (next === ADD_CATEGORY_SENTINEL) {
+                  setNewCategoryLabel('')
+                  setAddCatError(null)
+                  setAddCatOpen(true)
+                  return
+                }
+                setDraft({ ...draft, category: next as TaskCategory })
+              }}
+              options={[
+                ...taskCategories.map((c) => ({ value: c.id, label: c.label })),
+                { value: ADD_CATEGORY_SENTINEL, label: '＋ Add new category…' },
+              ]}
             />
             <Input
               type="date"
@@ -1401,6 +1463,72 @@ export function TasksPage() {
             </div>
           </div>
         ) : null}
+      </Modal>
+
+      {/* Inline add-category dialog — open from the Category select */}
+      <Modal
+        open={addCatOpen}
+        onClose={() => {
+          if (addCatBusy) return
+          setAddCatOpen(false)
+          setNewCategoryLabel('')
+          setAddCatError(null)
+        }}
+        title="Add a task category"
+        size="sm"
+        footer={
+          <>
+            <Button
+              type="button"
+              variant="secondary"
+              onClick={() => {
+                setAddCatOpen(false)
+                setNewCategoryLabel('')
+                setAddCatError(null)
+              }}
+              disabled={addCatBusy}
+            >
+              Cancel
+            </Button>
+            <Button
+              type="button"
+              onClick={() => void handleCreateCategoryInline()}
+              loading={addCatBusy}
+              disabled={!newCategoryLabel.trim() || addCatBusy}
+            >
+              Add category
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-3">
+          <p className="text-sm text-muted">
+            Any team member can add a new category. HR and admins rename or remove them from
+            Admin → Settings.
+          </p>
+          <Input
+            label="Category name"
+            autoFocus
+            value={newCategoryLabel}
+            onChange={(e) => setNewCategoryLabel(e.target.value.slice(0, 60))}
+            placeholder="e.g. Fundraising, Volunteer Ops"
+            maxLength={60}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && newCategoryLabel.trim() && !addCatBusy) {
+                e.preventDefault()
+                void handleCreateCategoryInline()
+              }
+            }}
+          />
+          {addCatError ? (
+            <p className="text-xs text-danger">{addCatError}</p>
+          ) : (
+            <p className="text-xs text-muted">
+              If this label already exists (case-insensitive), we&apos;ll reuse that category
+              instead of creating a duplicate.
+            </p>
+          )}
+        </div>
       </Modal>
 
       {/* Manage task categories modal — leads and above */}

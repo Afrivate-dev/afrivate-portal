@@ -1,5 +1,5 @@
 import { useEffect, useState, Suspense } from 'react'
-import { Navigate, Outlet } from 'react-router-dom'
+import { Navigate, Outlet, useLocation } from 'react-router-dom'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
 import { PendingApprovalScreen } from '@/components/shared/PendingApprovalScreen'
@@ -7,6 +7,7 @@ import { ProfileLoadErrorScreen } from '@/components/shared/ProfileLoadErrorScre
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { PageLoadFallback } from '@/components/shared/PageLoadFallback'
 import { AnimatedPage } from '@/components/shared/AnimatedPage'
+import { ErrorBoundary } from '@/components/shared/ErrorBoundary'
 import { SuspendedGuard } from '@/components/routing/SuspendedGuard'
 import { Sidebar } from '@/components/layout/Sidebar'
 import { TopBar } from '@/components/layout/TopBar'
@@ -67,6 +68,7 @@ function AppShell({
 export function AppLayout() {
   const { user, logout, reconcileUser, authReady, profileLoadFailed, profileError, refreshUser } = useAuth()
   const { dataStatus, dataError, reloadData, users } = useData()
+  const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
 
   useEffect(() => {
@@ -214,13 +216,25 @@ export function AppLayout() {
       profileWarning={profileWarning}
       dutyBanner={dutyBanner}
     >
-      <Suspense fallback={<PageLoadFallback />}>
-        <AnimatedPage>
-          <SuspendedGuard>
-            <Outlet />
-          </SuspendedGuard>
-        </AnimatedPage>
-      </Suspense>
+      {/*
+        Nested ErrorBoundary wraps the routed page so a crash in a single
+        route (or a stale lazy-loaded chunk after a deploy) no longer blows
+        up the whole shell. The outer ErrorBoundary in App.tsx stays as a
+        last-resort catch for provider-level crashes.
+
+        `key={location.pathname}` resets the boundary when the route changes,
+        so a user who hits the error UI on /people can navigate away via the
+        sidebar and the next page renders cleanly.
+      */}
+      <ErrorBoundary key={location.pathname}>
+        <Suspense fallback={<PageLoadFallback />}>
+          <AnimatedPage>
+            <SuspendedGuard>
+              <Outlet />
+            </SuspendedGuard>
+          </AnimatedPage>
+        </Suspense>
+      </ErrorBoundary>
     </AppShell>
   )
 }

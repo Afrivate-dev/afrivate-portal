@@ -357,29 +357,42 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sb = supabase
     let cancelled = false
 
-    const syncFromSession = (session: Session | null) => {
-      void loadSupabasePortalUser(sb, session)
-        .then((result) => {
-          if (cancelled) return
-          applyPortalUser(result)
-          if (result.user) recordSessionActivity()
+    const syncFromSession = async (session: Session | null) => {
+      try {
+        const result = await loadSupabasePortalUser(sb, session)
+        if (cancelled) return
+        applyPortalUser(result)
+        if (result.user) recordSessionActivity()
+      } catch (e) {
+        // Never leave the UI stuck on "Checking your session…" if something
+        // throws unexpectedly — fall back to the raw session.
+        console.warn('[auth] syncFromSession failed:', e)
+        if (cancelled) return
+        applyPortalUser({
+          user: sessionToPortalUser(session),
+          profileLoadFailed: true,
+          profileError: e instanceof Error ? e.message : String(e),
         })
-        .catch((e) => {
-          // Never leave the UI stuck on "Checking your session…" if something
-          // throws unexpectedly — fall back to the raw session.
-          console.warn('[auth] syncFromSession failed:', e)
-          if (cancelled) return
-          applyPortalUser({
-            user: sessionToPortalUser(session),
-            profileLoadFailed: true,
-            profileError: e instanceof Error ? e.message : String(e),
-          })
-        })
-        .finally(() => {
-          if (cancelled) return
-          setAuthReady(true)
-        })
+      } finally {
+        if (!cancelled) setAuthReady(true)
+      }
     }
+
+    // Primary init: ask Supabase for the current session before relying on
+    // onAuthStateChange. On a direct-URL load, `getSession()` is deterministic
+    // (it reads localStorage synchronously after the hydration lock); relying
+    // only on the INITIAL_SESSION event sometimes left authReady stuck when
+    // the event ordering raced with React 18 strict-mode remount.
+    void (async () => {
+      try {
+        const { data } = await sb.auth.getSession()
+        if (cancelled) return
+        await syncFromSession(data.session ?? null)
+      } catch (e) {
+        console.warn('[auth] getSession failed:', e)
+        if (!cancelled) setAuthReady(true)
+      }
+    })()
 
     // Safety: force authReady after a maximum delay so we never block the UI
     // on "Checking your session…" indefinitely when the auth client is slow
@@ -408,7 +421,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         return
       }
       // Defer to avoid Supabase auth deadlocks when calling back into the client.
-      setTimeout(() => syncFromSession(session), 0)
+      setTimeout(() => void syncFromSession(session), 0)
     })
 
     return () => {

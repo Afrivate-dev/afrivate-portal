@@ -51,14 +51,33 @@ import type {
   WeeklyCheckIn,
 } from '@/types'
 
+/**
+ * Default task categories span the whole company (not just dev). The legacy
+ * dev-focused ids (`react`, `wordpress`, `performance`, `nodejs`, `freelance`,
+ * `admin`, `other`) are retained so existing tasks still render with sensible
+ * labels. New installs seed this list via the DB migration.
+ */
 const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
-  { id: 'react',       label: 'React / Frontend' },
-  { id: 'wordpress',   label: 'WordPress' },
-  { id: 'performance', label: 'Performance' },
-  { id: 'nodejs',      label: 'Node.js' },
-  { id: 'freelance',   label: 'Freelance' },
-  { id: 'admin',       label: 'Operations' },
-  { id: 'other',       label: 'Other' },
+  { id: 'general',            label: 'General' },
+  { id: 'human_resources',    label: 'Human Resources' },
+  { id: 'admin',              label: 'Operations' },
+  { id: 'finance',            label: 'Finance' },
+  { id: 'communications',     label: 'Communications' },
+  { id: 'marketing_media',    label: 'Marketing and Media' },
+  { id: 'partnerships',       label: 'Partnerships and Outreach' },
+  { id: 'records',            label: 'Records' },
+  { id: 'learning_dev',       label: 'Learning and Development' },
+  { id: 'design',             label: 'Design' },
+  { id: 'product',            label: 'Product' },
+  { id: 'frontend',           label: 'Frontend' },
+  { id: 'backend',            label: 'Backend' },
+  // Legacy ids kept so existing tasks continue to label correctly.
+  { id: 'react',              label: 'React / Frontend' },
+  { id: 'wordpress',          label: 'WordPress' },
+  { id: 'performance',        label: 'Performance' },
+  { id: 'nodejs',             label: 'Node.js' },
+  { id: 'freelance',          label: 'Freelance' },
+  { id: 'other',              label: 'Other' },
 ]
 import { newlyMentionedUserIds, uid, canChangeRoles } from '@/utils/helpers'
 import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
@@ -1382,19 +1401,46 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
   }, [users, accessRequests])
 
   const addTaskCategory = useCallback(
-    (label: string) => {
+    async (rawLabel: string) => {
+      const label = rawLabel.trim()
+      if (!label) {
+        return { id: taskCategories[0]?.id ?? 'general', created: false }
+      }
+      const lower = label.toLowerCase()
+      const existingLocal = taskCategories.find((c) => c.label.trim().toLowerCase() === lower)
+      if (existingLocal) {
+        return { id: existingLocal.id, created: false }
+      }
+
+      // Belt-and-braces: check the DB case-insensitively before inserting. Two
+      // staff creating the same label from different tabs would otherwise race.
+      const { data: existingRows } = await client
+        .from('portal_task_categories')
+        .select('id, label')
+        .ilike('label', label)
+        .limit(1)
+      if (existingRows && existingRows.length > 0) {
+        const row = existingRows[0] as { id: string; label: string }
+        setTaskCategories((prev) =>
+          prev.some((c) => c.id === row.id) ? prev : [...prev, { id: row.id, label: row.label }],
+        )
+        return { id: row.id, created: false }
+      }
+
       const id = 'cat_' + uid()
-      void (async () => {
-        const { error } = await client.from('portal_task_categories').insert({
-          id,
-          label,
-          sort_order: taskCategories.length + 1,
-        })
-        if (error) reportDataError('add task category', error)
-        else setTaskCategories((prev) => [...prev, { id, label }])
-      })()
+      const { error } = await client.from('portal_task_categories').insert({
+        id,
+        label,
+        sort_order: taskCategories.length + 1,
+      })
+      if (error) {
+        reportDataError('add task category', error)
+        return { id: taskCategories[0]?.id ?? 'general', created: false }
+      }
+      setTaskCategories((prev) => [...prev, { id, label }])
+      return { id, created: true }
     },
-    [client, taskCategories.length],
+    [client, taskCategories],
   )
 
   const updateTaskCategory = useCallback(
