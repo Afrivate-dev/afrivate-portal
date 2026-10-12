@@ -200,7 +200,9 @@ export function OnboardingPage() {
             <p className="text-[11px] font-semibold uppercase tracking-wider text-accent">{step.day}</p>
             <p className="mt-1 text-sm font-semibold text-fg">{step.title}</p>
             <ul className="mt-2 space-y-1.5">
-              {step.items.map((item) => (
+              {step.items
+                .filter((item) => sortedVideos.length > 0 || !/welcome video/i.test(item))
+                .map((item) => (
                 <li key={item} className="text-xs leading-relaxed text-muted">
                   {item}
                 </li>
@@ -439,6 +441,10 @@ export function OnboardingPage() {
             <Card padding="md">
               <ul className="divide-y divide-border">
                 {onboardingChecklist
+                  .filter((item) => {
+                    if (sortedVideos.length > 0) return true
+                    return item.id !== 'ck_videos' && !/welcome video/i.test(item.label)
+                  })
                   .sort((a, b) => a.order - b.order)
                   .map((item) => {
                     const done = checkedIds.has(item.id)

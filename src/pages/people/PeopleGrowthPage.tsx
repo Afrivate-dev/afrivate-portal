@@ -507,7 +507,7 @@ export function PeopleGrowthPage() {
         <Card padding="md">
           <div className="mb-3 flex items-center gap-2">
             <Award className="h-4 w-4 text-accent" />
-            <h3 className="text-sm font-semibold text-fg">Afrivate Awards</h3>
+            <h3 className="text-sm font-semibold text-fg">AfriVate Awards</h3>
           </div>
           {quarterlyAwards.length === 0 ? (
             <p className="text-sm text-muted">Quarterly winners appear here after HR announces awards.</p>

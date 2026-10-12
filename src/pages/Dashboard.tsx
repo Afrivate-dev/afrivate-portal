@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { Link } from 'react-router-dom'
 import {
   ListChecks,
@@ -30,7 +30,7 @@ import {
 } from '@/utils/helpers'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { userSeesAnnouncement, unreadAnnouncementsFor } from '@/lib/announcementVisibility'
-import { brand } from '@/content/copy'
+import { brand, pages } from '@/content/copy'
 import { format, isSameDay, parseISO } from 'date-fns'
 import { AnnouncementMediaGallery } from '@/components/shared/AnnouncementAttachments'
 import { MemoDocumentBody } from '@/components/shared/MemoDocumentBody'
@@ -112,15 +112,31 @@ export function DashboardPage() {
     const joinedAt = new Date(user.joinedAt)
     const days = (new Date().getTime() - joinedAt.getTime()) / (1000 * 60 * 60 * 24)
     if (days > 30) return null
+    if (onboardingVideos.length === 0) return null
     const progress = onboardingProgress.find((p) => p.userId === user.id)
     const watched = progress?.watchedVideoIds.length ?? 0
     const total = onboardingVideos.length
     return { watched, total, pct: total === 0 ? 0 : Math.round((watched / total) * 100) }
   }, [user, onboardingProgress, onboardingVideos])
 
+  useEffect(() => {
+    if (!readingId) return
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setReadingId(null)
+    }
+    document.addEventListener('keydown', onKey)
+    return () => document.removeEventListener('keydown', onKey)
+  }, [readingId])
+
   if (!user) return null
 
   const currentAnnouncement = recentAnnouncements.find((a) => a.id === readingId)
+  const memoUrgency = (priority: string) =>
+    priority === 'urgent'
+      ? pages.updates.priorityAction
+      : priority === 'important'
+        ? pages.updates.priorityHeadsUp
+        : pages.updates.priorityFYI
 
   return (
     <div className="av-contain space-y-4 sm:space-y-6">
@@ -278,7 +294,7 @@ export function DashboardPage() {
                                   : 'info'
                             }
                           >
-                            {a.priority}
+                            {memoUrgency(a.priority)}
                           </Badge>
                         </div>
                         <p className="mt-0.5 line-clamp-2 text-xs text-muted">{a.body}</p>
@@ -334,29 +350,40 @@ export function DashboardPage() {
         >
           <div className="absolute inset-0 bg-black/50 backdrop-blur-sm" aria-hidden />
           <Card
-            padding="lg"
-            className="relative max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-b-none sm:rounded-b-xl sm:animate-fade-in animate-slide-up pb-[max(1rem,env(safe-area-inset-bottom))]"
+            padding="none"
+            className="relative flex max-h-[90vh] w-full max-w-lg flex-col overflow-hidden rounded-b-none sm:rounded-b-xl sm:animate-fade-in animate-slide-up"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="mb-3 flex items-start justify-between gap-3">
-              <div>
+            <div className="sticky top-0 z-10 flex items-start justify-between gap-3 border-b border-border bg-surface px-5 py-4">
+              <div className="min-w-0">
                 <h3 className="text-lg font-semibold text-fg">{currentAnnouncement.title}</h3>
                 <p className="mt-0.5 text-xs text-muted">
                   Posted {fmtDate(currentAnnouncement.postedAt)} at {fmtTime(currentAnnouncement.postedAt)}
                 </p>
               </div>
-              <Badge
-                tone={
-                  currentAnnouncement.priority === 'urgent'
-                    ? 'danger'
-                    : currentAnnouncement.priority === 'important'
-                      ? 'warning'
-                      : 'info'
-                }
-              >
-                {currentAnnouncement.priority}
-              </Badge>
+              <div className="flex shrink-0 items-center gap-2">
+                <Badge
+                  tone={
+                    currentAnnouncement.priority === 'urgent'
+                      ? 'danger'
+                      : currentAnnouncement.priority === 'important'
+                        ? 'warning'
+                        : 'info'
+                  }
+                >
+                  {memoUrgency(currentAnnouncement.priority)}
+                </Badge>
+                <button
+                  type="button"
+                  aria-label="Close"
+                  className="rounded-md p-1.5 text-muted hover:bg-surface-2 hover:text-fg ring-focus"
+                  onClick={() => setReadingId(null)}
+                >
+                  <span aria-hidden className="block text-lg leading-none">×</span>
+                </button>
+              </div>
             </div>
+            <div className="min-h-0 flex-1 overflow-y-auto px-5 py-4 pb-[max(1rem,env(safe-area-inset-bottom))]">
             {currentAnnouncement.body.trim() ? (
               <p className="whitespace-pre-line text-sm text-fg/90">{currentAnnouncement.body}</p>
             ) : null}
@@ -382,6 +409,7 @@ export function DashboardPage() {
               <Button variant="secondary" onClick={() => setReadingId(null)}>
                 Close
               </Button>
+            </div>
             </div>
           </Card>
         </div>

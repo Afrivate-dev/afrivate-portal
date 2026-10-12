@@ -55,7 +55,7 @@ export const DEFAULT_FEEDBACK_TEMPLATES: FeedbackTemplate[] = [
     label: 'Standard 360° review',
     description: 'Values and collaboration scales',
     questions: [
-      { id: 'values', text: 'Embodies the Afrivate Way', type: 'scale', min: 1, max: 10 },
+      { id: 'values', text: 'Embodies the AfriVate Way', type: 'scale', min: 1, max: 10 },
       { id: 'collab', text: 'Collaborates effectively', type: 'scale', min: 1, max: 10 },
     ],
   },

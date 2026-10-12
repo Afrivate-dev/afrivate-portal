@@ -39,6 +39,27 @@ export function pickCanonicalAtsJob(
   })[0]
 }
 
+/** One open requisition per title + department. The inflated "97 open" count was duplicate rows. */
+export function uniqueOpenRequisitions(
+  jobs: JobRequisition[],
+  candidates: JobCandidate[] = [],
+): JobRequisition[] {
+  const groups = new Map<string, JobRequisition[]>()
+  for (const job of jobs) {
+    if (job.status !== 'open') continue
+    const key = `${job.title.trim().toLowerCase()}|${(job.department ?? '').trim().toLowerCase()}`
+    const list = groups.get(key) ?? []
+    list.push(job)
+    groups.set(key, list)
+  }
+  const out: JobRequisition[] = []
+  for (const group of groups.values()) {
+    const pick = pickCanonicalAtsJob(group, candidates)
+    if (pick) out.push(pick)
+  }
+  return out.sort((a, b) => a.title.localeCompare(b.title))
+}
+
 export function candidateIdsForAtsProfile(
   jobs: JobRequisition[],
   profile: AtsRoleProfile,

@@ -1,4 +1,4 @@
-import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
+import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { Session, SupabaseClient } from '@supabase/supabase-js'
 import { useSessionStorage } from '@/hooks/useSessionStorage'
 import { useAutoLogout } from '@/hooks/useAutoLogout'
@@ -7,7 +7,9 @@ import { supabase } from '@/lib/supabase'
 import {
   SESSION_USER_STORAGE_KEY,
   clearSessionActivity,
+  isInvalidAuthTokenMessage,
   recordSessionActivity,
+  removeSupabaseAuthStorageKeys,
 } from '@/lib/sessionPolicy'
 import { validatePortalPassword } from '@/utils/passwordPolicy'
 import { parseDutyStatus } from '@/lib/dutyStatus'
@@ -175,6 +177,15 @@ async function loadProfileRowFromTable(
   return { row: row as ProfileRow | null }
 }
 
+async function clearLocalSupabaseSession(client: SupabaseClient): Promise<void> {
+  try {
+    await withTimeout(client.auth.signOut({ scope: 'local' }), 3_000, 'signOut')
+  } catch {
+    /* local sign-out is best-effort; keys are removed below either way */
+  }
+  removeSupabaseAuthStorageKeys()
+}
+
 async function loadProfileRow(
   client: SupabaseClient,
   userId: string,
@@ -212,23 +223,28 @@ type ProfileLoadResult = {
 async function loadSupabasePortalUser(
   client: SupabaseClient,
   session: Session | null,
-  attempt = 0,
 ): Promise<ProfileLoadResult> {
   const base = sessionToPortalUser(session)
   if (!base) return { user: null, profileLoadFailed: false, profileError: null }
 
-  const { row, error } = await loadProfileRow(client, base.id)
+  let row: ProfileRow | null = null
+  let error: string | undefined
+  try {
+    const loaded = await withTimeout(
+      loadProfileRow(client, base.id),
+      PROFILE_LOAD_TIMEOUT_MS,
+      'profile',
+    )
+    row = loaded.row
+    error = loaded.error
+  } catch (e) {
+    error = e instanceof Error ? e.message : String(e)
+  }
 
   if (error) {
-    // One retry only. The second attempt also uses PROFILE_LOAD_TIMEOUT_MS, so the
-    // worst case stays under ~20s and the UI falls back to session metadata instead
-    // of hanging on "Checking your session…" indefinitely.
-    if (attempt < 1) {
-      await client.auth.refreshSession().catch(() => {
-        /* refresh may fail with network issues; the retry still has value */
-      })
-      await new Promise((r) => setTimeout(r, 200))
-      return loadSupabasePortalUser(client, session, attempt + 1)
+    if (isInvalidAuthTokenMessage(error)) {
+      await clearLocalSupabaseSession(client)
+      return { user: null, profileLoadFailed: false, profileError: null }
     }
     console.warn('[auth] profiles read:', error)
     return { user: base, profileLoadFailed: true, profileError: error }
@@ -283,6 +299,8 @@ interface AuthContextValue {
   authReady: boolean
   profileLoadFailed: boolean
   profileError: string | null
+  /** False until the first profile/role read finishes or times out. */
+  profileChecked: boolean
   login: (email: string, password: string) => Promise<{ ok: boolean; error?: string }>
   register: (
     email: string,
@@ -309,6 +327,8 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const [authReady, setAuthReady] = useState(!supabaseMode)
   const [profileLoadFailed, setProfileLoadFailed] = useState(false)
   const [profileError, setProfileError] = useState<string | null>(null)
+  const [profileChecked, setProfileChecked] = useState(!supabaseMode)
+  const signedInLocally = useRef(false)
 
   const applyPortalUser = useCallback((result: ProfileLoadResult) => {
     setSupabaseUser((prev) => {
@@ -357,71 +377,110 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     const sb = supabase
     let cancelled = false
 
-    const syncFromSession = async (session: Session | null) => {
-      try {
-        const result = await loadSupabasePortalUser(sb, session)
-        if (cancelled) return
-        applyPortalUser(result)
-        if (result.user) recordSessionActivity()
-      } catch (e) {
-        // Never leave the UI stuck on "Checking your session…" if something
-        // throws unexpectedly — fall back to the raw session.
-        console.warn('[auth] syncFromSession failed:', e)
-        if (cancelled) return
-        applyPortalUser({
-          user: sessionToPortalUser(session),
-          profileLoadFailed: true,
-          profileError: e instanceof Error ? e.message : String(e),
-        })
-      } finally {
-        if (!cancelled) setAuthReady(true)
+    const settleProfile = (session: Session | null) => {
+      if (!session || cancelled) {
+        if (!cancelled) setProfileChecked(true)
+        return
       }
+      void loadSupabasePortalUser(sb, session)
+        .then((result) => {
+          if (cancelled) return
+          applyPortalUser(result)
+          if (result.user) recordSessionActivity()
+        })
+        .catch((e) => {
+          console.warn('[auth] profile load failed:', e)
+          if (cancelled) return
+          applyPortalUser({
+            user: sessionToPortalUser(session),
+            profileLoadFailed: true,
+            profileError: e instanceof Error ? e.message : String(e),
+          })
+        })
+        .finally(() => {
+          if (!cancelled) setProfileChecked(true)
+        })
     }
 
-    // Primary init: ask Supabase for the current session before relying on
-    // onAuthStateChange. On a direct-URL load, `getSession()` is deterministic
-    // (it reads localStorage synchronously after the hydration lock); relying
-    // only on the INITIAL_SESSION event sometimes left authReady stuck when
-    // the event ordering raced with React 18 strict-mode remount.
+    // Session check is capped at 8s and always clears the "checking session"
+    // gate in finally. Profile/role loads in the background so a slow query
+    // cannot trap the login form or the portal shell.
     void (async () => {
+      let session: Session | null = null
       try {
-        const { data } = await sb.auth.getSession()
+        const { data, error } = await withTimeout(sb.auth.getSession(), PROFILE_LOAD_TIMEOUT_MS, 'getSession')
         if (cancelled) return
-        await syncFromSession(data.session ?? null)
+        if (error && isInvalidAuthTokenMessage(error.message)) {
+          await clearLocalSupabaseSession(sb)
+          session = null
+        } else {
+          session = data.session ?? null
+        }
       } catch (e) {
-        console.warn('[auth] getSession failed:', e)
-        if (!cancelled) setAuthReady(true)
+        const message = e instanceof Error ? e.message : String(e)
+        console.warn('[auth] getSession failed:', message)
+        if (isInvalidAuthTokenMessage(message)) {
+          await clearLocalSupabaseSession(sb)
+        }
+        session = null
+      } finally {
+        if (!cancelled && !signedInLocally.current) {
+          const base = sessionToPortalUser(session)
+          applyPortalUser({
+            user: base,
+            profileLoadFailed: false,
+            profileError: null,
+          })
+          setAuthReady(true)
+          if (base) setProfileChecked(false)
+          else setProfileChecked(true)
+        } else if (!cancelled) {
+          setAuthReady(true)
+        }
       }
+      if (!cancelled && !signedInLocally.current) settleProfile(session)
     })()
 
-    // Safety: force authReady after a maximum delay so we never block the UI
-    // on "Checking your session…" indefinitely when the auth client is slow
-    // (e.g. flaky network, Supabase outage).
     const readyFallback = window.setTimeout(() => {
       if (cancelled) return
       setAuthReady(true)
-    }, 12_000)
+    }, PROFILE_LOAD_TIMEOUT_MS)
 
     const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
-      // Mobile file/camera pickers often fire auth noise with a null session.
-      // Only clear the user on a real sign-out — never on transient refresh races.
+      // Never await Supabase calls inside this callback — that holds the auth
+      // lock and stalls "Checking your session…" until the lock times out.
       if (event === 'SIGNED_OUT') {
         setTimeout(() => {
           if (cancelled) return
+          signedInLocally.current = false
           setSupabaseUser(null)
           setProfileLoadFailed(false)
           setProfileError(null)
+          setProfileChecked(true)
           setAuthReady(true)
         }, 0)
         return
       }
       if (!session) {
-        // Ignore null session for TOKEN_REFRESHED / INITIAL_SESSION races, etc.
-        if (event === 'INITIAL_SESSION') setAuthReady(true)
+        if (event === 'INITIAL_SESSION') {
+          setTimeout(() => {
+            if (cancelled) return
+            setAuthReady(true)
+          }, 0)
+        }
         return
       }
-      // Defer to avoid Supabase auth deadlocks when calling back into the client.
-      setTimeout(() => void syncFromSession(session), 0)
+      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+        setTimeout(() => {
+          if (!cancelled) setAuthReady(true)
+        }, 0)
+        return
+      }
+      setTimeout(() => {
+        if (cancelled) return
+        setAuthReady(true)
+        settleProfile(session)
+      }, 0)
     })
 
     return () => {
@@ -465,19 +524,55 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
     async (email: string, password: string) => {
       if (supabaseMode && supabase) {
         const client = supabase
-        const { data, error } = await client.auth.signInWithPassword({
-          email: email.trim(),
-          password,
-        })
+        let data: { session: Session | null }
+        let error: { message: string } | null
+        try {
+          const signed = await withTimeout(
+            client.auth.signInWithPassword({
+              email: email.trim(),
+              password,
+            }),
+            PROFILE_LOAD_TIMEOUT_MS,
+            'signIn',
+          )
+          data = signed.data
+          error = signed.error
+        } catch (e) {
+          const message = e instanceof Error ? e.message : String(e)
+          if (isInvalidAuthTokenMessage(message)) await clearLocalSupabaseSession(client)
+          return {
+            ok: false as const,
+            error: 'Sign-in is taking too long. Check your connection and try again.',
+          }
+        }
         if (error) {
+          if (isInvalidAuthTokenMessage(error.message)) await clearLocalSupabaseSession(client)
           const msg = error.message.toLowerCase().includes('invalid login')
             ? 'Incorrect email or password. New to AfriVate? Use Request access to create an account.'
             : error.message
           return { ok: false as const, error: msg }
         }
-        const result = await loadSupabasePortalUser(client, data.session)
-        applyPortalUser(result)
+        // Redirect immediately. Role and active flag load in the background.
+        signedInLocally.current = true
+        const base = sessionToPortalUser(data.session)
+        applyPortalUser({ user: base, profileLoadFailed: false, profileError: null })
+        setProfileChecked(false)
+        setAuthReady(true)
         recordSessionActivity()
+        void loadSupabasePortalUser(client, data.session)
+          .then((result) => {
+            applyPortalUser(result)
+            if (result.user) recordSessionActivity()
+          })
+          .catch((e) => {
+            console.warn('[auth] profile load after sign-in:', e)
+            applyPortalUser({
+              user: base,
+              profileLoadFailed: true,
+              profileError: e instanceof Error ? e.message : String(e),
+            })
+          })
+          .finally(() => setProfileChecked(true))
         return { ok: true as const }
       }
       try {
@@ -613,7 +708,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const sendMagicLink = useCallback(
     async (email: string) => {
       if (!supabaseMode || !supabase) {
-        return { ok: false as const, error: 'Magic link sign-in requires Supabase auth.' }
+        return { ok: false as const, error: 'Magic link sign-in is not available right now.' }
       }
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
@@ -631,7 +726,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const changeEmail = useCallback(
     async (newEmail: string) => {
       if (!supabaseMode || !supabase) {
-        return { ok: false as const, error: 'Email change requires Supabase auth.' }
+        return { ok: false as const, error: 'Email change is not available right now.' }
       }
       const { error } = await supabase.auth.updateUser(
         { email: newEmail.trim().toLowerCase() },
@@ -646,7 +741,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   const changePassword = useCallback(
     async (newPassword: string) => {
       if (!supabaseMode || !supabase) {
-        return { ok: false as const, error: 'Password change requires Supabase auth.' }
+        return { ok: false as const, error: 'Password change is not available right now.' }
       }
       const pwError = validatePortalPassword(newPassword)
       if (pwError) return { ok: false as const, error: pwError }
@@ -659,7 +754,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
 
   const sendReauthentication = useCallback(async () => {
     if (!supabaseMode || !supabase) {
-      return { ok: false as const, error: 'Reauthentication requires Supabase auth.' }
+      return { ok: false as const, error: 'Verification is not available right now.' }
     }
     const { error } = await supabase.auth.reauthenticate()
     if (error) return { ok: false as const, error: error.message }
@@ -673,6 +768,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authReady,
       profileLoadFailed,
       profileError,
+      profileChecked,
       login,
       register,
       logout,
@@ -689,6 +785,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
       authReady,
       profileLoadFailed,
       profileError,
+      profileChecked,
       login,
       register,
       logout,

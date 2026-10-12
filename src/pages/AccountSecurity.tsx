@@ -98,7 +98,7 @@ export function AccountSecurityPage() {
       {!supabaseMode ? (
         <Card padding="lg">
           <p className="text-sm text-muted">
-            Account security settings are available when Supabase auth is enabled.
+            Account security settings are available when portal sign-in is enabled.
           </p>
         </Card>
       ) : (
@@ -109,7 +109,7 @@ export function AccountSecurityPage() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg font-semibold text-fg">Verify identity</h2>
                 <p className="mt-1 text-sm text-muted">
-                  Before changing your email or password, Supabase may require a recent sign-in.
+                  Before changing your email or password, the portal may require a recent sign-in.
                   Send a verification link to your current email if prompted.
                 </p>
                 {reauthSent ? (

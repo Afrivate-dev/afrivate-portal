@@ -35,7 +35,7 @@ function AppShell({
   return (
     <div className="flex min-h-screen min-w-0 overflow-x-clip bg-bg">
       <Sidebar />
-      <div className="flex min-h-screen min-w-0 flex-1 flex-col overflow-x-clip">
+      <div className="flex min-h-screen min-w-0 flex-1 flex-col">
         <TopBar onOpenDrawer={onOpenDrawer} />
         {profileWarning ? (
           <div
@@ -66,7 +66,7 @@ function AppShell({
 }
 
 export function AppLayout() {
-  const { user, logout, reconcileUser, authReady, profileLoadFailed, profileError, refreshUser } = useAuth()
+  const { user, logout, reconcileUser, authReady, profileLoadFailed, profileError, profileChecked, refreshUser } = useAuth()
   const { dataStatus, dataError, reloadData, users } = useData()
   const location = useLocation()
   const [drawerOpen, setDrawerOpen] = useState(false)
@@ -157,7 +157,9 @@ export function AppLayout() {
 
   // Profile load failure falls back to session metadata with active:false — that is
   // not a real pending-approval state. Show retry instead of locking approved users out.
-  if (profileLoadFailed && user.active === false) {
+  // active:false on the raw session is a placeholder until the profile read
+  // finishes. Don't treat that as pending approval, and don't bounce to /login.
+  if (profileChecked && profileLoadFailed && user.active === false) {
     return (
       <ProfileLoadErrorScreen
         onRetry={() => void refreshUser()}
@@ -166,7 +168,7 @@ export function AppLayout() {
     )
   }
 
-  if (user.active === false) {
+  if (profileChecked && user.active === false) {
     return <PendingApprovalScreen user={user} onSignOut={logout} />
   }
 

@@ -13,7 +13,7 @@ import { isSupabaseAuthEnabled } from '@/lib/authMode'
 type SignInMode = 'password' | 'magic_link'
 
 export function LoginPage() {
-  const { user, login, authReady, logout, sendMagicLink, profileLoadFailed } = useAuth()
+  const { user, login, authReady, logout, sendMagicLink, profileLoadFailed, profileChecked } = useAuth()
   const navigate = useNavigate()
   const [searchParams] = useSearchParams()
   const supabaseMode = isSupabaseAuthEnabled()
@@ -32,16 +32,27 @@ export function LoginPage() {
     const code = searchParams.get('code')
     if (code) {
       queueMicrotask(() => setLoading(true))
-      void supabase.auth.exchangeCodeForSession(code).then(({ error: exchangeError }) => {
-        setLoading(false)
-        if (exchangeError) {
-          setError('Sign-in link expired or invalid. Try again or use your password.')
+      void Promise.race([
+        supabase.auth.exchangeCodeForSession(code),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('timeout')), 8_000)
+        }),
+      ])
+        .then((result) => {
+          const exchangeError = result && 'error' in result ? result.error : null
+          if (exchangeError) {
+            setError('Sign-in link expired or invalid. Try again or use your password.')
+            window.history.replaceState({}, '', '/login')
+            return
+          }
           window.history.replaceState({}, '', '/login')
-          return
-        }
-        window.history.replaceState({}, '', '/login')
-        navigate('/', { replace: true })
-      })
+          navigate('/', { replace: true })
+        })
+        .catch(() => {
+          setError('Sign-in is taking too long. Check your connection and try again.')
+          window.history.replaceState({}, '', '/login')
+        })
+        .finally(() => setLoading(false))
       return
     }
 
@@ -53,11 +64,21 @@ export function LoginPage() {
         hash.includes('type=email'))
     ) {
       queueMicrotask(() => setLoading(true))
-      void supabase.auth.getSession().then(({ data }) => {
-        setLoading(false)
-        window.history.replaceState({}, '', '/login')
-        if (data.session) navigate('/', { replace: true })
-      })
+      void Promise.race([
+        supabase.auth.getSession(),
+        new Promise<never>((_, reject) => {
+          window.setTimeout(() => reject(new Error('timeout')), 8_000)
+        }),
+      ])
+        .then((result) => {
+          window.history.replaceState({}, '', '/login')
+          if (result && 'data' in result && result.data.session) navigate('/', { replace: true })
+        })
+        .catch(() => {
+          setError('Sign-in is taking too long. Check your connection and try again.')
+          window.history.replaceState({}, '', '/login')
+        })
+        .finally(() => setLoading(false))
     }
   }, [searchParams, navigate])
 
@@ -65,22 +86,25 @@ export function LoginPage() {
     return <ScreenLoader message="Checking your session…" className="min-h-[40vh]" />
   }
 
-  if (user?.active === true) return <Navigate to="/" replace />
+  if (user && (!profileChecked || user.active === true)) return <Navigate to="/" replace />
 
-  const pendingSession = Boolean(user && user.active === false && !profileLoadFailed)
+  const pendingSession = Boolean(user && profileChecked && user.active === false && !profileLoadFailed)
 
   const onSubmitPassword = async (e: React.FormEvent) => {
     e.preventDefault()
     setError(null)
     setInfo(null)
     setLoading(true)
-    const result = await login(email, password)
-    setLoading(false)
-    if (!result.ok) {
-      setError(result.error ?? 'Sign-in failed. Check your email and password.')
-      return
+    try {
+      const result = await login(email, password)
+      if (!result.ok) {
+        setError(result.error ?? 'Sign-in failed. Check your email and password.')
+        return
+      }
+      navigate('/', { replace: true })
+    } finally {
+      setLoading(false)
     }
-    navigate('/', { replace: true })
   }
 
   const onSubmitMagicLink = async (e: React.FormEvent) => {
@@ -88,14 +112,17 @@ export function LoginPage() {
     setError(null)
     setInfo(null)
     setLoading(true)
-    const result = await sendMagicLink(email)
-    setLoading(false)
-    if (!result.ok) {
-      setError(result.error ?? 'Could not send magic link.')
-      return
+    try {
+      const result = await sendMagicLink(email)
+      if (!result.ok) {
+        setError(result.error ?? 'Could not send magic link.')
+        return
+      }
+      setMagicLinkSent(true)
+      setInfo(`We sent a sign-in link to ${email.trim()}.`)
+    } finally {
+      setLoading(false)
     }
-    setMagicLinkSent(true)
-    setInfo(`We sent a sign-in link to ${email.trim()}.`)
   }
 
   return (

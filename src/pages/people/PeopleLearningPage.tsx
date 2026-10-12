@@ -1,27 +1,20 @@
-import { useMemo, useState } from 'react'
-import { ExternalLink, GraduationCap, Upload } from 'lucide-react'
+import { useMemo } from 'react'
+import { ExternalLink, GraduationCap, Mail } from 'lucide-react'
 import { useAuth } from '@/context/AuthContext'
 import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
-import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Badge } from '@/components/ui/Badge'
 import { EmptyState } from '@/components/shared/EmptyState'
-import { GoogleDrivePickerButton } from '@/components/shared/GoogleDrivePickerButton'
-import { storeWorkspaceFile } from '@/lib/storeWorkspaceFile'
-import { notifyError, notifySuccess } from '@/lib/notify'
 import { fmtDate, isHR } from '@/utils/helpers'
-import { hasBlockingLearningSubmission, findLearningSubmission } from '@/utils/learningSubmission'
+import { findLearningSubmission } from '@/utils/learningSubmission'
 import { LearningReviewPanel } from '@/components/admin/LearningReviewPanel'
+
+const HR_LEARNING_EMAIL = 'afrivatehr@gmail.com'
 
 export function PeopleLearningPage() {
   const { user } = useAuth()
-  const { learningAssignments, learningSubmissions, submitLearning } = useHr()
-  const [courseName, setCourseName] = useState('')
-  const [completedAt, setCompletedAt] = useState(new Date().toISOString().slice(0, 10))
-  const [certFile, setCertFile] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
+  const { learningAssignments, learningSubmissions } = useHr()
 
   const active = useMemo(() => learningAssignments.filter((a) => a.active), [learningAssignments])
   const current = active[0]
@@ -36,53 +29,16 @@ export function PeopleLearningPage() {
     [user, current, learningSubmissions],
   )
 
-  const submissionBlocked = useMemo(
-    () => (user && current ? hasBlockingLearningSubmission(current.id, user.id, learningSubmissions) : false),
-    [user, current, learningSubmissions],
-  )
-
   if (!user) return null
 
-  const submit = async () => {
-    if (!current || !courseName.trim() || submissionBlocked) return
-    setBusy(true)
-    let certificatePath: string | undefined
-    if (certFile) {
-      const uploaded = await storeWorkspaceFile(certFile, 'media', user.id)
-      if ('error' in uploaded) {
-        notifyError(uploaded.error)
-        setBusy(false)
-        return
-      }
-      certificatePath = uploaded.path
-    }
-    const ok = submitLearning({
-      assignmentId: current.id,
-      userId: user.id,
-      courseName: courseName.trim(),
-      completedAt,
-      certificatePath,
-    })
-    if (!ok) {
-      notifyError('You already have a submission under review for this course.')
-      setBusy(false)
-      return
-    }
-    notifySuccess(
-      currentSubmission?.status === 'rejected'
-        ? 'Resubmission sent for review.'
-        : 'Submission sent for review.',
-    )
-    setCourseName('')
-    setCertFile(null)
-    setBusy(false)
-  }
+  const reportSubject = current ? `L&D Report: ${current.title}` : 'L&D Report'
+  const mailto = `mailto:${HR_LEARNING_EMAIL}?subject=${encodeURIComponent(reportSubject)}`
 
   return (
     <div className="av-contain space-y-6">
       <PageHeader
         title="Learning"
-        description="Open the course your team has assigned, then submit a short completion note (and optional certificate) here."
+        description="Open your assigned course, then email a one-page report to Human Resources by the due date."
       />
 
       {current ? (
@@ -120,43 +76,28 @@ export function PeopleLearningPage() {
             ) : null}
           </div>
 
-          {submissionBlocked ? (
-            <div className="mt-6 border-t border-border pt-6">
-              <p className="text-sm text-muted">
-                {currentSubmission?.status === 'approved'
-                  ? 'This course is marked complete — no further submission needed.'
-                  : 'Your submission is awaiting HR review. You will be notified when it is approved.'}
+          <div className="mt-6 space-y-3 border-t border-border pt-6">
+            <h3 className="text-sm font-semibold text-fg">Email your report</h3>
+            <p className="text-sm text-muted">
+              When you finish, email a one-page report to{' '}
+              <a className="font-medium text-accent hover:underline" href={mailto}>
+                {HR_LEARNING_EMAIL}
+              </a>
+              {current.dueDate ? ` by ${fmtDate(current.dueDate)}` : ' by the due date'}.
+              Include what you learned and one way you will use it at work.
+            </p>
+            {currentSubmission ? (
+              <p className="text-xs text-muted">
+                An earlier in-portal note is on file ({currentSubmission.status}). New completions are sent by email.
               </p>
-            </div>
-          ) : (
-            <div className="mt-6 space-y-4 border-t border-border pt-6">
-              <h3 className="text-sm font-semibold text-fg">
-                {currentSubmission?.status === 'rejected' ? 'Resubmit completion' : 'Submit completion'}
-              </h3>
-              {currentSubmission?.status === 'rejected' ? (
-                <p className="text-xs text-muted">
-                  Your previous submission was not approved. Update your details and try again.
-                </p>
-              ) : null}
-              <Input label="Course name" value={courseName} onChange={(e) => setCourseName(e.target.value)} placeholder="As shown on the course page" />
-              <Input label="Completed on" type="date" value={completedAt} onChange={(e) => setCompletedAt(e.target.value)} />
-              <p className="text-xs text-muted">Certificate optional — attach PDF or image if you have one.</p>
-              <div className="flex flex-wrap gap-2">
-                <label className="inline-flex cursor-pointer items-center gap-2 rounded-md border border-border px-3 py-2 text-sm hover:bg-surface-2">
-                  <Upload className="h-4 w-4" />
-                  {certFile ? certFile.name : 'Upload certificate'}
-                  <input type="file" accept="image/*,.pdf" className="sr-only" onChange={(e) => setCertFile(e.target.files?.[0] ?? null)} />
-                </label>
-                <GoogleDrivePickerButton
-                  label="From Google Drive"
-                  onPicked={(file) => setCertFile(file)}
-                />
-              </div>
-              <Button onClick={() => void submit()} loading={busy} disabled={!courseName.trim()}>
-                {currentSubmission?.status === 'rejected' ? 'Resubmit for review' : 'Submit for review'}
-              </Button>
-            </div>
-          )}
+            ) : null}
+            <a
+              href={mailto}
+              className="inline-flex h-11 items-center gap-2 rounded-md bg-accent px-4 text-sm font-medium text-white hover:bg-accent-hover"
+            >
+              <Mail className="h-4 w-4" /> Email your report
+            </a>
+          </div>
         </Card>
       ) : (
         <EmptyState icon={GraduationCap} title="No course assigned" description="Your team will post the next course here." />

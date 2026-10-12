@@ -99,7 +99,12 @@ export function usePortalRealtime(
         scheduleReload,
       )
     }
-    void channel.subscribe()
+    channel.subscribe((status, err) => {
+      if (status === 'CHANNEL_ERROR' || status === 'TIMED_OUT') {
+        console.warn(`[realtime] ${channelKey} channel error`, err)
+        void client.removeChannel(channel)
+      }
+    })
 
     return () => {
       if (timer) clearTimeout(timer)

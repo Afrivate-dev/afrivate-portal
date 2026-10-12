@@ -11,7 +11,7 @@ export const brand = {
   metaDescription:
     'Plan your work, share weekly updates, request time off, and stay in the loop with your colleagues — all in one place.',
   /** Aligns with AfriVate brand voice */
-  tagline: 'Innovation · Elevation · Technology',
+  tagline: 'Elevating Life in Africa',
   headOffice:
     'Head office: AfriVate Technologies Ltd · RC: 9210092 · Abuja, Nigeria',
 } as const

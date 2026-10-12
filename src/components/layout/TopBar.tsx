@@ -61,7 +61,7 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
   const suspended = isSuspended(user)
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 min-w-0 max-w-full shrink-0 items-center gap-2 border-b border-border bg-surface/90 px-3 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
+    <header className="sticky top-0 z-30 flex min-h-16 h-auto min-w-0 max-w-full shrink-0 items-center gap-2 border-b border-border bg-surface/90 px-3 py-2 backdrop-blur sm:gap-3 sm:px-4 lg:px-6">
       <button
         onClick={onOpenDrawer}
         aria-label="Open menu"
@@ -139,8 +139,8 @@ export function TopBar({ onOpenDrawer }: TopBarProps) {
             className="flex touch-manipulation items-center gap-2.5 rounded-md p-1.5 hover:bg-surface-2 ring-focus"
           >
             <Avatar name={user.name} src={user.avatarUrl} size="sm" />
-            <div className="hidden text-left sm:block">
-              <div className="text-sm font-medium text-fg leading-tight">{firstName(user.name)}</div>
+            <div className="hidden min-w-0 max-w-[9rem] text-left sm:block md:max-w-[14rem]">
+              <div className="truncate text-sm font-medium leading-tight text-fg">{firstName(user.name)}</div>
               <div className="text-[11px] text-muted leading-tight">{roleLabel[user.role]}</div>
             </div>
           </button>

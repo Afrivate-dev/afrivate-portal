@@ -30,7 +30,7 @@ export function assertProductionConfig(): void {
     const p = document.createElement('p')
     p.style.cssText = 'color:#666;font-size:0.875rem;'
     p.textContent =
-      'Supabase authentication and data mode are required in production. Contact your administrator.'
+      'Sign-in is not configured for this portal. Contact your administrator.'
     wrap.append(h1, p)
     root.append(wrap)
   }

@@ -18,7 +18,7 @@ export function ProfileLoadErrorScreen({
         <p className="text-sm text-muted">
           You are signed in, but the portal could not read your profile. Try again, or sign out and
           sign back in. If this keeps happening, ask your administrator to run the latest database
-          migrations in Supabase.
+          database migrations.
         </p>
       </div>
       <div className="flex w-full max-w-md flex-col gap-2 sm:flex-row">

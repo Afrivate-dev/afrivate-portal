@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/Button'
 export function NotFoundPage() {
   return (
     <div className="av-contain space-y-6">
-      <PageHeader title="Page not found" description="That link doesn’t match any page in Team space." />
+      <PageHeader title="Page not found" description="That link doesn’t match any page in the portal." />
       <EmptyState
         icon={FileQuestion}
         title="Page not found"
