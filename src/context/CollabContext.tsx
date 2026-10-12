@@ -354,6 +354,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
   }, [user, applyRemoteNote])
 
   /* ------------------------ Supabase Realtime ---------------------------- */
+  const applyRemoteNoteRef = useRef(applyRemoteNote)
+  applyRemoteNoteRef.current = applyRemoteNote
+
   useEffect(() => {
     if (!user || !supabase) {
       subscribedRef.current = false
@@ -363,8 +366,9 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     }
 
     const sb = supabase
+    const userId = user.id
 
-    /** Private channels + JWT (§6) only when using real Supabase Auth — mock login has no session. */
+    /** Private channels + JWT only when using real auth — mock login has no session. */
     const usePrivateRealtime = isSupabaseAuthEnabled()
 
     setSupabaseRealtime('connecting')
@@ -372,49 +376,32 @@ export function CollabProvider({ children }: { children: ReactNode }) {
     subscribedRef.current = false
 
     let cancelled = false
+    let channelStarted = false
 
-    const authSub = usePrivateRealtime
-      ? sb.auth.onAuthStateChange((_event, sess) => {
-          if (sess?.access_token) sb.realtime.setAuth(sess.access_token)
-        })
-      : null
-
-    void (async () => {
-      if (usePrivateRealtime) {
-        const {
-          data: { session },
-        } = await sb.auth.getSession()
-        if (cancelled) return
-        if (!session?.access_token) {
-          channelRef.current = null
-          setSupabaseRealtime('error')
-          console.warn(
-            '[collab] No Supabase session — private Realtime needs VITE_USE_SUPABASE_AUTH=true and a logged-in user.',
-          )
-          return
-        }
-        sb.realtime.setAuth(session.access_token)
-      }
-
-      if (cancelled) return
+    const startChannel = (accessToken: string | null) => {
+      if (cancelled || channelStarted) return
+      if (usePrivateRealtime && !accessToken) return
+      channelStarted = true
+      // setAuth is synchronous enough; never await auth methods here.
+      if (accessToken) sb.realtime.setAuth(accessToken)
 
       const ch = sb.channel('av-portal-workspace', {
         config: {
           ...(usePrivateRealtime ? { private: true } : {}),
           broadcast: { ack: false },
-          presence: { key: user.id },
+          presence: { key: userId },
         },
       })
       channelRef.current = ch
 
       ch.on<NoteBroadcast>('broadcast', { event: 'note' }, (wr) => {
         const payload = wr.payload
-        if (payload) applyRemoteNote(payload)
+        if (payload) applyRemoteNoteRef.current(payload)
       })
 
       const syncPeers = () => {
         const state = ch.presenceState() as Record<string, unknown[]>
-        setPeers(parsePresenceState(state, user.id))
+        setPeers(parsePresenceState(state, userId))
       }
 
       ch.on('presence', { event: 'sync' }, syncPeers)
@@ -432,15 +419,35 @@ export function CollabProvider({ children }: { children: ReactNode }) {
           subscribedRef.current = false
           setSupabaseRealtime('error')
           console.warn('[collab] Realtime channel error', err)
+          // Drop the channel so a failed socket cannot retry-storm or block auth.
+          channelRef.current = null
+          void sb.removeChannel(ch)
         }
         if (status === 'CLOSED') {
           subscribedRef.current = false
         }
       })
-    })()
+    }
+
+    // Do not call getSession() here. It shares the auth lock with sign-in and
+    // can leave the whole portal on "Checking your session…" for minutes.
+    const authSub = usePrivateRealtime
+      ? sb.auth.onAuthStateChange((_event, sess) => {
+          if (sess?.access_token) startChannel(sess.access_token)
+        })
+      : null
+
+    if (!usePrivateRealtime) startChannel(null)
+
+    const giveUp = window.setTimeout(() => {
+      if (cancelled || channelStarted) return
+      setSupabaseRealtime('error')
+      console.warn('[collab] Realtime channel error', 'presence timed out; portal continues without it')
+    }, 8_000)
 
     return () => {
       cancelled = true
+      window.clearTimeout(giveUp)
       subscribedRef.current = false
       authSub?.data.subscription.unsubscribe()
       const ch = channelRef.current
@@ -449,8 +456,7 @@ export function CollabProvider({ children }: { children: ReactNode }) {
       setPeers([])
       setSupabaseRealtime('off')
     }
-    // eslint-disable-next-line react-hooks/exhaustive-deps -- subscribe once per login
-  }, [user?.id, applyRemoteNote])
+  }, [user?.id])
 
   useEffect(() => {
     if (!user || !supabase || supabaseRealtime !== 'live' || !channelRef.current) return

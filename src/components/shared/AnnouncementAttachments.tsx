@@ -28,9 +28,12 @@ const labels = {
 export function MediaAttachmentEditor({
   items,
   onChange,
+  variant = 'memo',
 }: {
   items: AnnouncementMedia[]
   onChange: (next: AnnouncementMedia[]) => void
+  /** Shout-outs must not reuse the memo-file composer. */
+  variant?: 'memo' | 'shoutout'
 }) {
   const { user } = useAuth()
   const [urlDraft, setUrlDraft] = useState('')
@@ -104,13 +107,19 @@ export function MediaAttachmentEditor({
 
   return (
     <div className="space-y-3 rounded-md border border-border bg-surface-2/20 p-3">
-      <p className="text-sm font-medium text-fg">{labels.heading}</p>
-      <p className="text-xs text-muted">{labels.help}</p>
+      <p className="text-sm font-medium text-fg">
+        {variant === 'shoutout' ? 'Photo or link' : labels.heading}
+      </p>
+      <p className="text-xs text-muted">
+        {variant === 'shoutout'
+          ? 'Optional. Add one photo or paste an image link. This stays with the shout-out.'
+          : labels.help}
+      </p>
 
       <div className="flex flex-col gap-2 sm:flex-row sm:items-end">
         <div className="min-w-0 flex-1">
           <Input
-            label={labels.addLink}
+            aria-label={variant === 'shoutout' ? 'Photo or page link' : 'Attachment link'}
             value={urlDraft}
             onChange={(e) => {
               setUrlDraft(e.target.value)
@@ -137,7 +146,7 @@ export function MediaAttachmentEditor({
           />
           <span className="inline-flex items-center gap-2 rounded-md border border-border bg-surface px-3 py-2 text-sm font-medium text-fg transition-colors hover:bg-surface-2">
             {busy ? <Loader2 className="h-4 w-4 animate-spin" /> : <Upload className="h-4 w-4" />}
-            {busy ? labels.uploading : labels.upload}
+            {busy ? labels.uploading : variant === 'shoutout' ? 'Upload a photo' : labels.upload}
           </span>
         </label>
       </div>

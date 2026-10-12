@@ -38,7 +38,12 @@ export interface DataContextValue {
 
   tasks: Task[]
   createTask: (task: Omit<Task, 'id' | 'createdAt' | 'updatedAt' | 'activity'>) => Task
-  updateTask: (id: string, patch: Partial<Task>, by?: string, note?: string) => void
+  updateTask: (
+    id: string,
+    patch: Partial<Task>,
+    by?: string,
+    note?: string,
+  ) => Promise<{ ok: boolean; error?: string }>
   deleteTask: (id: string) => void
 
   checkIns: WeeklyCheckIn[]

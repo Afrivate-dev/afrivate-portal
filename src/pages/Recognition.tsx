@@ -673,6 +673,7 @@ export function RecognitionPage() {
             </div>
           </div>
           <MediaAttachmentEditor
+            variant="shoutout"
             items={draft.media}
             onChange={(media) => setDraft({ ...draft, media })}
           />

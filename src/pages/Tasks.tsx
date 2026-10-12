@@ -151,6 +151,8 @@ type DueBucket = 'overdue' | 'today' | 'this_week' | 'later' | 'none'
 function dueBucket(task: Task): DueBucket {
   if (!task.dueDate) return 'none'
   const d = parseISO(task.dueDate)
+  // Completed work is not overdue, even when the due date has passed.
+  if (task.status === 'done') return isPast(d) && !isToday(d) ? 'later' : isToday(d) ? 'today' : 'later'
   if (isPast(d) && !isToday(d)) return 'overdue'
   if (isToday(d)) return 'today'
   if (isThisWeek(d, { weekStartsOn: 1 })) return 'this_week'
@@ -237,6 +239,7 @@ export function TasksPage() {
   const [scope, setScope] = useState<ScopeMode>('all')
   const [weekOffset, setWeekOffset] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
+  const [saveError, setSaveError] = useState<string | null>(null)
   const [draft, setDraft] = useState<TaskDraft>(emptyDraft)
   const [composerDraftId, setComposerDraftId] = useState<string | null>(null)
   const [detailId, setDetailId] = useState<string | null>(null)
@@ -539,8 +542,9 @@ export function TasksPage() {
       confirmLabel: draft.id ? 'Save changes' : 'Create task',
     })
     if (!ok) return
+    setSaveError(null)
     if (draft.id) {
-      updateTask(
+      const saved = await updateTask(
         draft.id,
         {
           ...basePayload,
@@ -549,6 +553,10 @@ export function TasksPage() {
         },
         user.id,
       )
+      if (!saved.ok) {
+        setSaveError(saved.error ?? "Couldn't save this task. Your changes were not kept.")
+        return
+      }
     } else {
       createTask({
         ...basePayload,
@@ -717,6 +725,7 @@ export function TasksPage() {
             />
             <Select
               label={T.sortBy}
+              className="min-w-[12rem]"
               value={sort}
               onChange={(e) => setSort(e.target.value as SortMode)}
               options={[
@@ -1126,6 +1135,11 @@ export function TasksPage() {
         }
       >
         <form className="space-y-4" onSubmit={onSubmit}>
+          {saveError ? (
+            <p role="alert" className="rounded-md border border-danger/30 bg-danger/10 px-3 py-2 text-sm text-danger">
+              {saveError}
+            </p>
+          ) : null}
           <Input
             label={T.formTitleLabel}
             required

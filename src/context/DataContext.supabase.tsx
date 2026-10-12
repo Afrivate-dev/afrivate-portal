@@ -166,6 +166,13 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     const isInitialLoad = !hasLoadedOnceRef.current
     if (isInitialLoad) setDataStatus('loading')
     setDataError(null)
+    let settled = false
+    const watchdog = window.setTimeout(() => {
+      if (settled || hasLoadedOnceRef.current) return
+      // Slow queries must not hold the shell on "Loading your portal…".
+      setDataStatus('ready')
+      setDataError('Some portal data is still loading in the background.')
+    }, 8_000)
     try {
       const d = await fetchPortalDataset(client)
       setUsers(d.users)
@@ -319,6 +326,9 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       // top-level banner surfaces the error.
       setDataStatus('ready')
       hasLoadedOnceRef.current = true
+    } finally {
+      settled = true
+      window.clearTimeout(watchdog)
     }
   }, [client, userId])
 
@@ -492,7 +502,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
     (id, patch, by, note) => {
       const now = new Date().toISOString()
       const t = tasks.find((x) => x.id === id)
-      if (!t) return
+      if (!t) {
+        const message = 'That task is no longer on the list. Refresh and try again.'
+        notifyError(message)
+        return Promise.resolve({ ok: false as const, error: message })
+      }
 
       const log: TaskActivityEntry[] = []
       if (note && by) log.push({ at: now, by, message: note })
@@ -534,7 +548,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
       setTasks((prev) => prev.map((x) => (x.id === id ? merged : x)))
 
-      void (async () => {
+      return (async () => {
         const pendingInbox: InboxNotification[] = []
         if (by) {
           if ('assigneeIds' in patch && patch.assigneeIds) {
@@ -580,10 +594,11 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         if (error) {
           reportDataError('update task', error)
           await reloadData()
-          return
+          return { ok: false as const, error: friendlyErrorMessage('update task', error.message) }
         }
         await queueInboxInsert(pendingInbox)
         await reloadData()
+        return { ok: true as const }
       })()
     },
     [client, tasks, users, queueInboxInsert, reloadData],
@@ -1825,7 +1840,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           await reloadData()
           return { ok: false as const, error: result.error }
         }
-        const headUserId = departments.find((d) => d.name === department)?.headUserId
+        const head = departments.find((d) => d.name === department)?.headUserId
+        const headUserId = head && head !== id ? head : undefined
         setUsers((prev) =>
           prev.map((u) =>
             u.id === id

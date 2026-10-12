@@ -319,6 +319,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       )
 
       if (pendingInbox.length) setInbox((p) => [...pendingInbox, ...p])
+      return Promise.resolve({ ok: true as const })
     },
     [setTasks, setInbox, users],
   )
@@ -744,7 +745,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       if (!dept) return { ok: false, error: 'Department not found' }
       const prev = users.find((u) => u.id === userId)
       const prevDept = prev?.department?.trim() ?? ''
-      updateUser(userId, { department: dept.name, reportsToId: dept.headUserId })
+      updateUser(userId, {
+        department: dept.name,
+        reportsToId: dept.headUserId && dept.headUserId !== userId ? dept.headUserId : undefined,
+      })
       if (prev && prevDept !== dept.name) {
         sendInboxNotifications([
           {
@@ -819,7 +823,10 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       if (member && team.departmentId) {
         const dept = departments.find((d) => d.id === team.departmentId)
         if (dept) {
-          updateUser(userId, { department: dept.name, reportsToId: dept.headUserId })
+          updateUser(userId, {
+        department: dept.name,
+        reportsToId: dept.headUserId && dept.headUserId !== userId ? dept.headUserId : undefined,
+      })
         }
       }
       return { ok: true }
@@ -851,7 +858,8 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
   const approveUser = useCallback(
     async (id: string, role: Role, department: string, jobTitle: string) => {
-      const headUserId = departments.find((d) => d.name === department)?.headUserId
+      const head = departments.find((d) => d.name === department)?.headUserId
+      const headUserId = head && head !== id ? head : undefined
       setUsers((prev) =>
         prev.map((u) =>
           u.id === id

@@ -86,7 +86,11 @@ export function EmployeeHubSection() {
 
   const profilesByUser = useMemo(() => {
     const map = new Map<string, EmployeeProfile>()
-    for (const p of hr.employeeProfiles) map.set(p.userId, p)
+    for (const p of hr.employeeProfiles) {
+      const prev = map.get(p.userId)
+      // Prefer a live file over an archived duplicate for the same person.
+      if (!prev || (prev.archived && !p.archived)) map.set(p.userId, p)
+    }
     return map
   }, [hr.employeeProfiles])
 
@@ -94,17 +98,18 @@ export function EmployeeHubSection() {
     return users
       .filter((u) => u.active)
       .map((u) => {
-        const p = profilesByUser.get(u.id) ?? {
+        const stored = profilesByUser.get(u.id)
+        const p = stored ?? {
           ...emptyEmployeeProfile(u.id),
           id: '',
           createdAt: '',
           updatedAt: '',
           profileCompleteness: 0,
         }
-        return { user: u, profile: p }
+        const hasFile = Boolean(stored?.id) && !stored?.archived
+        return { user: u, profile: p, hasFile }
       })
       .filter(({ user: u, profile: p }) => {
-        if (p.archived) return false
         const hay = `${u.name} ${u.email} ${u.department} ${u.jobTitle} ${p.engagementType}`.toLowerCase()
         return !q || hay.includes(q.toLowerCase())
       })
@@ -116,8 +121,19 @@ export function EmployeeHubSection() {
     ? hr.ensureEmployeeProfile(selectedUserId)
     : null
 
-  const openDossier = (userId: string) => {
-    hr.ensureEmployeeProfile(userId)
+  const openDossier = (userId: string, hasFile = true) => {
+    if (!hasFile) {
+      const existing = hr.employeeProfiles.find((p) => p.userId === userId)
+      hr.saveEmployeeProfileHr({
+        ...(existing ?? emptyEmployeeProfile(userId)),
+        userId,
+        archived: false,
+        employmentStatus:
+          existing && existing.employmentStatus !== 'archived' ? existing.employmentStatus : 'active',
+      })
+    } else {
+      hr.ensureEmployeeProfile(userId)
+    }
     setSelectedUserId(userId)
   }
 
@@ -166,7 +182,7 @@ export function EmployeeHubSection() {
             </div>
           </div>
           <ul className="space-y-3 lg:hidden">
-            {rows.map(({ user: u, profile: p }) => (
+            {rows.map(({ user: u, profile: p, hasFile }) => (
               <li
                 key={u.id}
                 className="rounded-lg border border-[var(--color-line)] p-3"
@@ -196,9 +212,9 @@ export function EmployeeHubSection() {
                     variant="secondary"
                     size="sm"
                     className="shrink-0"
-                    onClick={() => openDossier(u.id)}
+                    onClick={() => openDossier(u.id, hasFile)}
                   >
-                    Profile
+                    {hasFile ? 'Profile' : 'Create file'}
                   </Button>
                 </div>
               </li>
@@ -218,7 +234,7 @@ export function EmployeeHubSection() {
                 </tr>
               </thead>
               <tbody>
-                {rows.map(({ user: u, profile: p }) => (
+                {rows.map(({ user: u, profile: p, hasFile }) => (
                   <tr key={u.id} className="border-b border-[var(--color-line)]/60">
                     <td className="py-2 pr-3">
                       <div className="font-medium">{u.name}</div>
@@ -238,8 +254,8 @@ export function EmployeeHubSection() {
                     </td>
                     <td className="py-2 pr-3">{p.profileCompleteness}%</td>
                     <td className="py-2">
-                      <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id)}>
-                        Open profile
+                      <Button type="button" variant="secondary" size="sm" onClick={() => openDossier(u.id, hasFile)}>
+                        {hasFile ? 'Open profile' : 'Create file'}
                       </Button>
                     </td>
                   </tr>
@@ -548,6 +564,9 @@ function DossierModal({
             onChange={(e) => void setDutyStatus(u, e.target.value as DutyStatus)}
             options={DUTY_STATUS_OPTIONS}
           />
+          <p className="text-xs text-[var(--color-muted)]">
+            Same duty as Admin → People: {DUTY_STATUS_LABELS[dutyStatusOf(u)]}.
+          </p>
         </div>
 
         {canEditJobAndDept ? (

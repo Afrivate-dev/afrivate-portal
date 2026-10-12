@@ -11,7 +11,7 @@ import type { FeedbackTemplate, PulseQuestion } from '@/types/hr'
 import { uid } from '@/utils/helpers'
 
 const DEFAULT_QUESTIONS: PulseQuestion[] = [
-  { id: 'values', text: 'Embodies the Afrivate Way', type: 'scale', min: 1, max: 10 },
+  { id: 'values', text: 'Embodies the AfriVate Way', type: 'scale', min: 1, max: 10 },
   { id: 'collab', text: 'Collaborates effectively', type: 'scale', min: 1, max: 10 },
 ]
 

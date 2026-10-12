@@ -47,3 +47,27 @@ export function clearLegacyMockAuthStorage(): void {
     /* ignore */
   }
 }
+
+/** True when the auth server rejected the stored token (not a slow network). */
+export function isInvalidAuthTokenMessage(message: string): boolean {
+  return /invalid jwt|jwt expired|invalid refresh token|refresh token not found|refresh_token_not_found|session not found|invalid claim|token is expired|user from sub claim in jwt does not exist|invalid token/i.test(
+    message,
+  )
+}
+
+/**
+ * Remove `sb-*` auth blobs. Call only after a confirmed invalid or expired
+ * token — wiping these on every page load signs people out.
+ */
+export function removeSupabaseAuthStorageKeys(): void {
+  try {
+    const keys: string[] = []
+    for (let i = 0; i < localStorage.length; i++) {
+      const key = localStorage.key(i)
+      if (key && key.startsWith('sb-')) keys.push(key)
+    }
+    for (const key of keys) localStorage.removeItem(key)
+  } catch {
+    /* quota / private mode */
+  }
+}

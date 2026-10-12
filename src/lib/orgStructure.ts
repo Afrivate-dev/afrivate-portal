@@ -63,11 +63,11 @@ export function resolveReportsTo(
   departments: Department[],
 ): User | undefined {
   const dept = departments.find((d) => d.name === profile.department)
-  if (dept?.headUserId) {
+  if (dept?.headUserId && dept.headUserId !== profile.id) {
     const head = users.find((u) => u.id === dept.headUserId)
-    if (head) return head
+    if (head && head.id !== profile.id) return head
   }
-  if (profile.reportsToId) {
+  if (profile.reportsToId && profile.reportsToId !== profile.id) {
     return users.find((u) => u.id === profile.reportsToId)
   }
   return undefined

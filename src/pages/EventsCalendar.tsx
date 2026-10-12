@@ -11,7 +11,6 @@ import {
 } from 'lucide-react'
 import {
   format,
-  isBefore,
   isSameDay,
   parseISO,
   startOfDay,
@@ -24,6 +23,7 @@ import interactionPlugin from '@fullcalendar/interaction'
 import type { DateSelectArg, EventClickArg } from '@fullcalendar/core'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useHr } from '@/context/HrContext'
 import { useIsMobileViewport } from '@/hooks/useMediaQuery'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card } from '@/components/ui/Card'
@@ -51,6 +51,10 @@ import {
   type FcExtendedProps,
 } from '@/utils/calendarAdapters'
 import type { EventItem } from '@/types'
+import {
+  buildCelebrationEvents,
+  isGeneratedCelebrationTitle,
+} from '@/lib/calendarCelebrations'
 import type { ExternalCalendarEvent } from '@/hooks/useExternalCalendarEvents'
 
 const W = pages.whatsOn
@@ -67,6 +71,15 @@ interface EventDraft {
   audience: string
 }
 
+/** Normalise event dates to yyyy-MM-dd so 2027 ISO strings don't sort ahead of 2026. */
+function eventSortKey(value: string): string {
+  const match = String(value).match(/(\d{4}-\d{2}-\d{2})/)
+  if (match) return match[1]
+  const parsed = parseISO(value)
+  if (Number.isNaN(parsed.getTime())) return ''
+  return format(parsed, 'yyyy-MM-dd')
+}
+
 const emptyDraft: EventDraft = {
   title: '',
   description: '',
@@ -80,6 +93,7 @@ const emptyDraft: EventDraft = {
 export function EventsCalendarPage() {
   const { user } = useAuth()
   const { events, users, addEvent, departments: orgDepartments } = useData()
+  const { employeeProfiles } = useHr()
   const canManage = isTeamLead(user)
   const [searchParams, setSearchParams] = useSearchParams()
   const { byKind, saveDraft, deleteDraft, getById } = useComposerDrafts()
@@ -166,20 +180,29 @@ export function EventsCalendarPage() {
 
   const mergedForList = useMemo(() => {
     const extItems = externalEvents.map(externalToEventItem)
-    return [...visibleEvents, ...extItems].sort((a, b) => {
-      if (a.date !== b.date) return a.date < b.date ? -1 : 1
+    const celebrations = buildCelebrationEvents(users, employeeProfiles)
+    const stored = visibleEvents.filter((e) => !isGeneratedCelebrationTitle(e.title))
+    return [...stored, ...extItems, ...celebrations].sort((a, b) => {
+      const ad = eventSortKey(a.date)
+      const bd = eventSortKey(b.date)
+      if (ad !== bd) return ad < bd ? -1 : 1
       return (a.startTime ?? '').localeCompare(b.startTime ?? '')
     })
-  }, [visibleEvents, externalEvents])
+  }, [visibleEvents, externalEvents, users, employeeProfiles])
 
   const grouped = useMemo(() => {
-    const today = startOfDay(new Date())
-    const upcoming = mergedForList
-      .filter((e) => !isBefore(parseISO(e.date), today))
-      .sort((a, b) => (a.date < b.date ? -1 : 1))
-    const past = mergedForList
-      .filter((e) => isBefore(parseISO(e.date), today))
-      .sort((a, b) => (a.date > b.date ? -1 : 1))
+    const todayIso = format(startOfDay(new Date()), 'yyyy-MM-dd')
+    const withDay = mergedForList
+      .map((e) => ({ event: e, day: eventSortKey(e.date) }))
+      .filter((row) => row.day.length === 10)
+    const upcoming = withDay
+      .filter((row) => row.day >= todayIso)
+      .sort((a, b) => (a.day < b.day ? -1 : a.day > b.day ? 1 : 0))
+      .map((row) => ({ ...row.event, date: row.day }))
+    const past = withDay
+      .filter((row) => row.day < todayIso)
+      .sort((a, b) => (a.day > b.day ? -1 : a.day < b.day ? 1 : 0))
+      .map((row) => ({ ...row.event, date: row.day }))
 
     const groupByDate = (list: EventItem[]) => {
       const map = new Map<string, EventItem[]>()

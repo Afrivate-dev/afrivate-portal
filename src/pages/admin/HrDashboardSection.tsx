@@ -28,7 +28,8 @@ import { PulseSurveyTemplateManager } from '@/components/admin/PulseSurveyTempla
 import { HrOperatingRhythmCard } from '@/components/admin/HrOperatingRhythmCard'
 import { PortalLabelsSection } from '@/pages/admin/PortalLabelsSection'
 import { Badge } from '@/components/ui/Badge'
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import { uniqueOpenRequisitions } from '@/utils/atsJobRoles'
 import { Textarea } from '@/components/ui/Textarea'
 import { labelForConfigId } from '@/lib/portalConfig'
 import { notifySuccess } from '@/lib/notify'
@@ -96,6 +97,10 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
   const [grievanceNotes, setGrievanceNotes] = useState<Record<string, string>>({})
 
   const resolvedAwardCategory = awardCategory || awardCategories[0]?.id || ''
+  const openRoles = useMemo(
+    () => uniqueOpenRequisitions(jobRequisitions, jobCandidates),
+    [jobRequisitions, jobCandidates],
+  )
 
   return (
     <div className="av-contain space-y-6">
@@ -308,7 +313,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
           <div className="mb-3 flex items-center gap-2">
             <Briefcase className="h-4 w-4 text-accent" />
             <h3 className="text-sm font-semibold text-fg">
-              Recruitment ({jobRequisitions.filter((j) => j.status === 'open').length} open)
+              Recruitment ({openRoles.length} open)
             </h3>
           </div>
           <div className="space-y-3">
@@ -333,7 +338,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
             </Button>
             {jobRequisitions.length > 0 ? (
               <ul className="max-h-40 space-y-2 overflow-y-auto text-sm">
-                {jobRequisitions.slice(0, 5).map((j) => (
+                {openRoles.slice(0, 5).map((j) => (
                   <li key={j.id} className="flex flex-wrap items-center justify-between gap-2 rounded-md border border-border px-3 py-2">
                     <span className="font-medium text-fg">{j.title}</span>
                     <select
@@ -358,7 +363,7 @@ export function HrDashboardSection({ metrics }: { metrics: HrMetrics }) {
                   onChange={(e) => setSelectedJobId(e.target.value)}
                 >
                   <option value="">Select role…</option>
-                  {jobRequisitions.filter((j) => j.status === 'open').map((j) => (
+                  {openRoles.map((j) => (
                     <option key={j.id} value={j.id}>{j.title}</option>
                   ))}
                 </select>

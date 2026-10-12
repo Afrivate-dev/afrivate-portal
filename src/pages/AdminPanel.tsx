@@ -87,6 +87,20 @@ import type {
 
 type Section = 'approvals' | 'users' | 'departments' | 'teams' | 'announcements' | 'leave' | 'onboarding' | 'checkins' | 'hr' | 'recruitment' | 'employees'
 
+const ADMIN_SECTIONS: Section[] = [
+  'approvals',
+  'users',
+  'departments',
+  'teams',
+  'announcements',
+  'leave',
+  'onboarding',
+  'checkins',
+  'hr',
+  'recruitment',
+  'employees',
+]
+
 const ROLE_OPTIONS: { value: Role; label: string }[] = [
   { value: 'staff', label: 'Team member' },
   { value: 'assistant_lead', label: 'Assistant lead' },
@@ -161,23 +175,11 @@ export function AdminPanelPage() {
   const canManageRecruitment = isHR(user) || isAdmin(user)
 
   const [searchParams, setSearchParams] = useSearchParams()
-  const sectionFromUrl = searchParams.get('section') as Section | null
+  const sectionFromUrl = searchParams.get('section')
+  const unknownSection = Boolean(sectionFromUrl && !ADMIN_SECTIONS.includes(sectionFromUrl as Section))
   const [section, setSectionState] = useState<Section>(
-    sectionFromUrl &&
-      [
-        'approvals',
-        'users',
-        'departments',
-        'teams',
-        'announcements',
-        'leave',
-        'onboarding',
-        'checkins',
-        'hr',
-        'recruitment',
-        'employees',
-      ].includes(sectionFromUrl)
-      ? sectionFromUrl
+    sectionFromUrl && ADMIN_SECTIONS.includes(sectionFromUrl as Section)
+      ? (sectionFromUrl as Section)
       : 'approvals',
   )
 
@@ -197,21 +199,9 @@ export function AdminPanelPage() {
     if (
       sectionFromUrl &&
       sectionFromUrl !== section &&
-      [
-        'approvals',
-        'users',
-        'departments',
-        'teams',
-        'announcements',
-        'leave',
-        'onboarding',
-        'checkins',
-        'hr',
-        'recruitment',
-        'employees',
-      ].includes(sectionFromUrl)
+      ADMIN_SECTIONS.includes(sectionFromUrl as Section)
     ) {
-      setSectionState(sectionFromUrl)
+      setSectionState(sectionFromUrl as Section)
     }
   }, [sectionFromUrl, section])
 
@@ -743,6 +733,11 @@ export function AdminPanelPage() {
         description={pages.workspaceAdmin.subtitle}
       />
 
+      {unknownSection ? (
+        <p role="status" className="rounded-md border border-warning/40 bg-warning/10 px-3 py-2 text-sm text-fg">
+          That admin section doesn’t exist. Showing Approvals instead.
+        </p>
+      ) : null}
       <TabBar tabs={adminSectionTabs} active={section} onChange={setSection} variant="pill" />
 
       {/* APPROVALS */}
@@ -1309,7 +1304,7 @@ export function AdminPanelPage() {
             </Button>
           </div>
           {announcements.length === 0 ? (
-            <EmptyState icon={Megaphone} title="No announcements" />
+            <EmptyState icon={Megaphone} title="No memos" />
           ) : (
             announcements.map((a) => {
               const author = users.find((x) => x.id === a.postedById)
@@ -1323,7 +1318,13 @@ export function AdminPanelPage() {
                         <span>{author?.name ?? 'Unknown'}</span>
                         <span>·</span>
                         <span>{fmtDate(a.postedAt)}</span>
-                        <Badge tone="info">{a.priority}</Badge>
+                        <Badge tone="info">
+                          {a.priority === 'urgent'
+                            ? pages.updates.priorityAction
+                            : a.priority === 'important'
+                              ? pages.updates.priorityHeadsUp
+                              : pages.updates.priorityFYI}
+                        </Badge>
                         <span className="inline-flex items-center gap-1">
                           <Eye className="h-3 w-3" />
                           {a.readBy.length} read
@@ -2040,7 +2041,7 @@ export function AdminPanelPage() {
       <Modal
         open={!!annDraft}
         onClose={() => setAnnDraft(null)}
-        title={annDraft?.id ? 'Edit announcement' : 'Announcement'}
+        title={annDraft?.id ? 'Edit memo' : 'New memo'}
         closeOnBackdrop={false}
         footer={
           <>
@@ -2111,15 +2112,15 @@ export function AdminPanelPage() {
               options={memoCategories.map((c) => ({ value: c.id, label: c.label }))}
             />
             <Select
-              label="Priority"
+              label={pages.updates.priorityFilterLabel}
               value={annDraft.priority}
               onChange={(e) =>
                 setAnnDraft({ ...annDraft, priority: e.target.value as AnnouncementPriority })
               }
               options={[
-                { value: 'info', label: 'Info' },
-                { value: 'important', label: 'Important' },
-                { value: 'urgent', label: 'Urgent' },
+                { value: 'info', label: pages.updates.priorityFYI },
+                { value: 'important', label: pages.updates.priorityHeadsUp },
+                { value: 'urgent', label: pages.updates.priorityAction },
               ]}
             />
           </div>

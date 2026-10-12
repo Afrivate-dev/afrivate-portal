@@ -1,4 +1,5 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { cn } from '@/utils/helpers'
 
 export type TabBarVariant = 'underline' | 'pill' | 'chip'
@@ -50,12 +51,51 @@ export function TabBar<T extends string>({
   scrollable = variant !== 'chip',
 }: TabBarProps<T>) {
   const v = variantStyles[variant]
+  const scrollerRef = useRef<HTMLDivElement>(null)
+  const [canScroll, setCanScroll] = useState(false)
+
+  useEffect(() => {
+    if (!scrollable) return
+    const el = scrollerRef.current
+    if (!el) return
+    const measure = () => setCanScroll(el.scrollWidth > el.clientWidth + 8)
+    measure()
+    const observer = new ResizeObserver(measure)
+    observer.observe(el)
+    return () => observer.disconnect()
+  }, [scrollable, tabs])
+
+  const nudge = (direction: -1 | 1) => {
+    scrollerRef.current?.scrollBy({ left: direction * 180, behavior: 'smooth' })
+  }
 
   return (
+    <div className={cn('relative w-full max-w-full', className)}>
+      {scrollable && canScroll ? (
+        <>
+          <button
+            type="button"
+            aria-label="Scroll tabs left"
+            className="absolute left-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-fg shadow-sm ring-focus"
+            onClick={() => nudge(-1)}
+          >
+            <ChevronLeft className="h-4 w-4" />
+          </button>
+          <button
+            type="button"
+            aria-label="Scroll tabs right"
+            className="absolute right-0 top-1/2 z-10 flex h-8 w-8 -translate-y-1/2 items-center justify-center rounded-full border border-border bg-surface text-fg shadow-sm ring-focus"
+            onClick={() => nudge(1)}
+          >
+            <ChevronRight className="h-4 w-4" />
+          </button>
+        </>
+      ) : null}
     <div
+      ref={scrollerRef}
       className={cn(
         scrollable && 'av-scroll-x w-full max-w-full',
-        className,
+        scrollable && canScroll && 'px-9',
       )}
       role="tablist"
     >
@@ -101,6 +141,7 @@ export function TabBar<T extends string>({
           )
         })}
       </div>
+    </div>
     </div>
   )
 }

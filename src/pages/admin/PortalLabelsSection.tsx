@@ -74,7 +74,7 @@ export function PortalLabelsSection() {
         />
         <InlineCategoryManager
           title="Award categories"
-          description="Quarterly Afrivate Awards."
+          description="Quarterly AfriVate Awards."
           items={awardCategories}
           onAdd={addAwardCategory}
           onUpdate={updateAwardCategory}

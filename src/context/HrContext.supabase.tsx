@@ -63,7 +63,7 @@ let omitCandidateIdentityColumns = false
 let omitCandidateAttachmentsColumn = false
 
 const ATTACHMENTS_MIGRATION_HINT =
-  'Database is missing portal_job_candidates.attachments. Run supabase/migrations/20260726_ats_attachments_admin_fix.sql in the Supabase SQL Editor, then Sync again.'
+  'Candidate file uploads are not set up on the database yet. Ask an administrator to apply the latest portal migrations, then sync again.'
 
 function isUniqueExternalIdError(error: { message?: string } | null | undefined): boolean {
   const msg = (error?.message ?? '').toLowerCase()

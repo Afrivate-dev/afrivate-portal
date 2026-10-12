@@ -423,3 +423,18 @@ admin follow-ups from PR #79.
 
 For AfriVate-specific columns and policies, use `User`, `WorkspaceNote`, `Task`, etc. in `src/types/index.ts` as the contract for new tables and RLS rules.
 
+---
+
+## 13. Oct 2026 — Portal audit fixes (apply once per project)
+
+Run **`supabase/migrations/20261013_audit_portal_fixes.sql`** in the SQL Editor. It is idempotent and safe to re-run.
+
+It does four things:
+
+1. Drops any check constraint on `portal_tasks.category` that still allows only the old dev categories, so saving a task as **Partnerships and Outreach** (`partnerships`) no longer returns HTTP 400. The category column is plain text.
+2. Inserts a `portal_employee_profiles` row for every active person who does not have one, and sets **Peace Udotong**'s start date to **15 Oct 2025**. Other people's dates and notes are left as entered.
+3. Clears `reports_to_id` when it points at the same person, and adds a trigger so department-head assignment cannot make someone their own manager.
+4. Closes duplicate **open** requisitions that have no candidates (same title and department). Rows that already have candidates stay open.
+
+**No new Vercel env vars.**
+
