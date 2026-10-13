@@ -177,8 +177,15 @@ export interface OnboardingChecklistItem {
   label: string
   link?: string
   order: number
+  /** Shown under the label on Getting started. Empty means no extra line. */
+  description?: string
   /** Auto-complete when portal detects the related action. */
-  autoKey?: 'profile_complete' | 'handbook_visit' | 'first_checkin' | 'directory_complete'
+  autoKey?:
+    | 'profile_complete'
+    | 'handbook_visit'
+    | 'first_checkin'
+    | 'directory_complete'
+    | 'myinfo_complete'
 }
 
 export interface OnboardingProgress {
