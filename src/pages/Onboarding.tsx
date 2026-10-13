@@ -15,6 +15,7 @@ import {
 import { useOnboardingAutoCheck } from '@/hooks/useOnboardingAutoCheck'
 import { useAuth } from '@/context/AuthContext'
 import { useData } from '@/context/DataContext'
+import { useHr } from '@/context/HrContext'
 import { PageHeader } from '@/components/shared/PageHeader'
 import { Card, CardHeader, CardTitle } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
@@ -28,7 +29,7 @@ import { TabBar } from '@/components/ui/TabBar'
 import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
 import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import { pages } from '@/content/copy'
-import { checklistMetaFor } from '@/content/gettingStartedChecklist'
+import { ctaForLink, isWelcomeVideoChecklistItem } from '@/content/gettingStartedChecklist'
 import { ONBOARDING_WEEK_MAP } from '@/content/onboardingWeekMap'
 import type { OnboardingVideo } from '@/types'
 
@@ -52,6 +53,7 @@ const emptyDraft: NewVideoDraft = {
 
 export function OnboardingPage() {
   const { user } = useAuth()
+  const { employeeProfiles } = useHr()
   const {
     onboardingVideos,
     onboardingChecklist,
@@ -95,12 +97,18 @@ export function OnboardingPage() {
     [myProgress],
   )
 
+  const myInfoCompleteness = useMemo(() => {
+    if (!user) return undefined
+    return employeeProfiles.find((profile) => profile.userId === user.id)?.profileCompleteness
+  }, [employeeProfiles, user])
+
   useOnboardingAutoCheck({
     user,
     checklist: onboardingChecklist,
     progressIds: checkedIds,
     checkIns,
     visitedHandbook,
+    myInfoCompleteness,
     toggleChecklistItem,
   })
 
@@ -211,12 +219,14 @@ export function OnboardingPage() {
           </Card>
         ))}
       </div>
-      {canSeeAdmin ? (
-        <p className="text-xs text-muted">
-          Human Resources run this week with AFRI-ONB-01 (New Team Member Onboarding Kit). Upload the kit PDF to
-          Resources for leads. The joiner-facing handbook remains AFRI-EOH-01.
-        </p>
-      ) : null}
+      <p className="text-xs text-muted">Work week: Monday to Thursday.</p>
+      <p className="text-xs text-muted">
+        Stuck? Click the purple AVA button, or ask Human Resources on Slack or at{' '}
+        <a href="mailto:afrivatehr@gmail.com" className="font-medium text-accent hover:underline">
+          afrivatehr@gmail.com
+        </a>
+        .
+      </p>
 
       {/* Completion banner at 100% */}
       {totals.overall === 100 ? (
@@ -429,10 +439,9 @@ export function OnboardingPage() {
           <div className="space-y-4">
             <Card padding="md" accentBorder="info" className="border-l-4 border-l-accent">
               <p className="text-sm text-fg">
-                Work through these during your first official week (Monday–Thursday). Items with a{' '}
-                <strong>Go</strong> link take you straight to the right place — we also tick some off
-                automatically when you complete the action. Acknowledge required policies in Resources within
-                seven official work days.
+                Work through these during your first official week (Monday to Thursday). Buttons open the right
+                place, and some items tick off when you finish the action. Acknowledge assigned policies in
+                Resources within seven official work days.
               </p>
               <p className="mt-2 text-xs text-muted">
                 {totals.checklist.checked} of {totals.checklist.total} complete
@@ -441,14 +450,11 @@ export function OnboardingPage() {
             <Card padding="md">
               <ul className="divide-y divide-border">
                 {onboardingChecklist
-                  .filter((item) => {
-                    if (sortedVideos.length > 0) return true
-                    return item.id !== 'ck_videos' && !/welcome video/i.test(item.label)
-                  })
+                  .filter((item) => sortedVideos.length > 0 || !isWelcomeVideoChecklistItem(item))
                   .sort((a, b) => a.order - b.order)
                   .map((item) => {
                     const done = checkedIds.has(item.id)
-                    const meta = checklistMetaFor(item)
+                    const cta = ctaForLink(item.link)
                     const isInternalLink = item.link?.startsWith('/')
                     return (
                       <li key={item.id}>
@@ -478,33 +484,38 @@ export function OnboardingPage() {
                               >
                                 {item.label}
                               </span>
-                              <span className="mt-1 block text-xs leading-relaxed text-muted">
-                                {meta.description}
-                              </span>
+                              {item.description?.trim() ? (
+                                <span className="mt-1 block text-xs leading-relaxed text-muted">
+                                  {item.description}
+                                </span>
+                              ) : null}
                             </span>
                           </button>
-                          {item.link ? (
+                          {item.link && cta ? (
                             isInternalLink ? (
                               <Link
                                 to={item.link}
-                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-2 px-4 text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation"
+                                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-1 whitespace-normal rounded-md border border-border bg-surface-2 px-4 text-center text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation sm:w-auto"
                                 onClick={() => {
-                                  if (item.link === '/documents') {
+                                  const recordsHandbookVisit =
+                                    item.autoKey === 'handbook_visit' ||
+                                    /onboarding pack/i.test(item.label)
+                                  if (item.link === '/documents' && recordsHandbookVisit) {
                                     sessionStorage.setItem('av-visited-handbook', '1')
                                     setVisitedHandbook(true)
                                   }
                                 }}
                               >
-                                {meta.cta} <ChevronRight className="h-4 w-4" />
+                                {cta} <ChevronRight className="h-4 w-4" />
                               </Link>
                             ) : (
                               <a
                                 href={item.link}
                                 target="_blank"
                                 rel="noreferrer"
-                                className="inline-flex min-h-[44px] shrink-0 items-center justify-center gap-1 rounded-md border border-border bg-surface-2 px-4 text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation"
+                                className="inline-flex min-h-[44px] w-full shrink-0 items-center justify-center gap-1 whitespace-normal rounded-md border border-border bg-surface-2 px-4 text-center text-sm font-medium text-accent hover:bg-surface-3 touch-manipulation sm:w-auto"
                               >
-                                {meta.cta} <ExternalLink className="h-3.5 w-3.5" />
+                                {cta} <ExternalLink className="h-3.5 w-3.5" />
                               </a>
                             )
                           ) : null}

@@ -708,16 +708,22 @@ export function AdminPanelPage() {
 
   const saveChecklist = () => {
     if (!checklistDraft?.label.trim()) return
+    const description = checklistDraft.description?.trim() || undefined
+    const link = checklistDraft.link?.trim() || undefined
+    const fields = {
+      label: checklistDraft.label.trim(),
+      link,
+      description,
+      ...(checklistDraft.autoKey ? { autoKey: checklistDraft.autoKey } : {}),
+    }
     if (checklistDraft.id) {
       updateOnboardingChecklistItem(checklistDraft.id, {
-        label: checklistDraft.label.trim(),
-        link: checklistDraft.link?.trim() || undefined,
+        ...fields,
         order: Number(checklistDraft.order) || 0,
       })
     } else {
       addOnboardingChecklistItem({
-        label: checklistDraft.label.trim(),
-        link: checklistDraft.link?.trim() || undefined,
+        ...fields,
         order: Number(checklistDraft.order) || onboardingChecklist.length + 1,
       })
     }
@@ -1609,6 +1615,7 @@ export function AdminPanelPage() {
                 setChecklistDraft({
                   label: '',
                   link: '',
+                  description: '',
                   order: onboardingChecklist.length + 1,
                 })
               }
@@ -1631,7 +1638,12 @@ export function AdminPanelPage() {
                   .sort((a, b) => a.order - b.order)
                   .map((c) => (
                     <tr key={c.id} className="border-t border-border">
-                      <td className="p-3">{c.label}</td>
+                      <td className="p-3">
+                        <p>{c.label}</p>
+                        {c.description?.trim() ? (
+                          <p className="mt-1 line-clamp-2 text-xs text-muted">{c.description}</p>
+                        ) : null}
+                      </td>
                       <td className="p-3 text-muted">{c.link ?? '—'}</td>
                       <td className="p-3 text-muted">{c.order}</td>
                       <td className="p-3 text-right">
@@ -1663,7 +1675,10 @@ export function AdminPanelPage() {
                 <li key={c.id} className="space-y-2 p-4">
                   <div>
                     <p className="text-sm font-semibold text-fg">{c.label}</p>
-                    <p className="break-all text-xs text-muted">
+                    {c.description?.trim() ? (
+                      <p className="mt-1 line-clamp-2 text-xs text-muted">{c.description}</p>
+                    ) : null}
+                    <p className="mt-1 break-all text-xs text-muted">
                       {c.link ?? 'No link'} · order {c.order}
                     </p>
                   </div>
@@ -2271,6 +2286,12 @@ export function AdminPanelPage() {
               label="Link (optional)"
               value={checklistDraft.link ?? ''}
               onChange={(e) => setChecklistDraft({ ...checklistDraft, link: e.target.value })}
+            />
+            <Textarea
+              label="Description (optional)"
+              value={checklistDraft.description ?? ''}
+              onChange={(e) => setChecklistDraft({ ...checklistDraft, description: e.target.value })}
+              rows={4}
             />
             <Input
               label="Order"

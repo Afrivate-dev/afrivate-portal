@@ -1,5 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
-import { DEFAULT_GETTING_STARTED_CHECKLIST } from '@/content/gettingStartedChecklist'
+import {
+  DEFAULT_GETTING_STARTED_CHECKLIST,
+  parseOnboardingAutoKey,
+} from '@/content/gettingStartedChecklist'
 import { normalizeInboxTypeFromDb } from '@/lib/inboxNotifications'
 import { parseDutyStatus } from '@/lib/dutyStatus'
 import type {
@@ -316,12 +319,14 @@ export function videoToRow(v: OnboardingVideo): Record<string, unknown> {
 
 export function rowToChecklistItem(r: Record<string, unknown>): OnboardingChecklistItem {
   const id = String(r.id)
+  const description = typeof r.description === 'string' ? r.description.trim() : ''
   return {
     id,
     label: String(r.label ?? ''),
     link: r.link ? String(r.link) : undefined,
     order: Number(r.sort_order ?? 0),
-    autoKey: CHECKLIST_AUTO_KEY[id],
+    description: description || undefined,
+    autoKey: parseOnboardingAutoKey(r.auto_key) ?? CHECKLIST_AUTO_KEY[id],
   }
 }
 
@@ -331,7 +336,35 @@ export function checklistToRow(c: OnboardingChecklistItem): Record<string, unkno
     label: c.label,
     link: c.link ?? null,
     sort_order: c.order,
+    description: c.description?.trim() || null,
+    auto_key: c.autoKey ?? null,
   }
+}
+
+const CHECKLIST_OPTIONAL_COLUMNS = ['description', 'auto_key'] as const
+
+/** Insert/update a checklist row, dropping new columns if this database has not applied the migration yet. */
+export async function persistOnboardingChecklistItem(
+  client: SupabaseClient,
+  item: OnboardingChecklistItem,
+  mode: 'insert' | 'update',
+): Promise<{ error: { message: string; code?: string } | null }> {
+  let row: Record<string, unknown> = checklistToRow(item)
+  for (let attempt = 0; attempt <= CHECKLIST_OPTIONAL_COLUMNS.length; attempt++) {
+    const result =
+      mode === 'insert'
+        ? await client.from('portal_onboarding_checklist').insert(row)
+        : await client.from('portal_onboarding_checklist').update(row).eq('id', item.id)
+    if (!result.error) return { error: null }
+    const missing = CHECKLIST_OPTIONAL_COLUMNS.find(
+      (col) => isMissingColumnError(result.error, col) && col in row,
+    )
+    if (!missing) return { error: result.error }
+    const next = { ...row }
+    delete next[missing]
+    row = next
+  }
+  return { error: { message: 'Could not save checklist item' } }
 }
 
 export function rowToOnboardingProgress(r: Record<string, unknown>): OnboardingProgress {

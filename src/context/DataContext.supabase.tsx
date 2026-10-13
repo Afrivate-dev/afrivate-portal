@@ -16,8 +16,8 @@ import { isInboxNotificationType } from '@/lib/inboxNotifications'
 import { memoPublishedInboxRows } from '@/lib/memoInbox'
 import { supabase } from '@/lib/supabase'
 import {
-  checklistToRow,
   fetchPortalDataset,
+  persistOnboardingChecklistItem,
   persistPortalTask,
   readStringArray,
   rowToAnnouncement,
@@ -1081,7 +1081,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
       const c: OnboardingChecklistItem = { ...item, id: 'ck_' + uid(), order: item.order ?? maxOrder + 1 }
       setOnboardingChecklist((prev) => [...prev, c])
       void (async () => {
-        await client.from('portal_onboarding_checklist').insert(checklistToRow(c))
+        const { error } = await persistOnboardingChecklistItem(client, c, 'insert')
+        if (error) reportDataError('add checklist item', error)
         await reloadData()
       })()
     },
@@ -1100,7 +1101,8 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         if (selErr || !data) return
         const c = rowToChecklistItem(data as Record<string, unknown>)
         const next = { ...c, ...patch }
-        await client.from('portal_onboarding_checklist').update(checklistToRow(next)).eq('id', id)
+        const { error } = await persistOnboardingChecklistItem(client, next, 'update')
+        if (error) reportDataError('update checklist item', error)
         await reloadData()
       })()
     },
