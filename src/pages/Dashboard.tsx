@@ -27,6 +27,7 @@ import {
   roleLabel,
   isHR,
   isAdmin,
+  userCanSeeTask,
 } from '@/utils/helpers'
 import { leaveRequestsForManager } from '@/utils/leaveScope'
 import { userSeesAnnouncement, unreadAnnouncementsFor } from '@/lib/announcementVisibility'
@@ -61,7 +62,7 @@ export function DashboardPage() {
 
   const stats = useMemo(() => {
     if (!user) return { dueToday: 0, pendingLeave: 0, upcomingEvents: 0, unread: 0 }
-    const myTasks = tasks.filter((t) => t.ownerId === user.id)
+    const visibleTasks = tasks.filter((t) => userCanSeeTask(t, user, teams))
     // Own requests plus, for managers, the people they manage (HR/admin see all).
     const relevantLeaveIds = new Set(
       leaveRequestsForManager(leaveRequests, user, users, teams, departments).map((l) => l.id),
@@ -70,7 +71,7 @@ export function DashboardPage() {
       if (l.userId === user.id) relevantLeaveIds.add(l.id)
     }
     return {
-      dueToday: myTasks.filter((t) => isDueToday(t.dueDate) && t.status !== 'done').length,
+      dueToday: visibleTasks.filter((t) => isDueToday(t.dueDate) && t.status !== 'done').length,
       pendingLeave: leaveRequests.filter(
         (l) => l.status === 'pending' && relevantLeaveIds.has(l.id),
       ).length,

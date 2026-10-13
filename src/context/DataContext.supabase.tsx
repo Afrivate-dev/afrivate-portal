@@ -79,7 +79,7 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'freelance',          label: 'Freelance' },
   { id: 'other',              label: 'Other' },
 ]
-import { newlyMentionedUserIds, uid, canChangeRoles } from '@/utils/helpers'
+import { newlyMentionedUserIds, uid, canChangeRoles, mayNotifyAboutTask } from '@/utils/helpers'
 import { fetchTaskCategories } from '@/lib/supabase/notesDataset'
 import {
   DEFAULT_DOCUMENT_CATEGORIES,
@@ -459,6 +459,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         ].filter((id) => id !== actor)
 
         for (const aId of newAssigneeIds) {
+          if (!mayNotifyAboutTask(aId, task, users, teams)) continue
           const owner = users.find((u) => u.id === actor)
           inboxRows.push({
             id: 'n_' + uid(),
@@ -475,6 +476,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         }
         for (const mid of newlyMentionedUserIds('', input.description, users)) {
           if (mid === actor) continue
+          if (!mayNotifyAboutTask(mid, task, users, teams)) continue
           const mentioner = users.find((u) => u.id === actor)
           inboxRows.push({
             id: 'n_' + uid(),
@@ -495,7 +497,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
 
       return task
     },
-    [client, users, queueInboxInsert, reloadData],
+    [client, users, teams, queueInboxInsert, reloadData],
   )
 
   const updateTask: DataContextValue['updateTask'] = useCallback(
@@ -558,6 +560,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
             )
             const assigner = users.find((u) => u.id === by)
             for (const aId of newIds) {
+              if (!mayNotifyAboutTask(aId, merged, users, teams)) continue
               pendingInbox.push({
                 id: 'n_' + uid(),
                 userId: aId,
@@ -574,6 +577,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
           }
           for (const mid of newlyMentionedUserIds(t.description, nextDescription, users)) {
             if (mid === by) continue
+            if (!mayNotifyAboutTask(mid, merged, users, teams)) continue
             const mentioner = users.find((u) => u.id === by)
             pendingInbox.push({
               id: 'n_' + uid(),
@@ -601,7 +605,7 @@ export function SupabaseDataProvider({ children }: { children: React.ReactNode }
         return { ok: true as const }
       })()
     },
-    [client, tasks, users, queueInboxInsert, reloadData],
+    [client, tasks, users, teams, queueInboxInsert, reloadData],
   )
 
   const deleteTask = useCallback(

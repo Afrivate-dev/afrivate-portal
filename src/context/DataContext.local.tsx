@@ -71,7 +71,7 @@ const DEFAULT_TASK_CATEGORIES: TaskCategoryItem[] = [
   { id: 'freelance',          label: 'Freelance' },
   { id: 'other',              label: 'Other' },
 ]
-import { newlyMentionedUserIds, uid } from '@/utils/helpers'
+import { mayNotifyAboutTask, newlyMentionedUserIds, uid } from '@/utils/helpers'
 import {
   DEFAULT_DOCUMENT_CATEGORIES,
   DEFAULT_RECOGNITION_TAGS,
@@ -82,6 +82,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
   const { user: authUser } = useAuth()
   const [users, setUsers] = useLocalStorage<User[]>('av-users', [])
   const [tasks, setTasks] = useLocalStorage<Task[]>('av-tasks', seedTasks)
+  const [teams, setTeams] = useLocalStorage<WorkspaceTeam[]>('av-teams', seedTeams)
   const [checkIns, setCheckIns] = useLocalStorage<WeeklyCheckIn[]>('av-checkins-v2', seedCheckIns)
   const [announcements, setAnnouncements] = useLocalStorage<Announcement[]>(
     'av-announcements',
@@ -190,6 +191,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       ].filter((id) => id !== actor)
 
       for (const aId of newAssigneeIds) {
+        if (!mayNotifyAboutTask(aId, task, users, teams)) continue
         const owner = users.find((u) => u.id === actor)
         inboxRows.push({
           id: 'n_' + uid(),
@@ -207,6 +209,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
 
       for (const mid of newlyMentionedUserIds('', input.description, users)) {
         if (mid === actor) continue
+        if (!mayNotifyAboutTask(mid, task, users, teams)) continue
         const mentioner = users.find((u) => u.id === actor)
         inboxRows.push({
           id: 'n_' + uid(),
@@ -225,7 +228,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       if (inboxRows.length) setInbox((prev) => [...inboxRows, ...prev])
       return task
     },
-    [setTasks, setInbox, users],
+    [setTasks, setInbox, users, teams],
   )
 
   const updateTask: DataContextValue['updateTask'] = useCallback(
@@ -252,6 +255,15 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
             patch.description !== undefined ? patch.description : t.description
 
           if (by) {
+            const noticeTask = {
+              ownerId: t.ownerId,
+              assigneeIds:
+                'assigneeIds' in patch
+                  ? (patch.assigneeIds ?? [])
+                  : t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : []),
+              assigneeId:
+                'assigneeIds' in patch ? patch.assigneeIds?.[0] ?? undefined : t.assigneeId,
+            }
             if ('assigneeIds' in patch && patch.assigneeIds) {
               const prevIds = t.assigneeIds ?? (t.assigneeId ? [t.assigneeId] : [])
               const newIds = patch.assigneeIds.filter(
@@ -259,6 +271,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
               )
               const assigner = users.find((u) => u.id === by)
               for (const aId of newIds) {
+                if (!mayNotifyAboutTask(aId, noticeTask, users, teams)) continue
                 pendingInbox.push({
                   id: 'n_' + uid(),
                   userId: aId,
@@ -275,6 +288,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
             }
             for (const mid of newlyMentionedUserIds(t.description, nextDescription, users)) {
               if (mid === by) continue
+              if (!mayNotifyAboutTask(mid, noticeTask, users, teams)) continue
               const mentioner = users.find((u) => u.id === by)
               pendingInbox.push({
                 id: 'n_' + uid(),
@@ -321,7 +335,7 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
       if (pendingInbox.length) setInbox((p) => [...pendingInbox, ...p])
       return Promise.resolve({ ok: true as const })
     },
-    [setTasks, setInbox, users],
+    [setTasks, setInbox, users, teams],
   )
 
   const deleteTask = useCallback(
@@ -701,7 +715,6 @@ export function LocalDataProvider({ children }: { children: React.ReactNode }) {
     [setEvents],
   )
 
-  const [teams, setTeams] = useLocalStorage<WorkspaceTeam[]>('av-teams', seedTeams)
   const [departments, setDepartments] = useLocalStorage<Department[]>('av-departments', [])
 
   /* ----------------------------- Teams ---------------------------------- */

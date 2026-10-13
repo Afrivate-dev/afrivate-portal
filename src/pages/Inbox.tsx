@@ -11,7 +11,7 @@ import { Card } from '@/components/ui/Card'
 import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, relativeTime } from '@/utils/helpers'
+import { cn, relativeTime, userCanSeeTask } from '@/utils/helpers'
 import { pages } from '@/content/copy'
 import type { InboxNotification } from '@/types'
 
@@ -26,16 +26,23 @@ const INBOX_FALLBACK_META = {
 
 export function InboxPage() {
   const { user } = useAuth()
-  const { inbox, markInboxRead, markAllInboxRead, users } = useData()
+  const { inbox, tasks, teams, markInboxRead, markAllInboxRead, users } = useData()
   const confirm = useConfirm()
   const navigate = useNavigate()
 
   const mine = useMemo(() => {
     if (!user) return []
     return [...inbox]
-      .filter((n) => n?.id && n.userId === user.id)
+      .filter((n) => {
+        if (!n?.id || n.userId !== user.id) return false
+        if ((n.type === 'task_assigned' || n.type === 'task_mention') && n.taskId) {
+          const task = tasks.find((item) => item.id === n.taskId)
+          if (task && !userCanSeeTask(task, user, teams)) return false
+        }
+        return true
+      })
       .sort((a, b) => (a.createdAt < b.createdAt ? 1 : -1))
-  }, [inbox, user])
+  }, [inbox, user, tasks, teams])
 
   const unreadCount = useMemo(() => mine.filter((n) => !n.read).length, [mine])
 

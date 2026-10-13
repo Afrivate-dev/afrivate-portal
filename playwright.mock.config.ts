@@ -30,7 +30,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium-mock',
-      testMatch: '**/portal-full-functionality.spec.ts',
+      testMatch: ['**/portal-full-functionality.spec.ts', '**/task-visibility.spec.ts'],
       use: { ...devices['Desktop Chrome'] },
     },
     {
