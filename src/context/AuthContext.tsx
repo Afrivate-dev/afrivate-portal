@@ -11,6 +11,7 @@ import {
   recordSessionActivity,
   removeSupabaseAuthStorageKeys,
 } from '@/lib/sessionPolicy'
+import { loginRedirectUrl, rememberAuthNext } from '@/lib/safeRedirect'
 import { validatePortalPassword } from '@/utils/passwordPolicy'
 import { parseDutyStatus } from '@/lib/dutyStatus'
 import type { Role, User } from '@/types'
@@ -78,6 +79,35 @@ function sessionToPortalUser(session: Session | null): User | null {
     active: false,
     dutyStatus: 'none',
   }
+}
+
+/** Session saved by supabase-js (`sb-<project>-auth-token`). Used when getSession is slow. */
+function readStoredSupabaseSession(): Session | null {
+  if (typeof localStorage === 'undefined') return null
+  for (let i = 0; i < localStorage.length; i++) {
+    const key = localStorage.key(i)
+    if (!key || !/^sb-.+-auth-token$/.test(key)) continue
+    try {
+      const parsed = JSON.parse(localStorage.getItem(key) ?? '') as unknown
+      const session = unwrapStoredSession(parsed)
+      if (session?.access_token && session.user) return session
+    } catch {
+      /* ignore malformed storage */
+    }
+  }
+  return null
+}
+
+function unwrapStoredSession(parsed: unknown): Session | null {
+  if (!parsed || typeof parsed !== 'object') return null
+  const record = parsed as Record<string, unknown>
+  if (typeof record.access_token === 'string' && record.user && typeof record.user === 'object') {
+    return record as unknown as Session
+  }
+  if (record.currentSession && typeof record.currentSession === 'object') {
+    return unwrapStoredSession(record.currentSession)
+  }
+  return null
 }
 
 function parseRole(raw: string | undefined | null): Role {
@@ -312,7 +342,7 @@ interface AuthContextValue {
   updateProfile: (patch: Partial<User>) => void
   reconcileUser: (patch: Partial<User>) => void
   refreshUser: () => Promise<void>
-  sendMagicLink: (email: string) => Promise<{ ok: boolean; error?: string }>
+  sendMagicLink: (email: string, nextPath?: string) => Promise<{ ok: boolean; error?: string }>
   changeEmail: (newEmail: string) => Promise<{ ok: boolean; error?: string }>
   changePassword: (newPassword: string) => Promise<{ ok: boolean; error?: string }>
   sendReauthentication: () => Promise<{ ok: boolean; error?: string }>
@@ -402,48 +432,61 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         })
     }
 
-    // Session check is capped at 8s and always clears the "checking session"
-    // gate in finally. Profile/role loads in the background so a slow query
-    // cannot trap the login form or the portal shell.
+    // authReady stays false until a session is applied or we confirm there is none.
+    // A slow getSession must not look like "signed out" while local storage still
+    // holds a Supabase session — that bounce sends deep links to Home.
+    let bootstrapped = false
+    const resolveInitialSession = (session: Session | null, trustNull = false) => {
+      if (cancelled || signedInLocally.current || bootstrapped) return
+      if (!session && !trustNull && readStoredSupabaseSession()) return
+      const base = sessionToPortalUser(session)
+      applyPortalUser({
+        user: base,
+        profileLoadFailed: false,
+        profileError: null,
+      })
+      bootstrapped = true
+      setAuthReady(true)
+      if (base) setProfileChecked(false)
+      else setProfileChecked(true)
+      settleProfile(session)
+    }
+
     void (async () => {
       let session: Session | null = null
+      let trustNull = false
       try {
         const { data, error } = await withTimeout(sb.auth.getSession(), PROFILE_LOAD_TIMEOUT_MS, 'getSession')
         if (cancelled) return
         if (error && isInvalidAuthTokenMessage(error.message)) {
           await clearLocalSupabaseSession(sb)
           session = null
+          trustNull = true
         } else {
           session = data.session ?? null
+          trustNull = true
         }
       } catch (e) {
         const message = e instanceof Error ? e.message : String(e)
         console.warn('[auth] getSession failed:', message)
         if (isInvalidAuthTokenMessage(message)) {
           await clearLocalSupabaseSession(sb)
+          session = null
+          trustNull = true
+        } else {
+          session = readStoredSupabaseSession()
+          trustNull = !session
         }
-        session = null
       } finally {
-        if (!cancelled && !signedInLocally.current) {
-          const base = sessionToPortalUser(session)
-          applyPortalUser({
-            user: base,
-            profileLoadFailed: false,
-            profileError: null,
-          })
-          setAuthReady(true)
-          if (base) setProfileChecked(false)
-          else setProfileChecked(true)
-        } else if (!cancelled) {
-          setAuthReady(true)
-        }
+        if (!cancelled && signedInLocally.current) setAuthReady(true)
+        else if (!cancelled) resolveInitialSession(session, trustNull)
       }
-      if (!cancelled && !signedInLocally.current) settleProfile(session)
     })()
 
     const readyFallback = window.setTimeout(() => {
-      if (cancelled) return
-      setAuthReady(true)
+      if (cancelled || signedInLocally.current || bootstrapped) return
+      const stored = readStoredSupabaseSession()
+      resolveInitialSession(stored, !stored)
     }, PROFILE_LOAD_TIMEOUT_MS)
 
     const { data: sub } = sb.auth.onAuthStateChange((event, session) => {
@@ -453,6 +496,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         setTimeout(() => {
           if (cancelled) return
           signedInLocally.current = false
+          bootstrapped = true
           setSupabaseUser(null)
           setProfileLoadFailed(false)
           setProfileError(null)
@@ -461,23 +505,22 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
         }, 0)
         return
       }
-      if (!session) {
-        if (event === 'INITIAL_SESSION') {
-          setTimeout(() => {
-            if (cancelled) return
-            setAuthReady(true)
-          }, 0)
-        }
-        return
-      }
-      if (event === 'TOKEN_REFRESHED' || event === 'INITIAL_SESSION') {
+      if (event === 'INITIAL_SESSION' || event === 'TOKEN_REFRESHED') {
         setTimeout(() => {
-          if (!cancelled) setAuthReady(true)
+          if (cancelled || signedInLocally.current) return
+          if (session) resolveInitialSession(session, true)
+          else if (event === 'INITIAL_SESSION' && !readStoredSupabaseSession()) {
+            resolveInitialSession(null, true)
+          }
         }, 0)
         return
       }
       setTimeout(() => {
         if (cancelled) return
+        if (!bootstrapped) {
+          resolveInitialSession(session, !session && !readStoredSupabaseSession())
+          return
+        }
         setAuthReady(true)
         settleProfile(session)
       }, 0)
@@ -645,7 +688,7 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
             name: trimmedName,
             ...(trimmedTitle ? { job_title: trimmedTitle } : {}),
           },
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: loginRedirectUrl(),
         },
       })
       if (error) {
@@ -706,15 +749,16 @@ export function AuthProvider({ children }: { children: React.ReactNode }) {
   )
 
   const sendMagicLink = useCallback(
-    async (email: string) => {
+    async (email: string, nextPath?: string) => {
       if (!supabaseMode || !supabase) {
         return { ok: false as const, error: 'Magic link sign-in is not available right now.' }
       }
+      if (nextPath) rememberAuthNext(nextPath)
       const { error } = await supabase.auth.signInWithOtp({
         email: email.trim().toLowerCase(),
         options: {
           shouldCreateUser: false,
-          emailRedirectTo: `${window.location.origin}/login`,
+          emailRedirectTo: loginRedirectUrl(nextPath),
         },
       })
       if (error) return { ok: false as const, error: error.message }

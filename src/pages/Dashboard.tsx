@@ -42,6 +42,7 @@ import {
 } from '@/utils/documentPreview'
 import { useExternalCalendarEvents } from '@/hooks/useExternalCalendarEvents'
 import { externalToEventItem } from '@/utils/calendarAdapters'
+import { computeOnboardingProgress } from '@/content/gettingStartedChecklist'
 
 export function DashboardPage() {
   const { user } = useAuth()
@@ -54,6 +55,7 @@ export function DashboardPage() {
     teams,
     departments,
     onboardingVideos,
+    onboardingChecklist,
     onboardingProgress,
     markAnnouncementRead,
   } = useData()
@@ -113,12 +115,16 @@ export function DashboardPage() {
     const joinedAt = new Date(user.joinedAt)
     const days = (new Date().getTime() - joinedAt.getTime()) / (1000 * 60 * 60 * 24)
     if (days > 30) return null
-    if (onboardingVideos.length === 0) return null
     const progress = onboardingProgress.find((p) => p.userId === user.id)
-    const watched = progress?.watchedVideoIds.length ?? 0
-    const total = onboardingVideos.length
-    return { watched, total, pct: total === 0 ? 0 : Math.round((watched / total) * 100) }
-  }, [user, onboardingProgress, onboardingVideos])
+    const summary = computeOnboardingProgress({
+      items: onboardingChecklist,
+      checkedIds: progress?.completedChecklistIds ?? [],
+      videos: onboardingVideos,
+      watchedIds: progress?.watchedVideoIds ?? [],
+    })
+    if (summary.overallTotal === 0) return null
+    return { done: summary.overallDone, total: summary.overallTotal, pct: summary.overallPct }
+  }, [user, onboardingProgress, onboardingVideos, onboardingChecklist])
 
   useEffect(() => {
     if (!readingId) return
@@ -193,7 +199,7 @@ export function DashboardPage() {
                 <div className="flex items-center gap-2">
                   <PlayCircle className="h-5 w-5 shrink-0 text-accent" />
                   <p className="text-sm font-semibold text-fg">
-                    Getting started: {onboardingStats.watched} of {onboardingStats.total} videos watched
+                    Getting started: {onboardingStats.done} of {onboardingStats.total} items complete
                   </p>
                 </div>
                 <p className="text-xs text-muted sm:pl-7">

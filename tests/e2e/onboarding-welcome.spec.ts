@@ -50,6 +50,7 @@ test('getting started matches the new-hire welcome message', async ({ page }) =>
   await page.goto('/onboarding')
 
   await expect(page.getByRole('heading', { name: /getting started/i })).toBeVisible()
+  await expect(page.getByText(/of 11/)).toBeVisible()
   await expect(page.getByText('Access', { exact: true })).toBeVisible()
   await expect(page.getByText('Policies', { exact: true })).toBeVisible()
   await expect(page.getByText('Goals', { exact: true })).toBeVisible()

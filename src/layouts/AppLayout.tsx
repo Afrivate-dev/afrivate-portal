@@ -101,7 +101,11 @@ export function AppLayout() {
       if (type === 'recovery' || type === 'invite') {
         return <Navigate to={`/reset-password?code=${code}`} replace />
       }
-      return <Navigate to={`/login?code=${code}`} replace />
+      const next =
+        location.pathname !== '/' && location.pathname !== '/login'
+          ? `&next=${encodeURIComponent(location.pathname)}`
+          : ''
+      return <Navigate to={`/login?code=${encodeURIComponent(code)}${next}`} replace />
     }
     if (
       hash.includes('access_token') &&
@@ -112,7 +116,17 @@ export function AppLayout() {
     if (hash.includes('access_token')) {
       return <Navigate to={`/login${hash}`} replace />
     }
-    return <Navigate to="/login" replace />
+    const here = `${location.pathname}${location.search}${location.hash}`
+    if (location.pathname === '/' || location.pathname === '/login') {
+      return <Navigate to="/login" replace />
+    }
+    return (
+      <Navigate
+        to={`/login?next=${encodeURIComponent(here)}`}
+        replace
+        state={{ from: location }}
+      />
+    )
   }
 
   // Prefer the auth-level profile warning; fall back to a partial-data warning

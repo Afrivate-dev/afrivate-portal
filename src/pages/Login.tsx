@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Link, Navigate, useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, Navigate, useLocation, useNavigate, useSearchParams } from 'react-router-dom'
 import { Mail, Lock, ArrowRight, Eye, EyeOff, UserPlus, LogOut, Sparkles } from 'lucide-react'
 import { ScreenLoader } from '@/components/shared/ScreenLoader'
 import { Card } from '@/components/ui/Card'
@@ -9,13 +9,16 @@ import { useAuth } from '@/context/AuthContext'
 import { pages } from '@/content/copy'
 import { supabase } from '@/lib/supabase'
 import { isSupabaseAuthEnabled } from '@/lib/authMode'
+import { clearRememberedAuthNext, getSafeNext, rememberAuthNext } from '@/lib/safeRedirect'
 
 type SignInMode = 'password' | 'magic_link'
 
 export function LoginPage() {
   const { user, login, authReady, logout, sendMagicLink, profileLoadFailed, profileChecked } = useAuth()
   const navigate = useNavigate()
+  const location = useLocation()
   const [searchParams] = useSearchParams()
+  const nextPath = getSafeNext(searchParams, location.state)
   const supabaseMode = isSupabaseAuthEnabled()
   const [mode, setMode] = useState<SignInMode>('password')
   const [email, setEmail] = useState('')
@@ -42,15 +45,17 @@ export function LoginPage() {
           const exchangeError = result && 'error' in result ? result.error : null
           if (exchangeError) {
             setError('Sign-in link expired or invalid. Try again or use your password.')
-            window.history.replaceState({}, '', '/login')
+            window.history.replaceState({}, '', loginPathKeepingNext(searchParams))
             return
           }
-          window.history.replaceState({}, '', '/login')
-          navigate('/', { replace: true })
+          const dest = getSafeNext(searchParams, location.state)
+          window.history.replaceState({}, '', loginPathKeepingNext(searchParams))
+          clearRememberedAuthNext()
+          navigate(dest, { replace: true })
         })
         .catch(() => {
           setError('Sign-in is taking too long. Check your connection and try again.')
-          window.history.replaceState({}, '', '/login')
+          window.history.replaceState({}, '', loginPathKeepingNext(searchParams))
         })
         .finally(() => setLoading(false))
       return
@@ -71,22 +76,26 @@ export function LoginPage() {
         }),
       ])
         .then((result) => {
-          window.history.replaceState({}, '', '/login')
-          if (result && 'data' in result && result.data.session) navigate('/', { replace: true })
+          const dest = getSafeNext(searchParams, location.state)
+          window.history.replaceState({}, '', loginPathKeepingNext(searchParams))
+          if (result && 'data' in result && result.data.session) {
+            clearRememberedAuthNext()
+            navigate(dest, { replace: true })
+          }
         })
         .catch(() => {
           setError('Sign-in is taking too long. Check your connection and try again.')
-          window.history.replaceState({}, '', '/login')
+          window.history.replaceState({}, '', loginPathKeepingNext(searchParams))
         })
         .finally(() => setLoading(false))
     }
-  }, [searchParams, navigate])
+  }, [searchParams, navigate, location.state])
 
   if (!authReady || loading) {
     return <ScreenLoader message="Checking your session…" className="min-h-[40vh]" />
   }
 
-  if (user && (!profileChecked || user.active === true)) return <Navigate to="/" replace />
+  if (user && (!profileChecked || user.active === true)) return <Navigate to={nextPath} replace />
 
   const pendingSession = Boolean(user && profileChecked && user.active === false && !profileLoadFailed)
 
@@ -101,7 +110,8 @@ export function LoginPage() {
         setError(result.error ?? 'Sign-in failed. Check your email and password.')
         return
       }
-      navigate('/', { replace: true })
+      clearRememberedAuthNext()
+      navigate(nextPath, { replace: true })
     } finally {
       setLoading(false)
     }
@@ -113,7 +123,8 @@ export function LoginPage() {
     setInfo(null)
     setLoading(true)
     try {
-      const result = await sendMagicLink(email)
+      rememberAuthNext(nextPath)
+      const result = await sendMagicLink(email, nextPath)
       if (!result.ok) {
         setError(result.error ?? 'Could not send magic link.')
         return
@@ -297,4 +308,10 @@ export function LoginPage() {
       </div>
     </Card>
   )
+}
+
+function loginPathKeepingNext(searchParams: URLSearchParams): string {
+  const next = searchParams.get('next')
+  if (!next) return '/login'
+  return `/login?next=${encodeURIComponent(next)}`
 }

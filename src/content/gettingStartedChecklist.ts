@@ -164,3 +164,64 @@ export function isWelcomeVideoChecklistItem(
   if (item.id === 'ck_videos') return true
   return /welcome video/i.test(item.label)
 }
+
+/** Drop the welcome-video checklist row when no videos are published. */
+export function getVisibleChecklistItems<
+  T extends Pick<OnboardingChecklistItem, 'id' | 'label' | 'link' | 'autoKey'>,
+>(items: T[], opts: { videoCount: number }): T[] {
+  if (opts.videoCount > 0) return items
+  return items.filter((item) => !isWelcomeVideoChecklistItem(item))
+}
+
+function asIdSet(ids: Set<string> | readonly string[]): Set<string> {
+  return ids instanceof Set ? ids : new Set(ids)
+}
+
+export type OnboardingProgressSummary = {
+  /** Checked visible checklist items. A ticked hidden videos row is not included. */
+  done: number
+  /** Visible checklist rows. 11 when the videos row is hidden, 12 when it is shown. */
+  total: number
+  pct: number
+  checklistDone: number
+  checklistTotal: number
+  videosDone: number
+  videosTotal: number
+  /** Visible checklist plus videos, matching the Getting started “items complete” line. */
+  overallDone: number
+  overallTotal: number
+  overallPct: number
+}
+
+/** Progress for Getting started, Home, and Admin staff rows. Hidden items are not counted. */
+export function computeOnboardingProgress(opts: {
+  items: Pick<OnboardingChecklistItem, 'id' | 'label' | 'link' | 'autoKey'>[]
+  checkedIds: Set<string> | readonly string[]
+  videos: readonly { id: string }[]
+  watchedIds: Set<string> | readonly string[]
+}): OnboardingProgressSummary {
+  const videos = opts.videos
+  const visible = getVisibleChecklistItems(opts.items, { videoCount: videos.length })
+  const checked = asIdSet(opts.checkedIds)
+  const watched = asIdSet(opts.watchedIds)
+  const checklistDone = visible.filter((item) => checked.has(item.id)).length
+  const checklistTotal = visible.length
+  const videosDone = videos.filter((video) => watched.has(video.id)).length
+  const videosTotal = videos.length
+  const overallDone = checklistDone + videosDone
+  const overallTotal = checklistTotal + videosTotal
+  const pct = checklistTotal === 0 ? 0 : Math.round((checklistDone / checklistTotal) * 100)
+  const overallPct = overallTotal === 0 ? 0 : Math.round((overallDone / overallTotal) * 100)
+  return {
+    done: checklistDone,
+    total: checklistTotal,
+    pct,
+    checklistDone,
+    checklistTotal,
+    videosDone,
+    videosTotal,
+    overallDone,
+    overallTotal,
+    overallPct,
+  }
+}

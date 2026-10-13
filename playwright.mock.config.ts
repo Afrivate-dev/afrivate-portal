@@ -34,6 +34,7 @@ export default defineConfig({
         '**/portal-full-functionality.spec.ts',
         '**/task-visibility.spec.ts',
         '**/onboarding-welcome.spec.ts',
+        '**/deep-link.spec.ts',
       ],
       use: { ...devices['Desktop Chrome'] },
     },

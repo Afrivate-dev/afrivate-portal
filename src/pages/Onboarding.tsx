@@ -29,7 +29,11 @@ import { TabBar } from '@/components/ui/TabBar'
 import { cn, colorForName, fmtDate, isHR } from '@/utils/helpers'
 import { sanitizeYouTubeEmbedUrl } from '@/utils/safeUrl'
 import { pages } from '@/content/copy'
-import { ctaForLink, isWelcomeVideoChecklistItem } from '@/content/gettingStartedChecklist'
+import {
+  computeOnboardingProgress,
+  ctaForLink,
+  getVisibleChecklistItems,
+} from '@/content/gettingStartedChecklist'
 import { ONBOARDING_WEEK_MAP } from '@/content/onboardingWeekMap'
 import type { OnboardingVideo } from '@/types'
 
@@ -112,19 +116,35 @@ export function OnboardingPage() {
     toggleChecklistItem,
   })
 
+  const visibleChecklist = useMemo(
+    () =>
+      getVisibleChecklistItems(onboardingChecklist, { videoCount: sortedVideos.length }).sort(
+        (a, b) => a.order - b.order,
+      ),
+    [onboardingChecklist, sortedVideos.length],
+  )
+
   const totals = useMemo(() => {
-    const totalVideos = sortedVideos.length
-    const watched = sortedVideos.filter((v) => watchedIds.has(v.id)).length
-    const totalChecklist = onboardingChecklist.length
-    const checked = onboardingChecklist.filter((c) => checkedIds.has(c.id)).length
-    const overall =
-      totalVideos + totalChecklist === 0
-        ? 0
-        : Math.round(((watched + checked) / (totalVideos + totalChecklist)) * 100)
+    const progress = computeOnboardingProgress({
+      items: onboardingChecklist,
+      checkedIds,
+      videos: sortedVideos,
+      watchedIds,
+    })
     return {
-      videos: { total: totalVideos, watched, pct: totalVideos ? Math.round((watched / totalVideos) * 100) : 0 },
-      checklist: { total: totalChecklist, checked, pct: totalChecklist ? Math.round((checked / totalChecklist) * 100) : 0 },
-      overall,
+      videos: {
+        total: progress.videosTotal,
+        watched: progress.videosDone,
+        pct: progress.videosTotal ? Math.round((progress.videosDone / progress.videosTotal) * 100) : 0,
+      },
+      checklist: {
+        total: progress.checklistTotal,
+        checked: progress.checklistDone,
+        pct: progress.pct,
+      },
+      overall: progress.overallPct,
+      done: progress.overallDone,
+      total: progress.overallTotal,
     }
   }, [sortedVideos, watchedIds, onboardingChecklist, checkedIds])
 
@@ -181,7 +201,7 @@ export function OnboardingPage() {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <div className="min-w-0">
             <p className="text-sm font-semibold text-fg">
-              {totals.videos.watched + totals.checklist.checked} of {totals.videos.total + totals.checklist.total} items complete
+              {totals.done} of {totals.total} items complete
             </p>
             <p className="text-xs text-muted">
               {totals.videos.watched}/{totals.videos.total} videos ·{' '}
@@ -449,10 +469,7 @@ export function OnboardingPage() {
             </Card>
             <Card padding="md">
               <ul className="divide-y divide-border">
-                {onboardingChecklist
-                  .filter((item) => sortedVideos.length > 0 || !isWelcomeVideoChecklistItem(item))
-                  .sort((a, b) => a.order - b.order)
-                  .map((item) => {
+                {visibleChecklist.map((item) => {
                     const done = checkedIds.has(item.id)
                     const cta = ctaForLink(item.link)
                     const isInternalLink = item.link?.startsWith('/')
@@ -560,16 +577,15 @@ export function OnboardingPage() {
                     .filter((u) => u.active)
                     .map((u) => {
                       const prog = onboardingProgress.find((p) => p.userId === u.id)
-                      const watched = prog?.watchedVideoIds.length ?? 0
-                      const checked = prog?.completedChecklistIds.length ?? 0
-                      const overall =
-                        totals.videos.total + totals.checklist.total === 0
-                          ? 0
-                          : Math.round(
-                              ((watched + checked) /
-                                (totals.videos.total + totals.checklist.total)) *
-                                100,
-                            )
+                      const progress = computeOnboardingProgress({
+                        items: onboardingChecklist,
+                        checkedIds: prog?.completedChecklistIds ?? [],
+                        videos: sortedVideos,
+                        watchedIds: prog?.watchedVideoIds ?? [],
+                      })
+                      const watched = progress.videosDone
+                      const checked = progress.checklistDone
+                      const overall = progress.overallPct
                       return (
                         <tr key={u.id} className="border-t border-border hover:bg-surface-2/40">
                           <td className="p-3">
@@ -615,16 +631,15 @@ export function OnboardingPage() {
                 .filter((u) => u.active)
                 .map((u) => {
                   const prog = onboardingProgress.find((p) => p.userId === u.id)
-                  const watched = prog?.watchedVideoIds.length ?? 0
-                  const checked = prog?.completedChecklistIds.length ?? 0
-                  const overall =
-                    totals.videos.total + totals.checklist.total === 0
-                      ? 0
-                      : Math.round(
-                          ((watched + checked) /
-                            (totals.videos.total + totals.checklist.total)) *
-                            100,
-                        )
+                  const progress = computeOnboardingProgress({
+                    items: onboardingChecklist,
+                    checkedIds: prog?.completedChecklistIds ?? [],
+                    videos: sortedVideos,
+                    watchedIds: prog?.watchedVideoIds ?? [],
+                  })
+                  const watched = progress.videosDone
+                  const checked = progress.checklistDone
+                  const overall = progress.overallPct
                   return (
                     <li key={u.id} className="space-y-2 p-4">
                       <div className="flex items-center gap-3">
