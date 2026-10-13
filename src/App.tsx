@@ -20,6 +20,7 @@ import { ForgotPasswordPage } from '@/pages/ForgotPassword'
 import { DashboardPage } from '@/pages/Dashboard'
 import { isHR } from '@/utils/helpers'
 import { canAccessRevivalLaunchChecklist } from '@/lib/revivalLaunchAccess'
+import { rememberAuthNext } from '@/lib/safeRedirect'
 
 // Lazily-loaded page bundles — reduces initial JS payload
 const TasksPage = lazy(() => import('@/pages/Tasks').then((m) => ({ default: m.TasksPage })))
@@ -118,18 +119,40 @@ function AuthRedirectHandler() {
     const code = params.get('code')
     const hash = window.location.hash
     const path = window.location.pathname
+    const hasAuthHash =
+      hash.includes('access_token') ||
+      hash.includes('type=recovery') ||
+      hash.includes('type=invite') ||
+      hash.includes('type=magiclink') ||
+      hash.includes('type=signup') ||
+      hash.includes('type=email') ||
+      hash.includes('type=email_change')
 
     // Do not intercept the Gmail ATS OAuth callback popup.
     if (path.startsWith('/oauth/')) return
 
+    // Only rewrite the URL when an auth code or hash token is actually present.
+    if (!code && !hasAuthHash) {
+      const { data: sub } = supabase.auth.onAuthStateChange((event) => {
+        if (event === 'PASSWORD_RECOVERY') {
+          navigate('/reset-password', { replace: true })
+        }
+      })
+      return () => sub.subscription.unsubscribe()
+    }
+
+    const requestedNext = params.get('next')
+    if (requestedNext) rememberAuthNext(requestedNext)
+
     if (code && (path === '/' || path === '/login')) {
       const hashParams = new URLSearchParams(hash.replace(/^#/, ''))
       const type = hashParams.get('type') ?? params.get('type')
+      const nextQuery = requestedNext ? `&next=${encodeURIComponent(requestedNext)}` : ''
       if (type === 'recovery' || type === 'invite') {
         navigate(`/reset-password?code=${encodeURIComponent(code)}`, { replace: true })
         return
       }
-      navigate(`/login?code=${encodeURIComponent(code)}`, { replace: true })
+      navigate(`/login?code=${encodeURIComponent(code)}${nextQuery}`, { replace: true })
       return
     }
 
