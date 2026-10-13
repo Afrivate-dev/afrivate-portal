@@ -9,7 +9,7 @@ import {
   startOfWeek,
   endOfWeek,
 } from 'date-fns'
-import type { PresencePeer, Role, Task, User, UserAvailability } from '@/types'
+import type { PresencePeer, Role, Task, User, UserAvailability, WorkspaceTeam } from '@/types'
 import { roleTitles } from '@/content/copy'
 
 export function cn(...inputs: ClassValue[]) {
@@ -133,13 +133,52 @@ export function userSeesAnnouncement(user: User, a: { audience: string }): boole
   return a.audience === 'all' || a.audience === user.department
 }
 
-/** Whether a user owns or is assigned to a task. */
-export function userCanSeeTask(task: Task, userId: string): boolean {
-  return (
-    task.ownerId === userId ||
-    task.assigneeId === userId ||
-    (task.assigneeIds?.includes(userId) ?? false)
+type TaskVisibility = Pick<Task, 'ownerId' | 'assigneeId' | 'assigneeIds'>
+type TeamVisibility = Pick<WorkspaceTeam, 'leadUserId' | 'asstLeadUserId' | 'memberIds'>
+
+/** Owner plus every assignee, including the legacy single-assignee column. */
+export function taskParticipantIds(task: TaskVisibility): string[] {
+  const ids = new Set<string>()
+  if (task.ownerId) ids.add(task.ownerId)
+  if (task.assigneeId) ids.add(task.assigneeId)
+  for (const id of task.assigneeIds ?? []) {
+    if (id) ids.add(id)
+  }
+  return [...ids]
+}
+
+/**
+ * Admins see every task. A team lead (or assistant lead) also sees tasks whose
+ * owner or any assignee sits on a team they lead. Everyone else sees tasks
+ * they own or are assigned to.
+ */
+export function userCanSeeTask(
+  task: TaskVisibility,
+  viewer: Pick<User, 'id' | 'role'>,
+  teams: TeamVisibility[] = [],
+): boolean {
+  if (viewer.role === 'admin') return true
+  if (task.ownerId === viewer.id) return true
+  if (task.assigneeId === viewer.id) return true
+  if (task.assigneeIds?.includes(viewer.id)) return true
+  const people = new Set(taskParticipantIds(task))
+  return teams.some(
+    (team) =>
+      (team.leadUserId === viewer.id || team.asstLeadUserId === viewer.id) &&
+      team.memberIds.some((memberId) => people.has(memberId)),
   )
+}
+
+/** Task assignment / mention notices only go to someone who can open the task. */
+export function mayNotifyAboutTask(
+  recipientId: string,
+  task: TaskVisibility,
+  users: Pick<User, 'id' | 'role' | 'active'>[],
+  teams: TeamVisibility[] = [],
+): boolean {
+  const recipient = users.find((user) => user.id === recipientId)
+  if (!recipient || recipient.active === false) return false
+  return userCanSeeTask(task, recipient, teams)
 }
 
 /**

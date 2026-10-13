@@ -74,11 +74,11 @@ export function SearchPage() {
   const taskHits = useMemo(() => {
     if (!user || !q) return []
     return tasks.filter((t) => {
-      if (!userCanSeeTask(t, user.id)) return false
+      if (!userCanSeeTask(t, user, teams)) return false
       const hay = `${t.title} ${t.description ?? ''}`.toLowerCase()
       return hay.includes(q)
     })
-  }, [tasks, user, q])
+  }, [tasks, user, teams, q])
 
   const documentHits = useMemo(() => {
     if (!user || !q) return []

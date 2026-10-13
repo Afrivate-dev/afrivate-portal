@@ -44,7 +44,8 @@ import { Textarea } from '@/components/ui/Textarea'
 import { StatCard } from '@/components/shared/StatCard'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { Avatar } from '@/components/ui/Avatar'
-import { cn, fmtDate, isAdmin, isHR, isOverdue, relativeTime } from '@/utils/helpers'
+import { cn, fmtDate, isAdmin, isHR, isOverdue, relativeTime, userCanSeeTask } from '@/utils/helpers'
+import { teamsLedBy } from '@/lib/orgStructure'
 import { pages, actions } from '@/content/copy'
 import { useComposerDrafts } from '@/hooks/useComposerDrafts'
 import { isTaskPayload, type ComposerDraft, type TaskDraftPayload } from '@/lib/composerDrafts'
@@ -52,7 +53,7 @@ import type { Task, TaskCategory, TaskPriority, TaskStatus, User } from '@/types
 
 type ViewMode = 'board' | 'week' | 'list'
 
-type ScopeMode = 'all' | 'mine' | 'owned' | 'assigned'
+type ScopeMode = 'all' | 'team' | 'mine' | 'owned' | 'assigned'
 
 type SortMode = 'dueSoon' | 'dueLater' | 'updated'
 
@@ -222,7 +223,7 @@ export function TasksPage() {
   const { user } = useAuth()
   const confirm = useConfirm()
   const {
-    tasks, users, createTask, updateTask, deleteTask,
+    tasks, users, teams, createTask, updateTask, deleteTask,
     taskCategories, addTaskCategory, updateTaskCategory, deleteTaskCategory,
   } = useData()
   const { byKind, deleteDraft, getById } = useComposerDrafts()
@@ -236,7 +237,8 @@ export function TasksPage() {
   const [searchParams, setSearchParams] = useSearchParams()
   const openedDraftParam = useRef<string | null>(null)
   const [view, setView] = useState<ViewMode>('board')
-  const [scope, setScope] = useState<ScopeMode>('all')
+  const [scope, setScope] = useState<ScopeMode>(isAdmin(user) ? 'all' : 'mine')
+  const appliedScopeUserId = useRef<string | null>(user?.id ?? null)
   const [weekOffset, setWeekOffset] = useState(0)
   const [formOpen, setFormOpen] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -282,17 +284,27 @@ export function TasksPage() {
     }
   }
 
+  const leadsTeam = !!user && !isAdmin(user) && teamsLedBy(user, teams).length > 0
+  const defaultScope: ScopeMode = isAdmin(user) ? 'all' : 'mine'
+
+  useEffect(() => {
+    if (!user) return
+    if (appliedScopeUserId.current === user.id) return
+    appliedScopeUserId.current = user.id
+    setScope(isAdmin(user) ? 'all' : 'mine')
+  }, [user])
+
   useEffect(() => {
     const openId = searchParams.get('open')
-    if (!openId) return
+    if (!openId || !user) return
     const target = tasks.find((t) => t.id === openId)
-    if (!target) return
+    if (!target || !userCanSeeTask(target, user, teams)) return
     const frameId = requestAnimationFrame(() => {
       setDetailId(openId)
       setSearchParams({}, { replace: true })
     })
     return () => cancelAnimationFrame(frameId)
-  }, [searchParams, setSearchParams, tasks])
+  }, [searchParams, setSearchParams, tasks, user, teams])
 
   useEffect(() => {
     const draftId = searchParams.get('draft')
@@ -363,17 +375,21 @@ export function TasksPage() {
     [user],
   )
 
+  const visibleTasks = useMemo(
+    () => (user ? tasks.filter((t) => userCanSeeTask(t, user, teams)) : []),
+    [tasks, user, teams],
+  )
+
   const scopedTasks = useMemo(() => {
     if (!user) return []
-    if (scope === 'all') return tasks
-    if (scope === 'mine') return tasks.filter(isMyTask)
-    if (scope === 'owned') return tasks.filter((t) => t.ownerId === user.id)
+    if ((scope === 'all' && isAdmin(user)) || (scope === 'team' && leadsTeam)) return visibleTasks
+    if (scope === 'owned') return visibleTasks.filter((t) => t.ownerId === user.id)
     if (scope === 'assigned')
-      return tasks.filter(
+      return visibleTasks.filter(
         (t) => t.assigneeId === user.id || (t.assigneeIds?.includes(user.id) ?? false),
       )
-    return tasks
-  }, [tasks, user, scope, isMyTask])
+    return visibleTasks.filter(isMyTask)
+  }, [visibleTasks, user, scope, isMyTask, leadsTeam])
 
   const assigneeOptions = useMemo(
     () => users.filter((u) => u.active).sort((a, b) => a.name.localeCompare(b.name)),
@@ -425,14 +441,26 @@ export function TasksPage() {
     })
   }, [byKind.task, search])
 
+  const scopeOptions = useMemo(() => {
+    const options: { value: ScopeMode; label: string }[] = []
+    if (isAdmin(user)) options.push({ value: 'all', label: T.scopeAll })
+    else if (leadsTeam) options.push({ value: 'team', label: T.scopeTeam })
+    options.push(
+      { value: 'mine', label: T.scopeRelated },
+      { value: 'owned', label: T.scopeOwned },
+      { value: 'assigned', label: T.scopeAssigned },
+    )
+    return options
+  }, [user, leadsTeam])
+
   const filtersActive =
-    !!search.trim() || statusFilter !== 'all' || priorityFilter !== 'all' || scope !== 'all'
+    !!search.trim() || statusFilter !== 'all' || priorityFilter !== 'all' || scope !== defaultScope
 
   const clearFilters = () => {
     setSearch('')
     setStatusFilter('all')
     setPriorityFilter('all')
-    setScope('all')
+    setScope(defaultScope)
   }
 
   const stats = useMemo(
@@ -569,7 +597,9 @@ export function TasksPage() {
     closeForm()
   }
 
-  const detailTask = detailId ? tasks.find((t) => t.id === detailId) ?? null : null
+  const detailTask = detailId
+    ? tasks.find((t) => t.id === detailId && !!user && userCanSeeTask(t, user, teams)) ?? null
+    : null
 
   const showingFilteredHint =
     filtersActive && myTasks.length > 0
@@ -695,12 +725,7 @@ export function TasksPage() {
               label={T.filterScope}
               value={scope}
               onChange={(e) => setScope(e.target.value as ScopeMode)}
-              options={[
-                { value: 'all', label: 'All tasks' },
-                { value: 'mine', label: T.scopeRelated },
-                { value: 'owned', label: T.scopeOwned },
-                { value: 'assigned', label: T.scopeAssigned },
-              ]}
+              options={scopeOptions}
             />
             <Select
               label={T.filterStatus}
